@@ -497,7 +497,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t11.Field_007 as Amount,
             t_group.GroupName,
             t07.Field_006 as CustomerName,
-            t10.Field_004 as OpCode
+            t10.Field_009 as OpCode
         FROM STR_TBL_010 t10
         INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                    AND t11.Field_003 = t10.Field_004
@@ -512,9 +512,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
-            (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
+            (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
             OR 
-            (t10.Field_004 IN ('13'))
+            (t10.Field_009 IN ('13'))
           )
           AND (
             t10.Field_008 LIKE '${gregDate}%'

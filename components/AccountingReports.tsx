@@ -821,7 +821,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_006 as InvoiceNum,
                     t10.Field_008 as Date,
                     t10.Field_029 as Notes,
-                    t10.Field_004 as OpCode,
+                    t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
                     COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
@@ -849,9 +849,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                    (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
                     OR
-                    (t10.Field_004 IN ('13'))
+                    (t10.Field_009 IN ('13'))
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
@@ -900,7 +900,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_006 as InvoiceNum,
                         t10.Field_008 as Date,
                         t10.Field_029 as Notes,
-                        t10.Field_004 as OpCode,
+                        t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
                         COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
@@ -928,9 +928,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                        (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
                         OR
-                        (t10.Field_004 IN ('13'))
+                        (t10.Field_009 IN ('13'))
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
