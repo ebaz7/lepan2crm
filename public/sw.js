@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finance-app-v3';
+const CACHE_NAME = 'finance-app-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -21,17 +21,45 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // We only cache GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Handle page navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
+      fetch(event.request)
+        .then((response) => {
+          // Clone and cache the navigated page
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
     );
     return;
   }
 
+  // Network first with cache fallback
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        // If it's a valid successful response, cache it for offline use (if it's not an API call)
+        const url = event.request.url;
+        if (response.status === 200 && !url.includes('/api/') && !url.includes('chrome-extension')) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });
 

@@ -249,7 +249,7 @@ const setupAutoBackup = () => {
     activeBackupJob = cron.schedule(`0 */${intervalHours} * * *`, performAutoBackup);
 };
 
-const setupDailyReports = () => {
+const setupLegacyDailyReports = () => {
     // Schedule daily reports for 23:45 Tehran time
     // Cron runs in UTC. Tehran is UTC+3:30. So 23:45 Tehran is 20:15 UTC.
     cron.schedule('15 20 * * *', async () => {
@@ -2412,28 +2412,7 @@ app.get('/manifest.json', (req, res) => {
 // --- CENTRALIZED REPORT DELIVERY ENGINE & SCHEDULER ---
 let scheduledReportCronTasks = [];
 
-function setupAutoBackup() {
-    try {
-        cron.schedule('0 0 * * *', async () => {
-            console.log("⏰ Running Daily Automatic Backup...");
-            try {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                const filename = `AutoBackup_${timestamp}.zip`;
-                const backupPath = path.join(BACKUPS_DIR, filename);
-                const output = fs.createWriteStream(backupPath);
-                const archive = archiver('zip', { zlib: { level: 9 } });
 
-                output.on('close', () => console.log(`✅ Auto Backup complete: ${filename} (${archive.pointer()} bytes)`));
-                archive.pipe(output);
-                if (fs.existsSync(DB_FILE)) archive.file(DB_FILE, { name: 'database.json' });
-                if (fs.existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads');
-                archive.finalize();
-            } catch (err) {
-                console.error("Auto Backup Failed:", err);
-            }
-        });
-    } catch (e) { console.error("Auto Backup setup failed:", e); }
-}
 
 function setupDailyReports() {
     try {
@@ -2677,5 +2656,6 @@ app.listen(PORT, '0.0.0.0', () => {
         }
         setupAutoBackup();
         setupDailyReports();
+        setupLegacyDailyReports();
     }, 1000);
 });
