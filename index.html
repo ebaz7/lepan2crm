@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="سامانه مالی" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" />
+    <link rel="manifest" href="/manifest.json?v=2" />
+    <title>سیستم مدیریت پرداخت</title>
+    
+    <script>
+      // Apply cached settings immediately for better PWA feel
+      try {
+        const settings = JSON.parse(localStorage.getItem('app_data_settings') || '{}');
+        if (settings.appName) {
+          document.title = settings.appName;
+          const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+          if (appleTitle) appleTitle.setAttribute('content', settings.appName);
+        }
+        if (settings.pwaIcon) {
+          const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+          if (appleIcon) appleIcon.setAttribute('href', settings.pwaIcon);
+          
+          let favicon = document.querySelector('link[rel="icon"]');
+          if (!favicon) {
+            favicon = document.createElement('link');
+            favicon.rel = 'icon';
+            document.head.appendChild(favicon);
+          }
+          favicon.setAttribute('href', settings.pwaIcon);
+        }
+      } catch (e) {}
+    </script>
+
+    <!-- Dynamic Page Size Style Placeholder -->
+    <style id="page-size-style"></style>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+              console.log('SW Registered!', reg.scope);
+              
+              // Force checking for update on registration
+              reg.update();
+
+              // Setup automatic update detection
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed') {
+                      if (navigator.serviceWorker.controller) {
+                        console.log('New update found! Activating...');
+                        // Tell the new service worker to skip waiting and activate immediately
+                        installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                      }
+                    }
+                  };
+                }
+              };
+            })
+            .catch(err => console.log('SW Failed', err));
+        });
+
+        // Automatically reload the page when the new Service Worker becomes active and takes control
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "سیستم مدیریت و گزارش‌گیری پیشرفته فروش ERP",
+  "description": "ماژول گزارش‌گیری و تحلیل فروش مدیریتی، مقایسه بازه‌های زمانی، داشبورد هیئت مدیره و موتور هوشمند ارسال گزارش به پیام‌رسان‌ها",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

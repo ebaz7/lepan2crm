@@ -1,0 +1,58 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath 'com.google.gms:google-services:4.4.0'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    // Force Bouncy Castle to 1.76 to resolve JDK 17 signature/class major version issues with newer releases (e.g., 1.79)
+    configurations.all {
+        resolutionStrategy {
+            force 'org.bouncycastle:bcprov-jdk18on:1.76'
+            force 'org.bouncycastle:bcpkix-jdk18on:1.76'
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        tasks.withType(JavaCompile) {
+            sourceCompatibility = "1.8"
+            targetCompatibility = "1.8"
+            // Use 17 if compileSdkVersion supports/needs it, otherwise 1.8 is even more compatible. But let's set sourceCompatibility and targetCompatibility of compileOptions to VERSION_17 and compile options for JavaCompile task to 17.
+            // Let's use "17" for both since AGP 8.2+ prefers JDK 17.
+            sourceCompatibility = "17"
+            targetCompatibility = "17"
+        }
+    }
+}
+

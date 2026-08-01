@@ -1,0 +1,277 @@
+
+import React, { useEffect, useState, useRef } from 'react';
+import { X, Printer, Loader2, FileDown } from 'lucide-react';
+import { TradeRecord, TradeStage } from '../../types';
+import { formatCurrency, formatNumberString } from '../../constants';
+import { generatePdf } from '../../utils/pdfGenerator'; 
+
+interface Props {
+  record: TradeRecord;
+  totalRial: number;
+  totalCurrency: number;
+  exchangeRate: number;
+  grandTotalRial: number;
+  onClose: () => void;
+}
+
+const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrency, exchangeRate, grandTotalRial, onClose }) => {
+  const [processing, setProcessing] = useState(false);
+
+  // Scaling State
+  const [scale, setScale] = useState(1);
+  const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const style = document.getElementById('page-size-style');
+    if (style) {
+      style.innerHTML = '@page { size: A4 portrait; margin: 0; }';
+    }
+  }, []);
+
+  // Auto-Scale Logic
+  useEffect(() => {
+    const handleResize = () => {
+        const wrapper = containerWrapperRef.current;
+        if (wrapper) {
+            const wrapperWidth = wrapper.clientWidth;
+            const targetWidth = 794; // A4 Portrait
+            
+            if (wrapperWidth < targetWidth + 40) {
+                const newScale = (wrapperWidth - 32) / targetWidth;
+                setScale(newScale);
+            } else {
+                setScale(1);
+            }
+        }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const totalWeight = record.items.reduce((sum, item) => sum + item.weight, 0);
+  const tranches = record.currencyPurchaseData?.tranches || [];
+  const netCurrencyRialCost = tranches.reduce((acc, t) => {
+      const cost = t.amount * (t.rate || 0);
+      const ret = t.returnAmount || 0; 
+      return acc + (cost - ret);
+  }, 0);
+
+  const expenses: { name: string; amount: number }[] = [
+      { name: 'هزینه خرید ارز (خالص ریالی)', amount: netCurrencyRialCost },
+      { name: 'هزینه‌های ثبت سفارش و بانکی', amount: record.stages[TradeStage.LICENSES]?.costRial || 0 },
+      { name: 'هزینه بیمه باربری', amount: record.stages[TradeStage.INSURANCE]?.costRial || 0 },
+      { name: 'هزینه بازرسی (COI)', amount: record.stages[TradeStage.INSPECTION]?.costRial || 0 },
+      { name: 'هزینه‌های ترخیصیه و انبارداری', amount: record.stages[TradeStage.CLEARANCE_DOCS]?.costRial || 0 },
+  ];
+
+  const greenLeaf = record.greenLeafData;
+  const hasGreenLeafBreakdown = greenLeaf && (greenLeaf.duties?.length || greenLeaf.taxes?.length || greenLeaf.roadTolls?.length);
+
+  if (hasGreenLeafBreakdown) {
+      if (greenLeaf.duties?.length) {
+          greenLeaf.duties.forEach((d, i) => {
+              expenses.push({ 
+                  name: `حقوق ورودی - ${d.part ? `پارت ${d.part}` : `ردیف ${i + 1}`} (کوتاژ ${d.cottageNumber})`, 
+                  amount: d.amount 
+              });
+          });
+      }
+      if (greenLeaf.taxes?.length) {
+          greenLeaf.taxes.forEach((t, i) => {
+              expenses.push({ 
+                  name: `مالیات ارزش افزوده - ${t.part ? `پارت ${t.part}` : `ردیف ${i + 1}`}`, 
+                  amount: t.amount 
+              });
+          });
+      }
+      if (greenLeaf.roadTolls?.length) {
+          greenLeaf.roadTolls.forEach((r, i) => {
+              expenses.push({ 
+                  name: `عوارض راهداری - ${r.part ? `پارت ${r.part}` : `ردیف ${i + 1}`}`, 
+                  amount: r.amount 
+              });
+          });
+      }
+  } else {
+      expenses.push({ name: 'حقوق و عوارض گمرکی', amount: record.stages[TradeStage.GREEN_LEAF]?.costRial || 0 });
+  }
+
+  expenses.push({ name: 'هزینه حمل داخلی', amount: record.stages[TradeStage.INTERNAL_SHIPPING]?.costRial || 0 });
+  expenses.push({ name: 'کارمزد و هزینه‌های ترخیص', amount: record.stages[TradeStage.AGENT_FEES]?.costRial || 0 });
+
+  const guaranteeDepositsTotal = record.greenLeafData?.guarantees?.reduce((acc, g) => acc + (g.cashAmount || 0), 0) || 0;
+  if (guaranteeDepositsTotal > 0) {
+      expenses.push({ name: 'سپرده نقدی ضمانت‌نامه‌ها (هزینه سوا)', amount: guaranteeDepositsTotal });
+  }
+
+  const activeExpenses = expenses.filter(e => e.amount > 0);
+
+  const handleDownloadPDF = async () => {
+      setProcessing(true);
+      await generatePdf({
+          elementId: 'final-cost-print-area',
+          filename: `Cost_Report_${record.fileNumber}.pdf`,
+          format: 'A4',
+          orientation: 'portrait',
+          onComplete: () => setProcessing(false),
+          onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
+      });
+  };
+
+  const freightPerKgCurrency = totalWeight > 0 ? (record.freightCost || 0) / totalWeight : 0;
+
+  const content = (
+      <div id="final-cost-print-area" className="printable-content glass-panel p-8 shadow-2xl relative text-black" 
+        style={{ width: '210mm', minHeight: '290mm', direction: 'rtl', boxSizing: 'border-box' }}>
+        
+        {/* Header */}
+        <div className="border-b-4 border-double border-gray-800 pb-4 mb-6 flex justify-between items-end">
+            <div>
+                <h1 className="text-2xl font-black mb-1">صورتحساب نهایی هزینه‌ها</h1>
+                <h2 className="text-base font-bold text-gray-600">{record.company}</h2>
+            </div>
+            <div className="text-left text-sm space-y-1 font-mono">
+                <div><span className="font-bold font-sans">شماره پرونده:</span> {record.fileNumber}</div>
+                <div><span className="font-bold font-sans">تاریخ:</span> {new Date().toLocaleDateString('fa-IR')}</div>
+            </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-3 gap-y-2 gap-x-8 mb-6 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200 p-4 rounded border border-gray-300 text-xs">
+            <div><span className="font-bold text-gray-600">شرح کالا:</span> {record.goodsName}</div>
+            <div><span className="font-bold text-gray-600">فروشنده:</span> {record.sellerName}</div>
+            <div><span className="font-bold text-gray-600">ارز پایه:</span> {record.mainCurrency}</div>
+            <div><span className="font-bold text-gray-600">نرخ ریالی هر واحد ارز:</span> {formatCurrency(exchangeRate)}</div>
+            <div><span className="font-bold text-gray-600">کل وزن:</span> {formatNumberString(totalWeight)} KG</div>
+            <div><span className="font-bold text-gray-600">شماره سفارش:</span> {record.orderNumber || '-'}</div>
+        </div>
+
+        {/* 1. BILL OF EXPENSES */}
+        <h3 className="font-black text-sm mb-2 border-b border-black pb-1 mt-4">الف) ریز هزینه‌های انجام شده</h3>
+        <table className="w-full text-xs border-collapse border border-black mb-6 text-center">
+            <thead>
+                <tr className="bg-gray-200">
+                    <th className="border border-black p-2 w-10">ردیف</th>
+                    <th className="border border-black p-2">شرح هزینه</th>
+                    <th className="border border-black p-2 w-40">مبلغ (ریال)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {activeExpenses.map((exp, idx) => (
+                    <tr key={idx}>
+                        <td className="border border-black p-2">{idx + 1}</td>
+                        <td className="border border-black p-2 text-right">{exp.name}</td>
+                        <td className="border border-black p-2 font-mono dir-ltr">{formatCurrency(exp.amount)}</td>
+                    </tr>
+                ))}
+                <tr className="bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-200 font-bold">
+                    <td colSpan={2} className="border border-black p-2 text-left pl-4">جمع کل هزینه‌های ریالی پروژه</td>
+                    <td className="border border-black p-2 font-mono dir-ltr">{formatCurrency(grandTotalRial)}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {/* 2. COST CALCULATION */}
+        <h3 className="font-black text-sm mb-2 border-b border-black pb-1 mt-4">ب) محاسبه قیمت تمام شده</h3>
+        <div className="border border-black p-4 rounded mb-6 text-xs">
+            <div className="flex justify-between mb-2">
+                <span>مبلغ کل پروفرما (کالا + حمل) ارزی:</span>
+                <span className="font-mono dir-ltr font-bold">{formatNumberString(totalCurrency)} {record.mainCurrency}</span>
+            </div>
+            <div className="flex justify-between mb-2 border-b border-gray-300 pb-2">
+                <span>هزینه حمل ارزی هر کیلو:</span>
+                <span className="font-mono dir-ltr font-bold">{formatNumberString(freightPerKgCurrency)} {record.mainCurrency}</span>
+            </div>
+            <div className="flex justify-between mt-2 text-sm bg-gray-100 p-2 rounded">
+                <span className="font-black">قیمت تمام شده نهایی (کل پروژه):</span>
+                <span className="font-mono dir-ltr font-black text-lg">{formatCurrency(grandTotalRial)}</span>
+            </div>
+        </div>
+
+        {/* 3. ITEM COST BREAKDOWN (Brief) */}
+        <h3 className="font-black text-sm mb-2 border-b border-black pb-1 mt-4">ج) بهای تمام شده به تفکیک کالا</h3>
+        <table className="w-full text-xs border-collapse border border-black mb-6 text-center">
+            <thead>
+                <tr className="bg-gray-200">
+                    <th className="border border-black p-2 w-10">ردیف</th>
+                    <th className="border border-black p-2">شرح کالا</th>
+                    <th className="border border-black p-2">وزن (KG)</th>
+                    <th className="border border-black p-2">فی ارزی (خرید)</th>
+                    <th className="border border-black p-2">فی ارزی نهایی (با حمل)</th>
+                    <th className="border border-black p-2">قیمت تمام شده (ریال)</th>
+                    <th className="border border-black p-2">فی تمام شده (هر کیلو)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {record.items.map((item, idx) => {
+                    const itemFreightShareCurrency = item.weight * freightPerKgCurrency;
+                    const itemAdjustedTotalPriceCurrency = item.totalPrice + itemFreightShareCurrency;
+                    const itemFinalCostRial = itemAdjustedTotalPriceCurrency * exchangeRate;
+                    const itemFinalCostPerKg = item.weight > 0 ? itemFinalCostRial / item.weight : 0;
+                    const itemAdjustedUnitPriceCurrency = item.weight > 0 ? itemAdjustedTotalPriceCurrency / item.weight : 0;
+
+                    return (
+                        <tr key={item.id}>
+                            <td className="border border-black p-2">{idx + 1}</td>
+                            <td className="border border-black p-2 font-bold">{item.name}</td>
+                            <td className="border border-black p-2 font-mono">{formatNumberString(item.weight)}</td>
+                            <td className="border border-black p-2 font-mono">{formatNumberString(item.unitPrice)}</td>
+                            <td className="border border-black p-2 font-mono text-blue-800">{formatNumberString(itemAdjustedUnitPriceCurrency)}</td>
+                            <td className="border border-black p-2 font-mono font-bold">{formatCurrency(itemFinalCostRial)}</td>
+                            <td className="border border-black p-2 font-mono font-bold bg-gray-100">{formatCurrency(itemFinalCostPerKg)}</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+
+        {/* Signatures */}
+        <div className="grid grid-cols-3 gap-8 mt-12 text-center text-xs">
+            <div>
+                <div className="mb-8 font-bold">کارشناس بازرگانی</div>
+                <div className="border-b border-black w-2/3 mx-auto"></div>
+            </div>
+            <div>
+                <div className="mb-8 font-bold">مدیر مالی</div>
+                <div className="border-b border-black w-2/3 mx-auto"></div>
+            </div>
+            <div>
+                <div className="mb-8 font-bold">مدیر عامل</div>
+                <div className="border-b border-black w-2/3 mx-auto"></div>
+            </div>
+        </div>
+      </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start md:justify-center p-4 overflow-y-auto animate-fade-in safe-pb">
+        <div className="relative md:absolute md:top-4 md:left-4 z-50 flex flex-col gap-2 no-print w-full md:w-auto mb-4 md:mb-0 order-1">
+            <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4">
+                <span className="font-bold text-sm">پیش‌نمایش چاپ</span>
+                <div className="flex gap-2">
+                    <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 text-white p-2 rounded text-xs flex items-center gap-1">{processing ? <Loader2 size={16} className="animate-spin"/> : 'PDF'}</button>
+                    <button onClick={() => window.print()} className="bg-blue-600 text-white p-2 rounded text-xs flex items-center gap-1"><Printer size={16}/></button>
+                    <button onClick={onClose} className="bg-gray-100 text-gray-700 p-2 rounded hover:bg-gray-200"><X size={18}/></button>
+                </div>
+            </div>
+        </div>
+
+        <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+            <div style={{ 
+              width: '210mm', 
+              height: '297mm',
+              backgroundColor: 'white', 
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              transform: `scale(${scale})`,
+              transformOrigin: 'top center',
+              marginBottom: `${(1 - scale) * -100}px` 
+            }}>
+                {content}
+            </div>
+        </div>
+    </div>
+  );
+};
+
+export default PrintFinalCostReport;

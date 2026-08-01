@@ -1,0 +1,17 @@
+const axios = require('axios');
+
+async function run() {
+  const url = 'http://80.210.31.176:5000/api/external/v1/query';
+  const headers = { 'Authorization': 'Bearer s_gate_live_vgr182bwtpoa' };
+  
+  try {
+    const q = "SELECT Field_001 as Id, Field_003 as GroupCode, Field_004 as ParentCode, Field_005 as Code, Field_006 as Name FROM ACT_TBL_003 WHERE Field_005 IN ('101', '102', '116', '117', '119', '319', '321') OR Field_005 LIKE '11%' OR Field_005 LIKE '31%'";
+    const res = await axios.post(url, { query: q }, { headers });
+    console.log("Moein list:");
+    console.log(res.data.data);
+  } catch(e) {
+    console.error("Error:", e.message);
+  }
+}
+
+run();
