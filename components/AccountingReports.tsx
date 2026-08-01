@@ -851,16 +851,37 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 WHERE (
                     (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
                     OR
-                    (t10.Field_004 IN ('13', '14'))
+                    (t10.Field_004 IN ('13'))
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
             `;
             const dataA = await runSayanQuery(sqlA);
-            const processedA = dataA.map((row: any) => ({
-                ...row,
-                Amount: row.Amount ? parseFloat(row.Amount).toString() : '0'
-            }));
+            const isOfficialSayanInvoice = (row: any) => {
+                const h = row.Notes || '';
+                const i = row.ItemNotes || '';
+                if (h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی')) {
+                    return true;
+                }
+                if (i.includes('ارزش افزوده:')) {
+                    const match = i.match(/ارزش افزوده:\s*([0-9]+)/);
+                    if (match && parseInt(match[1], 10) > 0) return true;
+                }
+                return false;
+            };
+
+            const processedA = dataA.map((row: any) => {
+                let baseAmt = row.Amount ? parseFloat(row.Amount) : 0;
+                const official = isOfficialSayanInvoice(row);
+                if (official) {
+                    baseAmt = baseAmt * 1.10;
+                }
+                return {
+                    ...row,
+                    Amount: baseAmt.toString(),
+                    isOfficial: official
+                };
+            });
             setSalesData(processedA);
             setCompareSalesDataA(processedA);
 
@@ -909,16 +930,24 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     WHERE (
                         (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
                         OR
-                        (t10.Field_004 IN ('13', '14'))
+                        (t10.Field_004 IN ('13'))
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
                 `;
                 const dataB = await runSayanQuery(sqlB);
-                const processedB = dataB.map((row: any) => ({
-                    ...row,
-                    Amount: row.Amount ? parseFloat(row.Amount).toString() : '0'
-                }));
+                const processedB = dataB.map((row: any) => {
+                    let baseAmt = row.Amount ? parseFloat(row.Amount) : 0;
+                    const official = isOfficialSayanInvoice(row);
+                    if (official) {
+                        baseAmt = baseAmt * 1.10;
+                    }
+                    return {
+                        ...row,
+                        Amount: baseAmt.toString(),
+                        isOfficial: official
+                    };
+                });
                 setCompareSalesDataB(processedB);
             }
         } catch (err: any) {
@@ -947,7 +976,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const date = new Date(row.Date);
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = row.OpCode === '13' || row.OpCode === '14';
+            const isReturn = row.OpCode === '13';
 
             if (isReturn) {
                 stats.rangeRetAmt += amt;
@@ -1111,7 +1140,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
             const amt = parseFloat(inv.Amount || 0);
-            const isReturn = inv.OpCode === '13' || inv.OpCode === '14';
+            const isReturn = inv.OpCode === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -1317,7 +1346,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = row.OpCode === '13' || row.OpCode === '14';
+            const isReturn = row.OpCode === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -1748,7 +1777,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (row.OpCode === '13' || row.OpCode === '14') {
+            if (row.OpCode === '13') {
                 groups[key].retAmountA += amt;
                 groups[key].retWeightA += qty;
                 groups[key].netAmountA -= amt;
@@ -1772,7 +1801,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (row.OpCode === '13' || row.OpCode === '14') {
+            if (row.OpCode === '13') {
                 groups[key].retAmountB += amt;
                 groups[key].retWeightB += qty;
                 groups[key].netAmountB -= amt;
@@ -2967,25 +2996,49 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="bg-white/80 p-3 rounded-lg border border-blue-100 shadow-inner">
-                                        <div className="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1.5">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                            بازه اول ( Period A ) — بازه اصلی بالای صفحه
-                                        </div>
-                                        <div className="text-xs font-mono font-bold text-slate-800 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
-                                            از {dateFrom || '---'} تا {dateTo || '---'}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-white/80 p-3 rounded-lg border border-indigo-100 shadow-inner">
-                                        <div className="text-xs font-bold text-indigo-800 mb-1 flex items-center gap-1.5">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                                            بازه دوم مقایسه ( Period B )
+                                        <div className="text-xs font-bold text-blue-800 mb-1.5 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                                بازه اول ( Period A ) — بازه اصلی
+                                            </span>
+                                            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">بازه پایه</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2.5 py-1 w-full shadow-inner">
                                                 <input 
                                                     type="text" 
-                                                    placeholder="۱۴۰۳/۰۱/۰۱"
+                                                    placeholder="از تاریخ"
+                                                    value={dateFrom}
+                                                    onChange={(e) => setDateFrom(e.target.value)}
+                                                    className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-full text-center"
+                                                />
+                                            </div>
+                                            <span className="text-xs text-slate-400 font-bold">تا</span>
+                                            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2.5 py-1 w-full shadow-inner">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="تا تاریخ"
+                                                    value={dateTo}
+                                                    onChange={(e) => setDateTo(e.target.value)}
+                                                    className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-full text-center"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-white/80 p-3 rounded-lg border border-indigo-100 shadow-inner">
+                                        <div className="text-xs font-bold text-indigo-800 mb-1.5 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                                                بازه دوم ( Period B ) — مقایسه‌ای
+                                            </span>
+                                            <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-bold">بازه تطبیقی</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2.5 py-1 w-full shadow-inner">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="از تاریخ"
                                                     value={salesDateFromB}
                                                     onChange={(e) => setSalesDateFromB(e.target.value)}
                                                     className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-full text-center"
@@ -2995,7 +3048,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2.5 py-1 w-full shadow-inner">
                                                 <input 
                                                     type="text" 
-                                                    placeholder="۱۴۰۳/۱۲/۲۹"
+                                                    placeholder="تا تاریخ"
                                                     value={salesDateToB}
                                                     onChange={(e) => setSalesDateToB(e.target.value)}
                                                     className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-full text-center"
@@ -3121,7 +3174,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
                                 const qty = parseFloat(row.Quantity || 0);
                                 const amt = parseFloat(row.Amount || 0);
-                                const isReturn = row.OpCode === '13' || row.OpCode === '14';
+                                const isReturn = row.OpCode === '13';
 
                                 if (!groupMap.has(key)) {
                                     groupMap.set(key, {

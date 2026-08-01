@@ -290,8 +290,10 @@ const getTehranOffsetDateString = (offsetDays = 0) => {
     return formatter.format(target);
 };
 
-const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateFromA, dateToA, dateFromB, dateToB, nameA = "بازه اول", nameB = "بازه دوم") => {
-    await sendFn(chatId, `⏳ در حال محاسبه و استعلام گزارش مقایسه‌ای فروش سایان (${nameA} در برابر ${nameB})... لطفا شکیبا باشید.`);
+export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateFromA, dateToA, dateFromB, dateToB, nameA = "بازه اول", nameB = "بازه دوم") => {
+    const labelA = `${nameA} (${dateFromA}${dateFromA !== dateToA ? ' تا ' + dateToA : ''})`;
+    const labelB = `${nameB} (${dateFromB}${dateFromB !== dateToB ? ' تا ' + dateToB : ''})`;
+    await sendFn(chatId, `⏳ در حال محاسبه و استعلام گزارش مقایسه‌ای فروش سایان (دوره A: ${labelA} در برابر دوره B: ${labelB})... لطفا شکیبا باشید.`);
     
     try {
         const buildSql = (from, to) => `
@@ -299,27 +301,32 @@ const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateF
                 t10.Field_005 as DocId,
                 t10.Field_006 as InvoiceNum,
                 t10.Field_008 as Date,
+                t10.Field_004 as OpCode,
+                t10.Field_029 as Notes,
                 t11.Field_005 as ItemCode,
                 t22.Field_004 as ItemName,
                 t11.Field_006 as Quantity,
+                t11.Field_031 as ItemNotes,
                 t11.Field_007 as Amount,
                 t_group.GroupName,
                 t07.Field_006 as CustomerName
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
-            LEFT JOIN IND_TBL_022 t22 ON t11.Field_005 = t22.Field_005
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
                 LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
                 GROUP BY t21_sub.Field_004
-            ) t_group ON t11.Field_005 = t_group.ItemCode
-            LEFT JOIN ACT_TBL_007 t07 ON t10.Field_010 = t07.Field_005 AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-            WHERE t10.Field_009 IN ('3', '12', '23')
-              AND t11.Field_036 = t10.Field_009
-              AND t11.Field_007 IS NOT NULL AND t11.Field_007 > 0
-              AND t10.Field_008 BETWEEN '${from}' AND '${to}'
+            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+            WHERE (
+                (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                OR
+                (t10.Field_004 IN ('13'))
+            )
+              AND (t10.Field_008 LIKE '${from}%' OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' OR t10.Field_008 BETWEEN '${from}' AND '${to}')
             ORDER BY t10.Field_008 DESC
         `;
 
@@ -334,18 +341,37 @@ const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateF
             rows.forEach(r => {
                 const grp = r.GroupName || 'سایر موارد';
                 const qty = parseFloat(r.Quantity || 0);
-                const amt = parseFloat(r.Amount || 0);
+                let amt = parseFloat(r.Amount || 0);
+                
+                const h = r.Notes || '';
+                const i = r.ItemNotes || '';
+                const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
+                if (isOfficial) {
+                    amt = amt * 1.10;
+                }
+
+                const isReturn = r.OpCode === '13';
 
                 if (!groupMap.has(grp)) {
                     groupMap.set(grp, { qtyA: 0, amtA: 0, qtyB: 0, amtB: 0 });
                 }
                 const entry = groupMap.get(grp);
                 if (isPeriodA) {
-                    entry.qtyA += qty;
-                    entry.amtA += amt;
+                    if (isReturn) {
+                        entry.qtyA -= qty;
+                        entry.amtA -= amt;
+                    } else {
+                        entry.qtyA += qty;
+                        entry.amtA += amt;
+                    }
                 } else {
-                    entry.qtyB += qty;
-                    entry.amtB += amt;
+                    if (isReturn) {
+                        entry.qtyB -= qty;
+                        entry.amtB -= amt;
+                    } else {
+                        entry.qtyB += qty;
+                        entry.amtB += amt;
+                    }
                 }
             });
         };
@@ -354,7 +380,7 @@ const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateF
         processRows(rowsB, false);
 
         let sumQtyA = 0, sumAmtA = 0, sumQtyB = 0, sumAmtB = 0;
-        const columns = ['ردیف', 'گروه کالا', `مقدار ${nameA}`, `مبلغ ${nameA} (ریال)`, `مقدار ${nameB}`, `مبلغ ${nameB} (ریال)`, 'تغییر مبلغ (%)'];
+        const columns = ['ردیف', 'گروه کالا', `مقدار A (${labelA})`, `مبلغ A (ریال)`, `مقدار B (${labelB})`, `مبلغ B (ریال)`, 'تغییر مبلغ (%)'];
 
         const tableRows = [];
         let index = 1;
@@ -394,15 +420,15 @@ const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateF
             totalPctStr
         ]);
 
-        const title = `گزارش مدیریتی مقایسه فروش Sayan ERP (${nameA} در برابر ${nameB})`;
+        const title = `گزارش مدیریتی مقایسه فروش Sayan ERP (دوره A: ${labelA} | دوره B: ${labelB})`;
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows);
         const filename = `Sayan_Sales_Comparison_${dateFromA}_VS_${dateFromB}.pdf`;
 
         const caption = `📊 *گزارش مقایسه‌ای فروش Sayan ERP*\n\n` +
-            `🔹 **${nameA} (${dateFromA} تا ${dateToA}):**\n` +
+            `🔹 **دوره A: ${labelA}:**\n` +
             `   📦 مقدار کل: ${sumQtyA.toLocaleString('fa-IR')} کیلوگرم\n` +
             `   💰 مبلغ کل: ${sumAmtA.toLocaleString('fa-IR')} ریال\n\n` +
-            `🔸 **${nameB} (${dateFromB} تا ${dateToB}):**\n` +
+            `🔸 **دوره B: ${labelB}:**\n` +
             `   📦 مقدار کل: ${sumQtyB.toLocaleString('fa-IR')} کیلوگرم\n` +
             `   💰 مبلغ کل: ${sumAmtB.toLocaleString('fa-IR')} ریال\n\n` +
             `📈 **درصد تغییرات فروش:** ${totalPctStr}`;
@@ -3684,6 +3710,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     t10.Field_005 as DocId,
                     t10.Field_006 as InvoiceNum,
                     t10.Field_008 as Date,
+                    t10.Field_004 as OpCode,
                     t10.Field_029 as Notes,
                     t11.Field_005 as ItemCode,
                     t22.Field_004 as ItemName,
@@ -3702,11 +3729,13 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
                     LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
                     GROUP BY t21_sub.Field_004
-                ) t_group ON t11.Field_005 = t_group.ItemCode
-                LEFT JOIN ACT_TBL_007 t07 ON t10.Field_010 = t07.Field_005 AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-                WHERE t10.Field_009 IN ('3', '12', '23')
-                  AND t11.Field_036 = t10.Field_009
-                  AND t11.Field_007 IS NOT NULL AND t11.Field_007 > 0
+                ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+                LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+                WHERE (
+                    (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                    OR
+                    (t10.Field_004 IN ('13'))
+                )
                   AND (t10.Field_008 = '${todayStr}' OR t10.Field_008 LIKE '${todayStr}%' OR t10.Field_008 BETWEEN '${todayStr}T00:00:00.000Z' AND '${todayStr}T23:59:59.999Z')
                 ORDER BY t10.Field_008 DESC
             `;
@@ -3714,33 +3743,55 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             const salesRows = await runSayanQuery(db, sql);
             
             if (salesRows.length === 0) {
-                return sendFn(chatId, `⚠️ هیچ فاکتور فروشی برای امروز (${toShamsiFull(new Date())}) در سرور سایان ثبت نشده است.`);
+                return sendFn(chatId, `⚠️ هیچ فاکتور فروش یا مرجوعی برای امروز (${toShamsiFull(new Date())}) در سرور سایان ثبت نشده است.`);
             }
             
-            const title = `گزارش رسمی فروش روزانه سایان - مورخ ${toShamsiFull(new Date())}`;
-            const columns = ['ردیف', 'گروه کالا', 'نام کالا / محصول', 'جمع وزنی (ک‌گ)', 'جمع ریالی (ریال)'];
+            const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${toShamsiFull(new Date())}`;
+            const columns = ['ردیف', 'گروه کالا', 'نام کالا / محصول', 'فروش ناخالص (ک‌گ/ریال)', 'مرجوعی کد ۱۳ (ک‌گ/ریال)', 'خالص نهایی (ک‌گ/ریال)'];
             
             const groupedMap = new Map();
-            let totalQty = 0;
-            let totalAmt = 0;
+            let totalSalesQty = 0, totalSalesAmt = 0;
+            let totalRetQty = 0, totalRetAmt = 0;
             
             salesRows.forEach(inv => {
                 const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
                 const qty = parseFloat(inv.Quantity || 0);
-                const amt = parseFloat(inv.Amount || 0);
-                totalQty += qty;
-                totalAmt += amt;
+                let amt = parseFloat(inv.Amount || 0);
+
+                const h = inv.Notes || '';
+                const i = inv.ItemNotes || '';
+                const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
+                if (isOfficial) {
+                    amt = amt * 1.10;
+                }
+
+                const isReturn = inv.OpCode === '13';
+
+                if (isReturn) {
+                    totalRetQty += qty;
+                    totalRetAmt += amt;
+                } else {
+                    totalSalesQty += qty;
+                    totalSalesAmt += amt;
+                }
                 
                 if (groupedMap.has(key)) {
                     const existing = groupedMap.get(key);
-                    existing.totalQty += qty;
-                    existing.totalAmt += amt;
+                    if (isReturn) {
+                        existing.retQty += qty;
+                        existing.retAmt += amt;
+                    } else {
+                        existing.salesQty += qty;
+                        existing.salesAmt += amt;
+                    }
                 } else {
                     groupedMap.set(key, {
                         itemName: inv.ItemName || 'کالای بدون نام',
                         groupName: inv.GroupName || 'سایر گروه‌ها',
-                        totalQty: qty,
-                        totalAmt: amt
+                        salesQty: isReturn ? 0 : qty,
+                        salesAmt: isReturn ? 0 : amt,
+                        retQty: isReturn ? qty : 0,
+                        retAmt: isReturn ? amt : 0
                     });
                 }
             });
@@ -3748,27 +3799,34 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             const groupedRows = Array.from(groupedMap.values());
             
             const tableRows = groupedRows.map((row, idx) => {
+                const netQty = row.salesQty - row.retQty;
+                const netAmt = row.salesAmt - row.retAmt;
                 return [
                     (idx + 1).toLocaleString('fa-IR'),
                     row.groupName,
                     row.itemName,
-                    row.totalQty.toLocaleString('fa-IR'),
-                    row.totalAmt.toLocaleString('fa-IR')
+                    `${row.salesQty.toLocaleString('fa-IR')} / ${Math.round(row.salesAmt).toLocaleString('fa-IR')}`,
+                    `${row.retQty > 0 ? row.retQty.toLocaleString('fa-IR') : '۰'} / ${Math.round(row.retAmt).toLocaleString('fa-IR')}`,
+                    `${netQty.toLocaleString('fa-IR')} / ${Math.round(netAmt).toLocaleString('fa-IR')}`
                 ];
             });
             
+            const grandNetQty = totalSalesQty - totalRetQty;
+            const grandNetAmt = totalSalesAmt - totalRetAmt;
+
             tableRows.push([
                 'جمع کل',
                 '-',
                 '-',
-                totalQty.toLocaleString('fa-IR'),
-                totalAmt.toLocaleString('fa-IR')
+                `${totalSalesQty.toLocaleString('fa-IR')} / ${Math.round(totalSalesAmt).toLocaleString('fa-IR')}`,
+                `${totalRetQty.toLocaleString('fa-IR')} / ${Math.round(totalRetAmt).toLocaleString('fa-IR')}`,
+                `${grandNetQty.toLocaleString('fa-IR')} / ${Math.round(grandNetAmt).toLocaleString('fa-IR')}`
             ]);
             
-            const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows);
+            const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
             const filename = `Sayan_Daily_Sales_${todayStr}.pdf`;
             
-            await sendDocFn(chatId, pdfBuffer, filename, `Sayan ERP 🧾 ${title}\n تعداد اقلام فروخته شده: ${groupedRows.length}\n مجموع مقدار: ${totalQty.toLocaleString('fa-IR')} کیلوگرم\n جمع مبلغ: ${totalAmt.toLocaleString('fa-IR')} ریال`);
+            await sendDocFn(chatId, pdfBuffer, filename, `Sayan ERP 🧾 ${title}\n تعداد اقلام: ${groupedRows.length}\n 📦 فروش ناخالص: ${totalSalesQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال)\n 🔄 مرجوعی کد ۱۳: ${totalRetQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(totalRetAmt).toLocaleString('fa-IR')} ریال)\n ✅ فروش خالص کل: ${grandNetQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال)`);
         } catch (err) {
             console.error("Bot Daily Sales Error:", err);
             sendFn(chatId, `❌ خطا در تهیه گزارش فروش سایان: ${err.message}`);

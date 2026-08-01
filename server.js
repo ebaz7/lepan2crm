@@ -14,7 +14,7 @@ import AdmZip from 'adm-zip';
 import webpush from 'web-push';
 import * as dbManager from './backend/db-manager.js';
 import * as utils from './backend/utils.js';
-import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, notifySecretariatLetter, getCustomerBalancesData } from './backend/bot-core.js';
+import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, generateAndSendComparisonPDF, notifySecretariatLetter, getCustomerBalancesData } from './backend/bot-core.js';
 import * as telegram from './backend/telegram.js';
 import * as bale from './backend/bale.js';
 import * as Renderer from './backend/renderer.js';
@@ -514,7 +514,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         WHERE (
             (t10.Field_004 IN ('3', '12', '23') AND t11.Field_007 > 0)
             OR 
-            (t10.Field_004 IN ('13', '14'))
+            (t10.Field_004 IN ('13'))
           )
           AND (
             t10.Field_008 LIKE '${gregDate}%'
@@ -562,8 +562,16 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         salesRows.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
-            const amt = parseFloat(inv.Amount || 0);
-            const isReturn = inv.OpCode === '13' || inv.OpCode === '14';
+            let amt = parseFloat(inv.Amount || 0);
+            
+            const h = inv.Notes || '';
+            const i = inv.ItemNotes || '';
+            const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
+            if (isOfficial) {
+                amt = amt * 1.10;
+            }
+
+            const isReturn = inv.OpCode === '13';
             
             if (isReturn) {
                 totalReturnQty += qty;
@@ -2505,10 +2513,39 @@ function setupDailyReports() {
 async function executeReportJob(job) {
     const db = getDb();
     try {
-        console.log(`🚀 Dispatching Report Job [${job.title}] to platforms [${job.botPlatforms.join(', ')}]...`);
+        console.log(`🚀 Dispatching Scheduled Report Job [${job.title}] to platforms [${(job.botPlatforms || []).join(', ')}]...`);
         
-        if (job.module === 'sales') {
-            await runDailyReport(db);
+        if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
+            const teleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
+            const baleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
+            
+            const sendFn = async (chatId, text, opts) => {
+                if (job.botPlatforms?.includes('telegram') && teleGroup) {
+                    try { await telegram.sendBotMessage(teleGroup, text, opts); } catch(e){ console.error("TG Send err:", e.message); }
+                }
+                if (job.botPlatforms?.includes('bale') && baleGroup) {
+                    try { await bale.sendBotMessage(baleGroup, text, opts); } catch(e){ console.error("Bale Send err:", e.message); }
+                }
+            };
+
+            const sendDocFn = async (chatId, buffer, filename, caption) => {
+                if (job.botPlatforms?.includes('telegram') && teleGroup) {
+                    try { await telegram.sendBotDocument(teleGroup, buffer, filename, caption); } catch(e){ console.error("TG Send Doc err:", e.message); }
+                }
+                if (job.botPlatforms?.includes('bale') && baleGroup) {
+                    try { await bale.sendBotDocument(baleGroup, buffer, filename, caption); } catch(e){ console.error("Bale Send Doc err:", e.message); }
+                }
+            };
+
+            const todayTehran = utils.getTehranDateString ? utils.getTehranDateString() : new Date().toISOString().split('T')[0];
+            const yesterdayDate = new Date();
+            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            const yesterdayTehran = utils.getTehranDateString ? utils.getTehranDateString(yesterdayDate) : yesterdayDate.toISOString().split('T')[0];
+
+            await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
+        } else {
+            // Standard daily sales report or other module
+            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰');
         }
 
         // Update last run timestamp

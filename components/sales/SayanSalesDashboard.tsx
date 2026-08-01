@@ -352,8 +352,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     salesData.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
-      // OpCode 13 & 14 are Sales Returns (مرجوعی از فروش). OpCode 4 is Purchase (فاکتور خرید) and must not be treated as return.
-      const isReturn = row.OpCode === '13' || row.OpCode === '14';
+      // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
+      const isReturn = row.OpCode === '13';
       const rowDate = new Date(row.Date);
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
       const custName = row.CustomerName || 'مشتری متفرقه';
@@ -633,8 +633,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     compareDataB.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
-      // OpCode 13 & 14 are Sales Returns (مرجوعی از فروش). OpCode 4 is Purchase (فاکتور خرید) and must not be treated as return.
-      const isReturn = row.OpCode === '13' || row.OpCode === '14';
+      // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
+      const isReturn = row.OpCode === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
       const itemKey = row.ItemCode || row.ItemName || 'کالا';
 
@@ -1790,17 +1790,47 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                <div className="text-[11px] font-bold text-slate-400 mb-1">بازه اول ( Period A ) — بازه اصلی بالای صفحه</div>
-                <div className="text-xs font-mono font-bold text-blue-200">
-                  از {dateFrom || '---'} تا {dateTo || '---'}
+                <div className="text-[11px] font-bold text-slate-400 mb-1 flex items-center justify-between">
+                  <span>دوره A (بازه اصلی پایه): <strong className="text-blue-300 font-mono">{dateFrom || '---'} تا {dateTo || '---'}</strong></span>
+                  <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">دوره A</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 w-full">
+                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                    <input 
+                      type="text" 
+                      placeholder="از تاریخ"
+                      value={dateFrom}
+                      onChange={(e) => {
+                        if (onDateRangeChange) onDateRangeChange(e.target.value, dateTo);
+                      }}
+                      className="text-xs bg-transparent outline-none text-white font-bold font-mono w-full text-center"
+                    />
+                  </div>
+                  <span className="text-xs text-slate-400 font-bold">تا</span>
+                  <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 w-full">
+                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                    <input 
+                      type="text" 
+                      placeholder="تا تاریخ"
+                      value={dateTo}
+                      onChange={(e) => {
+                        if (onDateRangeChange) onDateRangeChange(dateFrom, e.target.value);
+                      }}
+                      className="text-xs bg-transparent outline-none text-white font-bold font-mono w-full text-center"
+                    />
+                  </div>
                 </div>
               </div>
               
               <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
-                <div className="text-[11px] font-bold text-slate-400 mb-1">بازه دوم مقایسه ( Period B )</div>
+                <div className="text-[11px] font-bold text-slate-400 mb-1 flex items-center justify-between">
+                  <span>دوره B (بازه تطبیقی مقایسه‌ای): <strong className="text-purple-300 font-mono">{salesDateFromB || '---'} تا {salesDateToB || '---'}</strong></span>
+                  <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">دوره B</span>
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 w-full">
-                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
                     <input 
                       type="text" 
                       placeholder="۱۴۰۳/۰۱/۰۱"
@@ -1813,7 +1843,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                   </div>
                   <span className="text-xs text-slate-400 font-bold">تا</span>
                   <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-white/10 w-full">
-                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
                     <input 
                       type="text" 
                       placeholder="۱۴۰۳/۱۲/۲۹"
