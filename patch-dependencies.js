@@ -228,34 +228,26 @@ try {
     let content = fs.readFileSync(eventlogPath, 'utf8');
     let modified = false;
 
-    // CRITICAL: Fix buggy .indexOf check where -1 (not found) is treated as truthy!
-    const searchStr = `  exec(cmd, function (err) {
-    if (err && err.message.indexOf("Access is Denied")) {
-      wincmd.elevate(cmd, callback);
-    } else if (callback) {
-      callback(err);
-    }
-  });`;
-
-    const replacementStr = `  exec(cmd, function (err) {
-    if (err && err.message.indexOf("Access is Denied") !== -1) {
-      wincmd.elevate(cmd, callback);
-    } else if (callback) {
-      callback(err);
-    }
-  });`;
-
-    if (content.includes(searchStr)) {
-      content = content.replace(searchStr, replacementStr);
-      modified = true;
-      console.log('Successfully patched eventlog.js to fix buggy .indexOf Access is Denied check.');
-    } else {
-      const searchStrCRLF = searchStr.replace(/\\n/g, '\\r\\n');
-      const replacementStrCRLF = replacementStr.replace(/\\n/g, '\\r\\n');
-      if (content.includes(searchStrCRLF)) {
-        content = content.replace(searchStrCRLF, replacementStrCRLF);
+    // We replace the entire write function to bypass eventcreate (buggy on modern Windows, triggers buggy elevate.cmd popups)
+    // and instead write directly to console.log safely.
+    const searchStrStart = "var write = function (log, src, type, msg, id, callback) {";
+    const searchStrEnd = "};";
+    const startIdx = content.indexOf(searchStrStart);
+    if (startIdx !== -1) {
+      const endIdx = content.indexOf(searchStrEnd, startIdx + searchStrStart.length);
+      if (endIdx !== -1) {
+        const originalWriteFunc = content.substring(startIdx, endIdx + searchStrEnd.length);
+        const replacementWriteFunc = `var write = function (log, src, type, msg, id, callback) {
+  if (msg == null) { return };
+  if (msg.trim().length == 0) { return };
+  console.log("[" + (type || 'INFO') + "] " + msg);
+  if (callback) {
+    process.nextTick(callback);
+  }
+};`;
+        content = content.replace(originalWriteFunc, replacementWriteFunc);
         modified = true;
-        console.log('Successfully patched eventlog.js (CRLF) to fix buggy .indexOf Access is Denied check.');
+        console.log('Successfully patched eventlog.js to use safe console write bypassing eventcreate.');
       }
     }
 
