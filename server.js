@@ -2720,7 +2720,9 @@ app.post('/api/report-delivery/execute-now', async (req, res) => {
 });
 
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
-if (process.env.NODE_ENV !== "production" || process.argv.includes("--dev")) {
+const isExplicitDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
+
+if (isExplicitDev || !fs.existsSync(DIST_DIR)) {
     console.log("Starting in Development mode with Vite Middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
@@ -2729,28 +2731,25 @@ if (process.env.NODE_ENV !== "production" || process.argv.includes("--dev")) {
     });
     app.use(vite.middlewares);
 } else {
-    if (fs.existsSync(DIST_DIR)) {
-        app.use(express.static(DIST_DIR, {
-            maxAge: '1d',
-            setHeaders: (res, filePath) => {
-                // Never cache HTML, Service Worker, or Manifest files to ensure instant updates
-                if (filePath.endsWith('.html') || filePath.endsWith('sw.js') || filePath.endsWith('manifest.json')) {
-                    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                    res.setHeader('Pragma', 'no-cache');
-                    res.setHeader('Expires', '0');
-                }
+    console.log("Starting in Production mode serving built assets from dist...");
+    app.use(express.static(DIST_DIR, {
+        maxAge: '1d',
+        setHeaders: (res, filePath) => {
+            // Never cache HTML, Service Worker, JS or Manifest files to ensure instant updates
+            if (filePath.endsWith('.html') || filePath.endsWith('sw.js') || filePath.endsWith('manifest.json') || filePath.endsWith('.js')) {
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
             }
-        }));
-        app.get('*', (req, res) => {
-            if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API endpoint not found' });
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            res.sendFile(path.join(DIST_DIR, 'index.html'));
-        });
-    } else {
-        app.get('*', (req, res) => res.send(`<h1>Frontend Not Built</h1>`));
-    }
+        }
+    }));
+    app.get('*', (req, res) => {
+        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API endpoint not found' });
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.sendFile(path.join(DIST_DIR, 'index.html'));
+    });
 }
 
 app.listen(PORT, '0.0.0.0', () => {

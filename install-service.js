@@ -34,6 +34,7 @@ rl.question('Enter Port (Default 80): ', (inputPort) => {
         script: path.join(INSTALL_DIR, 'server.js'), 
         workingDirectory: INSTALL_DIR,
         env: [
+            { name: "NODE_ENV", value: "production" },
             { name: "PORT", value: port },
             { name: "PUPPETEER_CACHE_DIR", value: path.join(INSTALL_DIR, '.puppeteer') },
             ...(proxy ? [{ name: "PROXY_URL", value: proxy }] : [])
