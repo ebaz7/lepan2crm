@@ -12,9 +12,18 @@ const svc = new Service({
 });
 
 svc.on('uninstall', function() {
-  console.log('Uninstall complete.');
-  console.log('The service exists: ', svc.exists);
+  console.log('✅ سرویس با موفقیت غیرفعال و حذف شد (Service uninstalled successfully).');
 });
 
-console.log('Uninstalling Service...');
+svc.on('alreadyuninstalled', function() {
+  console.log('سرویس قبلاً حذف شده است.');
+});
+
+svc.on('error', function(err) {
+  console.log('خطا در حذف سرویس:', err);
+});
+
+console.log('در حال حذف سرویس PaymentSystem...');
 svc.uninstall();
+
+

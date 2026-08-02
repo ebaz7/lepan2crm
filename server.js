@@ -2731,7 +2731,12 @@ if (isExplicitDev || !fs.existsSync(DIST_DIR)) {
     });
     app.use(vite.middlewares);
 } else {
-    console.log("Starting in Production mode serving built assets from dist...");
+    let buildTime = "Unknown";
+    try {
+        const stats = fs.statSync(path.join(DIST_DIR, 'index.html'));
+        buildTime = stats.mtime.toLocaleString('fa-IR');
+    } catch(e){}
+    console.log(`Starting in Production mode serving built assets from dist (Build Date: ${buildTime})...`);
     app.use(express.static(DIST_DIR, {
         maxAge: '1d',
         setHeaders: (res, filePath) => {
