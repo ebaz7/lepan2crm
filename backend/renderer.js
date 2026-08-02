@@ -966,58 +966,193 @@ export const generateReportPDF = async (
     const page = await browser.newPage();
 
     const isDebtor = title.includes("بدهکار");
+    const isSales = title.includes("فروش") || title.includes("سایان") || title.includes("تحلیلی") || title.includes("مقایسه‌ای") || title.includes("مدیریتی") || title.includes("Executive") || title.includes("Compare") || title.includes("Daily_Sales");
+    const isCompare = title.includes("مقایسه") || title.includes("Compare");
+    const isPendingDocs = title.includes("اسناد") || title.includes("چک‌ها");
+    const isDispatch = title.includes("خروج") || title.includes("بیجک");
+
+    const parseFormattedNumber = (str) => {
+      if (!str) return 0;
+      const clean = String(str).trim()
+        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+        .replace(/,/g, '');
+      const filtered = clean.replace(/[^\d.-]/g, '');
+      return parseFloat(filtered) || 0;
+    };
+
+    const pdfFormatNumber = (num) => {
+      return Number(num)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
+
+    let card1Title = "";
+    let card1Value = "";
+    let card2Title = "";
+    let card2Value = "";
+    let card3Title = "";
+    let card3Value = "";
+    let subtitleText = "";
+
+    if (isSales) {
+      if (isCompare) {
+        subtitleText = "گزارش مقایسه‌ای و تحلیل رشد عملکرد فروش - بخش بازرگانی و مدیریت فروش";
+        
+        let totalNetWgtA = 0;
+        let totalNetAmtA = 0;
+        let totalNetWgtB = 0;
+        let totalNetAmtB = 0;
+        let totalRetWgtA = 0;
+        let totalRetWgtB = 0;
+
+        rows.forEach((r) => {
+          if (r[0] !== 'جمع کل') {
+            const wgtA = parseFormattedNumber(r[1]);
+            const feeA = parseFormattedNumber(r[2]);
+            const retA = parseFormattedNumber(r[3]);
+            const wgtB = parseFormattedNumber(r[4]);
+            const feeB = parseFormattedNumber(r[5]);
+            const retB = parseFormattedNumber(r[6]);
+
+            totalNetWgtA += wgtA;
+            totalNetAmtA += wgtA * feeA;
+            totalRetWgtA += retA;
+            totalNetWgtB += wgtB;
+            totalNetAmtB += wgtB * feeB;
+            totalRetWgtB += retB;
+          }
+        });
+
+        // Populate dashes of the last row "جمع کل"
+        const totalRowIdx = rows.findIndex(r => r[0] === 'جمع کل');
+        if (totalRowIdx !== -1) {
+          const totalRow = rows[totalRowIdx];
+          totalRow[1] = totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
+          totalRow[2] = Math.round(totalNetWgtA ? totalNetAmtA / totalNetWgtA : 0).toLocaleString('fa-IR') + " ریال";
+          totalRow[3] = totalRetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
+          totalRow[4] = totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
+          totalRow[5] = Math.round(totalNetWgtB ? totalNetAmtB / totalNetWgtB : 0).toLocaleString('fa-IR') + " ریال";
+          totalRow[6] = totalRetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
+        }
+
+        const growthPct = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+
+        card1Title = "مجموع فروش خالص دوره A";
+        card1Value = `${pdfFormatNumber(Math.round(totalNetAmtA))} ریال`;
+        
+        card2Title = "مجموع فروش خالص دوره B";
+        card2Value = `${pdfFormatNumber(Math.round(totalNetAmtB))} ریال`;
+
+        card3Title = "نرخ رشد عملکرد (A نسبت به B)";
+        card3Value = `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
+      } else {
+        subtitleText = "گزارش تحلیلی عملکرد فروش و مرجوعی - بخش بازرگانی و مدیریت فروش";
+
+        let totalNetWgt = 0;
+        let totalNetAmt = 0;
+
+        rows.forEach((r) => {
+          if (r[0] !== 'جمع کل') {
+            if (columns.length === 6 && columns[2].includes('وزن') && columns[3].includes('فروش')) {
+              totalNetWgt += parseFormattedNumber(r[2]);
+              totalNetAmt += parseFormattedNumber(r[3]);
+            } else if (columns.length === 6 && columns[4].includes('خالص')) {
+              const parts = String(r[4]).split('/');
+              if (parts.length === 2) {
+                totalNetWgt += parseFormattedNumber(parts[0]);
+                totalNetAmt += parseFormattedNumber(parts[1]);
+              }
+            }
+          }
+        });
+
+        if (totalNetAmt === 0) {
+          const totalRow = rows.find(r => r[0] === 'جمع کل');
+          if (totalRow) {
+            if (columns.length === 6 && columns[2].includes('وزن') && columns[3].includes('فروش')) {
+              totalNetWgt = parseFormattedNumber(totalRow[2]);
+              totalNetAmt = parseFormattedNumber(totalRow[3]);
+            } else if (columns.length === 6 && columns[4].includes('خالص')) {
+              const parts = String(totalRow[4]).split('/');
+              if (parts.length === 2) {
+                totalNetWgt = parseFormattedNumber(parts[0]);
+                totalNetAmt = parseFormattedNumber(parts[1]);
+              }
+            }
+          }
+        }
+
+        card1Title = "فروش خالص کل";
+        card1Value = `${pdfFormatNumber(Math.round(totalNetAmt))} ریال`;
+
+        card2Title = "وزن خالص کل";
+        card2Value = `${totalNetWgt.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم`;
+
+        card3Title = "فی نهایی میانگین";
+        card3Value = `${pdfFormatNumber(totalNetWgt ? Math.round(totalNetAmt / totalNetWgt) : 0)} ریال/ک‌گ`;
+      }
+    } else if (isPendingDocs) {
+      subtitleText = "گزارش وضعیت اسناد دریافتنی، پرداختنی و چک‌های در جریان وصول - مدیریت خزانه";
+
+      let totalAmt = 0;
+      rows.forEach((r) => {
+        if (r[0] !== 'جمع کل') {
+          const amtIdx = columns.findIndex(c => c.includes('مبلغ'));
+          if (amtIdx !== -1) {
+            totalAmt += parseFormattedNumber(r[amtIdx]);
+          }
+        }
+      });
+
+      card1Title = "مجموع کل مبلغ اسناد";
+      card1Value = `${pdfFormatNumber(totalAmt)} ریال`;
+
+      card2Title = "تعداد اسناد و چک‌ها";
+      card2Value = `${(rows.filter(r => r[0] !== 'جمع کل').length).toLocaleString()} فقره`;
+
+      card3Title = "میانگین مبلغ هر سند";
+      card3Value = `${pdfFormatNumber(rows.length > 1 ? Math.round(totalAmt / (rows.length - 1)) : 0)} ریال`;
+    } else if (isDispatch) {
+      subtitleText = "گزارش خروج کالا و بیجک‌های صادر شده - مدیریت انبار و لجستیک";
+
+      card1Title = "تعداد کل بیجک‌ها";
+      card1Value = `${(rows.filter(r => r[0] !== 'جمع کل').length).toLocaleString()} فقره`;
+
+      card2Title = "نوع گزارش";
+      card2Value = "خروج کالا و بیجک";
+
+      card3Title = "تاریخ گزارش";
+      card3Value = new Date().toLocaleDateString("fa-IR");
+    } else {
+      subtitleText = "گزارش وضعیت تراز تفصیلی مشتریان - بخش حسابداری و مدیریت مالی";
+
+      let totalBalance = 0;
+      rows.forEach((r) => {
+        if (r[2]) {
+          const num = parseFormattedNumber(r[2]);
+          if (r[0] !== "---" && r[1] !== "جمع کل بدهکاران" && r[1] !== "جمع کل بستانکاران" && r[0] !== "جمع کل") {
+            totalBalance += num;
+          }
+        }
+      });
+
+      card1Title = `جمع کل اقلام ${isDebtor ? "بدهکار" : "بستانکار"}`;
+      card1Value = `${pdfFormatNumber(totalBalance)} ریال`;
+
+      card2Title = "تعداد پرونده‌های مفتوح";
+      card2Value = `${rows.filter((r) => r[0] !== "---" && r[0] !== "جمع کل").length.toLocaleString()} رکورد`;
+
+      card3Title = "میانگین تراز هر حساب";
+      card3Value = `${pdfFormatNumber(rows.length > 1 ? Math.round(totalBalance / (rows.length - 1)) : 0)} ریال`;
+    }
+
     const colorClass = isDebtor ? "red" : "emerald";
     const colorHex = isDebtor ? "#dc2626" : "#10b981";
     const colorBg = isDebtor ? "#fef2f2" : "#ecfdf5";
     const textClass = isDebtor ? "text-red-700" : "text-emerald-700";
     const borderClass = isDebtor ? "border-red-600" : "border-emerald-600";
     const bgHeader = isDebtor ? "bg-red-50" : "bg-emerald-50";
-
-    // Calculate Totals safely
-    let totalBalance = 0;
-    rows.forEach((r) => {
-      if (r[2]) {
-        const str = String(r[2]).trim();
-        const PersianDigits = "۰۱۲۳۴۵۶۷۸۹";
-        const ArabicDigits = "٠١٢٣٤٥٦٧٨٩";
-
-        let cleanStr = "";
-        for (let i = 0; i < str.length; i++) {
-          const char = str[i];
-          const pIdx = PersianDigits.indexOf(char);
-          if (pIdx !== -1) {
-            cleanStr += pIdx.toString();
-            continue;
-          }
-          const aIdx = ArabicDigits.indexOf(char);
-          if (aIdx !== -1) {
-            cleanStr += aIdx.toString();
-            continue;
-          }
-          if ((char >= "0" && char <= "9") || char === "-" || char === ".") {
-            cleanStr += char;
-          }
-        }
-
-        const num = parseFloat(cleanStr) || 0;
-        // Avoid adding the "Total" row if it was already added by server.js
-        // Usually the total row has '---' or labels in other columns
-        if (
-          r[0] !== "---" &&
-          r[1] !== "جمع کل بدهکاران" &&
-          r[1] !== "جمع کل بستانکاران"
-        ) {
-          totalBalance += num;
-        }
-      }
-    });
-
-    // Helper for formatting large numbers in PDF without depending on full ICU
-    const pdfFormatNumber = (num) => {
-      return Number(num)
-        .toString()
-        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    };
 
     let thead = "<tr>";
     columns.forEach((c) => {
@@ -1028,19 +1163,30 @@ export const generateReportPDF = async (
     let tbody = "";
     rows.forEach((r, idx) => {
       const isEven = idx % 2 === 1;
-      tbody += `<tr class="${isEven ? "bg-gray-50/80" : "bg-white"} border-b border-gray-100/80 hover:bg-gray-100/30 transition-colors">`;
+      const isTotalRow = r[0] === 'جمع کل' || String(r[1]).includes('جمع کل');
+      const rowBgClass = isTotalRow ? (isDebtor ? "bg-red-50/80 font-black border-t-2 border-red-200" : "bg-emerald-50/80 font-black border-t-2 border-emerald-200") : (isEven ? "bg-gray-50/80" : "bg-white");
+
+      tbody += `<tr class="${rowBgClass} border-b border-gray-100/80 hover:bg-gray-100/30 transition-colors">`;
       r.forEach((cell, cellIdx) => {
-        let cellStyleClass =
-          "p-3.5 text-xs text-gray-700 text-center font-bold border-l border-gray-100/50 last:border-l-0";
+        let cellStyleClass = "p-3.5 text-xs text-gray-700 text-center font-bold border-l border-gray-100/50 last:border-l-0";
+        if (isTotalRow) {
+          cellStyleClass = "p-3.5 text-xs text-gray-900 text-center font-black border-l border-gray-100/50 last:border-l-0";
+        }
+
         if (cellIdx === 1) {
-          cellStyleClass =
-            "p-3.5 text-sm font-black text-gray-900 text-right pr-6 border-l border-gray-100/50";
+          cellStyleClass = `p-3.5 text-sm ${isTotalRow ? "font-black text-gray-950" : "font-bold text-gray-900"} text-right pr-6 border-l border-gray-100/50`;
         } else if (cellIdx === 2) {
-          cellStyleClass = `p-3.5 text-sm font-black font-mono ${isDebtor ? "text-red-700" : "text-emerald-700"} text-center border-l border-gray-100/50`;
+          if (!isSales) {
+            cellStyleClass = `p-3.5 text-sm font-black font-mono ${isDebtor ? "text-red-700" : "text-emerald-700"} text-center border-l border-gray-100/50`;
+          } else {
+            cellStyleClass = `p-3.5 text-xs ${isTotalRow ? "font-black text-gray-950" : "font-bold text-gray-700"} text-center border-l border-gray-100/50`;
+          }
         }
 
         if (cellIdx === 3 && title.includes("بدهکار")) {
-          tbody += `<td class="p-3.5 text-center"><span class="px-3 py-1 text-[10px] font-black rounded-lg ${isDebtor ? "bg-red-50 text-red-800 border border-red-200/50" : "bg-emerald-50 text-emerald-800 border border-emerald-200/50"}">${cell}</span></td>`;
+          tbody += `<td class="p-3.5 text-center"><span class="px-3 py-1 text-[10px] font-black rounded-lg bg-red-50 text-red-800 border border-red-200/50">${cell}</span></td>`;
+        } else if (cellIdx === 3 && title.includes("بستانکار")) {
+          tbody += `<td class="p-3.5 text-center"><span class="px-3 py-1 text-[10px] font-black rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/50">${cell}</span></td>`;
         } else {
           tbody += `<td class="${cellStyleClass}">${cell}</td>`;
         }
@@ -1070,9 +1216,9 @@ export const generateReportPDF = async (
             <div class="space-y-1">
                 <div class="flex items-center gap-2">
                     <div class="w-3 h-8 ${isDebtor ? "bg-red-700" : "bg-emerald-700"} rounded-full"></div>
-                    <h1 class="text-3xl font-black text-gray-900 tracking-tight">${title}</h1>
+                    <h1 class="text-2xl font-black text-gray-900 tracking-tight">${title}</h1>
                 </div>
-                <p class="text-sm text-gray-500 font-bold pr-5 italic">گزارش وضعیت تراز تفصیلی مشتریان - بخش حسابداری و مدیریت مالی</p>
+                <p class="text-xs text-gray-500 font-bold pr-5 italic">${subtitleText}</p>
             </div>
             <div class="text-left space-y-1">
                 <div class="inline-block bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-black mb-2">${new Date().toLocaleDateString("fa-IR")}</div>
@@ -1083,18 +1229,18 @@ export const generateReportPDF = async (
         <div class="mb-10">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                 <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">جمع کل اقلام ${isDebtor ? "بدهکار" : "بستانکار"}</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${pdfFormatNumber(totalBalance)} <span class="text-xs font-medium text-gray-400">ریال</span></div>
+                    <div class="text-[10px] font-black text-gray-400 mb-1">${card1Title}</div>
+                    <div class="text-2xl font-black text-gray-900 font-mono">${card1Value}</div>
                 </div>
 
                 <div class="bg-gray-50 border-r-4 border-gray-900 p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">تعداد پرونده‌های مفتوح</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${rows.filter((r) => r[0] !== "---").length.toLocaleString()} <span class="text-xs font-medium text-gray-400">رکورد</span></div>
+                    <div class="text-[10px] font-black text-gray-400 mb-1">${card2Title}</div>
+                    <div class="text-2xl font-black text-gray-900 font-mono">${card2Value}</div>
                 </div>
 
                 <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">میانگین تراز هر حساب</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${pdfFormatNumber(rows.length > 1 ? Math.round(totalBalance / (rows.length - 1)) : 0)} <span class="text-xs font-medium text-gray-400">ریال</span></div>
+                    <div class="text-[10px] font-black text-gray-400 mb-1">${card3Title}</div>
+                    <div class="text-2xl font-black text-gray-900 font-mono">${card3Value}</div>
                 </div>
             </div>
 
@@ -1113,8 +1259,8 @@ export const generateReportPDF = async (
 
             <div class="mt-12 p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                 <div class="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <span>محل مهر و امضای مدیریت مالی</span>
-                    <span>محل امضای مدیرعامل</span>
+                    <span>محل مهر و امضای مدیریت</span>
+                    <span>محل امضای مسئول مربوطه</span>
                     <span>صفحه ۱ از ۱</span>
                 </div>
                 <div class="flex justify-between mt-12 gap-20 px-10">

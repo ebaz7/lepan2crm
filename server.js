@@ -329,12 +329,11 @@ const setupLegacyDailyReports = () => {
 // Helper to build Persian captioned production report
 const buildProductionCaption = (dateStr, totals, waste) => {
     let dateObj = new Date();
-    if (typeof dateStr === 'string' && dateStr.includes('/')) {
-        const engDateStr = dateStr.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
-        const parts = engDateStr.split('/').map(x => parseInt(x));
-        if (parts.length === 3) {
-            const { gy, gm, gd } = jalaali.toGregorian(parts[0], parts[1], parts[2]);
-            dateObj = new Date(gy, gm - 1, gd, 12, 0, 0);
+    if (typeof dateStr === 'string' && (dateStr.includes('/') || dateStr.includes('.') || dateStr.includes('-'))) {
+        const gregStr = parseJalaliStrToGregorian(dateStr);
+        if (gregStr) {
+            const parts = gregStr.split('-').map(x => parseInt(x, 10));
+            dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
         }
     } else if (dateStr) {
         dateObj = new Date(dateStr);
@@ -661,15 +660,18 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
 🏷️ *فی نهایی میانگین:* ${Math.round(grandFinalPrice).toLocaleString('fa-IR')} ریال/کیلوگرم`;
 
         let successfulSends = 0;
+        const sendDetails = [];
         let lastErr = null;
         for (const tgt of uniqueSalesTargets) {
             try {
                 if (tgt.platform === 'telegram') {
                     await telegram.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'bale') {
                     await bale.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
@@ -679,11 +681,15 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                             filename: filename
                         });
                         successfulSends++;
+                        sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
+                    } else {
+                        throw new Error('ماژول واتساپ در دسترس نیست');
                     }
                 }
             } catch (e) {
                 lastErr = e.message;
                 console.error(`[Manual/Auto Sales Report] Failed to send to ${tgt.platform} group ${tgt.id}:`, e.message);
+                sendDetails.push({ platform: tgt.platform, id: tgt.id, status: 'failed', error: e.message });
             }
         }
 
@@ -691,30 +697,37 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             throw new Error(`ارسال گزارش فروش ناموفق بود: ${lastErr || 'خطا در اتصال به پیام‌رسان‌ها'}`);
         }
 
-        return { count: salesRows.length, totalSalesQty, totalSalesAmt, grandNetAmt, grandNetQty, grandFinalPrice, sent: true, successfulSends };
+        return { count: salesRows.length, totalSalesQty, totalSalesAmt, grandNetAmt, grandNetQty, grandFinalPrice, sent: true, successfulSends, totalTargets: uniqueSalesTargets.length, sendDetails };
 
     } else {
         const emptyMsg = `⚠️ هیچ فاکتور فروشی برای ${labelSuffix} (${shamsiDate}) در سرور سایان ثبت نشده است.`;
         let successfulSends = 0;
+        const sendDetails = [];
         let lastErr = null;
         for (const tgt of uniqueSalesTargets) {
             try {
                 if (tgt.platform === 'telegram') {
                     await telegram.sendBotMessage(tgt.id, emptyMsg);
                     successfulSends++;
+                    sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'bale') {
                     await bale.sendBotMessage(tgt.id, emptyMsg);
                     successfulSends++;
+                    sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
                         await wa.sendMessage(tgt.id, emptyMsg);
                         successfulSends++;
+                        sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
+                    } else {
+                        throw new Error('ماژول واتساپ در دسترس نیست');
                     }
                 }
             } catch (e) {
                 lastErr = e.message;
                 console.error(`[Manual/Auto Sales Report] Failed to send empty msg to ${tgt.platform} group ${tgt.id}:`, e.message);
+                sendDetails.push({ platform: tgt.platform, id: tgt.id, status: 'failed', error: e.message });
             }
         }
 
@@ -722,7 +735,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             throw new Error(`ارسال پیام عدم وجود فاکتور فروش ناموفق بود: ${lastErr || 'خطا در پیام‌رسان‌ها'}`);
         }
 
-        return { count: 0, sent: true, successfulSends };
+        return { count: 0, sent: true, successfulSends, totalTargets: uniqueSalesTargets.length, sendDetails };
     }
 };
 
@@ -817,14 +830,18 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
 📈 *نرخ رشد درآمد:* ${totalDiff.toFixed(1)}%`;
 
         let successfulSends = 0;
+        const sendDetails = [];
+        let lastErr = null;
         for (const tgt of uniqueSalesTargets) {
             try {
                 if (tgt.platform === 'telegram') {
                     await telegram.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'bale') {
                     await bale.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
@@ -834,18 +851,29 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
                             filename: filename
                         });
                         successfulSends++;
+                        sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
+                    } else {
+                        throw new Error('ماژول واتساپ در دسترس نیست');
                     }
                 }
             } catch (e) {
+                lastErr = e.message;
                 console.error(`Failed to send compare report to ${tgt.platform} group ${tgt.id}:`, e.message);
+                sendDetails.push({ platform: tgt.platform, id: tgt.id, status: 'failed', error: e.message });
             }
         }
 
         if (successfulSends === 0) {
-            throw new Error('ارسال گزارش مقایسه‌ای ناموفق بود. خطا در ارسال به پیام‌رسان‌ها.');
+            throw new Error(`ارسال گزارش مقایسه‌ای ناموفق بود: ${lastErr || 'خطا در ارسال به پیام‌رسان‌ها'}`);
         }
 
-        res.json({ success: true, message: 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.' });
+        res.json({ 
+            success: true, 
+            message: 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.',
+            sendDetails,
+            successfulSends,
+            totalTargets: uniqueSalesTargets.length
+        });
     } catch (e) {
         console.error("Compare Sales Report Error:", e);
         res.status(500).json({ error: e.message });
@@ -959,15 +987,18 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
 📎 فایل کامل PDF شامل جزئیات گروه‌های کالا پیوست گردید.`;
 
         let successfulSends = 0;
+        const sendDetails = [];
         let lastErr = null;
         for (const tgt of uniqueTargets) {
             try {
                 if (tgt.platform === 'telegram') {
                     await telegram.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'bale') {
                     await bale.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
                     successfulSends++;
+                    sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
@@ -977,11 +1008,15 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
                             filename: filename
                         });
                         successfulSends++;
+                        sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
+                    } else {
+                        throw new Error('ماژول واتساپ در دسترس نیست');
                     }
                 }
             } catch (e) {
                 lastErr = e.message;
                 console.error(`Failed to send executive report to ${tgt.platform} group ${tgt.id}:`, e.message);
+                sendDetails.push({ platform: tgt.platform, id: tgt.id, status: 'failed', error: e.message });
             }
         }
 
@@ -989,7 +1024,13 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
             throw new Error(`ارسال گزارش به پیام‌رسان‌ها ناموفق بود: ${lastErr || 'خطای شبکه'}`);
         }
 
-        res.json({ success: true, message: `گزارش مدیریتی با موفقیت به ${successfulSends} گروه ارسال گردید.` });
+        res.json({ 
+            success: true, 
+            message: `گزارش مدیریتی با موفقیت به پیام‌رسان‌ها ارسال گردید.`,
+            sendDetails,
+            successfulSends,
+            totalTargets: uniqueTargets.length
+        });
     } catch (e) {
         console.error("Executive Sales Report Error:", e);
         res.status(500).json({ error: e.message });
@@ -1001,17 +1042,57 @@ const normalizeShamsiDate = (str) => {
     if (!str) return '';
     return String(str).trim()
         .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
-        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
-        .replace(/-/g, '/');
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
 };
 
 const parseJalaliStrToGregorian = (jalaliStr) => {
-    const clean = normalizeShamsiDate(jalaliStr);
-    if (!clean) return null;
-    const parts = clean.split('/').map(p => parseInt(p, 10));
-    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    if (!jalaliStr) return null;
     try {
-        const g = jalaali.toGregorian(parts[0], parts[1], parts[2]);
+        const clean = normalizeShamsiDate(jalaliStr);
+        // Split by slash, dot, or dash
+        const parts = clean.split(/[\/\.\-]/);
+        if (parts.length !== 3) return null;
+        
+        let part0 = parseInt(parts[0], 10);
+        let part1 = parseInt(parts[1], 10);
+        let part2 = parseInt(parts[2], 10);
+        
+        if (isNaN(part0) || isNaN(part1) || isNaN(part2)) return null;
+        
+        let jy = 0, jm = 0, jd = 0;
+        if (part2 >= 100) {
+            jy = part2;
+            jm = part1;
+            jd = part0;
+        } else if (part0 >= 100) {
+            jy = part0;
+            jm = part1;
+            jd = part2;
+        } else {
+            if (part0 > 12) {
+                jy = part2;
+                jm = part1;
+                jd = part0;
+            } else {
+                jy = part0;
+                jm = part1;
+                jd = part2;
+            }
+        }
+        
+        if (jy < 100) {
+            jy += 1400;
+        } else if (jy >= 100 && jy < 1000) {
+            jy += 1000;
+        }
+        
+        if (jm > 12 && jd <= 12) {
+            const temp = jm;
+            jm = jd;
+            jd = temp;
+        }
+        
+        const g = jalaali.toGregorian(jy, jm, jd);
         const y = g.gy;
         const m = String(g.gm).padStart(2, '0');
         const d = String(g.gd).padStart(2, '0');
@@ -1375,15 +1456,12 @@ app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
         } else if (targetDate === 'today') {
             labelSuffix = label || 'امروز';
         } else if (date) {
-            if (typeof date === 'string' && date.includes('/')) {
-                // Shamsi date passed e.g. "1404/05/10"
-                const parts = date.split('/');
-                if (parts.length === 3) {
-                    const jy = parseInt(parts[0], 10);
-                    const jm = parseInt(parts[1], 10);
-                    const jd = parseInt(parts[2], 10);
-                    const g = jalaali.toGregorian(jy, jm, jd);
-                    dateObj = new Date(g.gy, g.gm - 1, g.gd);
+            if (typeof date === 'string' && (date.includes('/') || date.includes('.') || date.includes('-'))) {
+                // Shamsi date passed e.g. "1404/05/10" or "1.1.404"
+                const gregStr = parseJalaliStrToGregorian(date);
+                if (gregStr) {
+                    const parts = gregStr.split('-').map(x => parseInt(x, 10));
+                    dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
                 }
             } else {
                 dateObj = new Date(date);
@@ -2644,7 +2722,8 @@ async function executeReportJob(job) {
             await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
             // Standard daily sales report or other module
-            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰');
+            const customTargets = job.destinationGroup && job.botPlatforms ? job.botPlatforms.map(p => ({ platform: p, id: job.destinationGroup })) : null;
+            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets, job.botPlatforms);
         }
 
         // Update last run timestamp

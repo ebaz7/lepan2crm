@@ -127,12 +127,59 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             let clean = jalaliStr.trim()
                 .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
                 .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
-            const parts = clean.split('/');
+            
+            // Split by slash, dot, or dash
+            const parts = clean.split(/[\/\.\-]/);
             if (parts.length !== 3) return jalaliStr;
-            const jy = parseInt(parts[0], 10);
-            const jm = parseInt(parts[1], 10);
-            const jd = parseInt(parts[2], 10);
-            if (isNaN(jy) || isNaN(jm) || isNaN(jd)) return jalaliStr;
+            
+            let part0 = parseInt(parts[0], 10);
+            let part1 = parseInt(parts[1], 10);
+            let part2 = parseInt(parts[2], 10);
+            
+            if (isNaN(part0) || isNaN(part1) || isNaN(part2)) return jalaliStr;
+            
+            let jy = 0;
+            let jm = 0;
+            let jd = 0;
+            
+            // Determine which part is the year.
+            // If part2 is >= 100 (like 404, 1404, etc.), then it's DD/MM/YYYY
+            // Otherwise, we default to YYYY/MM/DD
+            if (part2 >= 100) {
+                jy = part2;
+                jm = part1;
+                jd = part0;
+            } else if (part0 >= 100) {
+                jy = part0;
+                jm = part1;
+                jd = part2;
+            } else {
+                // If neither is >= 100, e.g. "04/01/24" (YY/MM/DD) or "24/01/04" (DD/MM/YY)
+                if (part0 > 12) {
+                    jy = part2;
+                    jm = part1;
+                    jd = part0;
+                } else {
+                    jy = part0;
+                    jm = part1;
+                    jd = part2;
+                }
+            }
+            
+            // Normalize year (e.g. 404 -> 1404, 04 -> 1404, 1404 -> 1404)
+            if (jy < 100) {
+                jy += 1400;
+            } else if (jy >= 100 && jy < 1000) {
+                jy += 1000;
+            }
+            
+            // Validate month and day bounds just in case they are reversed
+            if (jm > 12 && jd <= 12) {
+                const temp = jm;
+                jm = jd;
+                jd = temp;
+            }
+            
             const g = jalaali.toGregorian(jy, jm, jd);
             return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
         } catch {
@@ -1081,12 +1128,67 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const normalizeJalali = (str: string) => {
             if (!str) return '';
-            const c = str.trim()
+            // Convert Persian/Arabic digits
+            let clean = str.trim()
                 .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
                 .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
-            const formatted = formatDateToJalali(c);
-            const parts = formatted.split('/');
-            return parts.length === 3 ? `${parts[0]}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}` : formatted;
+            
+            // If it's a Gregorian timestamp, formatDateToJalali can handle it
+            if (clean.includes('T') || clean.includes('Z') || (/^\d{4}-\d{2}-\d{2}/.test(clean))) {
+                const formatted = formatDateToJalali(clean);
+                const parts = formatted.split('/');
+                return parts.length === 3 ? `${parts[0]}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}` : formatted;
+            }
+
+            // Otherwise, it's a Shamsi string (possibly in different formats: YYYY/MM/DD, DD/MM/YYYY, with dots/slashes/dashes)
+            const parts = clean.split(/[\/\.\-]/);
+            if (parts.length === 3) {
+                let part0 = parseInt(parts[0], 10);
+                let part1 = parseInt(parts[1], 10);
+                let part2 = parseInt(parts[2], 10);
+                
+                if (!isNaN(part0) && !isNaN(part1) && !isNaN(part2)) {
+                    let jy = 0, jm = 0, jd = 0;
+                    if (part2 >= 100) {
+                        jy = part2;
+                        jm = part1;
+                        jd = part0;
+                    } else if (part0 >= 100) {
+                        jy = part0;
+                        jm = part1;
+                        jd = part2;
+                    } else {
+                        if (part0 > 12) {
+                            jy = part2;
+                            jm = part1;
+                            jd = part0;
+                        } else {
+                            jy = part0;
+                            jm = part1;
+                            jd = part2;
+                        }
+                    }
+                    
+                    if (jy < 100) {
+                        jy += 1400;
+                    } else if (jy >= 100 && jy < 1000) {
+                        jy += 1000;
+                    }
+                    
+                    if (jm > 12 && jd <= 12) {
+                        const temp = jm;
+                        jm = jd;
+                        jd = temp;
+                    }
+                    
+                    return `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}`;
+                }
+            }
+            
+            // Fallback to formatDateToJalali
+            const formatted = formatDateToJalali(clean);
+            const p = formatted.split('/');
+            return p.length === 3 ? `${p[0]}/${p[1].padStart(2, '0')}/${p[2].padStart(2, '0')}` : formatted;
         };
 
         const targetNorm = normalizeJalali(targetDate);

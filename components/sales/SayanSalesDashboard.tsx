@@ -934,7 +934,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   // PRINT EXECUTIVE REPORT
   // ----------------------------------------------------------------------
   const handlePrint = () => {
-    if (compareMode && comparisonData) {
+    if (compareMode && comparisonMetrics) {
       // Comparative Print Report
       const docHtml = `
         <html dir="rtl" lang="fa">
@@ -968,11 +968,11 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-title">فروش کل دوره A</div>
-              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtA : 0)} ریال</div>
+              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)} ریال</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-title">فروش کل دوره B</div>
-              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtB : 0)} ریال</div>
+              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtB : 0)} ریال</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-title">نرخ رشد درآمد (A نسبت به B)</div>
@@ -998,7 +998,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tr>
             </thead>
             <tbody>
-              ${comparisonData.groupRows.map((r, idx) => `
+              ${comparisonMetrics.compareGroupRows.map((r, idx) => `
                 <tr>
                   <td style="text-align:center;">${idx + 1}</td>
                   <td>${r.catName}</td>
@@ -1015,11 +1015,11 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               `).join('')}
               <tr class="total">
                 <td colspan="2">جمع کل</td>
-                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.totalWgtA : 0)}</td>
-                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtA : 0)}</td>
+                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtA : 0)}</td>
+                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)}</td>
                 <td style="text-align:left;">-</td>
-                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.totalWgtB : 0)}</td>
-                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtB : 0)}</td>
+                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtB : 0)}</td>
+                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtB : 0)}</td>
                 <td style="text-align:left;">-</td>
                 <td style="text-align:center;" class="${comparisonMetrics && comparisonMetrics.amtGrowthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
                   ${comparisonMetrics ? (comparisonMetrics.amtGrowthPct >= 0 ? '+' : '') + comparisonMetrics.amtGrowthPct.toFixed(1) + '%' : '0%'}
@@ -1132,8 +1132,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   // ----------------------------------------------------------------------
   const handleDownloadComparePdf = async () => {
     try {
-      toast.info('در حال تولید و دانلود فایل PDF مقایسه‌ای...');
-      const groupRows = comparisonData ? comparisonData.groupRows : [];
+      toast('در حال تولید و دانلود فایل PDF مقایسه‌ای...', { icon: '⏳' });
+      const groupRows = comparisonMetrics ? comparisonMetrics.compareGroupRows : [];
       const response = await fetch('/api/sayan/sales-report/download-compare-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1182,7 +1182,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   const handleSendCompareToBots = async () => {
     setIsSendingBot(true);
     try {
-      const groupRows = comparisonData ? comparisonData.groupRows : [];
+      const groupRows = comparisonMetrics ? comparisonMetrics.compareGroupRows : [];
       const response = await fetch('/api/sayan/sales-report/send-compare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1209,7 +1209,20 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const resData = await response.json();
       if (!response.ok) throw new Error(resData.error || 'خطا در ارسال گزارش مقایسه‌ای به پیام‌رسان‌ها');
 
-      toast.success(resData.message || 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.');
+      const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
+      const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
+
+      if (failed.length > 0) {
+        const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
+        const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
+        if (successes.length > 0) {
+          toast(`گزارش مقایسه‌ای به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
+        } else {
+          toast.error(`ارسال گزارش مقایسه‌ای ناموفق بود: ${failMsg}`, { duration: 10000 });
+        }
+      } else {
+        toast.success(resData.message || 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.');
+      }
       setIsBotModalOpen(false);
     } catch (e: any) {
       toast.error(`خطا در ارسال گزارش مقایسه‌ای: ${e.message}`);
@@ -1242,7 +1255,20 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const resData = await response.json();
       if (!response.ok) throw new Error(resData.error || resData.message || 'خطا در ارسال دستی گزارش');
 
-      toast.success(resData.message || 'گزارش با موفقیت به پیام‌رسان‌ها ارسال شد.');
+      const failed = resData.result?.sendDetails?.filter((d: any) => d.status === 'failed') || [];
+      const successes = resData.result?.sendDetails?.filter((d: any) => d.status === 'success') || [];
+
+      if (failed.length > 0) {
+        const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
+        const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
+        if (successes.length > 0) {
+          toast(`گزارش دستی به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
+        } else {
+          toast.error(`ارسال گزارش دستی ناموفق بود: ${failMsg}`, { duration: 10000 });
+        }
+      } else {
+        toast.success(resData.message || 'گزارش با موفقیت به پیام‌رسان‌ها ارسال شد.');
+      }
       setIsBotModalOpen(false);
     } catch (e: any) {
       toast.error(`خطا در ارسال دستی گزارش: ${e.message}`);
@@ -1291,7 +1317,20 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const resData = await response.json();
       if (!response.ok) throw new Error(resData.error || 'خطا در ارسال به پیام‌رسان‌ها');
 
-      toast.success(resData.message || 'گزارش با موفقیت به پیام‌رسان‌ها ارسال گردید.');
+      const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
+      const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
+
+      if (failed.length > 0) {
+        const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
+        const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
+        if (successes.length > 0) {
+          toast(`گزارش به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
+        } else {
+          toast.error(`ارسال گزارش ناموفق بود: ${failMsg}`, { duration: 10000 });
+        }
+      } else {
+        toast.success(resData.message || 'گزارش با موفقیت به پیام‌رسان‌ها ارسال گردید.');
+      }
       setIsBotModalOpen(false);
     } catch (e: any) {
       toast.error(`خطا در ارسال گزارش: ${e.message}`);
