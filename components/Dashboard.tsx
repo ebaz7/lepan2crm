@@ -3,11 +3,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PaymentOrder, OrderStatus, SystemSettings, User, ExitPermit, ExitPermitStatus, WarehouseTransaction, UserRole, SystemAnnouncement } from '../types';
 import { formatCurrency, getShamsiDateFromIso } from '../constants';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { TrendingUp, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users } from 'lucide-react';
+import { TrendingUp, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { getRolePermissions } from '../services/authService';
 import { getExitPermits, getWarehouseTransactions, getNotes, getPurchaseRequests, getTaskGroups, getTasks, updateTask } from '../services/storageService';
 import { isInFinancialYear } from '../utils/dateUtils';
-import { getRandomQuote } from '../utils/quotes';
+import { getRandomQuote, persianQuotes } from '../utils/quotes';
 import { Note, PurchaseRequest, PurchaseRequestStatus, GroupTask, TaskGroup } from '../types';
 
 interface DashboardProps {
@@ -80,8 +80,85 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
     }
   }, [currentUser]);
 
-  const dailyQuote = useMemo(() => getRandomQuote(), []);
-    const shamsiDate = useMemo(() => {
+  const [quotesList, setQuotesList] = useState<Array<{text: string; author: string}>>(() => [...persianQuotes]);
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(() => {
+    try {
+      const today = new Date();
+      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+      return dayOfYear % persianQuotes.length;
+    } catch {
+      return 0;
+    }
+  });
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+
+  const dailyQuote = useMemo(() => {
+    return quotesList[currentQuoteIndex] || quotesList[0];
+  }, [currentQuoteIndex, quotesList]);
+
+  const handlePrevQuote = () => {
+    setCurrentQuoteIndex(prev => (prev - 1 + quotesList.length) % quotesList.length);
+  };
+
+  const handleNextQuote = async () => {
+    if (currentQuoteIndex === quotesList.length - 1) {
+      // If we are at the end, fetch a fresh online quote from the server
+      setIsLoadingQuote(true);
+      try {
+        const response = await fetch('/api/quote/random');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.text) {
+            const exists = quotesList.some(q => q.text === data.text);
+            if (!exists) {
+              setQuotesList(prev => [...prev, data]);
+              setCurrentQuoteIndex(prev => prev + 1);
+              setIsLoadingQuote(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next online quote:", err);
+      }
+      setIsLoadingQuote(false);
+    }
+    
+    // Fallback or normal next navigation
+    setCurrentQuoteIndex(prev => (prev + 1) % quotesList.length);
+  };
+
+  const handleFetchNewQuote = async () => {
+    setIsLoadingQuote(true);
+    try {
+      const response = await fetch('/api/quote/random');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.text) {
+          setQuotesList(prev => {
+            const exists = prev.some(q => q.text === data.text);
+            if (exists) return prev;
+            return [...prev, data];
+          });
+          // Set index to the newly fetched quote
+          setQuotesList(currentList => {
+            const index = currentList.findIndex(q => q.text === data.text);
+            if (index !== -1) {
+              setCurrentQuoteIndex(index);
+            } else {
+              setCurrentQuoteIndex(currentList.length - 1);
+            }
+            return currentList;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch fresh online quote:", err);
+    }
+    setIsLoadingQuote(false);
+  };
+
+  const shamsiDate = useMemo(() => {
         try {
             const now = new Date();
             const formatter = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -390,13 +467,52 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                 </div>
             </div>
 
-            {/* Slick Poetry - Smaller and More Elegant */}
-            <div className="flex-1 glass-panel rounded-2xl px-6 py-4 border border-rose-50 shadow-sm flex items-center justify-center relative overflow-hidden group min-h-[80px]">
+            {/* Slick Poetry - Interactive & Beautiful */}
+            <div className="flex-1 glass-panel rounded-2xl px-4 py-4 border border-rose-50 shadow-sm flex items-center justify-between relative overflow-hidden group min-h-[90px]">
                 <div className="absolute right-0 top-0 h-full w-1 bg-rose-200"></div>
-                <div className="relative z-10 flex flex-col items-center">
-                    <div className="text-[10px] font-bold text-rose-300 mb-1 flex items-center gap-1"><PenTool size={10}/> زمزمه روز</div>
-                    <p className="text-gray-700 dark:text-gray-300 font-bold text-sm text-center italic leading-relaxed" style={{ whiteSpace: 'pre-line' }}>{dailyQuote.text}</p>
+                
+                {/* Previous Button (Moves right in RTL) */}
+                <button 
+                    onClick={handlePrevQuote}
+                    disabled={isLoadingQuote}
+                    className="p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-300 hover:text-rose-600 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                    title="زمزمه قبلی"
+                >
+                    <ChevronRight size={18} />
+                </button>
+
+                <div className="relative z-10 flex flex-col items-center flex-1 px-2 select-none">
+                    <div className="text-[10px] font-bold text-rose-400 dark:text-rose-300 mb-1 flex items-center gap-1.5">
+                        <PenTool size={10}/> 
+                        <span>زمزمه ({currentQuoteIndex + 1} از {quotesList.length})</span>
+                        <button
+                            onClick={handleFetchNewQuote}
+                            disabled={isLoadingQuote}
+                            className="p-1 rounded-full hover:bg-rose-100 dark:hover:bg-rose-950/40 text-rose-400 hover:text-rose-600 transition-all cursor-pointer inline-flex items-center justify-center"
+                            title="دریافت شعر جدید"
+                        >
+                            <RotateCw size={10} className={`${isLoadingQuote ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300 font-bold text-sm text-center italic leading-relaxed" style={{ whiteSpace: 'pre-line' }}>
+                        {dailyQuote.text}
+                    </p>
+                    {dailyQuote.author && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 font-medium">
+                            — {dailyQuote.author}
+                        </span>
+                    )}
                 </div>
+
+                {/* Next Button (Moves left in RTL) */}
+                <button 
+                    onClick={handleNextQuote}
+                    disabled={isLoadingQuote}
+                    className="p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-300 hover:text-rose-600 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                    title="زمزمه بعدی"
+                >
+                    <ChevronLeft size={18} />
+                </button>
             </div>
         </div>
 

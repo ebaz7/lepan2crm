@@ -2319,6 +2319,67 @@ app.post('/api/emergency-restore', (req, res) => {
 
 app.get('/api/version', (req, res) => { res.json({ version: '1.3.1' }); });
 
+app.get('/api/quote/random', async (req, res) => {
+    const db = getDb();
+    const settings = db.settings || {};
+    const apiKey = process.env.GEMINI_API_KEY || settings.geminiApiKey;
+    
+    const fallbacks = [
+        { text: "سعدیا مرد نکونام نمیرد هرگز\nمرده آن است که نامش به نکویی نبرند", author: "سعدی" },
+        { text: "بنی آدم اعضای یک پیکرند\nکه در آفرینش ز یک گوهرند", author: "سعدی" },
+        { text: "در نومیدی بسی امید است\nپایان شب سیه سپید است", author: "نظامی" },
+        { text: "هر که در او جوهر دانایی است\nبر همه چیزش توانایی است", author: "نظامی" },
+        { text: "جهان یادگار است و ما رفتنی\nبه گیتی نماند به جز مردمی", author: "فردوسی" },
+        { text: "تو نیکی می‌کن و در دجله انداز\nکه ایزد در بیابانت دهد باز", author: "سعدی" },
+        { text: "آسایش دو گیتی تفسیر این دو حرف است\nبا دوستان مروت با دشمنان مدارا", author: "حافظ" },
+        { text: "عیب رندان مکن ای زاهد پاکیزه سرشت\nکه گناه دگران بر تو نخواهند نوشت", author: "حافظ" },
+        { text: "صبر و ظفر هر دو دوستان قدیمند\nبر اثر صبر نوبت ظفر آید", author: "حافظ" },
+        { text: "خدا کشتی آنجا که خواهد برد\nوگر ناخدا جامه بر تن درد", author: "سعدی" },
+        { text: "هرگز نمیرد آن که دلش زنده شد به عشق\nثبت است بر جریده عالم دوام ما", author: "حافظ" },
+        { text: "بشنو از نی چون حکایت می‌کند\nاز جدایی‌ها شکایت می‌کند", author: "مولانا" },
+        { text: "ای هیچ برای هیچ بر هیچ مپیچ\nدانی که پس از عمر چه ماند باقی؟\nمهر است و محبت است و باقی همه هیچ", author: "مولانا" },
+        { text: "کار ما نیست شناسایی راز گل سرخ\nکار ما شاید این است\nکه در افسون گل سرخ شناور باشیم", author: "سهراب سپهری" },
+        { text: "زندگی خالی نیست\nمهربانی هست، سیب هست، ایمان هست\nآری تا شقایق هست زندگی باید کرد", author: "سهراب سپهری" },
+        { text: "چشم‌ها را باید شست، جور دیگر باید دید\nواژه‌ها را باید شست", author: "سهراب سپهری" },
+        { text: "تو مگو همه به جنگند و ز صلح من چه آید\nتو یکی نه‌ای هزاری تو چراغ خود برافروز", author: "مولانا" },
+        { text: "توانا بود هر که دانا بود\nز دانش دل پیر برنا بود", author: "فردوسی" },
+        { text: "چون عهده نمی‌شود کسی فردا را\nحالی خوش کن تو این دل شیدا را", author: "خیام" },
+        { text: "از حادثه لرزند به خود قصرنشینان\nما خانه به دوشان غم طوفان نداریم", author: "صائب تبریزی" }
+    ];
+
+    if (apiKey) {
+        try {
+            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `Return a JSON object containing a beautiful random verse of Persian poetry (maximum 2-4 lines/beyts) with a deep, inspiring, or warm business/human/wisdom theme, and its author.
+Structure:
+{
+  "text": "بنی آدم اعضای یک پیکرند\\nکه در آفرینش ز یک گوهرند",
+  "author": "سعدی"
+}
+Ensure the text is valid Persian, correctly formatted with newlines (\\n) between hemistiches (mishraas), and do not include any markdown styling. Only return raw JSON. Give a highly unique poem from Hafez, Saadi, Rumi, Khayyam, Ferdowsi, Sohrab Sepehri, Shamlou, Sayeh, Parvin Etesami, etc.`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+
+            const textResponse = response.text || "";
+            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.text && parsed.author) {
+                    return res.json({ text: parsed.text.trim(), author: parsed.author.trim() });
+                }
+            }
+        } catch (e) {
+            console.error("Failed to generate poetry with Gemini, using random fallback:", e);
+        }
+    }
+
+    const randomIdx = Math.floor(Math.random() * fallbacks.length);
+    res.json(fallbacks[randomIdx]);
+});
+
 app.get('/manifest.json', (req, res) => {
     const db = getDb();
     const settings = db.settings || {};
