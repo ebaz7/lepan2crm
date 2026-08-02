@@ -178,25 +178,29 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const [users, setUsers] = useState<User[]>(() => {
         try {
             const item = localStorage.getItem('app_data_users');
-            return item ? JSON.parse(item) : [];
+            const parsed = item ? JSON.parse(item) : [];
+            return Array.isArray(parsed) ? parsed : [];
         } catch { return []; }
     });
     const [groups, setGroups] = useState<ChatGroup[]>(() => {
         try {
             const item = localStorage.getItem('app_data_groups');
-            return item ? JSON.parse(item) : [];
+            const parsed = item ? JSON.parse(item) : [];
+            return Array.isArray(parsed) ? parsed : [];
         } catch { return []; }
     });
     const [tasks, setTasks] = useState<GroupTask[]>(() => {
         try {
             const item = localStorage.getItem('app_data_tasks');
-            return item ? JSON.parse(item) : [];
+            const parsed = item ? JSON.parse(item) : [];
+            return Array.isArray(parsed) ? parsed : [];
         } catch { return []; }
     });
     const [taskGroups, setTaskGroups] = useState<TaskGroup[]>(() => {
         try {
             const item = localStorage.getItem('app_data_task_groups');
-            return item ? JSON.parse(item) : [];
+            const parsed = item ? JSON.parse(item) : [];
+            return Array.isArray(parsed) ? parsed : [];
         } catch { return []; }
     });
     
@@ -578,16 +582,21 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             ]);
             console.log("ChatRoom: Meta preloads loaded in parallel");
             
-            setUsers(usrList);
+            const safeUsrList = Array.isArray(usrList) ? usrList : (Array.isArray((usrList as any)?.users) ? (usrList as any).users : []);
+            setUsers(safeUsrList);
             
-            const isManager = [UserRole.ADMIN, UserRole.MANAGER, UserRole.CEO].includes(currentUser.role as UserRole);
-            const visibleGroups = grpList.filter(g => isManager || g.members.includes(currentUser.username) || g.createdBy === currentUser.username);
+            const safeGrpList = Array.isArray(grpList) ? grpList : [];
+            const safeTaskGps = Array.isArray(taskGps) ? taskGps : [];
+            const safeTskList = Array.isArray(tskList) ? tskList : [];
+
+            const isManager = currentUser && [UserRole.ADMIN, UserRole.MANAGER, UserRole.CEO].includes(currentUser.role as UserRole);
+            const visibleGroups = safeGrpList.filter(g => isManager || (Array.isArray(g.members) && g.members.includes(currentUser?.username)) || g.createdBy === currentUser?.username);
             setGroups(visibleGroups);
 
-            const visibleTaskGps = taskGps.filter(g => isManager || g.members.includes(currentUser.username) || g.createdBy === currentUser.username);
+            const visibleTaskGps = safeTaskGps.filter(g => isManager || (Array.isArray(g.members) && g.members.includes(currentUser?.username)) || g.createdBy === currentUser?.username);
             setTaskGroups(visibleTaskGps);
             
-            setTasks(tskList);
+            setTasks(safeTskList);
         } catch (e) { 
             console.error("Chat load error", e); 
         }
@@ -672,19 +681,22 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     // --- Render Logic ---
     const getAllChannelsForForward = (): ChannelItem[] => {
         const list: ChannelItem[] = [];
+        const safeUsers = Array.isArray(users) ? users : [];
+        const safeGroups = Array.isArray(groups) ? groups : [];
+        const safeTaskGroups = Array.isArray(taskGroups) ? taskGroups : [];
         
         list.push({ type: 'public', id: 'public', name: 'کانال عمومی', avatar: null, isOnline: true, lastMsg: null, unread: 0 });
         
-        users.forEach(u => {
+        safeUsers.forEach(u => {
             if (currentUser && u.username === currentUser.username) return;
             list.push({ type: 'private', id: u.username, name: u.fullName, avatar: resolveImageUrl(u.avatar), isOnline: false, lastMsg: null, unread: 0 });
         });
         
-        groups.forEach(g => {
+        safeGroups.forEach(g => {
             list.push({ type: 'group', id: g.id, name: g.name, avatar: g.avatar || null, isOnline: false, lastMsg: null, unread: 0 });
         });
 
-        taskGroups.forEach(tg => {
+        safeTaskGroups.forEach(tg => {
             list.push({ type: 'task_group', id: tg.id, name: tg.name, avatar: tg.avatar || null, isOnline: false, lastMsg: null, unread: 0 });
         });
         
@@ -694,6 +706,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const getSortedChannels = (): ChannelItem[] => {
         const list: ChannelItem[] = [];
         const term = searchTerm.toLowerCase().trim();
+        const safeUsers = Array.isArray(users) ? users : [];
+        const safeGroups = Array.isArray(groups) ? groups : [];
+        const safeTaskGroups = Array.isArray(taskGroups) ? taskGroups : [];
+        const currentUsername = currentUser?.username || '';
 
         if (activeTab === 'ALL') {
             // 1. Public Channel
@@ -705,9 +721,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // 2. Groups (with avatars)
-            groups.forEach(g => {
+            safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
-                const isMember = g.members.includes(currentUser.username) || g.createdBy === currentUser.username;
+                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
                 if (isMember || last || term) {
                     list.push({
                         type: 'group', id: g.id, name: g.name,
@@ -718,9 +734,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // 3. Task Groups (with avatars)
-            taskGroups.forEach(g => {
+            safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
-                const isMember = g.members.includes(currentUser.username) || g.createdBy === currentUser.username;
+                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
                 if (isMember || last || term) {
                     list.push({
                         type: 'task_group', id: g.id, name: g.name,
@@ -731,8 +747,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // 4. Private chats
-            users.forEach(u => {
-                if (currentUser && u.username === currentUser.username) return;
+            safeUsers.forEach(u => {
+                if (currentUsername && u.username === currentUsername) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
@@ -747,8 +763,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
             // If empty, add some users for accessibility
             if (list.length <= 1 && !term) {
-                 users.slice(0, 10).forEach(u => {
-                     if (currentUser && u.username === currentUser.username) return;
+                 safeUsers.slice(0, 10).forEach(u => {
+                     if (currentUsername && u.username === currentUsername) return;
                      if (!list.find(i => i.id === u.username)) {
                           list.push({
                              type: 'private', id: u.username, name: u.fullName,
@@ -767,9 +783,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // Include ALL groups that I am a member of or created
-            groups.forEach(g => {
+            safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
-                const isMember = g.members.includes(currentUser.username) || g.createdBy === currentUser.username;
+                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
                 if (isMember || last || term) {
                     list.push({
                         type: 'group', id: g.id, name: g.name,
@@ -780,9 +796,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // Include task groups too if they have messages or match search
-            taskGroups.forEach(g => {
+            safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
-                const isMember = g.members.includes(currentUser.username) || g.createdBy === currentUser.username;
+                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
                 if (last || (isMember && term)) {
                     list.push({
                         type: 'task_group', id: g.id, name: g.name,
@@ -793,8 +809,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             });
 
             // Include users with messages OR all users if looking at CHATS tab and no filters
-            users.forEach(u => {
-                if (currentUser && u.username === currentUser.username) return;
+            safeUsers.forEach(u => {
+                if (currentUsername && u.username === currentUsername) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
@@ -810,19 +826,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
             // If list is still very empty (just Public), add some frequent users or just all users for accessibility
             if (list.length <= 1 && !term) {
-                 users.slice(0, 10).forEach(u => {
-                     if (currentUser && u.username === currentUser.username) return;
+                 safeUsers.slice(0, 10).forEach(u => {
+                     if (currentUsername && u.username === currentUsername) return;
                      if (!list.find(i => i.id === u.username)) {
-                         list.push({
-                            type: 'private', id: u.username, name: u.fullName,
-                            avatar: resolveImageUrl(u.avatar), isOnline: false,
-                            lastMsg: null, unread: 0
-                         });
+                          list.push({
+                             type: 'private', id: u.username, name: u.fullName,
+                             avatar: resolveImageUrl(u.avatar), isOnline: false,
+                             lastMsg: null, unread: 0
+                          });
                      }
                  });
             }
         } else if (activeTab === 'GROUPS') {
-            groups.forEach(g => {
+            safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
                 list.push({
                     type: 'group', id: g.id, name: g.name,
@@ -831,7 +847,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 });
             });
         } else if (activeTab === 'TASKS') {
-            taskGroups.forEach(g => {
+            safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
                 list.push({
                     type: 'task_group', id: g.id, name: g.name,

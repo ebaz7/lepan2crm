@@ -193,11 +193,21 @@ const poll = async () => {
 
 export const sendBotMessage = (chatId, text, opts) => {
     ensureBaleActive();
+    if (!botToken) {
+        const token = getDb()?.settings?.baleBotToken;
+        if (token) initBaleBot(token);
+    }
+    if (!botToken) return Promise.reject(new Error("ربات بله غیرفعال است. لطفاً توکن ربات بله را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     return callApi('sendMessage', { chat_id: chatId, text: text, ...opts });
 };
 
 export const sendBotPhoto = (chatId, buffer, caption, opts) => {
     ensureBaleActive();
+    if (!botToken) {
+        const token = getDb()?.settings?.baleBotToken;
+        if (token) initBaleBot(token);
+    }
+    if (!botToken) return Promise.reject(new Error("ربات بله غیرفعال است. لطفاً توکن ربات بله را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
     const form = new FormData();
     form.append('chat_id', chatId);
@@ -210,6 +220,11 @@ export const sendBotPhoto = (chatId, buffer, caption, opts) => {
 
 export const sendBotDocument = (chatId, buffer, name, caption) => {
     ensureBaleActive();
+    if (!botToken) {
+        const token = getDb()?.settings?.baleBotToken;
+        if (token) initBaleBot(token);
+    }
+    if (!botToken) return Promise.reject(new Error("ربات بله غیرفعال است. لطفاً توکن ربات بله را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
     const form = new FormData();
     form.append('chat_id', chatId);

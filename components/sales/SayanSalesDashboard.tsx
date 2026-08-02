@@ -934,6 +934,117 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   // PRINT EXECUTIVE REPORT
   // ----------------------------------------------------------------------
   const handlePrint = () => {
+    if (compareMode && comparisonData) {
+      // Comparative Print Report
+      const docHtml = `
+        <html dir="rtl" lang="fa">
+        <head>
+          <meta charset="utf-8">
+          <title>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP</title>
+          <style>
+            body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
+            .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+            .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
+            .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
+            .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; }
+            th { background-color: #0f172a; color: #fff; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f1f5f9; }
+            .total { font-weight: bold; background: #e2e8f0 !important; }
+            .growth-pos { color: #15803d; font-weight: bold; }
+            .growth-neg { color: #b91c1c; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
+            <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-title">فروش کل دوره A</div>
+              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtA : 0)} ریال</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">فروش کل دوره B</div>
+              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtB : 0)} ریال</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">نرخ رشد درآمد (A نسبت به B)</div>
+              <div class="kpi-val ${comparisonMetrics && comparisonMetrics.amtGrowthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
+                ${comparisonMetrics ? (comparisonMetrics.amtGrowthPct >= 0 ? '+' : '') + comparisonMetrics.amtGrowthPct.toFixed(1) + '%' : '0%'}
+              </div>
+            </div>
+          </div>
+
+          <h2>مقایسه عملکرد به تفکیک گروههای کالا</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ردیف</th>
+                <th>نام گروه کالا</th>
+                <th>وزن خالص A (ک‌گ)</th>
+                <th>فروش خالص A (ریال)</th>
+                <th>فی A (ریال)</th>
+                <th>وزن خالص B (ک‌گ)</th>
+                <th>فروش خالص B (ریال)</th>
+                <th>فی B (ریال)</th>
+                <th>درصد رشد (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${comparisonData.groupRows.map((r, idx) => `
+                <tr>
+                  <td style="text-align:center;">${idx + 1}</td>
+                  <td>${r.catName}</td>
+                  <td style="text-align:center;">${formatWeight(r.netWgtA)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netAmtA)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netFeeA)}</td>
+                  <td style="text-align:center;">${formatWeight(r.netWgtB)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netAmtB)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netFeeB)}</td>
+                  <td style="text-align:center;" class="${r.growthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
+                    ${r.growthPct >= 0 ? '+' : ''}${r.growthPct.toFixed(1)}%
+                  </td>
+                </tr>
+              `).join('')}
+              <tr class="total">
+                <td colspan="2">جمع کل</td>
+                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.totalWgtA : 0)}</td>
+                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtA : 0)}</td>
+                <td style="text-align:left;">-</td>
+                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.totalWgtB : 0)}</td>
+                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.totalAmtB : 0)}</td>
+                <td style="text-align:left;">-</td>
+                <td style="text-align:center;" class="${comparisonMetrics && comparisonMetrics.amtGrowthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
+                  ${comparisonMetrics ? (comparisonMetrics.amtGrowthPct >= 0 ? '+' : '') + comparisonMetrics.amtGrowthPct.toFixed(1) + '%' : '0%'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(docHtml);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      }
+      return;
+    }
+
+    // Single Period Standard Report
     const docHtml = `
       <html dir="rtl" lang="fa">
       <head>
@@ -1017,9 +1128,135 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   };
 
   // ----------------------------------------------------------------------
-  // BOT DISPATCH HANDLER
+  // DOWNLOAD COMPARATIVE PDF
   // ----------------------------------------------------------------------
+  const handleDownloadComparePdf = async () => {
+    try {
+      toast.info('در حال تولید و دانلود فایل PDF مقایسه‌ای...');
+      const groupRows = comparisonData ? comparisonData.groupRows : [];
+      const response = await fetch('/api/sayan/sales-report/download-compare-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chartData: groupRows.map(r => ({
+            name: r.catName,
+            netWeightA: r.netWgtA,
+            netAmountA: r.netAmtA,
+            retWeightA: r.retWgtA,
+            netWeightB: r.netWgtB,
+            netAmountB: r.netAmtB,
+            retWeightB: r.retWgtB,
+            netFeeA: r.netFeeA,
+            netFeeB: r.netFeeB
+          })),
+          dateFromA: dateFrom,
+          dateToA: dateTo,
+          dateFromB: salesDateFromB,
+          dateToB: salesDateToB
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'خطا در دریافت فایل PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Compare_Sales_Report_${dateFrom.replace(/\//g, '-')}_vs_${(salesDateFromB || 'B').replace(/\//g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('فایل PDF مقایسه‌ای با موفقیت دانلود گردید.');
+    } catch (e: any) {
+      toast.error(`خطا در دریافت PDF: ${e.message}`);
+    }
+  };
+
+  // ----------------------------------------------------------------------
+  // BOT DISPATCH HANDLERS
+  // ----------------------------------------------------------------------
+  const handleSendCompareToBots = async () => {
+    setIsSendingBot(true);
+    try {
+      const groupRows = comparisonData ? comparisonData.groupRows : [];
+      const response = await fetch('/api/sayan/sales-report/send-compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chartData: groupRows.map(r => ({
+            name: r.catName,
+            netWeightA: r.netWgtA,
+            netAmountA: r.netAmtA,
+            retWeightA: r.retWgtA,
+            netWeightB: r.netWgtB,
+            netAmountB: r.netAmtB,
+            retWeightB: r.retWgtB,
+            netFeeA: r.netFeeA,
+            netFeeB: r.netFeeB
+          })),
+          dateFromA: dateFrom,
+          dateToA: dateTo,
+          dateFromB: salesDateFromB,
+          dateToB: salesDateToB,
+          selectedPlatforms
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'خطا در ارسال گزارش مقایسه‌ای به پیام‌رسان‌ها');
+
+      toast.success(resData.message || 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.');
+      setIsBotModalOpen(false);
+    } catch (e: any) {
+      toast.error(`خطا در ارسال گزارش مقایسه‌ای: ${e.message}`);
+    } finally {
+      setIsSendingBot(false);
+    }
+  };
+
+  const handleSendManualReport = async (targetDate: 'today' | 'yesterday' | 'custom') => {
+    setIsSendingBot(true);
+    try {
+      let bodyData: any = { selectedPlatforms };
+      if (targetDate === 'today') {
+        bodyData.targetDate = 'today';
+        bodyData.label = 'امروز';
+      } else if (targetDate === 'yesterday') {
+        bodyData.targetDate = 'yesterday';
+        bodyData.label = 'دیروز';
+      } else {
+        bodyData.date = dateFrom;
+        bodyData.label = `بازه ${dateFrom} تا ${dateTo}`;
+      }
+
+      const response = await fetch('/api/sayan/sales-report/send-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData)
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || resData.message || 'خطا در ارسال دستی گزارش');
+
+      toast.success(resData.message || 'گزارش با موفقیت به پیام‌رسان‌ها ارسال شد.');
+      setIsBotModalOpen(false);
+    } catch (e: any) {
+      toast.error(`خطا در ارسال دستی گزارش: ${e.message}`);
+    } finally {
+      setIsSendingBot(false);
+    }
+  };
+
   const handleSendToBots = async () => {
+    if (compareMode) {
+      await handleSendCompareToBots();
+      return;
+    }
+
     setIsSendingBot(true);
     try {
       const response = await fetch('/api/sayan/sales-report/send-executive', {
@@ -1117,12 +1354,56 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <button
+              onClick={() => handleSendManualReport('today')}
+              disabled={isSendingBot}
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+              title="ارسال دستی خلاصه فروش امروز به پیام‌رسان‌های بله و تلگرام"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isSendingBot ? 'در حال ارسال...' : 'ارسال دستی امروز به بات'}</span>
+            </button>
+
+            <button
+              onClick={() => handleSendManualReport('yesterday')}
+              disabled={isSendingBot}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+              title="ارسال دستی خلاصه فروش دیروز به پیام‌رسان‌های بله و تلگرام"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isSendingBot ? 'در حال ارسال...' : 'ارسال دستی دیروز به بات'}</span>
+            </button>
+
+            <button
               onClick={() => setIsBotModalOpen(true)}
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-lg hover:shadow-emerald-500/20 transition-all cursor-pointer"
+              title="تنظیمات پیشرفته و ارسال سفارشی گزارش به بات‌ها"
             >
               <Send className="w-4 h-4" />
-              <span>ارسال به پیام‌رسان‌ها (بات‌ها)</span>
+              <span>ارسال به پیام‌رسان‌ها (تنظیمات)</span>
             </button>
+
+            {compareMode && (
+              <>
+                <button
+                  onClick={handleDownloadComparePdf}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md hover:shadow-rose-500/20 transition-all cursor-pointer"
+                  title="دانلود فایل PDF گزارش مقایسه‌ای دوره A vs دوره B"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>دانلود PDF مقایسه‌ای</span>
+                </button>
+
+                <button
+                  onClick={handleSendToBots}
+                  disabled={isSendingBot}
+                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md hover:shadow-purple-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  title="ارسال فوری گزارش مقایسه‌ای دوره A vs B به پیام‌رسان‌ها"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>ارسال مقایسه‌ای به بات</span>
+                </button>
+              </>
+            )}
 
             <button
               onClick={handleExportImage}
@@ -1172,64 +1453,149 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         </div>
 
         {/* DATE RANGE PRESETS & PICKERS */}
-        <div className="mt-6 pt-4 border-t border-white/10 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-          
-          {/* Presets */}
-          <div className="md:col-span-8 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold text-blue-300 ml-1">بازه زمانی:</span>
-            {[
-              { id: 'today', label: 'امروز' },
-              { id: 'yesterday', label: 'دیروز' },
-              { id: 'this_week', label: 'این هفته' },
-              { id: 'this_month', label: 'این ماه' },
-              { id: 'last_month', label: 'ماه قبل' },
-              { id: 'this_year', label: 'امسال' },
-              { id: 'last_year', label: 'سال قبل' }
-            ].map(p => (
+        <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+            
+            {/* Presets */}
+            <div className="md:col-span-7 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-bold text-blue-300 ml-1">بازه اصلی (دوره A):</span>
+              {[
+                { id: 'today', label: 'امروز' },
+                { id: 'yesterday', label: 'دیروز' },
+                { id: 'this_week', label: 'این هفته' },
+                { id: 'this_month', label: 'این ماه' },
+                { id: 'last_month', label: 'ماه قبل' },
+                { id: 'this_year', label: 'امسال' },
+                { id: 'last_year', label: 'سال قبل' }
+              ].map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSelectPreset(p.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    selectedPreset === p.id 
+                      ? 'bg-blue-500 text-white shadow-md font-extrabold' 
+                      : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Inputs A & Compare Toggle */}
+            <div className="md:col-span-5 flex flex-wrap items-center justify-end gap-2">
               <button
-                key={p.id}
-                onClick={() => handleSelectPreset(p.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  selectedPreset === p.id 
-                    ? 'bg-blue-500 text-white shadow-md font-extrabold' 
-                    : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                type="button"
+                onClick={() => {
+                  if (onToggleCompareMode) onToggleCompareMode(!compareMode);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  compareMode
+                    ? 'bg-purple-500 hover:bg-purple-400 text-white shadow-lg shadow-purple-500/20 ring-2 ring-purple-300/30'
+                    : 'bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20'
                 }`}
+                title="فعال‌سازی یا غیرفعال‌سازی حالت مقایسه‌ای دوره A vs دوره B"
               >
-                {p.label}
+                <span>{compareMode ? '📊 مقایسه فعال (دوره B)' : '➕ افزودن بازه مقایسه‌ای'}</span>
               </button>
-            ))}
+
+              <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <input
+                    type="text"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setSelectedPreset('custom');
+                      if (onDateRangeChange) onDateRangeChange(e.target.value, dateTo);
+                    }}
+                    placeholder="از تاریخ"
+                    className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-white"
+                  />
+                </div>
+                <span className="text-xs text-slate-400">تا</span>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                  <input
+                    type="text"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setSelectedPreset('custom');
+                      if (onDateRangeChange) onDateRangeChange(dateFrom, e.target.value);
+                    }}
+                    placeholder="تا تاریخ"
+                    className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-white"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Custom Date Inputs */}
-          <div className="md:col-span-4 flex items-center justify-end gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
-            <div className="flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10">
-              <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              <input
-                type="text"
-                value={dateFrom}
-                onChange={(e) => {
-                  setSelectedPreset('custom');
-                  if (onDateRangeChange) onDateRangeChange(e.target.value, dateTo);
-                }}
-                placeholder="از تاریخ"
-                className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-white"
-              />
+          {/* SECONDARY COMPARISON PERIOD (PERIOD B) - Appears when compareMode is ON */}
+          {compareMode && (
+            <div className="bg-purple-950/40 p-3 rounded-2xl border border-purple-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-black text-purple-200 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                  بازه مقایسه‌ای (دوره B):
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('prev_year')}
+                    className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/30 rounded-lg text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer"
+                  >
+                    همسان سال قبل (پارسال)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('prev_month')}
+                    className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/30 rounded-lg text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer"
+                  >
+                    ماه قبل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('prev_quarter')}
+                    className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/30 rounded-lg text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer"
+                  >
+                    فصل قبل
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-xs text-purple-300 font-bold hidden sm:inline">تاریخ دوره B:</span>
+                <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-purple-500/30">
+                  <div className="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-purple-400/20">
+                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                    <input
+                      type="text"
+                      value={salesDateFromB}
+                      onChange={(e) => {
+                        if (onCompareDateRangeChange) onCompareDateRangeChange(e.target.value, salesDateToB);
+                      }}
+                      placeholder="از تاریخ B"
+                      className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-purple-100"
+                    />
+                  </div>
+                  <span className="text-xs text-purple-300 font-bold">تا</span>
+                  <div className="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-purple-400/20">
+                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                    <input
+                      type="text"
+                      value={salesDateToB}
+                      onChange={(e) => {
+                        if (onCompareDateRangeChange) onCompareDateRangeChange(salesDateFromB, e.target.value);
+                      }}
+                      placeholder="تا تاریخ B"
+                      className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-purple-100"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <span className="text-xs text-slate-400">تا</span>
-            <div className="flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10">
-              <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              <input
-                type="text"
-                value={dateTo}
-                onChange={(e) => {
-                  setSelectedPreset('custom');
-                  if (onDateRangeChange) onDateRangeChange(dateFrom, e.target.value);
-                }}
-                placeholder="تا تاریخ"
-                className="w-20 text-center font-mono font-bold text-xs bg-transparent outline-none text-white"
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1858,29 +2224,53 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
-              <span className="text-[11px] font-bold text-slate-400">میانبر بازه دوم:</span>
-              <button
-                type="button"
-                onClick={() => applyPreset('prev_year')}
-                className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
-              >
-                همسان سال قبل (پارسال)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('prev_month')}
-                className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
-              >
-                ماه قبل
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('prev_quarter')}
-                className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
-              >
-                فصل قبل
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-400">میانبر بازه دوم:</span>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('prev_year')}
+                  className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
+                >
+                  همسان سال قبل (پارسال)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('prev_month')}
+                  className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
+                >
+                  ماه قبل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('prev_quarter')}
+                  className="bg-white/10 hover:bg-white/25 border border-white/20 rounded text-[11px] px-2.5 py-1 font-bold transition-all cursor-pointer text-blue-200"
+                >
+                  فصل قبل
+                </button>
+              </div>
+
+              {compareMode && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadComparePdf}
+                    className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs px-3 py-1.5 font-extrabold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>دانلود PDF مقایسه‌ای</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBotModalOpen(true)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs px-3 py-1.5 font-extrabold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>ارسال مقایسه‌ای به بات</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2187,15 +2577,25 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </div>
               <button 
                 onClick={() => setIsBotModalOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              با تایید این بخش، فایل PDF گزارش همراه با خلاصه تحلیلی فروش خالص و گروههای کالا به گروههای پیام‌رسان تنظیم شده (تلگرام، بله، واتساپ) ارسال خواهد شد.
-            </p>
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>نوع گزارش آماده ارسال:</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${compareMode ? 'bg-indigo-100 text-indigo-900' : 'bg-emerald-100 text-emerald-900'}`}>
+                  {compareMode ? '📊 گزارش مقایسه‌ای دوره A و B' : '📈 گزارش مدیریتی تک‌دوره‌ای'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {compareMode 
+                  ? `بازه A (${dateFrom} تا ${dateTo}) در مقایسه با بازه B (${salesDateFromB} تا ${salesDateToB}) به صورت فایل PDF تحلیلی ارسال می‌شود.`
+                  : `گزارش آمار و خلاصه فروش بازه ${dateFrom} تا ${dateTo} به گروه و چت‌های تنظیم شده ارسال خواهد شد.`}
+              </p>
+            </div>
 
             {/* Platform Selection Checkboxes */}
             <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
@@ -2221,6 +2621,29 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               ))}
             </div>
 
+            {/* Manual Quick Action Options */}
+            <div className="pt-2 space-y-1.5 border-t border-slate-100">
+              <span className="text-[11px] font-bold text-slate-600 block">ارسال‌های دستی فوری:</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSendManualReport('today')}
+                  disabled={isSendingBot || selectedPlatforms.length === 0}
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl text-[11px] border border-blue-200 transition-all cursor-pointer disabled:opacity-50 text-center"
+                >
+                  ⚡ ارسال فروش امروز
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendManualReport('yesterday')}
+                  disabled={isSendingBot || selectedPlatforms.length === 0}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-[11px] border border-slate-300 transition-all cursor-pointer disabled:opacity-50 text-center"
+                >
+                  🗓️ ارسال فروش دیروز
+                </button>
+              </div>
+            </div>
+
             <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
               <button
                 type="button"
@@ -2236,7 +2659,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                 className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:opacity-50"
               >
                 {isSendingBot && <RefreshCw className="w-4 h-4 animate-spin" />}
-                <span>ارسال فوری به بات‌ها</span>
+                <span>{compareMode ? 'ارسال PDF مقایسه‌ای' : 'ارسال گزارش بازه فعلی'}</span>
               </button>
             </div>
 

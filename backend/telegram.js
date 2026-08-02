@@ -123,13 +123,21 @@ export const initTelegram = async (token) => {
 
 export const sendBotMessage = async (chatId, text, opts) => {
     await ensureBotActive();
-    if (!bot) return Promise.reject("Bot Telegram not initialized");
+    if (!bot) {
+        const token = getDb()?.settings?.telegramBotToken;
+        if (token) await initTelegram(token);
+    }
+    if (!bot) return Promise.reject(new Error("ربات تلگرام غیرفعال است. لطفاً توکن ربات تلگرام را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     return bot.sendMessage(chatId, text, opts);
 };
 
 export const sendBotPhoto = async (chatId, buffer, caption, opts) => {
     await ensureBotActive();
-    if (!bot) return Promise.reject("Bot Telegram not initialized");
+    if (!bot) {
+        const token = getDb()?.settings?.telegramBotToken;
+        if (token) await initTelegram(token);
+    }
+    if (!bot) return Promise.reject(new Error("ربات تلگرام غیرفعال است. لطفاً توکن ربات تلگرام را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
     const fileOptions = { filename: opts?.filename || 'image.png', contentType: opts?.contentType || 'image/png' };
     return bot.sendPhoto(chatId, buffer, { caption: safeCaption, ...opts }, fileOptions);
@@ -137,7 +145,11 @@ export const sendBotPhoto = async (chatId, buffer, caption, opts) => {
 
 export const sendBotDocument = async (chatId, buffer, name, caption) => {
     await ensureBotActive();
-    if (!bot) return Promise.reject(new Error("Bot Telegram not initialized - توکن ربات تلگرام در تنظیمات ثبت نشده است"));
+    if (!bot) {
+        const token = getDb()?.settings?.telegramBotToken;
+        if (token) await initTelegram(token);
+    }
+    if (!bot) return Promise.reject(new Error("ربات تلگرام غیرفعال است. لطفاً توکن ربات تلگرام را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
     return bot.sendDocument(chatId, buffer, { caption: safeCaption }, { filename: name || 'document.pdf', contentType: 'application/pdf' });
 };

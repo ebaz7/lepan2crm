@@ -368,92 +368,93 @@ const buildProductionCaption = (dateStr, totals, waste) => {
 مجموع ضایعات:${totalWaste}`;
 };
 
-// Helper to generate and send daily sales report for a specific Date
-const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', targetsOverride = null) => {
+// Unified Helper to collect all configured bot targets (groups / users) across settings and DB
+const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null } = {}) => {
+    if (customTargets && Array.isArray(customTargets) && customTargets.length > 0) {
+        return customTargets;
+    }
     const settings = db.settings || {};
-    const shamsiFull = utils.toShamsiFull(dateObj.toISOString());
-    const shamsiDate = shamsiFull ? shamsiFull.split(' ')[0].replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)) : ''; // e.g. "1404/05/07"
-    const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
+    const salesTargets = [];
 
-    const salesTargets = targetsOverride ? [...targetsOverride] : [];
-    if (!targetsOverride) {
-        const targetConfigList = [
-            { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
-            { key: 'dailySalesBaleGroupId', plat: 'bale' },
-            { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
-            { key: 'botAccountingGroupIdTele', plat: 'telegram' },
-            { key: 'botAccountingGroupIdBale', plat: 'bale' },
-            { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
-            { key: 'botAccountingGroupId', plat: 'any' },
-            { key: 'reportsGroupId', plat: 'any' },
-            { key: 'telegramReportsGroupId', plat: 'telegram' },
-            { key: 'telegramReportsGroupId2', plat: 'telegram' },
-            { key: 'baleReportsGroupId', plat: 'bale' },
-            { key: 'baleReportsGroupId2', plat: 'bale' },
-            { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
-            { key: 'whatsappReportsGroupId2', plat: 'whatsapp' },
-            { key: 'telegramChatId', plat: 'telegram' },
-            { key: 'baleChatId', plat: 'bale' },
-            { key: 'botDailySalesGroupId', plat: 'any' },
-            { key: 'botDailySalesGroupIdTele', plat: 'telegram' },
-            { key: 'botDailySalesGroupIdBale', plat: 'bale' },
-            { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp' },
-            { key: 'dailySalesGroupId', plat: 'any' },
-            { key: 'salesGroupId', plat: 'any' },
-            { key: 'telegramGroupId', plat: 'telegram' },
-            { key: 'baleGroupId', plat: 'bale' },
-            { key: 'whatsappGroupId', plat: 'whatsapp' }
-        ];
+    const targetConfigList = [
+        { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
+        { key: 'dailySalesBaleGroupId', plat: 'bale' },
+        { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'botDailySalesGroupIdTele', plat: 'telegram' },
+        { key: 'botDailySalesGroupIdBale', plat: 'bale' },
+        { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp' },
+        { key: 'botDailySalesGroupId', plat: 'telegram' },
+        { key: 'dailySalesGroupId', plat: 'telegram' },
+        { key: 'salesGroupId', plat: 'telegram' },
 
-        targetConfigList.forEach(({ key, plat }) => {
-            const val = settings[key];
-            if (val) {
-                if (plat === 'telegram' || (plat === 'any' && settings.telegramBotToken)) {
-                    salesTargets.push({ platform: 'telegram', id: val });
-                }
-                if (plat === 'bale' || (plat === 'any' && settings.baleBotToken)) {
-                    salesTargets.push({ platform: 'bale', id: val });
-                }
-                if (plat === 'whatsapp') {
-                    salesTargets.push({ platform: 'whatsapp', id: val });
-                }
-                if (plat === 'any' && !settings.telegramBotToken && !settings.baleBotToken) {
-                    salesTargets.push({ platform: 'telegram', id: val });
-                    salesTargets.push({ platform: 'bale', id: val });
+        { key: 'botAccountingGroupIdTele', plat: 'telegram' },
+        { key: 'botAccountingGroupIdBale', plat: 'bale' },
+        { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
+        { key: 'botAccountingGroupId', plat: 'telegram' },
+        { key: 'accountingGroupId', plat: 'telegram' },
+
+        { key: 'productionTelegramGroupId', plat: 'telegram' },
+        { key: 'productionBaleGroupId', plat: 'bale' },
+        { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'factoryGroupId', plat: 'telegram' },
+
+        { key: 'reportsGroupId', plat: 'telegram' },
+        { key: 'telegramReportsGroupId', plat: 'telegram' },
+        { key: 'telegramReportsGroupId2', plat: 'telegram' },
+        { key: 'baleReportsGroupId', plat: 'bale' },
+        { key: 'baleReportsGroupId2', plat: 'bale' },
+        { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
+        { key: 'whatsappReportsGroupId2', plat: 'whatsapp' },
+
+        { key: 'telegramChatId', plat: 'telegram' },
+        { key: 'baleChatId', plat: 'bale' },
+        { key: 'telegramGroupId', plat: 'telegram' },
+        { key: 'baleGroupId', plat: 'bale' },
+        { key: 'whatsappGroupId', plat: 'whatsapp' }
+    ];
+
+    targetConfigList.forEach(({ key, plat }) => {
+        const val = settings[key];
+        if (val && platforms.includes(plat)) {
+            salesTargets.push({ platform: plat, id: val });
+        }
+    });
+
+    if (db.groups && Array.isArray(db.groups)) {
+        db.groups.forEach(g => {
+            if (g.chatId) {
+                const plat = g.platform || 'telegram';
+                if (platforms.includes(plat)) {
+                    salesTargets.push({ platform: plat, id: g.chatId });
                 }
             }
         });
+    }
 
-        if (db.groups && Array.isArray(db.groups)) {
-            db.groups.forEach(g => {
-                if (g.chatId) {
-                    if (g.platform) {
-                        salesTargets.push({ platform: g.platform, id: g.chatId });
-                    } else {
-                        if (settings.telegramBotToken) salesTargets.push({ platform: 'telegram', id: g.chatId });
-                        if (settings.baleBotToken) salesTargets.push({ platform: 'bale', id: g.chatId });
-                        if (!settings.telegramBotToken && !settings.baleBotToken) {
-                            salesTargets.push({ platform: 'telegram', id: g.chatId });
-                        }
-                    }
+    if (db.botUsers && Array.isArray(db.botUsers)) {
+        db.botUsers.forEach(u => {
+            if (u.telegramChatId && platforms.includes('telegram')) {
+                salesTargets.push({ platform: 'telegram', id: u.telegramChatId });
+            }
+            if (u.baleChatId && platforms.includes('bale')) {
+                salesTargets.push({ platform: 'bale', id: u.baleChatId });
+            }
+            if (u.whatsappChatId && platforms.includes('whatsapp')) {
+                salesTargets.push({ platform: 'whatsapp', id: u.whatsappChatId });
+            }
+            if (u.chatId && !u.telegramChatId && !u.baleChatId && !u.whatsappChatId) {
+                const plat = u.platform || 'telegram';
+                if (platforms.includes(plat)) {
+                    salesTargets.push({ platform: plat, id: u.chatId });
                 }
-            });
-        }
-
-        // Fallback: Check registered bot users if no explicit group targets configured
-        if (salesTargets.length === 0 && db.botUsers && Array.isArray(db.botUsers)) {
-            db.botUsers.forEach(u => {
-                if (u.chatId) {
-                    salesTargets.push({ platform: u.platform || 'telegram', id: u.chatId });
-                }
-            });
-        }
+            }
+        });
     }
 
     const uniqueSalesTargets = [];
     const seenMap = new Set();
     for (const t of salesTargets) {
-        const cleanId = utils.sanitizeGroupId(t.id);
+        const cleanId = utils.sanitizeGroupId ? utils.sanitizeGroupId(t.id) : String(t.id).trim();
         if (!cleanId) continue;
         const key = `${t.platform}_${cleanId}`;
         if (!seenMap.has(key)) {
@@ -461,6 +462,19 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             uniqueSalesTargets.push({ platform: t.platform, id: cleanId });
         }
     }
+
+    return uniqueSalesTargets;
+};
+
+// Helper to generate and send daily sales report for a specific Date
+const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', targetsOverride = null, selectedPlatforms = null) => {
+    const settings = db.settings || {};
+    const shamsiFull = utils.toShamsiFull(dateObj.toISOString());
+    const shamsiDate = shamsiFull ? shamsiFull.split(' ')[0].replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)) : ''; // e.g. "1404/05/07"
+    const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
+
+    const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
+    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride });
 
     if (uniqueSalesTargets.length === 0) {
         throw new Error('شناسه گروه اطلاع‌رسانی مالی/فروش در تنظیمات ثبت نشده است! جهت ارسال گزارش فروش، لطفاً به بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها -> تنظیمات اطلاع‌رسانی مالی و خروج» بروید و شناسه چت یا گروه تلگرام/بله (مانند 100123456789- یا آیدی عددی) را وارد نمایید.');
@@ -742,61 +756,43 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
     try {
         const db = getDb();
         const settings = db.settings || {};
-        const { chartData, dateFromA, dateToA, dateFromB, dateToB } = req.body;
+        const { chartData, dateFromA, dateToA, dateFromB, dateToB, selectedPlatforms, customTargets } = req.body;
         
         if (!chartData || chartData.length === 0) {
             return res.status(400).json({ error: 'داده‌ای برای ارسال وجود ندارد' });
         }
 
-        const salesTargets = [];
-        if (settings.dailySalesTelegramGroupId) salesTargets.push({ platform: 'telegram', id: settings.dailySalesTelegramGroupId });
-        if (settings.dailySalesBaleGroupId) salesTargets.push({ platform: 'bale', id: settings.dailySalesBaleGroupId });
-        if (settings.dailySalesWhatsappGroupId) salesTargets.push({ platform: 'whatsapp', id: settings.dailySalesWhatsappGroupId });
-        if (settings.botAccountingGroupIdTele) salesTargets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele });
-        if (settings.botAccountingGroupIdBale) salesTargets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
-        if (settings.botAccountingGroupIdWhatsApp) salesTargets.push({ platform: 'whatsapp', id: settings.botAccountingGroupIdWhatsApp });
-        if (settings.botAccountingGroupId) salesTargets.push({ platform: 'telegram', id: settings.botAccountingGroupId });
-        
-        const uniqueSalesTargets = [];
-        const seenMap = new Set();
-        for (const t of salesTargets) {
-            const cleanId = utils.sanitizeGroupId(t.id);
-            if (!cleanId) continue;
-            const key = `${t.platform}_${cleanId}`;
-            if (!seenMap.has(key)) {
-                seenMap.add(key);
-                uniqueSalesTargets.push({ platform: t.platform, id: cleanId });
-            }
-        }
+        const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
+        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets });
         
         if (uniqueSalesTargets.length === 0) {
-            throw new Error('گروهی برای ارسال گزارش فروش (تلگرام یا بله) در تنظیمات سیستم ثبت نشده است.');
+            throw new Error('گروهی برای ارسال گزارش فروش (تلگرام یا بله) در تنظیمات سیستم ثبت نشده است. لطفاً در تنظیمات سیستم -> تب ربات‌ها آیدی گروه مقصد را وارد نمایید.');
         }
 
-        const title = `گزارش مقایسه ای فروش (گروه کالا)`;
-        const columns = ['گروه کالا', 'خالص A', 'فی A', 'مرجوعی A', 'خالص B', 'فی B', 'مرجوعی B', 'تغییر مبلغ'];
+        const title = `گزارش تحلیلی و مقایسه‌ای فروش (دوره A vs دوره B)`;
+        const columns = ['گروه کالا', 'خالص A (ک‌گ)', 'فی A (ریال)', 'مرجوعی A', 'خالص B (ک‌گ)', 'فی B (ریال)', 'مرجوعی B', 'تغییر مبلغ'];
         
         let totalNetAmtA = 0;
         let totalNetAmtB = 0;
 
         const tableRows = chartData.map(row => {
-            const amountDiff = row.netAmountB ? ((row.netAmountA - row.netAmountB) / row.netAmountB) * 100 : 0;
+            const amountDiff = row.netAmountB ? ((row.netAmountA - row.netAmountB) / row.netAmountB) * 100 : (row.netAmountA ? 100 : 0);
             totalNetAmtA += row.netAmountA || 0;
             totalNetAmtB += row.netAmountB || 0;
             
             return [
-                row.name || 'سایر',
-                (row.netWeightA || 0).toFixed(2),
-                (row.netWeightA ? (row.netAmountA / row.netWeightA) : 0).toLocaleString('fa-IR', {maximumFractionDigits:0}),
-                (row.retWeightA || 0).toFixed(2),
-                (row.netWeightB || 0).toFixed(2),
-                (row.netWeightB ? (row.netAmountB / row.netWeightB) : 0).toLocaleString('fa-IR', {maximumFractionDigits:0}),
-                (row.retWeightB || 0).toFixed(2),
+                row.name || row.catName || 'سایر',
+                (row.netWeightA || row.grossWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                Math.round(row.netFeeA || (row.netWeightA ? row.netAmountA / row.netWeightA : 0)).toLocaleString('fa-IR'),
+                (row.retWeightA || row.retWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                (row.netWeightB || row.grossWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                Math.round(row.netFeeB || (row.netWeightB ? row.netAmountB / row.netWeightB : 0)).toLocaleString('fa-IR'),
+                (row.retWeightB || row.retWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
                 (amountDiff > 0 ? '+' : '') + amountDiff.toFixed(1) + '%'
             ];
         });
         
-        const totalDiff = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : 0;
+        const totalDiff = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
         tableRows.push([
             'جمع کل',
             '-',
@@ -811,14 +807,14 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
         const filename = `Compare_Sales_${Date.now()}.pdf`;
         
-        const caption = `📊 *گزارش مقایسه ای فروش سایان*
+        const caption = `📊 *گزارش مقایسه‌ای فروش سایان ERP*
 
-📅 بازه A: ${dateFromA || ''} الی ${dateToA || ''}
-📅 بازه B: ${dateFromB || ''} الی ${dateToB || ''}
+📅 *دوره A (پایه):* ${dateFromA || '---'} الی ${dateToA || '---'}
+📅 *دوره B (تطبیقی):* ${dateFromB || '---'} الی ${dateToB || '---'}
 
-💵 جمع فروش A: ${totalNetAmtA.toLocaleString('fa-IR')} ریال
-💵 جمع فروش B: ${totalNetAmtB.toLocaleString('fa-IR')} ریال
-📈 رشد مبلغ فروش: ${totalDiff.toFixed(1)}%`;
+💵 *فروش کل A:* ${Math.round(totalNetAmtA).toLocaleString('fa-IR')} ریال
+💵 *فروش کل B:* ${Math.round(totalNetAmtB).toLocaleString('fa-IR')} ریال
+📈 *نرخ رشد درآمد:* ${totalDiff.toFixed(1)}%`;
 
         let successfulSends = 0;
         for (const tgt of uniqueSalesTargets) {
@@ -846,12 +842,64 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         }
 
         if (successfulSends === 0) {
-            throw new Error('ارسال گزارش مقایسه‌ای ناموفق بود. خطا در پیام‌رسان‌ها.');
+            throw new Error('ارسال گزارش مقایسه‌ای ناموفق بود. خطا در ارسال به پیام‌رسان‌ها.');
         }
 
-        res.json({ success: true, message: 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال شد.' });
+        res.json({ success: true, message: 'گزارش مقایسه‌ای با موفقیت به پیام‌رسان‌ها ارسال گردید.' });
     } catch (e) {
         console.error("Compare Sales Report Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/sayan/sales-report/download-compare-pdf', async (req, res) => {
+    try {
+        const { chartData, dateFromA, dateToA, dateFromB, dateToB } = req.body;
+        if (!chartData || chartData.length === 0) {
+            return res.status(400).json({ error: 'داده‌ای برای تولید PDF وجود ندارد' });
+        }
+
+        const title = `گزارش تحلیلی و مقایسه‌ای فروش (دوره A: ${dateFromA || '---'} تا ${dateToA || '---'} / دوره B: ${dateFromB || '---'} تا ${dateToB || '---'})`;
+        const columns = ['گروه کالا', 'خالص A (ک‌گ)', 'فی A (ریال)', 'مرجوعی A', 'خالص B (ک‌گ)', 'فی B (ریال)', 'مرجوعی B', 'تغییر مبلغ'];
+        
+        let totalNetAmtA = 0;
+        let totalNetAmtB = 0;
+
+        const tableRows = chartData.map(row => {
+            const amountDiff = row.netAmountB ? ((row.netAmountA - row.netAmountB) / row.netAmountB) * 100 : (row.netAmountA ? 100 : 0);
+            totalNetAmtA += row.netAmountA || 0;
+            totalNetAmtB += row.netAmountB || 0;
+            
+            return [
+                row.name || row.catName || 'سایر',
+                (row.netWeightA || row.grossWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                Math.round(row.netFeeA || (row.netWeightA ? row.netAmountA / row.netWeightA : 0)).toLocaleString('fa-IR'),
+                (row.retWeightA || row.retWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                (row.netWeightB || row.grossWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                Math.round(row.netFeeB || (row.netWeightB ? row.netAmountB / row.netWeightB : 0)).toLocaleString('fa-IR'),
+                (row.retWeightB || row.retWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                (amountDiff > 0 ? '+' : '') + amountDiff.toFixed(1) + '%'
+            ];
+        });
+        
+        const totalDiff = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+        tableRows.push([
+            'جمع کل',
+            '-',
+            '-',
+            '-',
+            '-',
+            '-',
+            '-',
+            (totalDiff > 0 ? '+' : '') + totalDiff.toFixed(1) + '%'
+        ]);
+
+        const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Compare_Sales_Report_${Date.now()}.pdf"`);
+        res.send(pdfBuffer);
+    } catch (e) {
+        console.error("Download Compare PDF Error:", e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -864,40 +912,11 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
 
         const title = `داشبورد مدیریتی گزارش فروش سایان ERP (${dateFrom || 'امروز'} تا ${dateTo || 'امروز'})`;
 
-        let targets = [];
-        if (customTargets && customTargets.length > 0) {
-            targets = customTargets;
-        } else {
-            const platforms = selectedPlatforms || ['telegram', 'bale', 'whatsapp'];
-            if (platforms.includes('telegram')) {
-                if (settings.dailySalesTelegramGroupId) targets.push({ platform: 'telegram', id: settings.dailySalesTelegramGroupId });
-                if (settings.botAccountingGroupIdTele) targets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele });
-                if (settings.botAccountingGroupId) targets.push({ platform: 'telegram', id: settings.botAccountingGroupId });
-            }
-            if (platforms.includes('bale')) {
-                if (settings.dailySalesBaleGroupId) targets.push({ platform: 'bale', id: settings.dailySalesBaleGroupId });
-                if (settings.botAccountingGroupIdBale) targets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
-            }
-            if (platforms.includes('whatsapp')) {
-                if (settings.dailySalesWhatsappGroupId) targets.push({ platform: 'whatsapp', id: settings.dailySalesWhatsappGroupId });
-                if (settings.botAccountingGroupIdWhatsApp) targets.push({ platform: 'whatsapp', id: settings.botAccountingGroupIdWhatsApp });
-            }
-        }
-
-        const uniqueTargets = [];
-        const seenMap = new Set();
-        for (const t of targets) {
-            const cleanId = utils.sanitizeGroupId(t.id);
-            if (!cleanId) continue;
-            const key = `${t.platform}_${cleanId}`;
-            if (!seenMap.has(key)) {
-                seenMap.add(key);
-                uniqueTargets.push({ platform: t.platform, id: cleanId });
-            }
-        }
+        const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
+        const uniqueTargets = collectBotTargets(db, { platforms, customTargets });
 
         if (uniqueTargets.length === 0) {
-            throw new Error('هیچ گروه مقصد معتبری برای ارسال در تنظیمات یا فرم انتخاب نشده است.');
+            throw new Error('هیچ شناسه گروه یا چت مقصد برای پیام‌رسان‌های انتخاب شده یافت نشد. لطفاً در بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها» شناسه چت یا گروه تلگرام/بله را وارد نمایید.');
         }
 
         const columns = ['ردیف', 'گروه اصلی کالا', 'وزن خالص (ک‌گ)', 'فروش خالص (ریال)', 'فی نهایی (ریال/ک‌گ)', 'سهم %'];
@@ -1295,45 +1314,7 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
         const filename = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.pdf`;
         const settings = db.settings || {};
         
-        // Collect target chat/group IDs
-        const targetIds = [];
-        if (settings.productionTelegramGroupId) targetIds.push({ platform: 'telegram', id: settings.productionTelegramGroupId });
-        if (settings.productionBaleGroupId) targetIds.push({ platform: 'bale', id: settings.productionBaleGroupId });
-        if (settings.productionWhatsappGroupId) targetIds.push({ platform: 'whatsapp', id: settings.productionWhatsappGroupId });
-        if (settings.factoryGroupId) targetIds.push({ platform: 'telegram', id: settings.factoryGroupId });
-        if (settings.accountingGroupId) targetIds.push({ platform: 'telegram', id: settings.accountingGroupId });
-        if (settings.botAccountingGroupIdTele) targetIds.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele });
-        if (settings.botAccountingGroupIdBale) targetIds.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
-        if (settings.botAccountingGroupIdWhatsApp) targetIds.push({ platform: 'whatsapp', id: settings.botAccountingGroupIdWhatsApp });
-        if (settings.botAccountingGroupId) targetIds.push({ platform: 'telegram', id: settings.botAccountingGroupId });
-        if (settings.reportsGroupId) targetIds.push({ platform: 'telegram', id: settings.reportsGroupId });
-        if (settings.telegramReportsGroupId) targetIds.push({ platform: 'telegram', id: settings.telegramReportsGroupId });
-        if (settings.telegramReportsGroupId2) targetIds.push({ platform: 'telegram', id: settings.telegramReportsGroupId2 });
-        if (settings.baleReportsGroupId) targetIds.push({ platform: 'bale', id: settings.baleReportsGroupId });
-        if (settings.baleReportsGroupId2) targetIds.push({ platform: 'bale', id: settings.baleReportsGroupId2 });
-        if (settings.whatsappReportsGroupId) targetIds.push({ platform: 'whatsapp', id: settings.whatsappReportsGroupId });
-        if (settings.whatsappReportsGroupId2) targetIds.push({ platform: 'whatsapp', id: settings.whatsappReportsGroupId2 });
-        if (settings.telegramChatId) targetIds.push({ platform: 'telegram', id: settings.telegramChatId });
-        if (settings.baleChatId) targetIds.push({ platform: 'bale', id: settings.baleChatId });
-        
-        // Add any subscribed groups from db
-        if (db.groups && Array.isArray(db.groups)) {
-            db.groups.forEach(g => {
-                if (g.chatId) targetIds.push({ platform: g.platform || 'telegram', id: g.chatId });
-            });
-        }
-
-        const uniqueTargets = [];
-        const seenSet = new Set();
-        for (const t of targetIds) {
-            const cleanId = utils.sanitizeGroupId(t.id);
-            if (!cleanId) continue;
-            const key = `${t.platform}:${cleanId}`;
-            if (!seenSet.has(key)) {
-                seenSet.add(key);
-                uniqueTargets.push({ platform: t.platform, id: cleanId });
-            }
-        }
+        const uniqueTargets = collectBotTargets(db);
 
         if (uniqueTargets.length === 0) {
             return res.status(400).json({ error: 'هیچ شناسه گروه یا چت باتی در تنظیمات سیستم یافت نشد.' });
@@ -1383,19 +1364,37 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
 app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     try {
         const db = getDb();
-        const { targetDate } = req.body; // 'today' or 'yesterday'
+        const { targetDate, date, label, selectedPlatforms, customTargets } = req.body;
         
         let dateObj = new Date();
-        let label = 'امروز';
+        let labelSuffix = label || 'امروز';
+
         if (targetDate === 'yesterday') {
             dateObj.setDate(dateObj.getDate() - 1);
-            label = 'دیروز';
+            labelSuffix = label || 'دیروز';
+        } else if (targetDate === 'today') {
+            labelSuffix = label || 'امروز';
+        } else if (date) {
+            if (typeof date === 'string' && date.includes('/')) {
+                // Shamsi date passed e.g. "1404/05/10"
+                const parts = date.split('/');
+                if (parts.length === 3) {
+                    const jy = parseInt(parts[0], 10);
+                    const jm = parseInt(parts[1], 10);
+                    const jd = parseInt(parts[2], 10);
+                    const g = jalaali.toGregorian(jy, jm, jd);
+                    dateObj = new Date(g.gy, g.gm - 1, g.gd);
+                }
+            } else {
+                dateObj = new Date(date);
+            }
+            labelSuffix = label || date;
         }
 
-        const result = await sendDailySalesReportForDate(db, dateObj, label);
+        const result = await sendDailySalesReportForDate(db, dateObj, labelSuffix, customTargets, selectedPlatforms);
         res.json({
             success: true,
-            message: `گزارش فروش ${label} با موفقیت به پیام‌رسان‌ها ارسال شد.`,
+            message: `گزارش فروش ${labelSuffix} با موفقیت به پیام‌رسان‌ها ارسال شد.`,
             result
         });
     } catch (e) {
@@ -2409,7 +2408,7 @@ Structure:
 Ensure the text is valid Persian, correctly formatted with newlines (\\n) between hemistiches (mishraas), and do not include any markdown styling. Only return raw JSON. Give a highly unique poem from Hafez, Saadi, Rumi, Khayyam, Ferdowsi, Sohrab Sepehri, Shamlou, Sayeh, Parvin Etesami, etc.`;
 
             const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
+                model: "gemini-2.0-flash",
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
