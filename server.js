@@ -2323,7 +2323,20 @@ app.get('/api/quote/random', async (req, res) => {
     const db = getDb();
     const settings = db.settings || {};
     const apiKey = process.env.GEMINI_API_KEY || settings.geminiApiKey;
-    
+
+    const fetchWithTimeout = async (url, ms = 4000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            return response;
+        } catch (e) {
+            clearTimeout(timer);
+            throw e;
+        }
+    };
+
     const fallbacks = [
         { text: "سعدیا مرد نکونام نمیرد هرگز\nمرده آن است که نامش به نکویی نبرند", author: "سعدی" },
         { text: "بنی آدم اعضای یک پیکرند\nکه در آفرینش ز یک گوهرند", author: "سعدی" },
@@ -2347,6 +2360,43 @@ app.get('/api/quote/random', async (req, res) => {
         { text: "از حادثه لرزند به خود قصرنشینان\nما خانه به دوشان غم طوفان نداریم", author: "صائب تبریزی" }
     ];
 
+    // Priority 1: Try fetching online live poem from Iranian poetry site Ganjoor (80% chance or if no Gemini key)
+    const tryGanjoor = Math.random() < 0.75 || !apiKey;
+    if (tryGanjoor) {
+        try {
+            const isFaal = Math.random() < 0.25;
+            const endpoint = isFaal ? 'https://api.ganjoor.net/api/ganjoor/hafez/faal' : 'https://api.ganjoor.net/api/ganjoor/poem/random';
+            const ganjoorRes = await fetchWithTimeout(endpoint, 3500);
+            if (ganjoorRes.ok) {
+                const data = await ganjoorRes.json();
+                let poet = isFaal ? 'حافظ شیرازی' : 'شاعر پارسی‌گو';
+                if (data.fullTitle) {
+                    poet = data.fullTitle.split(' » ')[0].trim();
+                }
+                
+                let lines = (data.plainText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                if (lines.length > 4) {
+                    const maxStart = Math.max(0, lines.length - 4);
+                    const startIdx = Math.floor(Math.random() * (maxStart + 1));
+                    lines = lines.slice(startIdx, startIdx + 4);
+                }
+
+                if (lines.length >= 2) {
+                    const cleanText = lines.join('\n');
+                    return res.json({
+                        text: cleanText,
+                        author: poet,
+                        source: isFaal ? 'فال حافظ (گنجور آنلاین)' : 'گنجور آنلاین (ganjoor.net)',
+                        title: data.title || data.fullTitle
+                    });
+                }
+            }
+        } catch (err) {
+            console.log("Ganjoor online fetch notice:", err.message);
+        }
+    }
+
+    // Priority 2: Try Gemini AI online generation
     if (apiKey) {
         try {
             const ai = new GoogleGenAI({ apiKey });
@@ -2368,16 +2418,26 @@ Ensure the text is valid Persian, correctly formatted with newlines (\\n) betwee
             if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
                 if (parsed.text && parsed.author) {
-                    return res.json({ text: parsed.text.trim(), author: parsed.author.trim() });
+                    return res.json({
+                        text: parsed.text.trim(),
+                        author: parsed.author.trim(),
+                        source: 'هوش مصنوعی جمینای',
+                        title: 'شعر هوشمند'
+                    });
                 }
             }
         } catch (e) {
-            console.error("Failed to generate poetry with Gemini, using random fallback:", e);
+            console.error("Failed to generate poetry with Gemini:", e.message);
         }
     }
 
+    // Priority 3: Curated offline fallback
     const randomIdx = Math.floor(Math.random() * fallbacks.length);
-    res.json(fallbacks[randomIdx]);
+    const selected = fallbacks[randomIdx];
+    res.json({
+        ...selected,
+        source: 'دیوان اشعار پارسی'
+    });
 });
 
 app.get('/manifest.json', (req, res) => {
