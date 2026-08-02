@@ -2431,11 +2431,7 @@ app.post('/api/emergency-restore', (req, res) => {
 app.get('/api/version', (req, res) => { res.json({ version: '1.3.1' }); });
 
 app.get('/api/quote/random', async (req, res) => {
-    const db = getDb();
-    const settings = db.settings || {};
-    const apiKey = process.env.GEMINI_API_KEY || settings.geminiApiKey;
-
-    const fetchWithTimeout = async (url, ms = 4000) => {
+    const fetchWithTimeout = async (url, ms = 3000) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), ms);
         try {
@@ -2468,86 +2464,110 @@ app.get('/api/quote/random', async (req, res) => {
         { text: "تو مگو همه به جنگند و ز صلح من چه آید\nتو یکی نه‌ای هزاری تو چراغ خود برافروز", author: "مولانا" },
         { text: "توانا بود هر که دانا بود\nز دانش دل پیر برنا بود", author: "فردوسی" },
         { text: "چون عهده نمی‌شود کسی فردا را\nحالی خوش کن تو این دل شیدا را", author: "خیام" },
-        { text: "از حادثه لرزند به خود قصرنشینان\nما خانه به دوشان غم طوفان نداریم", author: "صائب تبریزی" }
+        { text: "از حادثه لرزند به خود قصرنشینان\nما خانه به دوشان غم طوفان نداریم", author: "صائب تبریزی" },
+        { text: "به راه بادیه رفتن به از نشستن باطل\nکه گر مراد نیابم به قدر وسع بکوشم", author: "سعدی" },
+        { text: "روزگار است این که گه عزت دهد گه خار دارد\nچرخ بازیگر از این بازیچه‌ها بسیار دارد", author: "قائم مقام فراهانی" },
+        { text: "عمر برف است و آفتاب تموز\nاندکی ماند و خواجه غره هنوز", author: "سعدی" },
+        { text: "مکن ز غصه شکایت که در طریق طلب\nبه راحتی نرسید آن که زحمتی نکشید", author: "حافظ" },
+        { text: "درخت دوستی بنشان که کام دل به بار آرد\nنهال دشمنی برکن که رنج بی‌شمار آرد", author: "حافظ" },
+        { text: "همت بلند دار که مردان روزگار\nاز همت بلند به جایی رسیده‌اند", author: "سعدی" },
+        { text: "گوهر پاک بباید که دگرگون نشود\nورنه هر سنگ و گلی گوهر نایاب شد", author: "پروین اعتصامی" },
+        { text: "اندیشه کردن به کار نکو\nسودمندتر از خود کار نکوست", author: "امیرخسرو دهلوی" },
+        { text: "گرت پایداری است در کار خویش\nشوی کامران سر فراز از پس خویش", author: "فردوسی" },
+        { text: "هیچ گنجی به از هنر نبود\nپیش دانا نکوتر از زر نبود", author: "فردوسی" },
+        { text: "مردی آن نیست که بر تن بکشی جامهٔ زر\nمردی آن است که بر خلق خدا سود رسد", author: "سعدی" },
+        { text: "به رنج اندر است ای خردمند گنج\nنیابد کسی گنج نابرده رنج", author: "فردوسی" },
+        { text: "اگر هنر داری و فضل و کمال\nبه کوش و دگرگون مکن این جمال", author: "سعدی" }
     ];
 
-    // Priority 1: Try fetching online live poem from Iranian poetry site Ganjoor (80% chance or if no Gemini key)
-    const tryGanjoor = Math.random() < 0.75 || !apiKey;
-    if (tryGanjoor) {
-        try {
-            const isFaal = Math.random() < 0.25;
-            const endpoint = isFaal ? 'https://api.ganjoor.net/api/ganjoor/hafez/faal' : 'https://api.ganjoor.net/api/ganjoor/poem/random';
-            const ganjoorRes = await fetchWithTimeout(endpoint, 3500);
-            if (ganjoorRes.ok) {
-                const data = await ganjoorRes.json();
-                let poet = isFaal ? 'حافظ شیرازی' : 'شاعر پارسی‌گو';
+    const sources = [
+        async () => {
+            // Source 1: Ganjoor Random Single Verse (c.ganjoor.net/beyt-json.php) - highly fast and reliable
+            const res = await fetchWithTimeout('https://c.ganjoor.net/beyt-json.php', 3000);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.m1 && data.m2) {
+                    return {
+                        text: `${data.m1}\n${data.m2}`,
+                        author: data.poet || 'شاعر پارسی‌گو',
+                        source: 'تک‌بیت تصادفی (c.ganjoor.net)',
+                        title: 'گنجور آنلاین'
+                    };
+                }
+            }
+            throw new Error("Invalid response from beyt-json.php");
+        },
+        async () => {
+            // Source 2: Ganjoor Poem API
+            const res = await fetchWithTimeout('https://api.ganjoor.net/api/ganjoor/poem/random', 3000);
+            if (res.ok) {
+                const data = await res.json();
+                let poet = 'شاعر پارسی‌گو';
                 if (data.fullTitle) {
                     poet = data.fullTitle.split(' » ')[0].trim();
                 }
-                
                 let lines = (data.plainText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                 if (lines.length > 4) {
                     const maxStart = Math.max(0, lines.length - 4);
                     const startIdx = Math.floor(Math.random() * (maxStart + 1));
                     lines = lines.slice(startIdx, startIdx + 4);
                 }
-
                 if (lines.length >= 2) {
-                    const cleanText = lines.join('\n');
-                    return res.json({
-                        text: cleanText,
+                    return {
+                        text: lines.join('\n'),
                         author: poet,
-                        source: isFaal ? 'فال حافظ (گنجور آنلاین)' : 'گنجور آنلاین (ganjoor.net)',
+                        source: 'شعر تصادفی (api.ganjoor.net)',
                         title: data.title || data.fullTitle
-                    });
+                    };
                 }
             }
-        } catch (err) {
-            console.log("Ganjoor online fetch notice:", err.message);
-        }
-    }
-
-    // Priority 2: Try Gemini AI online generation
-    if (apiKey) {
-        try {
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `Return a JSON object containing a beautiful random verse of Persian poetry (maximum 2-4 lines/beyts) with a deep, inspiring, or warm business/human/wisdom theme, and its author.
-Structure:
-{
-  "text": "بنی آدم اعضای یک پیکرند\\nکه در آفرینش ز یک گوهرند",
-  "author": "سعدی"
-}
-Ensure the text is valid Persian, correctly formatted with newlines (\\n) between hemistiches (mishraas), and do not include any markdown styling. Only return raw JSON. Give a highly unique poem from Hafez, Saadi, Rumi, Khayyam, Ferdowsi, Sohrab Sepehri, Shamlou, Sayeh, Parvin Etesami, etc.`;
-
-            const response = await ai.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            });
-
-            const textResponse = response.text || "";
-            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.text && parsed.author) {
-                    return res.json({
-                        text: parsed.text.trim(),
-                        author: parsed.author.trim(),
-                        source: 'هوش مصنوعی جمینای',
-                        title: 'شعر هوشمند'
-                    });
+            throw new Error("Invalid response from poem/random");
+        },
+        async () => {
+            // Source 3: Ganjoor Hafez Fal API
+            const res = await fetchWithTimeout('https://api.ganjoor.net/api/ganjoor/hafez/faal', 3000);
+            if (res.ok) {
+                const data = await res.json();
+                let lines = (data.plainText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                if (lines.length > 4) {
+                    const maxStart = Math.max(0, lines.length - 4);
+                    const startIdx = Math.floor(Math.random() * (maxStart + 1));
+                    lines = lines.slice(startIdx, startIdx + 4);
                 }
+                if (lines.length >= 2) {
+                    return {
+                        text: lines.join('\n'),
+                        author: 'حافظ شیرازی',
+                        source: 'فال حافظ (api.ganjoor.net)',
+                        title: data.title || data.fullTitle
+                    };
+                }
+            }
+            throw new Error("Invalid response from hafez/faal");
+        }
+    ];
+
+    // Shuffle sources to rotate requests nicely
+    const shuffledSources = [...sources].sort(() => Math.random() - 0.5);
+
+    for (const fetchSource of shuffledSources) {
+        try {
+            const quote = await fetchSource();
+            if (quote && quote.text) {
+                return res.json(quote);
             }
         } catch (e) {
-            console.error("Failed to generate poetry with Gemini:", e.message);
+            console.log("Online source fetch failed, trying next. Error:", e.message);
         }
     }
 
-    // Priority 3: Curated offline fallback
+    // Curated offline fallback if all online attempts fail
     const randomIdx = Math.floor(Math.random() * fallbacks.length);
     const selected = fallbacks[randomIdx];
     res.json({
         ...selected,
-        source: 'دیوان اشعار پارسی'
+        source: 'دیوان اشعار پارسی (آفلاین)',
+        title: 'شعر پارسی'
     });
 });
 
