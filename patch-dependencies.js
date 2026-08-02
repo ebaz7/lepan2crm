@@ -27,7 +27,7 @@ try {
   console.error('Error while patching @capgo/capacitor-share-target build.gradle:', error);
 }
 
-// 2. Patch node-windows to bypass local folder/file "NET" conflicts
+// 2. Patch node-windows to bypass local folder/file "NET" conflicts using net.exe with no absolute paths
 try {
   const daemonPath = path.join(process.cwd(), 'node_modules/node-windows/lib/daemon.js');
   if (fs.existsSync(daemonPath)) {
@@ -35,26 +35,37 @@ try {
     let content = fs.readFileSync(daemonPath, 'utf8');
     let modified = false;
     
-    if (content.includes("NET START")) {
-      content = content.replaceAll("NET START", "C:\\\\Windows\\\\System32\\\\net.exe START");
-      modified = true;
-    }
-    if (content.includes("NET STOP")) {
-      content = content.replaceAll("NET STOP", "C:\\\\Windows\\\\System32\\\\net.exe STOP");
+    // Clean up any old absolute paths first
+    if (content.includes("C:\\\\Windows\\\\System32\\\\net.exe START")) {
+      content = content.replaceAll("C:\\\\Windows\\\\System32\\\\net.exe START", "net.exe START");
       modified = true;
     }
     if (content.includes("C:\\Windows\\System32\\net.exe START")) {
-      content = content.replaceAll("C:\\Windows\\System32\\net.exe START", "C:\\\\Windows\\\\System32\\\\net.exe START");
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe START", "net.exe START");
+      modified = true;
+    }
+    if (content.includes("C:\\\\Windows\\\\System32\\\\net.exe STOP")) {
+      content = content.replaceAll("C:\\\\Windows\\\\System32\\\\net.exe STOP", "net.exe STOP");
       modified = true;
     }
     if (content.includes("C:\\Windows\\System32\\net.exe STOP")) {
-      content = content.replaceAll("C:\\Windows\\System32\\net.exe STOP", "C:\\\\Windows\\\\System32\\\\net.exe STOP");
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe STOP", "net.exe STOP");
+      modified = true;
+    }
+
+    // Apply the clean net.exe patch
+    if (content.includes("NET START")) {
+      content = content.replaceAll("NET START", "net.exe START");
+      modified = true;
+    }
+    if (content.includes("NET STOP")) {
+      content = content.replaceAll("NET STOP", "net.exe STOP");
       modified = true;
     }
     
     if (modified) {
       fs.writeFileSync(daemonPath, content, 'utf8');
-      console.log('Successfully patched node-windows daemon.js with absolute paths to net.exe!');
+      console.log('Successfully patched node-windows daemon.js to use net.exe!');
     } else {
       console.log('node-windows daemon.js already patched or no matches found.');
     }
@@ -66,18 +77,25 @@ try {
     let content = fs.readFileSync(cmdPath, 'utf8');
     let modified = false;
     
-    if (content.includes("NET SESSION")) {
-      content = content.replaceAll("NET SESSION", "C:\\\\Windows\\\\System32\\\\net.exe SESSION");
+    // Clean up any old absolute paths first
+    if (content.includes("C:\\\\Windows\\\\System32\\\\net.exe SESSION")) {
+      content = content.replaceAll("C:\\\\Windows\\\\System32\\\\net.exe SESSION", "net.exe SESSION");
       modified = true;
     }
     if (content.includes("C:\\Windows\\System32\\net.exe SESSION")) {
-      content = content.replaceAll("C:\\Windows\\System32\\net.exe SESSION", "C:\\\\Windows\\\\System32\\\\net.exe SESSION");
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe SESSION", "net.exe SESSION");
+      modified = true;
+    }
+
+    // Apply the clean net.exe patch
+    if (content.includes("NET SESSION")) {
+      content = content.replaceAll("NET SESSION", "net.exe SESSION");
       modified = true;
     }
     
     if (modified) {
       fs.writeFileSync(cmdPath, content, 'utf8');
-      console.log('Successfully patched node-windows cmd.js with absolute paths to net.exe!');
+      console.log('Successfully patched node-windows cmd.js to use net.exe!');
     } else {
       console.log('node-windows cmd.js already patched or no matches found.');
     }
