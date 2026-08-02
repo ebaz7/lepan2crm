@@ -114,13 +114,27 @@ function formatWeight(kg: number): string {
 }
 
 function toShamsiStr(dateIso: string): string {
+  if (!dateIso) return '-';
   try {
+    // 1. Direct string-based parsing (completely timezone-agnostic)
+    const match = dateIso.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+    if (match) {
+      const gy = parseInt(match[1], 10);
+      const gm = parseInt(match[2], 10);
+      const gd = parseInt(match[3], 10);
+      const j = jalaali.toJalaali(gy, gm, gd);
+      return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+    }
+
+    // 2. Fallback to Date object with explicit Iran Time (UTC+3:30) shift to prevent browser timezone shift
     const d = new Date(dateIso);
     if (isNaN(d.getTime())) return '-';
-    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    const m = String(j.jm).padStart(2, '0');
-    const day = String(j.jd).padStart(2, '0');
-    return `${j.jy}/${m}/${day}`;
+    const iranTime = new Date(d.getTime() + (3.5 * 60 * 60 * 1000));
+    const y = iranTime.getUTCFullYear();
+    const m = iranTime.getUTCMonth() + 1;
+    const day = iranTime.getUTCDate();
+    const j = jalaali.toJalaali(y, m, day);
+    return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
   } catch (e) {
     return '-';
   }
@@ -354,7 +368,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
       const isReturn = row.OpCode === '13';
-      const rowDate = new Date(row.Date);
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
       const custName = row.CustomerName || 'مشتری متفرقه';
       const majorCat = classifyMajorCategory(row.GroupName, row.ItemName);
@@ -372,7 +385,24 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       }
 
       // Check dates for Today / Month / Quarter / Year
-      const jRow = jalaali.toJalaali(rowDate.getFullYear(), rowDate.getMonth() + 1, rowDate.getDate());
+      const jRow = (() => {
+        if (!row.Date) return { jy: 0, jm: 0, jd: 0 };
+        try {
+          const match = row.Date.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+          if (match) {
+            const gy = parseInt(match[1], 10);
+            const gm = parseInt(match[2], 10);
+            const gd = parseInt(match[3], 10);
+            return jalaali.toJalaali(gy, gm, gd);
+          }
+          const d = new Date(row.Date);
+          if (isNaN(d.getTime())) return { jy: 0, jm: 0, jd: 0 };
+          const iranTime = new Date(d.getTime() + (3.5 * 60 * 60 * 1000));
+          return jalaali.toJalaali(iranTime.getUTCFullYear(), iranTime.getUTCMonth() + 1, iranTime.getUTCDate());
+        } catch {
+          return { jy: 0, jm: 0, jd: 0 };
+        }
+      })();
       
       // Today
       if (jRow.jy === jNow.jy && jRow.jm === jNow.jm && jRow.jd === jNow.jd) {

@@ -209,31 +209,60 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return { moein: '', code: '' };
     };
 
+    const getActiveFiscalYearLabel = () => {
+        if (settings?.fiscalYears && Array.isArray(settings.fiscalYears)) {
+            const found = settings.fiscalYears.find((y: any) => y.id === settings.activeFiscalYearId);
+            if (found && found.label) {
+                const match = found.label.match(/\d+/);
+                if (match) return parseInt(match[0], 10);
+            }
+        }
+        const today = new Date();
+        const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+        return jToday.jy;
+    };
+
+    const getDefaultEndDate = (activeYear: number, jToday: any) => {
+        if (jToday.jy > activeYear) {
+            return `${activeYear}/12/29`;
+        } else if (jToday.jy < activeYear) {
+            return `${activeYear}/01/01`;
+        } else {
+            return `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+        }
+    };
+
     useEffect(() => {
         // Initialize Date range directly in Shamsi
         const today = new Date();
         const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
         
-        // Since active year is 1404, we default to 1404/01/01 as start date and today as end date
-        const activeYear = jToday.jy === 1405 ? 1404 : jToday.jy;
+        const activeYear = getActiveFiscalYearLabel();
         
         const savedFrom = localStorage.getItem('sayan_default_date_from');
         const savedTo = localStorage.getItem('sayan_default_date_to');
         
         const initialFrom = savedFrom || `${activeYear}/01/01`;
-        const initialTo = savedTo || `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+        const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
         
         setDateFrom(initialFrom);
         setDateTo(initialTo);
 
-        // Previous year default for comparisons
-        const startPrev = `${activeYear - 1}/01/01`;
-        const endPrev = `${jToday.jy - 1}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+        // Previous year default for comparisons (shifted by -1 year relative to Period A)
+        const shiftShamsiYear = (shamsiStr: string, delta: number) => {
+            if (!shamsiStr) return '';
+            const p = shamsiStr.split('/');
+            if (p.length !== 3) return shamsiStr;
+            const y = parseInt(p[0], 10);
+            return `${y + delta}/${p[1]}/${p[2]}`;
+        };
+        const startPrev = shiftShamsiYear(initialFrom, -1);
+        const endPrev = shiftShamsiYear(initialTo, -1);
         setSalesDateFromB(startPrev);
         setSalesDateToB(endPrev);
 
         fetchTafsilis();
-    }, []);
+    }, [settings?.activeFiscalYearId]);
 
     const applyQuickDate = (mode: 'today' | 'yesterday' | 'month' | 'quarter' | 'default') => {
         const today = new Date();
@@ -286,11 +315,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             setDateTo(endStr);
             toast.success(`بازه زمانی به فصل جاری (${quarterName}: ${startStr} تا ${endStr}) تغییر یافت.`);
         } else if (mode === 'default') {
-            const activeYear = jToday.jy === 1405 ? 1404 : jToday.jy;
+            const activeYear = getActiveFiscalYearLabel();
             const savedFrom = localStorage.getItem('sayan_default_date_from');
             const savedTo = localStorage.getItem('sayan_default_date_to');
             const initialFrom = savedFrom || `${activeYear}/01/01`;
-            const initialTo = savedTo || `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+            const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
             setDateFrom(initialFrom);
             setDateTo(initialTo);
             toast.success(`بازه زمانی به حالت پیش‌فرض بازنشانی شد.`);
@@ -1018,9 +1047,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const now = new Date();
         const jNow = jalaali.toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        const activeYear = getActiveFiscalYearLabel();
+        const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const date = new Date(row.Date);
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
@@ -1033,10 +1063,27 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 stats.rangeSalesQty += qty;
             }
             
-            const jRow = jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+            const jRow = (() => {
+                if (!row.Date) return { jy: 0, jm: 0, jd: 0 };
+                try {
+                    const match = row.Date.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+                    if (match) {
+                        const gy = parseInt(match[1], 10);
+                        const gm = parseInt(match[2], 10);
+                        const gd = parseInt(match[3], 10);
+                        return jalaali.toJalaali(gy, gm, gd);
+                    }
+                    const d = new Date(row.Date);
+                    if (isNaN(d.getTime())) return { jy: 0, jm: 0, jd: 0 };
+                    const iranTime = new Date(d.getTime() + (3.5 * 60 * 60 * 1000));
+                    return jalaali.toJalaali(iranTime.getUTCFullYear(), iranTime.getUTCMonth() + 1, iranTime.getUTCDate());
+                } catch {
+                    return { jy: 0, jm: 0, jd: 0 };
+                }
+            })();
 
-            // Yearly (Current Persian Year)
-            if (jRow.jy === jNow.jy) {
+            // Yearly (Active/Selected Fiscal Year)
+            if (jRow.jy === activeYearNum) {
                 if (isReturn) {
                     stats.yearRetAmt += amt;
                     stats.yearRetQty += qty;
@@ -1045,7 +1092,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     stats.yearSalesQty += qty;
                 }
 
-                // Monthly (Current Persian Month)
+                // Monthly (Current Persian Month or loaded month matches)
                 if (jRow.jm === jNow.jm) {
                     if (isReturn) {
                         stats.monthRetAmt += amt;
@@ -1203,7 +1250,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const res = await fetch('/api/sayan/sales-report/send-manual', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetDate })
+                body: JSON.stringify({ 
+                    targetDate,
+                    activeYear: getActiveFiscalYearLabel()
+                })
             });
             const data = await res.json();
             if (data.success) {

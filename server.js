@@ -450,6 +450,20 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         });
     }
 
+    if (settings.savedContacts && Array.isArray(settings.savedContacts)) {
+        settings.savedContacts.forEach(c => {
+            if (c.telegramId && platforms.includes('telegram')) {
+                salesTargets.push({ platform: 'telegram', id: c.telegramId });
+            }
+            if (c.baleId && platforms.includes('bale')) {
+                salesTargets.push({ platform: 'bale', id: c.baleId });
+            }
+            if (c.number && platforms.includes('whatsapp')) {
+                salesTargets.push({ platform: 'whatsapp', id: c.number });
+            }
+        });
+    }
+
     const uniqueSalesTargets = [];
     const seenMap = new Set();
     for (const t of salesTargets) {
@@ -1445,16 +1459,36 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
 app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     try {
         const db = getDb();
-        const { targetDate, date, label, selectedPlatforms, customTargets } = req.body;
+        const { targetDate, date, label, selectedPlatforms, customTargets, activeYear } = req.body;
         
         let dateObj = new Date();
         let labelSuffix = label || 'امروز';
 
-        if (targetDate === 'yesterday') {
-            dateObj.setDate(dateObj.getDate() - 1);
-            labelSuffix = label || 'دیروز';
-        } else if (targetDate === 'today') {
-            labelSuffix = label || 'امروز';
+        if (targetDate === 'today' || targetDate === 'yesterday') {
+            const today = new Date();
+            const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+            let targetY = activeYear ? parseInt(activeYear, 10) : jToday.jy;
+            if (isNaN(targetY)) targetY = jToday.jy;
+
+            let targetJalaliStr = '';
+            if (targetDate === 'today') {
+                targetJalaliStr = `${targetY}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+                labelSuffix = label || `امروز (${targetJalaliStr})`;
+            } else if (targetDate === 'yesterday') {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const jYest = jalaali.toJalaali(yesterday.getFullYear(), yesterday.getMonth() + 1, yesterday.getDate());
+                targetJalaliStr = `${targetY}/${String(jYest.jm).padStart(2, '0')}/${String(jYest.jd).padStart(2, '0')}`;
+                labelSuffix = label || `دیروز (${targetJalaliStr})`;
+            }
+
+            if (targetJalaliStr) {
+                const gregStr = parseJalaliStrToGregorian(targetJalaliStr);
+                if (gregStr) {
+                    const parts = gregStr.split('-').map(x => parseInt(x, 10));
+                    dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+                }
+            }
         } else if (date) {
             if (typeof date === 'string' && (date.includes('/') || date.includes('.') || date.includes('-'))) {
                 // Shamsi date passed e.g. "1404/05/10" or "1.1.404"

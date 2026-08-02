@@ -14,11 +14,11 @@ function runPreflightPatch() {
       let content = fs.readFileSync(daemonPath, 'utf8');
       let modified = false;
       if (content.includes("NET START")) {
-        content = content.replaceAll("NET START", "C:\\Windows\\System32\\net.exe START");
+        content = content.replaceAll("NET START", "C:\\\\Windows\\\\System32\\\\net.exe START");
         modified = true;
       }
       if (content.includes("NET STOP")) {
-        content = content.replaceAll("NET STOP", "C:\\Windows\\System32\\net.exe STOP");
+        content = content.replaceAll("NET STOP", "C:\\\\Windows\\\\System32\\\\net.exe STOP");
         modified = true;
       }
       if (modified) {
@@ -32,7 +32,7 @@ function runPreflightPatch() {
       let content = fs.readFileSync(cmdPath, 'utf8');
       let modified = false;
       if (content.includes("NET SESSION")) {
-        content = content.replaceAll("NET SESSION", "C:\\Windows\\System32\\net.exe SESSION");
+        content = content.replaceAll("NET SESSION", "C:\\\\Windows\\\\System32\\\\net.exe SESSION");
         modified = true;
       }
       if (modified) {

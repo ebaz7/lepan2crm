@@ -36,11 +36,19 @@ try {
     let modified = false;
     
     if (content.includes("NET START")) {
-      content = content.replaceAll("NET START", "C:\\Windows\\System32\\net.exe START");
+      content = content.replaceAll("NET START", "C:\\\\Windows\\\\System32\\\\net.exe START");
       modified = true;
     }
     if (content.includes("NET STOP")) {
-      content = content.replaceAll("NET STOP", "C:\\Windows\\System32\\net.exe STOP");
+      content = content.replaceAll("NET STOP", "C:\\\\Windows\\\\System32\\\\net.exe STOP");
+      modified = true;
+    }
+    if (content.includes("C:\\Windows\\System32\\net.exe START")) {
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe START", "C:\\\\Windows\\\\System32\\\\net.exe START");
+      modified = true;
+    }
+    if (content.includes("C:\\Windows\\System32\\net.exe STOP")) {
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe STOP", "C:\\\\Windows\\\\System32\\\\net.exe STOP");
       modified = true;
     }
     
@@ -59,7 +67,11 @@ try {
     let modified = false;
     
     if (content.includes("NET SESSION")) {
-      content = content.replaceAll("NET SESSION", "C:\\Windows\\System32\\net.exe SESSION");
+      content = content.replaceAll("NET SESSION", "C:\\\\Windows\\\\System32\\\\net.exe SESSION");
+      modified = true;
+    }
+    if (content.includes("C:\\Windows\\System32\\net.exe SESSION")) {
+      content = content.replaceAll("C:\\Windows\\System32\\net.exe SESSION", "C:\\\\Windows\\\\System32\\\\net.exe SESSION");
       modified = true;
     }
     
