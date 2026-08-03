@@ -3,6 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// CRITICAL FIX: If the user's Windows environment variables are corrupted (e.g. ComSpec is missing a backslash like C:\WindowsSystem32),
+// it will cause ALL child_process.exec calls to pop up a "Windows cannot find..." alert box.
+// We force the correct cmd.exe path here to bypass any corrupted environment variables.
+const cmdPath = (process.env.SystemRoot || "C:\\Windows") + "\\System32\\cmd.exe";
+process.env.ComSpec = cmdPath;
+process.env.comspec = cmdPath;
+process.env.COMSPEC = cmdPath;
+
 // CRITICAL: Overwrite child_process.exec globally to intercept known executables (like winsw / paymentsystem.exe, net.exe, tasklist, etc.)
 // and run them safely via child_process.execFile. This completely bypasses the Windows shell (cmd.exe)
 // and prevents the legendary "Windows cannot find 'C:\Windows\System32'" error caused by shell quoting/COMSPEC bugs on some Windows setups.
