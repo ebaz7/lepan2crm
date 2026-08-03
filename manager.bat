@@ -41,7 +41,9 @@ echo ========================================================
 echo                      INSTALLATION
 echo ========================================================
 echo WARNING: This will install into the CURRENT directory.
-echo Please make sure this folder is empty (except for this script).
+call :BACKUP
+
+echo.
 set /p repo="Enter GitHub repository URL (e.g. https://github.com/user/repo.git): "
 if "!repo!"=="" goto MENU
 set /p branch="Enter branch name (default: main): "
@@ -91,12 +93,24 @@ echo ========================================================
 call :BACKUP
 
 echo.
+set /p repo="Enter GitHub repository URL (e.g. https://github.com/user/repo.git): "
+if "!repo!"=="" goto MENU
+set /p branch="Enter branch name (default: main): "
+if "!branch!"=="" set branch=main
+
+echo.
 echo [1/4] Pulling latest changes from GitHub...
-git fetch --all
-REM Using @{u} to reset to the currently tracked upstream branch
-git reset --hard @{u}
+if not exist .git (
+    git init
+)
+git remote remove origin 2>nul
+git remote add origin !repo!
+git fetch origin
+git reset --hard origin/!branch!
+git branch -M !branch!
+git branch --set-upstream-to=origin/!branch! !branch!
 if errorlevel 1 (
-    echo [WARNING] git pull/reset failed. Check if repository is reachable.
+    echo [WARNING] git fetch/reset failed. Check if repository is reachable.
 )
 
 echo.
