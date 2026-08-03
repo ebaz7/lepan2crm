@@ -37,6 +37,25 @@ export const findNextGapNumber = (items, company, field, settingsStart) => {
     return expected;
 };
 
+export const findNextMaxNumber = (items, company, field, settingsStart) => {
+    let maxNum = (settingsStart || 1000) - 1;
+    
+    if (items && Array.isArray(items)) {
+        const targetCompany = (company || '').trim().replace(/\s+/g, ' ');
+        for (const i of items) {
+            const itemCompany = (i.company || i.payingCompany || '').trim().replace(/\s+/g, ' ');
+            if (itemCompany === targetCompany) {
+                const num = parseInt(i[field]);
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        }
+    }
+    
+    return maxNum + 1;
+};
+
 export const checkForDuplicate = (list, numField, numValue, companyField, companyValue, excludeId = null) => {
     if (!list || !Array.isArray(list)) return false;
     

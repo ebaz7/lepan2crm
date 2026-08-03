@@ -101,7 +101,8 @@ const findSystemChrome = () => {
     "C:\\Users\\" +
       (process.env.USERNAME || "") +
       "\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-    // Common Chromium locations just in case
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
     "C:\\Program Files\\Chromium\\Application\\chrome.exe",
     "C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe",
   ];

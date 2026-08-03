@@ -25,6 +25,7 @@ import * as jalaali from 'jalaali-js';
 const getDb = dbManager.getDb;
 const saveDb = dbManager.saveDb;
 const findNextGapNumber = utils.findNextGapNumber;
+const findNextMaxNumber = utils.findNextMaxNumber;
 const checkForDuplicate = utils.checkForDuplicate;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -450,6 +451,18 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         });
     }
 
+    if (db.reportDeliveryJobs && Array.isArray(db.reportDeliveryJobs)) {
+        db.reportDeliveryJobs.forEach(job => {
+            if (job.destinationGroup && Array.isArray(job.botPlatforms)) {
+                job.botPlatforms.forEach(plat => {
+                    if (platforms.includes(plat)) {
+                        salesTargets.push({ platform: plat, id: job.destinationGroup });
+                    }
+                });
+            }
+        });
+    }
+
     if (settings.savedContacts && Array.isArray(settings.savedContacts)) {
         settings.savedContacts.forEach(c => {
             if (c.telegramId && platforms.includes('telegram')) {
@@ -660,6 +673,10 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true); // Landscape
         
+        if (!pdfBuffer) {
+            throw new Error('خطا در تولید فایل PDF گزارش. لطفاً اطمینان حاصل کنید که مرورگر Chrome یا Edge روی سرور نصب شده باشد.');
+        }
+
         const filename = `Sayan_Daily_Sales_${gregDate}_${labelSuffix === 'دیروز' ? 'Yesterday' : 'Today'}.pdf`;
         
         const caption = `📊 *گزارش فروش و مرجوعی روزانه سایان ERP*
@@ -832,6 +849,11 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         ]);
 
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
+        
+        if (!pdfBuffer) {
+            throw new Error('خطا در تولید فایل PDF گزارش. لطفاً اطمینان حاصل کنید که مرورگر Chrome یا Edge روی سرور نصب شده باشد.');
+        }
+
         const filename = `Compare_Sales_${Date.now()}.pdf`;
         
         const caption = `📊 *گزارش مقایسه‌ای فروش سایان ERP*
@@ -983,6 +1005,11 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
         }
 
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
+        
+        if (!pdfBuffer) {
+            throw new Error('خطا در تولید فایل PDF گزارش. لطفاً اطمینان حاصل کنید که مرورگر Chrome یا Edge روی سرور نصب شده باشد.');
+        }
+
         const filename = `Executive_Sales_Report_${Date.now()}.pdf`;
 
         const caption = `📊 *گزارش مدیریتی فروش سایان ERP*
@@ -1140,6 +1167,54 @@ const executeSayanQuery = async (db, queryStr) => {
     const data = await response.json();
     return data.data || [];
 };
+
+app.post('/api/sayan-proxy', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const serverSayanBaseUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+        const serverSayanApiKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+        if (!serverSayanBaseUrl || !serverSayanApiKey) {
+            return res.status(400).json({ error: 'تنظیمات آدرس API و کلید امنیتی سایان در بخش تنظیمات سیستم وارد نشده است.' });
+        }
+
+        const { path: targetPath, method: targetMethod, body: targetBody } = req.body;
+        if (!targetPath) {
+            return res.status(400).json({ error: 'مسیر درخواست (path) الزامی است.' });
+        }
+
+        const cleanPath = targetPath.replace(/^\//, '');
+        const finalUrl = `${serverSayanBaseUrl.replace(/\/$/, '')}/${cleanPath}`;
+
+        const headers = {
+            'Authorization': `Bearer ${serverSayanApiKey}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+
+        const fetchOptions = {
+            method: targetMethod || 'GET',
+            headers
+        };
+
+        if (targetBody && (targetMethod === 'POST' || targetMethod === 'PUT')) {
+            fetchOptions.body = JSON.stringify(targetBody);
+        }
+
+        const response = await fetch(finalUrl, fetchOptions);
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            return res.status(response.status).json(data || { error: `Sayan Server returned error status ${response.status}` });
+        }
+
+        res.json(data);
+    } catch (err) {
+        console.error("Sayan Proxy Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در برقراری ارتباط با وب‌سرویس سایان' });
+    }
+});
 
 app.get('/api/sayan/production-report', async (req, res) => {
     try {
@@ -1899,35 +1974,57 @@ app.post('/api/settings', async (req, res) => {
 app.get('/api/next-exit-permit-number', (req, res) => {
     const db = getDb();
     const permits = db.exitPermits || [];
-    let maxNum = 1000;
-    permits.forEach(p => {
-        const num = parseInt(p.permitNumber);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-    });
-    res.json({ nextNumber: maxNum + 1 });
+    const company = req.query.company || db.settings?.defaultCompany || '';
+    let startNum = db.settings?.currentExitPermitNumber || 1000;
+    if (db.settings?.activeFiscalYearId && company) {
+        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (year && year.companySequences) {
+            const target = company.trim().replace(/\s+/g, ' ');
+            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+            if (foundKey && year.companySequences[foundKey]) {
+                startNum = year.companySequences[foundKey].startExitPermitNumber || startNum;
+            }
+        }
+    }
+    const nextNum = findNextMaxNumber(permits, company, 'permitNumber', startNum);
+    res.json({ nextNumber: nextNum });
 });
 
 app.get('/api/next-tracking-number', (req, res) => {
     const db = getDb();
-    const company = req.query.company || '';
-    const startNum = db.settings?.currentTrackingNumber || 1000;
-    const nextNum = utils.findNextGapNumber(db.orders, company, 'trackingNumber', startNum);
+    const company = req.query.company || db.settings?.defaultCompany || '';
+    let startNum = db.settings?.currentTrackingNumber || 1000;
+    if (db.settings?.activeFiscalYearId && company) {
+        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (year && year.companySequences) {
+            const target = company.trim().replace(/\s+/g, ' ');
+            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+            if (foundKey && year.companySequences[foundKey]) {
+                startNum = year.companySequences[foundKey].startTrackingNumber || startNum;
+            }
+        }
+    }
+    const nextNum = findNextMaxNumber(db.orders, company, 'trackingNumber', startNum);
     res.json({ nextTrackingNumber: nextNum });
 });
 
 app.get('/api/next-bijak-number', (req, res) => {
     const db = getDb();
-    const company = req.query.company || '';
+    const company = req.query.company || db.settings?.defaultCompany || '';
     const txs = db.warehouseTransactions || [];
-    let maxNum = 1000;
-    txs.forEach(t => {
-        const tComp = t.company || '';
-        if (tComp === company) {
-            const num = parseInt(t.bijakNumber);
-            if (!isNaN(num) && num > maxNum) maxNum = num;
+    let startNum = 1000;
+    if (db.settings?.activeFiscalYearId && company) {
+        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (year && year.companySequences) {
+            const target = company.trim().replace(/\s+/g, ' ');
+            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+            if (foundKey && year.companySequences[foundKey]) {
+                startNum = year.companySequences[foundKey].startBijakNumber || startNum;
+            }
         }
-    });
-    res.json({ nextNumber: maxNum + 1 });
+    }
+    const nextNum = findNextMaxNumber(txs, company, 'bijakNumber', startNum);
+    res.json({ nextNumber: nextNum });
 });
 
 app.get('/api/next-meeting-number', (req, res) => {
@@ -1960,7 +2057,15 @@ app.get('/api/next-cheque-receipt-number', (req, res) => {
     const db = getDb();
     const company = req.query.company || '';
     const receipts = db.chequeReceipts || [];
-    let maxNum = 1000;
+    let startNum = db.settings?.currentChequeReceiptNumber ? parseInt(String(db.settings.currentChequeReceiptNumber)) || 1000 : 1000;
+    if (db.settings?.activeFiscalYearId && company) {
+        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (year && year.companySequences && year.companySequences[company]) {
+            startNum = parseInt(String(year.companySequences[company].startChequeReceiptNumber)) || startNum;
+        }
+    }
+    
+    const existingNumbers = new Set();
     receipts.forEach(r => {
         const rComp = r.company || '';
         if (rComp === company) {
@@ -1969,10 +2074,15 @@ app.get('/api/next-cheque-receipt-number', (req, res) => {
                 numStr = numStr.replace('CR-', '');
             }
             const num = parseInt(numStr);
-            if (!isNaN(num) && num > maxNum) maxNum = num;
+            if (!isNaN(num) && num >= startNum) {
+                existingNumbers.add(num);
+            }
         }
     });
-    res.json({ nextNumber: `CR-${maxNum + 1}` });
+    
+    let expected = startNum;
+    while (existingNumbers.has(expected)) { expected++; }
+    res.json({ nextNumber: `CR-${expected}` });
 });
 
 // --- MEETINGS BOT ACTIONS ---

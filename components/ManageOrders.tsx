@@ -313,6 +313,10 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
         if (orderDate < fromDate || orderDate > toDate) return false;
     }
     return true;
+  }).sort((a, b) => {
+    const aNum = Number(a.trackingNumber) || 0;
+    const bNum = Number(b.trackingNumber) || 0;
+    return bNum - aNum;
   });
 
   const totalFilteredAmount = filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
