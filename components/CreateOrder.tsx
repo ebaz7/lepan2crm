@@ -70,12 +70,11 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
   const [newBankAccount, setNewBankAccount] = useState('');
 
   // Function to fetch next number - EXPLICITLY PER COMPANY OR GLOBAL
-  const fetchNextNumber = (company?: string) => {
-    // Reset to a temporary loader state if needed, but keeping old value is often better UX.
-    // However, to indicate change:
+  const fetchNextNumber = (company?: string, year?: number) => {
     setLoadingNum(true);
+    const targetYear = year || shamsiDate.year;
     
-    getNextTrackingNumber(company)
+    getNextTrackingNumber(company, targetYear)
         .then(num => {
             // FORCE A NUMBER. If API returns 0 or null, use 1001.
             const validNum = (num && num > 0) ? num : 1001;
@@ -90,10 +89,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
   };
 
   useEffect(() => {
-      // 1. Fetch IMMEDIATELY (Global Sequence) to ensure field is never empty
-      fetchNextNumber();
-
-      // 2. Then load settings and refine if default company exists
+      // Load settings
       getSettings().then((s) => {
           setSettings(s);
           const names = s.companies?.map(c => c.name) || s.companyNames || [];
@@ -103,11 +99,14 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
           if (defCompany) {
               setPayingCompany(defCompany);
               updateBanksForCompany(defCompany, s);
-              // 3. Re-fetch for specific company sequence if needed
-              fetchNextNumber(defCompany);
           }
       });
   }, []);
+
+  // Reactive effect for fetching tracking numbers when company or year changes
+  useEffect(() => {
+      fetchNextNumber(payingCompany || undefined, shamsiDate.year);
+  }, [payingCompany, shamsiDate.year]);
 
   const updateBanksForCompany = (companyName: string, currentSettings: SystemSettings) => {
       const bankSet = new Set<string>();
@@ -133,8 +132,6 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
       setPayingCompany(newVal);
       if (settings) updateBanksForCompany(newVal, settings);
       setNewLine(prev => ({ ...prev, bankName: '' })); 
-      // IMMEDIATE FETCH on change
-      fetchNextNumber(newVal);
   };
 
   const openAddBankModal = () => {
@@ -328,7 +325,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
         if (msg.includes("409") || msg.includes("Duplicate") || msg.includes("تکراری")) {
             alert(`⚠️ شماره دستور ${trackingNumber} تکراری است. سیستم به صورت خودکار شماره جدیدی دریافت می‌کند.`);
             // Automatically fetch next valid number
-            fetchNextNumber(payingCompany);
+            fetchNextNumber(payingCompany || undefined, shamsiDate.year);
         } else {
             alert(msg);
         }
@@ -377,7 +374,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
                         <input required type="number" className="w-full border border-gray-300 rounded-xl px-4 py-3 bg-gray-50 font-mono font-bold text-blue-600 dir-ltr text-left" value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} onKeyDown={handleKeyDown} placeholder="در حال دریافت..." />
                         <button 
                             type="button"
-                            onClick={() => fetchNextNumber(payingCompany)} 
+                            onClick={() => fetchNextNumber(payingCompany || undefined, shamsiDate.year)} 
                             disabled={loadingNum}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-2 glass-panel rounded-full text-blue-500 hover:bg-blue-50 transition-colors"
                             title="بروزرسانی شماره از سرور"

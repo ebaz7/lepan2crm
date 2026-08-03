@@ -25,7 +25,6 @@ import * as jalaali from 'jalaali-js';
 const getDb = dbManager.getDb;
 const saveDb = dbManager.saveDb;
 const findNextGapNumber = utils.findNextGapNumber;
-const findNextMaxNumber = utils.findNextMaxNumber;
 const checkForDuplicate = utils.checkForDuplicate;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -369,7 +368,7 @@ const buildProductionCaption = (dateStr, totals, waste) => {
 };
 
 // Unified Helper to collect all configured bot targets (groups / users) across settings and DB
-const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null } = {}) => {
+const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null, module = null } = {}) => {
     if (customTargets && Array.isArray(customTargets) && customTargets.length > 0) {
         return customTargets;
     }
@@ -377,43 +376,51 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
     const salesTargets = [];
 
     const targetConfigList = [
-        { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
-        { key: 'dailySalesBaleGroupId', plat: 'bale' },
-        { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
-        { key: 'botDailySalesGroupIdTele', plat: 'telegram' },
-        { key: 'botDailySalesGroupIdBale', plat: 'bale' },
-        { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp' },
-        { key: 'botDailySalesGroupId', plat: 'telegram' },
-        { key: 'dailySalesGroupId', plat: 'telegram' },
-        { key: 'salesGroupId', plat: 'telegram' },
+        // Sales specific keys
+        { key: 'dailySalesTelegramGroupId', plat: 'telegram', module: 'sales' },
+        { key: 'dailySalesBaleGroupId', plat: 'bale', module: 'sales' },
+        { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp', module: 'sales' },
+        { key: 'botDailySalesGroupIdTele', plat: 'telegram', module: 'sales' },
+        { key: 'botDailySalesGroupIdBale', plat: 'bale', module: 'sales' },
+        { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp', module: 'sales' },
+        { key: 'botDailySalesGroupId', plat: 'telegram', module: 'sales' },
+        { key: 'dailySalesGroupId', plat: 'telegram', module: 'sales' },
+        { key: 'salesGroupId', plat: 'telegram', module: 'sales' },
 
-        { key: 'botAccountingGroupIdTele', plat: 'telegram' },
-        { key: 'botAccountingGroupIdBale', plat: 'bale' },
-        { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
-        { key: 'botAccountingGroupId', plat: 'telegram' },
-        { key: 'accountingGroupId', plat: 'telegram' },
+        // Accounting specific keys
+        { key: 'botAccountingGroupIdTele', plat: 'telegram', module: 'accounting' },
+        { key: 'botAccountingGroupIdBale', plat: 'bale', module: 'accounting' },
+        { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp', module: 'accounting' },
+        { key: 'botAccountingGroupId', plat: 'telegram', module: 'accounting' },
+        { key: 'accountingGroupId', plat: 'telegram', module: 'accounting' },
 
-        { key: 'productionTelegramGroupId', plat: 'telegram' },
-        { key: 'productionBaleGroupId', plat: 'bale' },
-        { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
-        { key: 'factoryGroupId', plat: 'telegram' },
+        // Production specific keys
+        { key: 'productionTelegramGroupId', plat: 'telegram', module: 'production' },
+        { key: 'productionBaleGroupId', plat: 'bale', module: 'production' },
+        { key: 'productionWhatsappGroupId', plat: 'whatsapp', module: 'production' },
+        { key: 'factoryGroupId', plat: 'telegram', module: 'production' },
 
-        { key: 'reportsGroupId', plat: 'telegram' },
-        { key: 'telegramReportsGroupId', plat: 'telegram' },
-        { key: 'telegramReportsGroupId2', plat: 'telegram' },
-        { key: 'baleReportsGroupId', plat: 'bale' },
-        { key: 'baleReportsGroupId2', plat: 'bale' },
-        { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
-        { key: 'whatsappReportsGroupId2', plat: 'whatsapp' },
+        // General report keys
+        { key: 'reportsGroupId', plat: 'telegram', module: 'general' },
+        { key: 'telegramReportsGroupId', plat: 'telegram', module: 'general' },
+        { key: 'telegramReportsGroupId2', plat: 'telegram', module: 'general' },
+        { key: 'baleReportsGroupId', plat: 'bale', module: 'general' },
+        { key: 'baleReportsGroupId2', plat: 'bale', module: 'general' },
+        { key: 'whatsappReportsGroupId', plat: 'whatsapp', module: 'general' },
+        { key: 'whatsappReportsGroupId2', plat: 'whatsapp', module: 'general' },
 
-        { key: 'telegramChatId', plat: 'telegram' },
-        { key: 'baleChatId', plat: 'bale' },
-        { key: 'telegramGroupId', plat: 'telegram' },
-        { key: 'baleGroupId', plat: 'bale' },
-        { key: 'whatsappGroupId', plat: 'whatsapp' }
+        // Old general keys
+        { key: 'telegramChatId', plat: 'telegram', module: 'general' },
+        { key: 'baleChatId', plat: 'bale', module: 'general' },
+        { key: 'telegramGroupId', plat: 'telegram', module: 'general' },
+        { key: 'baleGroupId', plat: 'bale', module: 'general' },
+        { key: 'whatsappGroupId', plat: 'whatsapp', module: 'general' }
     ];
 
-    targetConfigList.forEach(({ key, plat }) => {
+    targetConfigList.forEach(({ key, plat, module: keyModule }) => {
+        if (module && keyModule !== module && keyModule !== 'general') {
+            return;
+        }
         const val = settings[key];
         if (val && platforms.includes(plat)) {
             salesTargets.push({ platform: plat, id: val });
@@ -425,6 +432,9 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
             if (g.chatId) {
                 const plat = g.platform || 'telegram';
                 if (platforms.includes(plat)) {
+                    if (module && g.module && g.module !== module) {
+                        return;
+                    }
                     salesTargets.push({ platform: plat, id: g.chatId });
                 }
             }
@@ -447,18 +457,6 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
                 if (platforms.includes(plat)) {
                     salesTargets.push({ platform: plat, id: u.chatId });
                 }
-            }
-        });
-    }
-
-    if (db.reportDeliveryJobs && Array.isArray(db.reportDeliveryJobs)) {
-        db.reportDeliveryJobs.forEach(job => {
-            if (job.destinationGroup && Array.isArray(job.botPlatforms)) {
-                job.botPlatforms.forEach(plat => {
-                    if (platforms.includes(plat)) {
-                        salesTargets.push({ platform: plat, id: job.destinationGroup });
-                    }
-                });
             }
         });
     }
@@ -500,7 +498,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
 
     const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride });
+    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride, module: 'sales' });
 
     if (uniqueSalesTargets.length === 0) {
         throw new Error('شناسه گروه اطلاع‌رسانی مالی/فروش در تنظیمات ثبت نشده است! جهت ارسال گزارش فروش، لطفاً به بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها -> تنظیمات اطلاع‌رسانی مالی و خروج» بروید و شناسه چت یا گروه تلگرام/بله (مانند 100123456789- یا آیدی عددی) را وارد نمایید.');
@@ -807,7 +805,7 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         }
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets });
+        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets, module: 'sales' });
         
         if (uniqueSalesTargets.length === 0) {
             throw new Error('گروهی برای ارسال گزارش فروش (تلگرام یا بله) در تنظیمات سیستم ثبت نشده است. لطفاً در تنظیمات سیستم -> تب ربات‌ها آیدی گروه مقصد را وارد نمایید.');
@@ -977,7 +975,7 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
         const title = `داشبورد مدیریتی گزارش فروش سایان ERP (${dateFrom || 'امروز'} تا ${dateTo || 'امروز'})`;
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueTargets = collectBotTargets(db, { platforms, customTargets });
+        const uniqueTargets = collectBotTargets(db, { platforms, customTargets, module: 'sales' });
 
         if (uniqueTargets.length === 0) {
             throw new Error('هیچ شناسه گروه یا چت مقصد برای پیام‌رسان‌های انتخاب شده یافت نشد. لطفاً در بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها» شناسه چت یا گروه تلگرام/بله را وارد نمایید.');
@@ -1170,49 +1168,72 @@ const executeSayanQuery = async (db, queryStr) => {
 
 app.post('/api/sayan-proxy', async (req, res) => {
     try {
-        const db = getDb();
-        const settings = db.settings || {};
-        const serverSayanBaseUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
-        const serverSayanApiKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
-
-        if (!serverSayanBaseUrl || !serverSayanApiKey) {
-            return res.status(400).json({ error: 'تنظیمات آدرس API و کلید امنیتی سایان در بخش تنظیمات سیستم وارد نشده است.' });
+        const { url, headers, method, body } = req.body;
+        if (!url) {
+            return res.status(400).json({ error: 'آدرس URL مشخص نشده است.' });
         }
 
-        const { path: targetPath, method: targetMethod, body: targetBody } = req.body;
-        if (!targetPath) {
-            return res.status(400).json({ error: 'مسیر درخواست (path) الزامی است.' });
-        }
+        let isLocalIp = false;
+        try {
+            const parsedUrl = new URL(url);
+            const hostname = parsedUrl.hostname;
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) {
+                isLocalIp = true;
+            }
+        } catch(err) {}
 
-        const cleanPath = targetPath.replace(/^\//, '');
-        const finalUrl = `${serverSayanBaseUrl.replace(/\/$/, '')}/${cleanPath}`;
-
-        const headers = {
-            'Authorization': `Bearer ${serverSayanApiKey}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        };
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const fetchOptions = {
-            method: targetMethod || 'GET',
-            headers
+            method: method || 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                ...headers
+            },
+            signal: controller.signal
         };
 
-        if (targetBody && (targetMethod === 'POST' || targetMethod === 'PUT')) {
-            fetchOptions.body = JSON.stringify(targetBody);
+        if (body && (method === 'POST' || method === 'PUT')) {
+            fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
         }
 
-        const response = await fetch(finalUrl, fetchOptions);
-        const data = await response.json().catch(() => null);
+        const response = await fetch(url, fetchOptions);
+        clearTimeout(timeoutId);
+
+        const text = await response.text();
+        let data = {};
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            data = { raw: text };
+        }
 
         if (!response.ok) {
-            return res.status(response.status).json(data || { error: `Sayan Server returned error status ${response.status}` });
+            return res.status(response.status).json({
+                error: data.error || data.message || `خطا در اتصال به سایان (کد ${response.status})`,
+                isLocalIp,
+                details: data
+            });
         }
 
         res.json(data);
     } catch (err) {
-        console.error("Sayan Proxy Error:", err);
-        res.status(500).json({ error: err.message || 'خطا در برقراری ارتباط با وب‌سرویس سایان' });
+        console.error("[Sayan Proxy Error]:", err.message);
+        let isLocalIp = false;
+        if (req.body?.url) {
+            try {
+                const parsedUrl = new URL(req.body.url);
+                const hostname = parsedUrl.hostname;
+                if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) {
+                    isLocalIp = true;
+                }
+            } catch(e) {}
+        }
+        res.status(500).json({
+            error: `خطا در پروکسی سایان: ${err.message}`,
+            isLocalIp
+        });
     }
 });
 
@@ -1484,7 +1505,7 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
         const filename = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.pdf`;
         const settings = db.settings || {};
         
-        const uniqueTargets = collectBotTargets(db);
+        const uniqueTargets = collectBotTargets(db, { module: 'production' });
 
         if (uniqueTargets.length === 0) {
             return res.status(400).json({ error: 'هیچ شناسه گروه یا چت باتی در تنظیمات سیستم یافت نشد.' });
@@ -1974,57 +1995,49 @@ app.post('/api/settings', async (req, res) => {
 app.get('/api/next-exit-permit-number', (req, res) => {
     const db = getDb();
     const permits = db.exitPermits || [];
-    const company = req.query.company || db.settings?.defaultCompany || '';
-    let startNum = db.settings?.currentExitPermitNumber || 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startExitPermitNumber || startNum;
-            }
-        }
-    }
-    const nextNum = findNextMaxNumber(permits, company, 'permitNumber', startNum);
-    res.json({ nextNumber: nextNum });
+    let maxNum = 1000;
+    permits.forEach(p => {
+        const num = parseInt(p.permitNumber);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+    });
+    res.json({ nextNumber: maxNum + 1 });
 });
 
 app.get('/api/next-tracking-number', (req, res) => {
     const db = getDb();
-    const company = req.query.company || db.settings?.defaultCompany || '';
+    const company = req.query.company || '';
+    const targetYear = req.query.year || req.query.financialYear || '';
+    
     let startNum = db.settings?.currentTrackingNumber || 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startTrackingNumber || startNum;
-            }
-        }
+    let activeYearObj = null;
+    if (targetYear) {
+        activeYearObj = (db.settings?.fiscalYears || []).find(y => y.id === targetYear.toString() || y.name === targetYear.toString());
     }
-    const nextNum = findNextMaxNumber(db.orders, company, 'trackingNumber', startNum);
+    if (!activeYearObj && db.settings?.activeFiscalYearId) {
+        activeYearObj = (db.settings?.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId.toString());
+    }
+    
+    if (activeYearObj && company && activeYearObj.companySequences && activeYearObj.companySequences[company]) {
+        startNum = activeYearObj.companySequences[company].startTrackingNumber || startNum;
+    }
+    
+    const nextNum = utils.findNextGapNumberWithYear(db.orders, company, 'trackingNumber', startNum, targetYear);
     res.json({ nextTrackingNumber: nextNum });
 });
 
 app.get('/api/next-bijak-number', (req, res) => {
     const db = getDb();
-    const company = req.query.company || db.settings?.defaultCompany || '';
+    const company = req.query.company || '';
     const txs = db.warehouseTransactions || [];
-    let startNum = 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startBijakNumber || startNum;
-            }
+    let maxNum = 1000;
+    txs.forEach(t => {
+        const tComp = t.company || '';
+        if (tComp === company) {
+            const num = parseInt(t.bijakNumber);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
         }
-    }
-    const nextNum = findNextMaxNumber(txs, company, 'bijakNumber', startNum);
-    res.json({ nextNumber: nextNum });
+    });
+    res.json({ nextNumber: maxNum + 1 });
 });
 
 app.get('/api/next-meeting-number', (req, res) => {
@@ -2057,15 +2070,7 @@ app.get('/api/next-cheque-receipt-number', (req, res) => {
     const db = getDb();
     const company = req.query.company || '';
     const receipts = db.chequeReceipts || [];
-    let startNum = db.settings?.currentChequeReceiptNumber ? parseInt(String(db.settings.currentChequeReceiptNumber)) || 1000 : 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences && year.companySequences[company]) {
-            startNum = parseInt(String(year.companySequences[company].startChequeReceiptNumber)) || startNum;
-        }
-    }
-    
-    const existingNumbers = new Set();
+    let maxNum = 1000;
     receipts.forEach(r => {
         const rComp = r.company || '';
         if (rComp === company) {
@@ -2074,15 +2079,10 @@ app.get('/api/next-cheque-receipt-number', (req, res) => {
                 numStr = numStr.replace('CR-', '');
             }
             const num = parseInt(numStr);
-            if (!isNaN(num) && num >= startNum) {
-                existingNumbers.add(num);
-            }
+            if (!isNaN(num) && num > maxNum) maxNum = num;
         }
     });
-    
-    let expected = startNum;
-    while (existingNumbers.has(expected)) { expected++; }
-    res.json({ nextNumber: `CR-${expected}` });
+    res.json({ nextNumber: `CR-${maxNum + 1}` });
 });
 
 // --- MEETINGS BOT ACTIONS ---
@@ -2886,7 +2886,28 @@ async function executeReportJob(job) {
             await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
             // Standard daily sales report or other module
-            const customTargets = job.destinationGroup && job.botPlatforms ? job.botPlatforms.map(p => ({ platform: p, id: job.destinationGroup })) : null;
+            let customTargets = null;
+            if (job.destinationGroup && job.botPlatforms) {
+                customTargets = [];
+                job.botPlatforms.forEach(p => {
+                    let tid = job.destinationGroup;
+                    if (tid === '-100123456789') {
+                        if (p === 'telegram') tid = db.settings?.dailySalesTelegramGroupId || db.settings?.telegramGroupId || '-100123456789';
+                        if (p === 'bale') tid = db.settings?.dailySalesBaleGroupId || db.settings?.baleGroupId || '';
+                        if (p === 'whatsapp') tid = db.settings?.dailySalesWhatsappGroupId || db.settings?.whatsappGroupId || '';
+                    } else {
+                        if (p === 'bale' && (String(tid).startsWith('-100') || String(tid).startsWith('@'))) {
+                            tid = db.settings?.dailySalesBaleGroupId || db.settings?.baleGroupId || '';
+                        }
+                        if (p === 'telegram' && String(tid).startsWith('g')) {
+                            tid = db.settings?.dailySalesTelegramGroupId || db.settings?.telegramGroupId || '';
+                        }
+                    }
+                    if (tid) {
+                        customTargets.push({ platform: p, id: tid });
+                    }
+                });
+            }
             await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets, job.botPlatforms);
         }
 

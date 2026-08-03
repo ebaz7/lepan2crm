@@ -37,25 +37,6 @@ export const findNextGapNumber = (items, company, field, settingsStart) => {
     return expected;
 };
 
-export const findNextMaxNumber = (items, company, field, settingsStart) => {
-    let maxNum = (settingsStart || 1000) - 1;
-    
-    if (items && Array.isArray(items)) {
-        const targetCompany = (company || '').trim().replace(/\s+/g, ' ');
-        for (const i of items) {
-            const itemCompany = (i.company || i.payingCompany || '').trim().replace(/\s+/g, ' ');
-            if (itemCompany === targetCompany) {
-                const num = parseInt(i[field]);
-                if (!isNaN(num) && num > maxNum) {
-                    maxNum = num;
-                }
-            }
-        }
-    }
-    
-    return maxNum + 1;
-};
-
 export const checkForDuplicate = (list, numField, numValue, companyField, companyValue, excludeId = null) => {
     if (!list || !Array.isArray(list)) return false;
     
@@ -146,3 +127,73 @@ export const sanitizeGroupId = (id) => {
     const match = str.match(/^-?\d+/);
     return match ? match[0] : str;
 };
+
+export const getShamsiYear = (isoDate) => {
+    try {
+        if (!isoDate) return null;
+        let safeDate = isoDate;
+        if (typeof isoDate === 'string' && isoDate.match(/^\d{4}-\d{2}-\d{2}$/)) { safeDate = `${isoDate}T12:00:00.000Z`; }
+        const d = new Date(safeDate);
+        if (isNaN(d.getTime())) return null;
+        const formatter = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', timeZone: 'Asia/Tehran' });
+        const parts = formatter.formatToParts(d);
+        const yearVal = parts.find(p => p.type === 'year')?.value;
+        if (yearVal) {
+            return parseInt(yearVal.replace(/[^\d]/g, ''), 10);
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+};
+
+export const findNextGapNumberWithYear = (items, company, field, settingsStart, targetYear) => {
+    let startNum = settingsStart || 1000;
+    const existingNumbers = new Set();
+    
+    if (items && Array.isArray(items)) {
+        for (const i of items) {
+            const itemCompany = i.company || i.payingCompany || '';
+            const targetCompany = company || '';
+            if (itemCompany === targetCompany) {
+                if (targetYear) {
+                    const itemYear = getShamsiYear(i.date || i.createdAt);
+                    if (itemYear !== parseInt(targetYear, 10)) {
+                        continue;
+                    }
+                }
+                const num = parseInt(i[field]);
+                if (!isNaN(num) && num >= startNum) {
+                    existingNumbers.add(num);
+                }
+            }
+        }
+    }
+    
+    let expected = startNum; 
+    while (existingNumbers.has(expected)) { expected++; }
+    return expected;
+};
+
+export const checkForDuplicateWithYear = (list, numField, numValue, companyField, companyValue, yearValue, excludeId = null) => {
+    if (!list || !Array.isArray(list)) return false;
+    
+    const targetNum = Number(numValue);
+    const targetCompany = (companyValue || '').toString().trim();
+    const targetYear = yearValue ? parseInt(yearValue, 10) : null;
+
+    return list.some(item => {
+        if (item.id === excludeId) return false;
+        const itemNum = Number(item[numField]);
+        const itemCompany = (item[companyField] || '').toString().trim();
+        
+        if (itemNum !== targetNum || itemCompany !== targetCompany) return false;
+        
+        if (targetYear) {
+            const itemYear = getShamsiYear(item.date || item.createdAt);
+            if (itemYear !== targetYear) return false;
+        }
+        return true;
+    });
+};
+
