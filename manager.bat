@@ -3,6 +3,9 @@ setlocal EnableDelayedExpansion
 color 0B
 title Payment System Deployment Manager
 
+:: Change to the directory of this script to avoid running in System32 when launched as Admin
+cd /d "%~dp0"
+
 :: Check for Administrator privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
