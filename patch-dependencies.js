@@ -44,12 +44,28 @@ try {
       content = content.replaceAll("C:\\Windows\\System32\\net.exe START", "net.exe START");
       modified = true;
     }
+    if (content.includes("C:\\\\WindowsSystem32\\\\net.exe START")) {
+      content = content.replaceAll("C:\\\\WindowsSystem32\\\\net.exe START", "net.exe START");
+      modified = true;
+    }
+    if (content.includes("C:\\WindowsSystem32\\net.exe START")) {
+      content = content.replaceAll("C:\\WindowsSystem32\\net.exe START", "net.exe START");
+      modified = true;
+    }
     if (content.includes("C:\\\\Windows\\\\System32\\\\net.exe STOP")) {
       content = content.replaceAll("C:\\\\Windows\\\\System32\\\\net.exe STOP", "net.exe STOP");
       modified = true;
     }
     if (content.includes("C:\\Windows\\System32\\net.exe STOP")) {
       content = content.replaceAll("C:\\Windows\\System32\\net.exe STOP", "net.exe STOP");
+      modified = true;
+    }
+    if (content.includes("C:\\\\WindowsSystem32\\\\net.exe STOP")) {
+      content = content.replaceAll("C:\\\\WindowsSystem32\\\\net.exe STOP", "net.exe STOP");
+      modified = true;
+    }
+    if (content.includes("C:\\WindowsSystem32\\net.exe STOP")) {
+      content = content.replaceAll("C:\\WindowsSystem32\\net.exe STOP", "net.exe STOP");
       modified = true;
     }
 
@@ -104,18 +120,19 @@ try {
       content = content.replaceAll("C:\\Windows\\System32\\net.exe SESSION", "net.exe SESSION");
       modified = true;
     }
+    if (content.includes("C:\\\\WindowsSystem32\\\\net.exe SESSION")) {
+      content = content.replaceAll("C:\\\\WindowsSystem32\\\\net.exe SESSION", "net.exe SESSION");
+      modified = true;
+    }
+    if (content.includes("C:\\WindowsSystem32\\net.exe SESSION")) {
+      content = content.replaceAll("C:\\WindowsSystem32\\net.exe SESSION", "net.exe SESSION");
+      modified = true;
+    }
 
     const searchString = `  isAdminUser: function (callback) {
-    exec('net.exe SESSION', function (err, so, se) {
+    exec('NET SESSION', function (err, so, se) {
       if (se.length !== 0) {
-        bin.elevate('net.exe SESSION', function (_err, _so, _se) {
-          callback(_se.length === 0);
-        });
-      } else {
-        callback(true);
-      }
-    });
-  },`;
+        bin.elevate('NET SESSION', function (_err, _so, _se) {`;
 
     const replacementString = `  isAdminUser: function (callback) {
     exec('net.exe SESSION', function (err, so, se) {
@@ -127,7 +144,7 @@ try {
     });
   },`;
 
-    if (content.includes("bin.elevate('net.exe SESSION'")) {
+    if (content.includes("bin.elevate('NET SESSION'")) {
       const startIdx = content.indexOf("isAdminUser: function");
       const endIdx = content.indexOf("},", startIdx);
       if (startIdx !== -1 && endIdx !== -1) {
