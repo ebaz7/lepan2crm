@@ -182,36 +182,53 @@ try {
     let content = fs.readFileSync(binariesPath, 'utf8');
     let modified = false;
 
-    // CRITICAL: Bypass elevate.cmd when running as Administrator! Check net.exe SESSION first.
-    const searchStr = `  elevate: function (cmd, options, callback) {
-    var p = params(options, callback);
-    exec('"' + path.join(bin, 'elevate', 'elevate.cmd') + '" ' + cmd, p.options, p.callback);
-  },`;
-
-    const replacementStr = `  elevate: function (cmd, options, callback) {
+    // Replace the entire elevate block from elevate: function up to sudo: function
+    const startPattern = "  elevate: function";
+    const endPattern = "  sudo: function";
+    const startIdx = content.indexOf(startPattern);
+    const endIdx = content.indexOf(endPattern);
+    if (startIdx !== -1 && endIdx !== -1) {
+      const originalBlock = content.substring(startIdx, endIdx);
+      const replacementBlock = `  elevate: function (cmd, options, callback) {
     var p = params(options, callback);
     exec('net.exe SESSION', function (err, so, se) {
       var isAdmin = !err && (!se || se.length === 0);
       if (isAdmin) {
         exec(cmd, p.options, p.callback);
       } else {
-        exec('"' + path.join(bin, 'elevate', 'elevate.cmd') + '" ' + cmd, p.options, p.callback);
+        // Robust PowerShell-based elevation (eliminates buggy elevate.cmd and elevate.vbs)
+        var cleanCmd = cmd.trim();
+        var exe = '';
+        var args = '';
+        if (cleanCmd.charAt(0) === '"') {
+          var closingQuoteIdx = cleanCmd.indexOf('"', 1);
+          if (closingQuoteIdx !== -1) {
+            exe = cleanCmd.substring(1, closingQuoteIdx);
+            args = cleanCmd.substring(closingQuoteIdx + 1).trim();
+          } else {
+            exe = cleanCmd;
+          }
+        } else {
+          var firstSpaceIdx = cleanCmd.indexOf(' ');
+          if (firstSpaceIdx !== -1) {
+            exe = cleanCmd.substring(0, firstSpaceIdx);
+            args = cleanCmd.substring(firstSpaceIdx + 1).trim();
+          } else {
+            exe = cleanCmd;
+          }
+        }
+        var escapedExe = exe.replace(/'/g, "''");
+        var escapedArgs = args.replace(/'/g, "''");
+        var psCmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command \\"Start-Process -FilePath '" + escapedExe + "' -ArgumentList '" + escapedArgs + "' -Verb RunAs -WindowStyle Hidden\\"";
+        exec(psCmd, p.options, p.callback);
       }
     });
-  },`;
+  },
 
-    if (content.includes(searchStr)) {
-      content = content.replace(searchStr, replacementStr);
+`;
+      content = content.replace(originalBlock, replacementBlock);
       modified = true;
-      console.log('Successfully patched binaries.js to bypass elevate.cmd if already running as Admin.');
-    } else {
-      const searchStrCRLF = searchStr.replace(/\\n/g, '\\r\\n');
-      const replacementStrCRLF = replacementStr.replace(/\\n/g, '\\r\\n');
-      if (content.includes(searchStrCRLF)) {
-        content = content.replace(searchStrCRLF, replacementStrCRLF);
-        modified = true;
-        console.log('Successfully patched binaries.js (CRLF) to bypass elevate.cmd if already running as Admin.');
-      }
+      console.log('Successfully patched binaries.js to use modern PowerShell-based elevate.');
     }
 
     if (modified) {
@@ -231,21 +248,24 @@ try {
     // We replace the entire write function to bypass eventcreate (buggy on modern Windows, triggers buggy elevate.cmd popups)
     // and instead write directly to console.log safely.
     const searchStrStart = "var write = function (log, src, type, msg, id, callback) {";
-    const searchStrEnd = "};";
+    const searchStrEnd = "var logger = function (config) {";
     const startIdx = content.indexOf(searchStrStart);
     if (startIdx !== -1) {
-      const endIdx = content.indexOf(searchStrEnd, startIdx + searchStrStart.length);
+      const endIdx = content.indexOf(searchStrEnd, startIdx);
       if (endIdx !== -1) {
-        const originalWriteFunc = content.substring(startIdx, endIdx + searchStrEnd.length);
-        const replacementWriteFunc = `var write = function (log, src, type, msg, id, callback) {
+        // Replace everything from start of write function to start of logger function
+        const originalBlock = content.substring(startIdx, endIdx);
+        const replacementBlock = `var write = function (log, src, type, msg, id, callback) {
   if (msg == null) { return };
   if (msg.trim().length == 0) { return };
   console.log("[" + (type || 'INFO') + "] " + msg);
   if (callback) {
     process.nextTick(callback);
   }
-};`;
-        content = content.replace(originalWriteFunc, replacementWriteFunc);
+};
+
+`;
+        content = content.replace(originalBlock, replacementBlock);
         modified = true;
         console.log('Successfully patched eventlog.js to use safe console write bypassing eventcreate.');
       }
