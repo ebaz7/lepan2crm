@@ -28,14 +28,6 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
       safeOrders = safeOrders.filter(o => isInFinancialYear(o.date, financialYear));
   }
 
-  // Sort safeOrders descending (newest registrations and highest tracking numbers at the top)
-  safeOrders = [...safeOrders].sort((a, b) => {
-      const timeA = a.createdAt || 0;
-      const timeB = b.createdAt || 0;
-      if (timeB !== timeA) return timeB - timeA;
-      return (b.trackingNumber || 0) - (a.trackingNumber || 0);
-  });
-
   const [activeTab, setActiveTab] = useState<'current' | 'archive'>(initialTab);
   const [viewOrder, setViewOrder] = useState<PaymentOrder | null>(null); 
   const [editingOrder, setEditingOrder] = useState<PaymentOrder | null>(null);
@@ -321,6 +313,10 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
         if (orderDate < fromDate || orderDate > toDate) return false;
     }
     return true;
+  }).sort((a, b) => {
+    const aNum = Number(a.trackingNumber) || 0;
+    const bNum = Number(b.trackingNumber) || 0;
+    return bNum - aNum;
   });
 
   const totalFilteredAmount = filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0);

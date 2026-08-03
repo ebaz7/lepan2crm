@@ -88,12 +88,12 @@ export const saveSettings = async (settings: SystemSettings): Promise<SystemSett
     return await apiCall<SystemSettings>('/settings', 'POST', settings); 
 };
 
-// Updated: Accepts optional company and year parameters
-export const getNextTrackingNumber = async (company?: string, year?: string | number): Promise<number> => { 
+// Updated: Accepts optional company parameter
+export const getNextTrackingNumber = async (company?: string): Promise<number> => { 
     try { 
-        let url = `/next-tracking-number?t=${Date.now()}`;
-        if (company) url += `&company=${encodeURIComponent(company)}`;
-        if (year) url += `&year=${encodeURIComponent(year.toString())}`;
+        const url = company 
+            ? `/next-tracking-number?company=${encodeURIComponent(company)}&t=${Date.now()}` 
+            : `/next-tracking-number?t=${Date.now()}`;
         const response = await apiCall<{ nextTrackingNumber: number }>(url); 
         return response.nextTrackingNumber; 
     } catch (e) { 
