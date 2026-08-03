@@ -13,7 +13,7 @@
     "build:apk": "node build-android.js",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
-    "postinstall": "npx puppeteer browsers install chrome && node patch-dependencies.js"
+    "postinstall": "node patch-dependencies.js"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "^6.0.0",

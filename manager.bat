@@ -55,7 +55,7 @@ set /p branch="Enter branch name (default: main): "
 if "!branch!"=="" set branch=main
 
 echo.
-echo [1/5] Cloning repository...
+echo [1/7] Cloning repository...
 git init
 git remote add origin !repo!
 git fetch origin
@@ -69,16 +69,31 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/5] Installing Node.js dependencies...
+echo [2/7] Configuring Port and Proxy...
+set /p APP_PORT="Enter Port (Default 80): "
+if "!APP_PORT!"=="" set APP_PORT=80
+set /p APP_PROXY="Enter Proxy URL (Optional, e.g. http://127.0.0.1:10809): "
+
+echo PORT=!APP_PORT! > .env
+if not "!APP_PROXY!"=="" echo PROXY_URL=!APP_PROXY! >> .env
+echo Configuration saved to .env
+
+echo.
+echo [3/7] Installing Node.js dependencies...
 set PUPPETEER_CACHE_DIR=%cd%\.puppeteer
+set PUPPETEER_SKIP_DOWNLOAD=true
 call npm install
 
 echo.
-echo [3/5] Patching dependencies (if required)...
+echo [4/7] Patching dependencies (if required)...
 if exist patch-dependencies.js node patch-dependencies.js
 
 echo.
-echo [4/5] Setting up the Windows Service...
+echo [5/7] Building Frontend...
+call npm run build
+
+echo.
+echo [6/7] Setting up the Windows Service...
 if exist install-service.js (
     node install-service.js
 ) else (
@@ -86,7 +101,7 @@ if exist install-service.js (
 )
 
 echo.
-echo [5/5] Configuring Windows Firewall...
+echo [7/7] Configuring Windows Firewall...
 if exist .env (
     for /f "tokens=2 delims==" %%a in ('findstr "^PORT=" .env') do set APP_PORT=%%a
     if not "!APP_PORT!"=="" (
@@ -115,7 +130,7 @@ set /p branch="Enter branch name (default: main): "
 if "!branch!"=="" set branch=main
 
 echo.
-echo [1/5] Pulling latest changes from GitHub...
+echo [1/6] Pulling latest changes from GitHub...
 if not exist .git (
     git init
 )
@@ -130,21 +145,26 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/5] Installing/Updating dependencies...
+echo [2/6] Installing/Updating dependencies...
 set PUPPETEER_CACHE_DIR=%cd%\.puppeteer
+set PUPPETEER_SKIP_DOWNLOAD=true
 call npm install
 
 echo.
-echo [3/5] Patching dependencies (if required)...
+echo [3/6] Patching dependencies (if required)...
 if exist patch-dependencies.js node patch-dependencies.js
 
 echo.
-echo [4/5] Restarting Windows Service...
+echo [4/6] Building Frontend...
+call npm run build
+
+echo.
+echo [5/6] Restarting Windows Service...
 net stop PaymentSystem
 net start PaymentSystem
 
 echo.
-echo [5/5] Configuring Windows Firewall...
+echo [6/6] Configuring Windows Firewall...
 if exist .env (
     for /f "tokens=2 delims==" %%a in ('findstr "^PORT=" .env') do set APP_PORT=%%a
     if not "!APP_PORT!"=="" (
