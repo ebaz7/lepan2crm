@@ -27,7 +27,7 @@ try {
   console.error('Error while patching @capgo/capacitor-share-target build.gradle:', error);
 }
 
-// 2. Patch node-windows to bypass local folder/file "NET" conflicts using net.exe with no absolute paths, and bypass buggy elevate.cmd when already running as Admin
+// 2. Patch node-windows
 try {
   const daemonPath = path.join(process.cwd(), 'node_modules/node-windows/lib/daemon.js');
   if (fs.existsSync(daemonPath)) {
@@ -63,11 +63,22 @@ try {
       modified = true;
     }
 
-    // CRITICAL: Bypass wincmd.elevate when running as Administrator! Standard child_process exec runs with Admin privileges if terminal is Admin.
-    if (content.includes("wincmd.elevate(cmd, options, callback)")) {
-      content = content.replace("wincmd.elevate(cmd, options, callback)", "exec(cmd, options, callback)");
+    // Restore elevate check in execute method instead of PermError throwing
+    const permErrorBlock = `          } else {
+            console.log(PermError);
+            throw PermError;
+          }`;
+    const restoredElevateBlock = `          } else {
+            if (typeof options === 'function') {
+              callback = options;
+              options = {};
+            }
+            wincmd.elevate(cmd, options, callback);
+          }`;
+    if (content.includes(permErrorBlock)) {
+      content = content.replace(permErrorBlock, restoredElevateBlock);
       modified = true;
-      console.log('Successfully patched daemon.js to run service commands directly (no elevation popup).');
+      console.log('Successfully restored elevation support in daemon.js execution.');
     }
     
     if (modified) {
@@ -94,38 +105,7 @@ try {
       modified = true;
     }
 
-    // Apply the clean net.exe patch
-    if (content.includes("NET SESSION")) {
-      content = content.replaceAll("NET SESSION", "net.exe SESSION");
-      modified = true;
-    }
-
-    // CRITICAL: Avoid calling bin.elevate inside isAdminUser just to test admin state! If net.exe SESSION fails, the user is simply NOT an admin.
     const searchString = `  isAdminUser: function (callback) {
-    exec('net.exe SESSION', function (err, so, se) {
-      if (se.length !== 0) {
-        bin.elevate('net.exe SESSION', function (_err, _so, _se) {
-          callback(_se.length === 0);
-        });
-      } else {
-        callback(true);
-      }
-    });
-  },`;
-
-    const searchStringAlternative = `  isAdminUser: function (callback) {
-    exec('net.exe SESSION', function (err, so, se) {
-      if (se.length !== 0) {
-        bin.elevate('net.exe SESSION', function (_err, _so, _se) {
-          callback(_se.length === 0);
-        });
-      } else {
-        callback(true);
-      }
-    });
-  }`;
-
-    const searchStringAlternative3 = `  isAdminUser: function (callback) {
     exec('net.exe SESSION', function (err, so, se) {
       if (se.length !== 0) {
         bin.elevate('net.exe SESSION', function (_err, _so, _se) {
@@ -148,21 +128,11 @@ try {
   },`;
 
     if (content.includes("bin.elevate('net.exe SESSION'")) {
-      // Find the whole block and replace it
-      // Since line endings can be CRLF on Windows, let's find the function pattern
       const startIdx = content.indexOf("isAdminUser: function");
       const endIdx = content.indexOf("},", startIdx);
       if (startIdx !== -1 && endIdx !== -1) {
         const fullFunc = content.substring(startIdx, endIdx + 2);
-        content = content.replace(fullFunc, `isAdminUser: function (callback) {
-    exec('net.exe SESSION', function (err, so, se) {
-      if (err || se.length !== 0) {
-        callback(false);
-      } else {
-        callback(true);
-      }
-    });
-  },`);
+        content = content.replace(fullFunc, replacementString);
         modified = true;
         console.log('Successfully patched cmd.js to avoid elev.cmd loop during isAdmin check.');
       }
