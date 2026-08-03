@@ -27,14 +27,16 @@ echo ========================================================
 echo 1. Install (Clone from GitHub, Setup, Install Service)
 echo 2. Update (Backup DB/Env, Pull changes, Restart Service)
 echo 3. Uninstall (Backup DB/Env, Remove Service)
-echo 4. Exit
+echo 4. View Error Logs (Check why it didn't start)
+echo 5. Exit
 echo ========================================================
-set /p choice="Select an option (1-4): "
+set /p choice="Select an option (1-5): "
 
 if "%choice%"=="1" goto INSTALL
 if "%choice%"=="2" goto UPDATE
 if "%choice%"=="3" goto UNINSTALL
-if "%choice%"=="4" goto EOF
+if "%choice%"=="4" goto LOGS
+if "%choice%"=="5" goto EOF
 
 goto MENU
 
@@ -53,7 +55,7 @@ set /p branch="Enter branch name (default: main): "
 if "!branch!"=="" set branch=main
 
 echo.
-echo [1/4] Cloning repository...
+echo [1/5] Cloning repository...
 git init
 git remote add origin !repo!
 git fetch origin
@@ -67,19 +69,30 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/4] Installing Node.js dependencies...
+echo [2/5] Installing Node.js dependencies...
+set PUPPETEER_CACHE_DIR=%cd%\.puppeteer
 call npm install
 
 echo.
-echo [3/4] Patching dependencies (if required)...
+echo [3/5] Patching dependencies (if required)...
 if exist patch-dependencies.js node patch-dependencies.js
 
 echo.
-echo [4/4] Setting up the Windows Service...
+echo [4/5] Setting up the Windows Service...
 if exist install-service.js (
     node install-service.js
 ) else (
     echo [ERROR] install-service.js not found.
+)
+
+echo.
+echo [5/5] Configuring Windows Firewall...
+if exist .env (
+    for /f "tokens=2 delims==" %%a in ('findstr "^PORT=" .env') do set APP_PORT=%%a
+    if not "!APP_PORT!"=="" (
+        echo Opening port !APP_PORT! in Windows Firewall...
+        netsh advfirewall firewall add rule name="PaymentSystem" dir=in action=allow protocol=TCP localport=!APP_PORT! >nul 2>&1
+    )
 )
 
 echo ========================================================
@@ -102,7 +115,7 @@ set /p branch="Enter branch name (default: main): "
 if "!branch!"=="" set branch=main
 
 echo.
-echo [1/4] Pulling latest changes from GitHub...
+echo [1/5] Pulling latest changes from GitHub...
 if not exist .git (
     git init
 )
@@ -117,17 +130,28 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/4] Installing/Updating dependencies...
+echo [2/5] Installing/Updating dependencies...
+set PUPPETEER_CACHE_DIR=%cd%\.puppeteer
 call npm install
 
 echo.
-echo [3/4] Patching dependencies (if required)...
+echo [3/5] Patching dependencies (if required)...
 if exist patch-dependencies.js node patch-dependencies.js
 
 echo.
-echo [4/4] Restarting Windows Service...
+echo [4/5] Restarting Windows Service...
 net stop PaymentSystem
 net start PaymentSystem
+
+echo.
+echo [5/5] Configuring Windows Firewall...
+if exist .env (
+    for /f "tokens=2 delims==" %%a in ('findstr "^PORT=" .env') do set APP_PORT=%%a
+    if not "!APP_PORT!"=="" (
+        echo Opening port !APP_PORT! in Windows Firewall...
+        netsh advfirewall firewall add rule name="PaymentSystem" dir=in action=allow protocol=TCP localport=!APP_PORT! >nul 2>&1
+    )
+)
 
 echo ========================================================
 echo Update finished!
@@ -150,8 +174,35 @@ if exist uninstall-service.js (
     echo [ERROR] uninstall-service.js not found.
 )
 
+echo.
+echo Removing Firewall Rule...
+netsh advfirewall firewall delete rule name="PaymentSystem" >nul 2>&1
+
 echo ========================================================
 echo Uninstallation finished!
+echo ========================================================
+pause
+goto MENU
+
+:LOGS
+cls
+echo ========================================================
+echo                   SERVICE ERROR LOGS
+echo ========================================================
+if exist daemon\paymentsystem.err.log (
+    powershell -command "Get-Content daemon\paymentsystem.err.log -Tail 50"
+) else (
+    echo No error logs found. The service might be running fine or hasn't started yet.
+)
+echo.
+echo ========================================================
+echo                  SERVICE OUTPUT LOGS
+echo ========================================================
+if exist daemon\paymentsystem.out.log (
+    powershell -command "Get-Content daemon\paymentsystem.out.log -Tail 50"
+) else (
+    echo No output logs found.
+)
 echo ========================================================
 pause
 goto MENU
