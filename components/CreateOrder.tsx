@@ -311,6 +311,7 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ onSuccess, currentUser }) => 
             paymentDetails: paymentLines, 
             attachments: attachments, 
             payingCompany: payingCompany,
+            fiscalYearId: settings?.activeFiscalYearId,
         };
         await saveOrder(newOrder); 
         

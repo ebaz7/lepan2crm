@@ -1928,17 +1928,37 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
     if (session.state === 'PAY_DESC') {
         const company = session.data.company || db.settings.defaultCompany || '';
         let minStart = db.settings.currentTrackingNumber || 1000;
-        if (db.settings.activeFiscalYearId && company) {
-            const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-            if (year && year.companySequences && year.companySequences[company]) {
-                minStart = year.companySequences[company].startTrackingNumber || minStart;
+        let activeYear = null;
+        if (db.settings.activeFiscalYearId) {
+            activeYear = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+            if (activeYear && company && activeYear.companySequences) {
+                const target = company.trim().replace(/\s+/g, ' ');
+                const foundKey = Object.keys(activeYear.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+                if (foundKey && activeYear.companySequences[foundKey]) {
+                    minStart = parseInt(String(activeYear.companySequences[foundKey].startTrackingNumber)) || minStart;
+                }
             }
         }
         
-        let trackingNumber = utils.findNextGapNumber(db.orders, company, 'trackingNumber', minStart);
+        let yearOrders = db.orders || [];
+        if (activeYear) {
+            yearOrders = yearOrders.filter(o => {
+                if (o.fiscalYearId) return o.fiscalYearId === activeYear.id;
+                if (activeYear.label) {
+                    const shamsiYM = utils.toShamsiYearMonth(o.date);
+                    if (shamsiYM && shamsiYM.startsWith(activeYear.label + '/')) return true;
+                }
+                if (activeYear.startDate && activeYear.endDate && o.date) {
+                    return o.date >= activeYear.startDate && o.date <= activeYear.endDate;
+                }
+                return false;
+            });
+        }
+        
+        let trackingNumber = utils.findNextGapNumber(yearOrders, company, 'trackingNumber', minStart);
         
         // Final Duplicate Check
-        while (utils.checkForDuplicate(db.orders, 'trackingNumber', trackingNumber, 'payingCompany', company)) {
+        while (utils.checkForDuplicate(yearOrders, 'trackingNumber', trackingNumber, 'payingCompany', company)) {
             trackingNumber++;
         }
 
@@ -1952,6 +1972,7 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
             status: 'در انتظار بررسی مالی',
             requester: user ? user.fullName : 'کاربر ربات',
             payingCompany: company,
+            fiscalYearId: activeYear ? activeYear.id : undefined,
             createdAt: Date.now(),
             paymentDetails: [{ id: generateUUID(), method: 'حواله بانکی', amount: session.data.amount }]
         };

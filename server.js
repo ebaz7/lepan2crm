@@ -1994,17 +1994,42 @@ app.get('/api/next-tracking-number', (req, res) => {
     const db = getDb();
     const company = req.query.company || db.settings?.defaultCompany || '';
     let startNum = db.settings?.currentTrackingNumber || 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startTrackingNumber || startNum;
+    let activeYear = null;
+    if (db.settings?.activeFiscalYearId) {
+        activeYear = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (activeYear) {
+            if (company && activeYear.companySequences) {
+                const target = company.trim().replace(/\s+/g, ' ');
+                const foundKey = Object.keys(activeYear.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+                if (foundKey && activeYear.companySequences[foundKey]) {
+                    const seqVal = activeYear.companySequences[foundKey].startTrackingNumber;
+                    if (seqVal) startNum = parseInt(String(seqVal)) || startNum;
+                }
             }
         }
     }
-    const nextNum = findNextMaxNumber(db.orders, company, 'trackingNumber', startNum);
+    
+    // Filter orders to only include those in the current fiscal year (by fiscalYearId, label, or date range)
+    let filteredOrders = db.orders || [];
+    if (activeYear) {
+        filteredOrders = filteredOrders.filter(o => {
+            if (o.fiscalYearId) {
+                return o.fiscalYearId === activeYear.id;
+            }
+            if (activeYear.label) {
+                const shamsiYM = utils.toShamsiYearMonth(o.date);
+                if (shamsiYM && shamsiYM.startsWith(activeYear.label + '/')) {
+                    return true;
+                }
+            }
+            if (activeYear.startDate && activeYear.endDate && o.date) {
+                return o.date >= activeYear.startDate && o.date <= activeYear.endDate;
+            }
+            return false;
+        });
+    }
+
+    const nextNum = findNextMaxNumber(filteredOrders, company, 'trackingNumber', startNum);
     res.json({ nextTrackingNumber: nextNum });
 });
 

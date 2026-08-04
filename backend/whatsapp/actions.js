@@ -15,17 +15,38 @@ const formatDate = () => new Date().toLocaleDateString('fa-IR');
 export const handleCreatePayment = (db, args) => {
     const company = db.settings.defaultCompany || '';
     let minStart = db.settings.currentTrackingNumber || 1000;
-    if (db.settings.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences && year.companySequences[company]) {
-            minStart = year.companySequences[company].startTrackingNumber || minStart;
+    let activeYear = null;
+    if (db.settings.activeFiscalYearId) {
+        activeYear = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (activeYear && company && activeYear.companySequences) {
+            const target = company.trim().replace(/\s+/g, ' ');
+            const foundKey = Object.keys(activeYear.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+            if (foundKey && activeYear.companySequences[foundKey]) {
+                minStart = parseInt(String(activeYear.companySequences[foundKey].startTrackingNumber)) || minStart;
+            }
         }
     }
-    const trackingNum = findNextGapNumber(db.orders, company, 'trackingNumber', minStart);
+
+    let yearOrders = db.orders || [];
+    if (activeYear) {
+        yearOrders = yearOrders.filter(o => {
+            if (o.fiscalYearId) return o.fiscalYearId === activeYear.id;
+            if (activeYear.label) {
+                const shamsiYM = utils.toShamsiYearMonth(o.date);
+                if (shamsiYM && shamsiYM.startsWith(activeYear.label + '/')) return true;
+            }
+            if (activeYear.startDate && activeYear.endDate && o.date) {
+                return o.date >= activeYear.startDate && o.date <= activeYear.endDate;
+            }
+            return false;
+        });
+    }
+
+    const trackingNum = findNextGapNumber(yearOrders, company, 'trackingNumber', minStart);
     
     // Duplicate check
     let finalNum = trackingNum;
-    while (utils.checkForDuplicate(db.orders, 'trackingNumber', finalNum, 'payingCompany', company)) {
+    while (utils.checkForDuplicate(yearOrders, 'trackingNumber', finalNum, 'payingCompany', company)) {
         finalNum++;
     }
 
@@ -42,6 +63,7 @@ export const handleCreatePayment = (db, args) => {
         status: 'در انتظار بررسی مالی', 
         requester: 'WhatsApp', 
         payingCompany: company, 
+        fiscalYearId: activeYear ? activeYear.id : undefined,
         paymentDetails: [
             {
                 id: generateUUID(), 
