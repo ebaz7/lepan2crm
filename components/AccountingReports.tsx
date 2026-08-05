@@ -26,6 +26,7 @@ import {
     Trash2
 } from 'lucide-react';
 import * as jalaali from 'jalaali-js';
+import * as XLSX from 'xlsx';
 import { 
     BarChart, 
     Bar, 
@@ -1217,7 +1218,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_029 as Notes,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
-                    COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                    COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -1297,7 +1298,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_029 as Notes,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
@@ -2746,7 +2747,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_008 as Date,
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
@@ -2760,7 +2761,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
                       AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
-                    ORDER BY COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
+                    ORDER BY COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
                 `;
                 
                 const rawRows = await runSayanQuery(sql);
@@ -2972,79 +2973,71 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             return;
         }
 
-        const headers = [
-            "کالا",
-            "واحد",
-            "سند ۶۱ (POY)",
-            "سند ۶۷ (DTY)",
-            "سند ۷۹ (کش)",
-            "سند ۷۳ (اسپاندکس)",
-            "جمع کل"
+        const data: any[][] = [
+            ["گزارش آمار تولید سایان"],
+            [`از تاریخ: ${dateFrom} تا تاریخ: ${dateTo}`],
+            [""],
+            [
+                "نام کالا",
+                "واحد",
+                "سند ۶۱ (POY)",
+                "سند ۶۷ (DTY)",
+                "سند ۷۹ (کش)",
+                "سند ۷۳ (اسپاندکس)",
+                "جمع کل"
+            ]
         ];
 
-        const rows = [headers.join(",")];
-
         prodLiveItems.forEach((item: any) => {
-            const row = [
-                `"${item.name.replace(/"/g, '""')}"`,
-                `"${(item.unit || "کیلوگرم").replace(/"/g, '""')}"`,
+            data.push([
+                item.name,
+                item.unit || "کیلوگرم",
                 item.qty_61 || 0,
                 item.qty_67 || 0,
                 item.qty_79 || 0,
                 item.qty_73 || 0,
                 item.total || 0
-            ];
-            rows.push(row.join(","));
+            ]);
         });
 
-        // Add blank row
-        rows.push("");
-
-        // Add Totals row
-        const totalRow = [
-            `"جمع کل تولید"`,
-            `"کیلوگرم"`,
+        data.push([""]);
+        data.push([
+            "جمع کل تولید",
+            "کیلوگرم",
             prodLiveTotals.qty_61 || 0,
             prodLiveTotals.qty_67 || 0,
             prodLiveTotals.qty_79 || 0,
             prodLiveTotals.qty_73 || 0,
             prodLiveTotals.grandTotal || 0
-        ];
-        rows.push(totalRow.join(","));
+        ]);
 
-        // Add Waste row
-        const wasteRow = [
-            `"ضایعات (ورود دستی)"`,
-            `"کیلوگرم"`,
+        data.push([
+            "ضایعات (ورود دستی)",
+            "کیلوگرم",
             prodWaste.waste_61 || 0,
             prodWaste.waste_67 || 0,
             prodWaste.waste_79 || 0,
             prodWaste.waste_73 || 0,
             prodWaste.totalWaste || 0
-        ];
-        rows.push(wasteRow.join(","));
+        ]);
 
-        // Add Waste Pct row
-        const pctRow = [
-            `"درصد ضایعات"`,
-            `"درصد"`,
+        data.push([
+            "درصد ضایعات",
+            "درصد",
             (prodWaste.pct_61 || 0).toFixed(2) + "%",
             (prodWaste.pct_67 || 0).toFixed(2) + "%",
             (prodWaste.pct_79 || 0).toFixed(2) + "%",
             (prodWaste.pct_73 || 0).toFixed(2) + "%",
             (prodWaste.totalPct || 0).toFixed(2) + "%"
-        ];
-        rows.push(pctRow.join(","));
+        ]);
 
-        const bom = "\uFEFF"; 
-        const blob = new Blob([bom + rows.join("\n")], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("فایل اکسل (CSV) با موفقیت دانلود شد.");
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "آمار تولید");
+        
+        const cleanFileName = `آمار_تولید_${dateFrom.replace(/[\/\\]/g, '-')}_تا_${dateTo.replace(/[\/\\]/g, '-')}.xlsx`;
+        XLSX.writeFile(wb, cleanFileName);
+        toast.success("فایل اکسل آمار تولید با موفقیت دانلود شد.");
     };
 
     // Aggregate production by selection

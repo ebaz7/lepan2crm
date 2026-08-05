@@ -99,8 +99,27 @@ export function classifyMajorCategory(groupName: string = '', itemName: string =
   if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
   if (text.includes('کش') || text.includes('elastic')) return 'کش';
   if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
+  if (text.includes('پلی استر') || text.includes('polyester')) return 'پلی استر';
 
   return groupName || 'سایر محصولات';
+}
+
+export function cleanProductName(rawName: string = '', itemCode: string = ''): string {
+  if (!rawName || rawName === 'کالای بدون نام') {
+    return itemCode ? `کد کالا: ${itemCode}` : 'کالای بدون نام';
+  }
+  let clean = rawName.trim();
+  
+  // Strip label details, serial numbers, lot codes, label prefixes
+  clean = clean.replace(/[\(\[\{-]?\s*لیبل\s*[:\d\-_\s\w]*[\)\]\}]?/gi, '');
+  clean = clean.replace(/لیبل\s*#?\d+/gi, '');
+  clean = clean.replace(/[\/\\]\s*لیبل.*/gi, '');
+  clean = clean.replace(/^[\s\-_:=]+|[\s\-_:=]+$/g, '').trim();
+
+  if (!clean || clean === 'کالای بدون نام') {
+    return itemCode ? `کد کالا: ${itemCode}` : 'کالای بدون نام';
+  }
+  return clean;
 }
 
 function formatMoney(amount: number): string {
@@ -442,12 +461,13 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         if (isReturn) yearNetWgt -= qty; else yearNetWgt += qty;
       }
 
-      // Item Accumulation
-      const itemKey = row.ItemCode || row.ItemName || 'کالا';
+      // Item Accumulation (Grouped strictly by clean product name)
+      const cleanName = cleanProductName(row.ItemName, row.ItemCode);
+      const itemKey = cleanName;
       if (!itemMap.has(itemKey)) {
         itemMap.set(itemKey, {
           itemCode: row.ItemCode || '',
-          itemName: (row.ItemName && row.ItemName !== 'کالای بدون نام') ? row.ItemName : (row.ItemCode ? `کد کالا: ${row.ItemCode}` : 'کالای بدون نام'),
+          itemName: cleanName,
           groupName: row.GroupName || 'سایر',
           majorCategory: majorCat,
           salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0
@@ -475,7 +495,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       // Sub-items inside category
       if (!catRecord.itemsMap.has(itemKey)) {
-        catRecord.itemsMap.set(itemKey, { itemName: row.ItemName, salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
+        catRecord.itemsMap.set(itemKey, { itemName: cleanName, salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
       }
       const catSubItem = catRecord.itemsMap.get(itemKey)!;
       if (isReturn) {
@@ -666,7 +686,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
       const isReturn = row.OpCode === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
-      const itemKey = row.ItemCode || row.ItemName || 'کالا';
+      const cleanName = cleanProductName(row.ItemName, row.ItemCode);
+      const itemKey = cleanName;
 
       if (isReturn) {
         retAmtB += amt;
@@ -695,7 +716,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       if (!itemMapB.has(itemKey)) {
         itemMapB.set(itemKey, {
           itemCode: row.ItemCode || '',
-          itemName: row.ItemName || 'کالای بدون نام',
+          itemName: cleanName,
           groupName: row.GroupName || 'سایر',
           majorCategory: cat,
           salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0
@@ -749,6 +770,64 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     });
     const allCompareCategories = Array.from(activeCategoriesSet);
 
+    // Build sub-items comparison mapping for each category
+    const subItemsByCat = new Map<string, Array<any>>();
+    const allCatSubItemKeys = new Set<string>();
+    processedMetrics.itemList.forEach(i => {
+      if (i.majorCategory && i.itemName) {
+        allCatSubItemKeys.add(`${i.majorCategory}|||${i.itemName}`);
+      }
+    });
+    Array.from(itemMapB.values()).forEach(i => {
+      if (i.majorCategory && i.itemName) {
+        allCatSubItemKeys.add(`${i.majorCategory}|||${i.itemName}`);
+      }
+    });
+
+    allCatSubItemKeys.forEach(composite => {
+      const parts = composite.split('|||');
+      const catName = parts[0];
+      const itemName = parts[1];
+
+      const itemA = processedMetrics.itemList.find(i => i.majorCategory === catName && i.itemName === itemName) || {
+        netAmt: 0, netQty: 0, netFee: 0
+      };
+      const itemB = Array.from(itemMapB.values()).find(i => i.majorCategory === catName && i.itemName === itemName);
+
+      const netAmtA = itemA.netAmt || 0;
+      const netWgtA = itemA.netQty || 0;
+      const netFeeA = itemA.netFee || (netWgtA > 0 ? netAmtA / netWgtA : 0);
+
+      const salesAmtB = itemB ? itemB.salesAmt : 0;
+      const retAmtB = itemB ? itemB.returnAmt : 0;
+      const netAmtB = salesAmtB - retAmtB;
+      const salesQtyB = itemB ? itemB.salesQty : 0;
+      const retQtyB = itemB ? itemB.returnQty : 0;
+      const netWgtB = salesQtyB - retQtyB;
+      const netFeeB = netWgtB > 0 ? (netAmtB / netWgtB) : 0;
+
+      const diffAmt = netAmtA - netAmtB;
+      const growthPct = netAmtB ? ((diffAmt / netAmtB) * 100) : 0;
+      const diffWgt = netWgtA - netWgtB;
+      const diffFee = netFeeA - netFeeB;
+
+      if (!subItemsByCat.has(catName)) {
+        subItemsByCat.set(catName, []);
+      }
+      subItemsByCat.get(catName)!.push({
+        itemName,
+        netAmtA,
+        netWgtA,
+        netFeeA,
+        netAmtB,
+        netWgtB,
+        netFeeB,
+        diffAmt,
+        growthPct,
+        variance: getVariance(diffAmt, diffWgt, diffFee)
+      });
+    });
+
     const compareGroupRows = allCompareCategories.map(catName => {
       const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
       const catBRecord = catMapB.get(catName);
@@ -772,6 +851,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       return {
         catName,
+        subItems: subItemsByCat.get(catName) || [],
         grossAmtA: catA.salesAmt,
         retAmtA: catA.retAmt,
         netAmtA: catA.netAmt,
@@ -2837,34 +2917,84 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {comparisonMetrics?.compareGroupRows.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3 text-center text-slate-400 font-mono">{idx + 1}</td>
-                            <td className="p-3 font-bold text-slate-900">{row.catName}</td>
-                            <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
-                            <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
-                            <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
-                            <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
-                            <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
-                            <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
-                            <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                              {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
-                            </td>
-                            <td className="p-3 text-center font-mono font-black">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                              }`}>
-                                {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
-                            <td className="p-3 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
-                                {row.variance.label}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {comparisonMetrics?.compareGroupRows.map((row, idx) => {
+                          const isExpanded = !!expandedCategories[row.catName];
+                          return (
+                            <React.Fragment key={idx}>
+                              <tr 
+                                onClick={() => toggleCategory(row.catName)}
+                                className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${
+                                  isExpanded ? 'bg-blue-50/60 font-bold' : ''
+                                }`}
+                              >
+                                <td className="p-3 text-center text-slate-400 font-mono">
+                                  {row.subItems.length > 0 ? (
+                                    isExpanded ? <ChevronDown className="w-4 h-4 text-blue-600 mx-auto" /> : <ChevronRight className="w-4 h-4 text-slate-400 mx-auto" />
+                                  ) : idx + 1}
+                                </td>
+                                <td className="p-3 font-extrabold text-slate-900 flex items-center gap-2">
+                                  <span>{row.catName}</span>
+                                  {row.subItems.length > 0 && (
+                                    <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-md font-mono">
+                                      {row.subItems.length} زیرمجموعه
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
+                                <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
+                                <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
+                                <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
+                                <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
+                                <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
+                                <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                  {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
+                                </td>
+                                <td className="p-3 text-center font-mono font-black">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                    row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
+                                <td className="p-3 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
+                                    {row.variance.label}
+                                  </span>
+                                </td>
+                              </tr>
+
+                              {/* Comparative Sub-Items Drill-Down */}
+                              {isExpanded && row.subItems.map((sub: any, sIdx: number) => (
+                                <tr key={`${idx}_sub_${sIdx}`} className="bg-slate-50/90 text-[11px] hover:bg-slate-100 transition-colors border-l-4 border-l-blue-500">
+                                  <td></td>
+                                  <td className="p-2.5 pr-8 text-slate-800 font-medium flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                    <span>{sub.itemName}</span>
+                                  </td>
+                                  <td className="p-2.5 text-left font-mono font-bold text-blue-800">{formatMoney(sub.netAmtA)}</td>
+                                  <td className="p-2.5 text-left font-mono font-bold text-indigo-800">{formatMoney(sub.netAmtB)}</td>
+                                  <td className="p-2.5 text-center font-mono text-blue-800">{formatWeight(sub.netWgtA)}</td>
+                                  <td className="p-2.5 text-center font-mono text-indigo-800">{formatWeight(sub.netWgtB)}</td>
+                                  <td className="p-2.5 text-left font-mono text-blue-800">{formatMoney(sub.netFeeA)}</td>
+                                  <td className="p-2.5 text-left font-mono text-indigo-800">{formatMoney(sub.netFeeB)}</td>
+                                  <td className={`p-2.5 text-left font-mono font-bold ${sub.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                    {sub.diffAmt >= 0 ? '+' : ''}{formatMoney(sub.diffAmt)}
+                                  </td>
+                                  <td className="p-2.5 text-center font-mono">
+                                    <span className={`px-1.5 py-0.2 rounded text-[10px] ${
+                                      sub.growthPct > 0 ? 'text-emerald-800 bg-emerald-50' : sub.growthPct < 0 ? 'text-rose-800 bg-rose-50' : 'text-slate-600'
+                                    }`}>
+                                      {sub.growthPct > 0 ? '+' : ''}{sub.growthPct.toFixed(1)}%
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-center font-mono text-slate-400">-</td>
+                                  <td className="p-2.5 text-center text-[10px] text-slate-500">{sub.variance.label}</td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   ) : (
