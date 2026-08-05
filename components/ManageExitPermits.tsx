@@ -261,9 +261,10 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             const companyConfig = settings?.companyNotifications?.[permit.company || ''];
             
             // Group 1 IDs
-            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup;
-            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId;
-            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId;
+            const g1Config = settings?.exitPermitFirstGroupConfig;
+            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
+            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
+            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
 
             // Group 2 IDs
             const g2Config = settings?.exitPermitSecondGroupConfig;
@@ -484,9 +485,10 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             const companyConfig = settings?.companyNotifications?.[permit.company];
             
             // Group 1 IDs
-            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup;
-            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId;
-            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId;
+            const g1Config = settings?.exitPermitFirstGroupConfig;
+            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
+            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
+            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
 
             // Group 2 IDs
             const g2Config = settings?.exitPermitSecondGroupConfig;

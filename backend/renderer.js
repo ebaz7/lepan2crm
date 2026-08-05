@@ -990,63 +990,97 @@ export const generateReportPDF = async (
 
     let card1Title = "";
     let card1Value = "";
+    let card1Sub = "";
     let card2Title = "";
     let card2Value = "";
+    let card2Sub = "";
     let card3Title = "";
     let card3Value = "";
+    let card3Sub = "";
+    let card4Title = "";
+    let card4Value = "";
+    let card4Sub = "";
     let subtitleText = "";
 
     if (isSales) {
       if (isCompare) {
-        subtitleText = "گزارش مقایسه‌ای و تحلیل رشد عملکرد فروش - بخش بازرگانی و مدیریت فروش";
+        landscape = true; // Always landscape for comparison reports to fit 9 columns on A4
+        subtitleText = "گزارش مدیریتی و تحلیل انحراف عملکرد فروش (مقایسه همزمان وزن و مبلغ) - هیئت مدیره و بازرگانی";
         
         let totalNetWgtA = 0;
         let totalNetAmtA = 0;
         let totalNetWgtB = 0;
         let totalNetAmtB = 0;
-        let totalRetWgtA = 0;
-        let totalRetWgtB = 0;
 
-        rows.forEach((r) => {
-          if (r[0] !== 'جمع کل') {
-            const wgtA = parseFormattedNumber(r[1]);
-            const feeA = parseFormattedNumber(r[2]);
-            const retA = parseFormattedNumber(r[3]);
-            const wgtB = parseFormattedNumber(r[4]);
-            const feeB = parseFormattedNumber(r[5]);
-            const retB = parseFormattedNumber(r[6]);
+        // Check if total row already exists
+        const totalRow = rows.find(r => r[0] === 'جمع کل' || String(r[1]).includes('جمع کل'));
 
-            totalNetWgtA += wgtA;
-            totalNetAmtA += wgtA * feeA;
-            totalRetWgtA += retA;
-            totalNetWgtB += wgtB;
-            totalNetAmtB += wgtB * feeB;
-            totalRetWgtB += retB;
-          }
-        });
-
-        // Populate dashes of the last row "جمع کل"
-        const totalRowIdx = rows.findIndex(r => r[0] === 'جمع کل');
-        if (totalRowIdx !== -1) {
-          const totalRow = rows[totalRowIdx];
-          totalRow[1] = totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
-          totalRow[2] = Math.round(totalNetWgtA ? totalNetAmtA / totalNetWgtA : 0).toLocaleString('fa-IR') + " ریال";
-          totalRow[3] = totalRetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
-          totalRow[4] = totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
-          totalRow[5] = Math.round(totalNetWgtB ? totalNetAmtB / totalNetWgtB : 0).toLocaleString('fa-IR') + " ریال";
-          totalRow[6] = totalRetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ک‌گ";
+        if (totalRow && totalRow.length >= 6) {
+          totalNetWgtA = parseFormattedNumber(totalRow[2]);
+          totalNetAmtA = parseFormattedNumber(totalRow[3]);
+          totalNetWgtB = parseFormattedNumber(totalRow[4]);
+          totalNetAmtB = parseFormattedNumber(totalRow[5]);
         }
 
-        const growthPct = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+        if (totalNetAmtA === 0 && totalNetAmtB === 0) {
+          rows.forEach((r) => {
+            if (r[0] !== 'جمع کل' && !String(r[1]).includes('جمع کل')) {
+              if (columns.length >= 8 && (columns.includes('تغییر وزن %') || columns[2].includes('وزن A'))) {
+                const wgtA = parseFormattedNumber(r[2]);
+                const amtA = parseFormattedNumber(r[3]);
+                const wgtB = parseFormattedNumber(r[4]);
+                const amtB = parseFormattedNumber(r[5]);
+                totalNetWgtA += wgtA;
+                totalNetAmtA += amtA;
+                totalNetWgtB += wgtB;
+                totalNetAmtB += amtB;
+              } else {
+                const wgtA = parseFormattedNumber(r[1]);
+                const feeA = parseFormattedNumber(r[2]);
+                const wgtB = parseFormattedNumber(r[4]);
+                const feeB = parseFormattedNumber(r[5]);
+                totalNetWgtA += wgtA;
+                totalNetAmtA += (wgtA * feeA);
+                totalNetWgtB += wgtB;
+                totalNetAmtB += (wgtB * feeB);
+              }
+            }
+          });
+        }
 
-        card1Title = "مجموع فروش خالص دوره A";
-        card1Value = `${pdfFormatNumber(Math.round(totalNetAmtA))} ریال`;
-        
-        card2Title = "مجموع فروش خالص دوره B";
-        card2Value = `${pdfFormatNumber(Math.round(totalNetAmtB))} ریال`;
+        const avgFeeA = totalNetWgtA > 0 ? (totalNetAmtA / totalNetWgtA) : 0;
+        const avgFeeB = totalNetWgtB > 0 ? (totalNetAmtB / totalNetWgtB) : 0;
 
-        card3Title = "نرخ رشد عملکرد (A نسبت به B)";
-        card3Value = `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
+        const amtGrowth = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+        const wgtGrowth = totalNetWgtB ? ((totalNetWgtA - totalNetWgtB) / totalNetWgtB) * 100 : (totalNetWgtA ? 100 : 0);
+        const feeGrowth = avgFeeB ? ((avgFeeA - avgFeeB) / avgFeeB) * 100 : (avgFeeA ? 100 : 0);
+
+        card1Title = "مقایسه مبلغ فروش کل (ریال)";
+        card1Value = `${amtGrowth >= 0 ? '+' : ''}${amtGrowth.toFixed(1)}%`;
+        card1Sub = `A: ${pdfFormatNumber(Math.round(totalNetAmtA))} | B: ${pdfFormatNumber(Math.round(totalNetAmtB))}`;
+
+        card2Title = "مقایسه وزن فروش کل (ک‌گ)";
+        card2Value = `${wgtGrowth >= 0 ? '+' : ''}${wgtGrowth.toFixed(1)}%`;
+        card2Sub = `A: ${totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} | B: ${totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+
+        card3Title = "مقایسه فی متوسط نهایی";
+        card3Value = `${feeGrowth >= 0 ? '+' : ''}${feeGrowth.toFixed(1)}%`;
+        card3Sub = `A: ${pdfFormatNumber(Math.round(avgFeeA))} | B: ${pdfFormatNumber(Math.round(avgFeeB))}`;
+
+        card4Title = "تحلیل انحراف عملکرد";
+        if (amtGrowth > 0 && wgtGrowth > 0) {
+          card4Value = "رشد متوازن";
+          card4Sub = "افزایش همزمان حجم و درآمد";
+        } else if (amtGrowth > 0 && wgtGrowth <= 0) {
+          card4Value = "رشد مبلغمحور";
+          card4Sub = "افزایش نرخ واحد کالا";
+        } else if (amtGrowth <= 0 && wgtGrowth > 0) {
+          card4Value = "رشد حجمی";
+          card4Sub = "افزایش حجم با قیمت رقابتی";
+        } else {
+          card4Value = "افت عملکرد";
+          card4Sub = "کاهش حجم فروش و درآمد";
+        }
       } else {
         subtitleText = "گزارش تحلیلی عملکرد فروش و مرجوعی - بخش بازرگانی و مدیریت فروش";
 
@@ -1148,16 +1182,9 @@ export const generateReportPDF = async (
       card3Value = `${pdfFormatNumber(rows.length > 1 ? Math.round(totalBalance / (rows.length - 1)) : 0)} ریال`;
     }
 
-    const colorClass = isDebtor ? "red" : "emerald";
-    const colorHex = isDebtor ? "#dc2626" : "#10b981";
-    const colorBg = isDebtor ? "#fef2f2" : "#ecfdf5";
-    const textClass = isDebtor ? "text-red-700" : "text-emerald-700";
-    const borderClass = isDebtor ? "border-red-600" : "border-emerald-600";
-    const bgHeader = isDebtor ? "bg-red-50" : "bg-emerald-50";
-
     let thead = "<tr>";
     columns.forEach((c) => {
-      thead += `<th class="p-4 text-center text-xs font-black border-b border-gray-200/50 ${isDebtor ? "bg-red-800 text-white" : "bg-emerald-800 text-white"}">${c}</th>`;
+      thead += `<th class="py-2 px-2 text-center text-[10.5px] font-black border-b border-gray-300 bg-slate-900 text-white leading-tight">${c}</th>`;
     });
     thead += "</tr>";
 
@@ -1165,29 +1192,27 @@ export const generateReportPDF = async (
     rows.forEach((r, idx) => {
       const isEven = idx % 2 === 1;
       const isTotalRow = r[0] === 'جمع کل' || String(r[1]).includes('جمع کل');
-      const rowBgClass = isTotalRow ? (isDebtor ? "bg-red-50/80 font-black border-t-2 border-red-200" : "bg-emerald-50/80 font-black border-t-2 border-emerald-200") : (isEven ? "bg-gray-50/80" : "bg-white");
+      const rowBgClass = isTotalRow ? "bg-amber-100/90 font-black border-t-2 border-slate-900" : (isEven ? "bg-slate-50/90" : "bg-white");
 
-      tbody += `<tr class="${rowBgClass} border-b border-gray-100/80 hover:bg-gray-100/30 transition-colors">`;
+      tbody += `<tr class="${rowBgClass} border-b border-gray-200/80">`;
       r.forEach((cell, cellIdx) => {
-        let cellStyleClass = "p-3.5 text-xs text-gray-700 text-center font-bold border-l border-gray-100/50 last:border-l-0";
+        let cellStyleClass = "py-1.5 px-2 text-[10px] text-gray-800 text-center font-bold border-l border-gray-200/60 last:border-l-0";
         if (isTotalRow) {
-          cellStyleClass = "p-3.5 text-xs text-gray-900 text-center font-black border-l border-gray-100/50 last:border-l-0";
+          cellStyleClass = "py-2 px-2 text-[10.5px] text-slate-950 text-center font-black border-l border-gray-300 last:border-l-0";
         }
 
         if (cellIdx === 1) {
-          cellStyleClass = `p-3.5 text-sm ${isTotalRow ? "font-black text-gray-950" : "font-bold text-gray-900"} text-right pr-6 border-l border-gray-100/50`;
-        } else if (cellIdx === 2) {
-          if (!isSales) {
-            cellStyleClass = `p-3.5 text-sm font-black font-mono ${isDebtor ? "text-red-700" : "text-emerald-700"} text-center border-l border-gray-100/50`;
-          } else {
-            cellStyleClass = `p-3.5 text-xs ${isTotalRow ? "font-black text-gray-950" : "font-bold text-gray-700"} text-center border-l border-gray-100/50`;
-          }
+          cellStyleClass = `py-1.5 px-2.5 text-[10.5px] ${isTotalRow ? "font-black text-slate-950" : "font-bold text-gray-900"} text-right border-l border-gray-200/60`;
         }
 
-        if (cellIdx === 3 && title.includes("بدهکار")) {
-          tbody += `<td class="p-3.5 text-center"><span class="px-3 py-1 text-[10px] font-black rounded-lg bg-red-50 text-red-800 border border-red-200/50">${cell}</span></td>`;
-        } else if (cellIdx === 3 && title.includes("بستانکار")) {
-          tbody += `<td class="p-3.5 text-center"><span class="px-3 py-1 text-[10px] font-black rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/50">${cell}</span></td>`;
+        const cellStr = String(cell);
+        const isPctCell = cellStr.includes('%') && (cellStr.startsWith('+') || cellStr.startsWith('-') || cellStr.includes('.'));
+        
+        if (isPctCell) {
+          const isPos = cellStr.startsWith('+') || (parseFloat(cellStr) > 0 && !cellStr.startsWith('-'));
+          const isNeg = cellStr.startsWith('-');
+          const bgBadge = isPos ? "bg-emerald-100 text-emerald-900 font-black" : (isNeg ? "bg-rose-100 text-rose-900 font-black" : "bg-slate-100 text-slate-700");
+          tbody += `<td class="py-1 px-1.5 text-center"><span class="inline-block px-1.5 py-0.5 text-[9.5px] rounded-md font-mono ${bgBadge}">${cell}</span></td>`;
         } else {
           tbody += `<td class="${cellStyleClass}">${cell}</td>`;
         }
@@ -1202,78 +1227,115 @@ export const generateReportPDF = async (
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ${fontFaceRule}
+        @page {
+          size: A4 ${landscape ? 'landscape' : 'portrait'};
+          margin: 6mm 8mm;
+        }
         body { 
             font-family: 'Vazirmatn', sans-serif !important; 
             background: #ffffff; 
             padding: 0;
             margin: 0;
+            color: #0f172a;
+            -webkit-print-color-adjust: exact;
         }
     </style>
 </head>
 <body class="p-0">
-    <div class="max-w-[100%] mx-auto bg-white overflow-hidden p-10">
+    <div class="w-full bg-white p-2">
         
-        <div class="flex justify-between items-end border-b-4 ${isDebtor ? "border-red-700" : "border-emerald-700"} pb-6 mb-8">
-            <div class="space-y-1">
+        <!-- HEADER -->
+        <div class="flex justify-between items-center border-b-2 border-slate-900 pb-2 mb-3">
+            <div class="space-y-0.5">
                 <div class="flex items-center gap-2">
-                    <div class="w-3 h-8 ${isDebtor ? "bg-red-700" : "bg-emerald-700"} rounded-full"></div>
-                    <h1 class="text-2xl font-black text-gray-900 tracking-tight">${title}</h1>
+                    <div class="w-2.5 h-6 bg-slate-900 rounded-sm"></div>
+                    <h1 class="text-lg font-black text-slate-900 tracking-tight">${title}</h1>
                 </div>
-                <p class="text-xs text-gray-500 font-bold pr-5 italic">${subtitleText}</p>
+                <p class="text-[10px] text-slate-500 font-bold pr-4">${subtitleText}</p>
             </div>
-            <div class="text-left space-y-1">
-                <div class="inline-block bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-black mb-2">${new Date().toLocaleDateString("fa-IR")}</div>
-                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">${new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })} | سیستم گزارشات هوشمند</div>
+            <div class="text-left space-y-0.5">
+                <div class="inline-block bg-slate-900 text-white px-2.5 py-1 rounded text-[10px] font-black">${new Date().toLocaleDateString("fa-IR")}</div>
+                <div class="text-[9px] text-slate-400 font-bold">گزارش مدیریتی A4 | سایان ERP</div>
             </div>
         </div>
 
-        <div class="mb-10">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">${card1Title}</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${card1Value}</div>
+        <!-- KPI CARDS -->
+        <div class="mb-3">
+            ${isCompare ? `
+            <div class="grid grid-cols-4 gap-2 mb-3">
+                <div class="bg-slate-50 border-r-4 border-slate-900 p-2 rounded-lg shadow-sm text-right">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card1Title}</div>
+                    <div class="text-base font-black ${card1Value.startsWith('+') ? 'text-emerald-700' : (card1Value.startsWith('-') ? 'text-rose-700' : 'text-slate-900')} font-mono">${card1Value}</div>
+                    <div class="text-[8.5px] text-slate-500 font-mono mt-0.5">${card1Sub}</div>
                 </div>
 
-                <div class="bg-gray-50 border-r-4 border-gray-900 p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">${card2Title}</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${card2Value}</div>
+                <div class="bg-slate-50 border-r-4 border-indigo-700 p-2 rounded-lg shadow-sm text-right">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card2Title}</div>
+                    <div class="text-base font-black ${card2Value.startsWith('+') ? 'text-emerald-700' : (card2Value.startsWith('-') ? 'text-rose-700' : 'text-slate-900')} font-mono">${card2Value}</div>
+                    <div class="text-[8.5px] text-slate-500 font-mono mt-0.5">${card2Sub}</div>
                 </div>
 
-                <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
-                    <div class="text-[10px] font-black text-gray-400 mb-1">${card3Title}</div>
-                    <div class="text-2xl font-black text-gray-900 font-mono">${card3Value}</div>
+                <div class="bg-slate-50 border-r-4 border-emerald-700 p-2 rounded-lg shadow-sm text-right">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card3Title}</div>
+                    <div class="text-base font-black ${card3Value.startsWith('+') ? 'text-emerald-700' : (card3Value.startsWith('-') ? 'text-rose-700' : 'text-slate-900')} font-mono">${card3Value}</div>
+                    <div class="text-[8.5px] text-slate-500 font-mono mt-0.5">${card3Sub}</div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-2 rounded-lg shadow-sm text-right">
+                    <div class="text-[9px] font-black text-slate-300 mb-0.5">${card4Title}</div>
+                    <div class="text-base font-black text-amber-300 font-mono">${card4Value}</div>
+                    <div class="text-[8.5px] text-slate-300 mt-0.5">${card4Sub}</div>
                 </div>
             </div>
+            ` : `
+            <div class="grid grid-cols-3 gap-3 mb-3">
+                <div class="bg-slate-50 border-r-4 border-emerald-600 p-2.5 rounded-lg shadow-sm">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card1Title}</div>
+                    <div class="text-lg font-black text-slate-900 font-mono">${card1Value}</div>
+                </div>
 
-            <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-50 border-r-4 border-slate-900 p-2.5 rounded-lg shadow-sm">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card2Title}</div>
+                    <div class="text-lg font-black text-slate-900 font-mono">${card2Value}</div>
+                </div>
+
+                <div class="bg-slate-50 border-r-4 border-indigo-600 p-2.5 rounded-lg shadow-sm">
+                    <div class="text-[9px] font-black text-slate-500 mb-0.5">${card3Title}</div>
+                    <div class="text-lg font-black text-slate-900 font-mono">${card3Value}</div>
+                </div>
+            </div>
+            `}
+
+            <!-- TABLE -->
+            <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm">
                 <table class="w-full text-right border-collapse">
                     <thead>
-                        <tr class="text-white font-black">
-                            ${thead}
-                        </tr>
+                        ${thead}
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody>
                         ${tbody}
                     </tbody>
                 </table>
             </div>
 
-            <div class="mt-12 p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                <div class="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <span>محل مهر و امضای مدیریت</span>
-                    <span>محل امضای مسئول مربوطه</span>
-                    <span>صفحه ۱ از ۱</span>
+            <!-- SIGNATURE & FOOTER -->
+            <div class="mt-3 p-2.5 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <div class="flex justify-between items-center text-[8.5px] font-bold text-slate-500 uppercase">
+                    <span>محل مهر و امضای مدیریت ارشد</span>
+                    <span>محل امضای مدیر بازرگانی و فروش</span>
+                    <span>تأییدیه امور مالی</span>
                 </div>
-                <div class="flex justify-between mt-12 gap-20 px-10">
-                    <div class="h-24 w-1/3 border-b-2 border-gray-200"></div>
-                    <div class="h-24 w-1/3 border-b-2 border-gray-200"></div>
+                <div class="flex justify-between mt-2 gap-8 px-6">
+                    <div class="h-6 w-1/4 border-b border-slate-300"></div>
+                    <div class="h-6 w-1/4 border-b border-slate-300"></div>
+                    <div class="h-6 w-1/4 border-b border-slate-300"></div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 flex justify-between items-center text-[10px] text-gray-300 border-t border-gray-50 pt-5 pr-2">
-            <div class="font-bold tracking-tight">این گزارش فاقد قلم‌خوردگی و با شناسه ابری یکتا صادر شده است.</div>
-            <div class="font-mono text-[9px] uppercase">Automated Report | System ID: #7375EH</div>
+        <div class="mt-2 flex justify-between items-center text-[8.5px] text-slate-400 border-t border-slate-100 pt-1.5">
+            <div class="font-bold">گزارش مدیریتی A4 رسمی - صادر شده از سامانه هوشمند سایان ERP</div>
+            <div class="font-mono text-[8px]">Single Page A4 Executive Report</div>
         </div>
     </div>
 </body>

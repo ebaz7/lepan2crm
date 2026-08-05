@@ -814,38 +814,77 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         }
 
         const title = `گزارش تحلیلی و مقایسه‌ای فروش (دوره A vs دوره B)`;
-        const columns = ['گروه کالا', 'خالص A (ک‌گ)', 'فی A (ریال)', 'مرجوعی A', 'خالص B (ک‌گ)', 'فی B (ریال)', 'مرجوعی B', 'تغییر مبلغ'];
+        const columns = ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
         
+        let totalNetWgtA = 0;
         let totalNetAmtA = 0;
+        let totalNetWgtB = 0;
         let totalNetAmtB = 0;
 
-        const tableRows = chartData.map(row => {
-            const amountDiff = row.netAmountB ? ((row.netAmountA - row.netAmountB) / row.netAmountB) * 100 : (row.netAmountA ? 100 : 0);
-            totalNetAmtA += row.netAmountA || 0;
-            totalNetAmtB += row.netAmountB || 0;
-            
+        const tableRows = chartData.map((row, idx) => {
+            const wgtA = row.netWeightA ?? row.netWgtA ?? row.grossWgtA ?? 0;
+            const amtA = row.netAmountA ?? row.netAmtA ?? 0;
+            const feeA = row.netFeeA ?? (wgtA > 0 ? amtA / wgtA : 0);
+
+            const wgtB = row.netWeightB ?? row.netWgtB ?? row.grossWgtB ?? 0;
+            const amtB = row.netAmountB ?? row.netAmtB ?? 0;
+            const feeB = row.netFeeB ?? (wgtB > 0 ? amtB / wgtB : 0);
+
+            totalNetWgtA += wgtA;
+            totalNetAmtA += amtA;
+            totalNetWgtB += wgtB;
+            totalNetAmtB += amtB;
+
+            const diffWgt = wgtA - wgtB;
+            const wgtPct = wgtB > 0 ? ((diffWgt / wgtB) * 100).toFixed(1) : (wgtA > 0 ? '+100' : '0');
+            const wgtPctStr = (Number(wgtPct) >= 0 ? '+' : '') + wgtPct + '%';
+
+            const diffAmt = amtA - amtB;
+            const amtPct = amtB > 0 ? ((diffAmt / amtB) * 100).toFixed(1) : (amtA > 0 ? '+100' : '0');
+            const amtPctStr = (Number(amtPct) >= 0 ? '+' : '') + amtPct + '%';
+
+            const diffFee = feeA - feeB;
+            const feePct = feeB > 0 ? ((diffFee / feeB) * 100).toFixed(1) : (feeA > 0 ? '+100' : '0');
+            const feePctStr = (Number(feePct) >= 0 ? '+' : '') + feePct + '%';
+
             return [
+                (idx + 1).toLocaleString('fa-IR'),
                 row.name || row.catName || 'سایر',
-                (row.netWeightA || row.grossWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                Math.round(row.netFeeA || (row.netWeightA ? row.netAmountA / row.netWeightA : 0)).toLocaleString('fa-IR'),
-                (row.retWeightA || row.retWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                (row.netWeightB || row.grossWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                Math.round(row.netFeeB || (row.netWeightB ? row.netAmountB / row.netWeightB : 0)).toLocaleString('fa-IR'),
-                (row.retWeightB || row.retWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                (amountDiff > 0 ? '+' : '') + amountDiff.toFixed(1) + '%'
+                wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
+                wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
+                wgtPctStr,
+                amtPctStr,
+                feePctStr
             ];
         });
         
-        const totalDiff = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+        const avgFeeA = totalNetWgtA > 0 ? totalNetAmtA / totalNetWgtA : 0;
+        const avgFeeB = totalNetWgtB > 0 ? totalNetAmtB / totalNetWgtB : 0;
+
+        const totalDiffWgt = totalNetWgtA - totalNetWgtB;
+        const totalWgtPct = totalNetWgtB > 0 ? ((totalDiffWgt / totalNetWgtB) * 100).toFixed(1) : (totalNetWgtA > 0 ? '+100' : '0');
+        const totalWgtPctStr = (Number(totalWgtPct) >= 0 ? '+' : '') + totalWgtPct + '%';
+
+        const totalDiffAmt = totalNetAmtA - totalNetAmtB;
+        const totalAmtPct = totalNetAmtB > 0 ? ((totalDiffAmt / totalNetAmtB) * 100).toFixed(1) : (totalNetAmtA > 0 ? '+100' : '0');
+        const totalAmtPctStr = (Number(totalAmtPct) >= 0 ? '+' : '') + totalAmtPct + '%';
+
+        const totalDiffFee = avgFeeA - avgFeeB;
+        const totalFeePct = avgFeeB > 0 ? ((totalDiffFee / avgFeeB) * 100).toFixed(1) : (avgFeeA > 0 ? '+100' : '0');
+        const totalFeePctStr = (Number(totalFeePct) >= 0 ? '+' : '') + totalFeePct + '%';
+
         tableRows.push([
             'جمع کل',
-            '-',
-            '-',
-            '-',
-            '-',
-            '-',
-            '-',
-            (totalDiff > 0 ? '+' : '') + totalDiff.toFixed(1) + '%'
+            'خلاصه کل عملکرد',
+            totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalNetAmtA).toLocaleString('fa-IR') + ' ریال',
+            totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalNetAmtB).toLocaleString('fa-IR') + ' ریال',
+            totalWgtPctStr,
+            totalAmtPctStr,
+            totalFeePctStr
         ]);
 
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
@@ -856,14 +895,22 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
 
         const filename = `Compare_Sales_${Date.now()}.pdf`;
         
-        const caption = `📊 *گزارش مقایسه‌ای فروش سایان ERP*
+        const caption = `📊 *گزارش مدیریتی مقایسه‌ای فروش (سایان ERP)*
 
 📅 *دوره A (پایه):* ${dateFromA || '---'} الی ${dateToA || '---'}
 📅 *دوره B (تطبیقی):* ${dateFromB || '---'} الی ${dateToB || '---'}
 
+📦 *وزن کل A:* ${totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 💵 *فروش کل A:* ${Math.round(totalNetAmtA).toLocaleString('fa-IR')} ریال
+🏷 *فی متوسط A:* ${Math.round(avgFeeA).toLocaleString('fa-IR')} ریال/ک‌گ
+
+📦 *وزن کل B:* ${totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 💵 *فروش کل B:* ${Math.round(totalNetAmtB).toLocaleString('fa-IR')} ریال
-📈 *نرخ رشد درآمد:* ${totalDiff.toFixed(1)}%`;
+🏷 *فی متوسط B:* ${Math.round(avgFeeB).toLocaleString('fa-IR')} ریال/ک‌گ
+
+📈 *تغییرات وزن:* ${totalWgtPctStr}
+💵 *تغییرات مبلغ:* ${totalAmtPctStr}
+📊 *تغییرات فی متوسط:* ${totalFeePctStr}`;
 
         let successfulSends = 0;
         const sendDetails = [];
@@ -924,38 +971,77 @@ app.post('/api/sayan/sales-report/download-compare-pdf', async (req, res) => {
         }
 
         const title = `گزارش تحلیلی و مقایسه‌ای فروش (دوره A: ${dateFromA || '---'} تا ${dateToA || '---'} / دوره B: ${dateFromB || '---'} تا ${dateToB || '---'})`;
-        const columns = ['گروه کالا', 'خالص A (ک‌گ)', 'فی A (ریال)', 'مرجوعی A', 'خالص B (ک‌گ)', 'فی B (ریال)', 'مرجوعی B', 'تغییر مبلغ'];
+        const columns = ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
         
+        let totalNetWgtA = 0;
         let totalNetAmtA = 0;
+        let totalNetWgtB = 0;
         let totalNetAmtB = 0;
 
-        const tableRows = chartData.map(row => {
-            const amountDiff = row.netAmountB ? ((row.netAmountA - row.netAmountB) / row.netAmountB) * 100 : (row.netAmountA ? 100 : 0);
-            totalNetAmtA += row.netAmountA || 0;
-            totalNetAmtB += row.netAmountB || 0;
-            
+        const tableRows = chartData.map((row, idx) => {
+            const wgtA = row.netWeightA ?? row.netWgtA ?? row.grossWgtA ?? 0;
+            const amtA = row.netAmountA ?? row.netAmtA ?? 0;
+            const feeA = row.netFeeA ?? (wgtA > 0 ? amtA / wgtA : 0);
+
+            const wgtB = row.netWeightB ?? row.netWgtB ?? row.grossWgtB ?? 0;
+            const amtB = row.netAmountB ?? row.netAmtB ?? 0;
+            const feeB = row.netFeeB ?? (wgtB > 0 ? amtB / wgtB : 0);
+
+            totalNetWgtA += wgtA;
+            totalNetAmtA += amtA;
+            totalNetWgtB += wgtB;
+            totalNetAmtB += amtB;
+
+            const diffWgt = wgtA - wgtB;
+            const wgtPct = wgtB > 0 ? ((diffWgt / wgtB) * 100).toFixed(1) : (wgtA > 0 ? '+100' : '0');
+            const wgtPctStr = (Number(wgtPct) >= 0 ? '+' : '') + wgtPct + '%';
+
+            const diffAmt = amtA - amtB;
+            const amtPct = amtB > 0 ? ((diffAmt / amtB) * 100).toFixed(1) : (amtA > 0 ? '+100' : '0');
+            const amtPctStr = (Number(amtPct) >= 0 ? '+' : '') + amtPct + '%';
+
+            const diffFee = feeA - feeB;
+            const feePct = feeB > 0 ? ((diffFee / feeB) * 100).toFixed(1) : (feeA > 0 ? '+100' : '0');
+            const feePctStr = (Number(feePct) >= 0 ? '+' : '') + feePct + '%';
+
             return [
+                (idx + 1).toLocaleString('fa-IR'),
                 row.name || row.catName || 'سایر',
-                (row.netWeightA || row.grossWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                Math.round(row.netFeeA || (row.netWeightA ? row.netAmountA / row.netWeightA : 0)).toLocaleString('fa-IR'),
-                (row.retWeightA || row.retWgtA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                (row.netWeightB || row.grossWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                Math.round(row.netFeeB || (row.netWeightB ? row.netAmountB / row.netWeightB : 0)).toLocaleString('fa-IR'),
-                (row.retWeightB || row.retWgtB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-                (amountDiff > 0 ? '+' : '') + amountDiff.toFixed(1) + '%'
+                wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
+                wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
+                wgtPctStr,
+                amtPctStr,
+                feePctStr
             ];
         });
         
-        const totalDiff = totalNetAmtB ? ((totalNetAmtA - totalNetAmtB) / totalNetAmtB) * 100 : (totalNetAmtA ? 100 : 0);
+        const avgFeeA = totalNetWgtA > 0 ? totalNetAmtA / totalNetWgtA : 0;
+        const avgFeeB = totalNetWgtB > 0 ? totalNetAmtB / totalNetWgtB : 0;
+
+        const totalDiffWgt = totalNetWgtA - totalNetWgtB;
+        const totalWgtPct = totalNetWgtB > 0 ? ((totalDiffWgt / totalNetWgtB) * 100).toFixed(1) : (totalNetWgtA > 0 ? '+100' : '0');
+        const totalWgtPctStr = (Number(totalWgtPct) >= 0 ? '+' : '') + totalWgtPct + '%';
+
+        const totalDiffAmt = totalNetAmtA - totalNetAmtB;
+        const totalAmtPct = totalNetAmtB > 0 ? ((totalDiffAmt / totalNetAmtB) * 100).toFixed(1) : (totalNetAmtA > 0 ? '+100' : '0');
+        const totalAmtPctStr = (Number(totalAmtPct) >= 0 ? '+' : '') + totalAmtPct + '%';
+
+        const totalDiffFee = avgFeeA - avgFeeB;
+        const totalFeePct = avgFeeB > 0 ? ((totalDiffFee / avgFeeB) * 100).toFixed(1) : (avgFeeA > 0 ? '+100' : '0');
+        const totalFeePctStr = (Number(totalFeePct) >= 0 ? '+' : '') + totalFeePct + '%';
+
         tableRows.push([
             'جمع کل',
-            '-',
-            '-',
-            '-',
-            '-',
-            '-',
-            '-',
-            (totalDiff > 0 ? '+' : '') + totalDiff.toFixed(1) + '%'
+            'خلاصه کل عملکرد',
+            totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalNetAmtA).toLocaleString('fa-IR') + ' ریال',
+            totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalNetAmtB).toLocaleString('fa-IR') + ' ریال',
+            totalWgtPctStr,
+            totalAmtPctStr,
+            totalFeePctStr
         ]);
 
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
@@ -1090,49 +1176,30 @@ const parseJalaliStrToGregorian = (jalaliStr) => {
     if (!jalaliStr) return null;
     try {
         const clean = normalizeShamsiDate(jalaliStr);
-        // Split by slash, dot, or dash
-        const parts = clean.split(/[\/\.\-]/);
+        const parts = clean.split(/[\/\.\-]/).map(p => parseInt(p, 10)).filter(n => !isNaN(n));
         if (parts.length !== 3) return null;
-        
-        let part0 = parseInt(parts[0], 10);
-        let part1 = parseInt(parts[1], 10);
-        let part2 = parseInt(parts[2], 10);
-        
-        if (isNaN(part0) || isNaN(part1) || isNaN(part2)) return null;
-        
+
         let jy = 0, jm = 0, jd = 0;
-        if (part2 >= 100) {
-            jy = part2;
-            jm = part1;
-            jd = part0;
-        } else if (part0 >= 100) {
-            jy = part0;
-            jm = part1;
-            jd = part2;
+
+        if (parts[0] >= 1300 || parts[0] === 404 || parts[0] === 405 || (parts[0] >= 100 && parts[0] < 1000)) {
+            jy = parts[0]; jm = parts[1]; jd = parts[2];
+        } else if (parts[2] >= 1300 || parts[2] === 404 || parts[2] === 405 || parts[2] >= 100) {
+            jy = parts[2]; jm = parts[1]; jd = parts[0];
         } else {
-            if (part0 > 12) {
-                jy = part2;
-                jm = part1;
-                jd = part0;
+            if (parts[0] > 12) {
+                jd = parts[0]; jm = parts[1]; jy = parts[2];
             } else {
-                jy = part0;
-                jm = part1;
-                jd = part2;
+                jy = parts[2]; jm = parts[1]; jd = parts[0];
             }
         }
-        
-        if (jy < 100) {
-            jy += 1400;
-        } else if (jy >= 100 && jy < 1000) {
-            jy += 1000;
-        }
-        
+
+        if (jy < 100) jy += 1400;
+        else if (jy >= 100 && jy < 1000) jy += 1000;
+
         if (jm > 12 && jd <= 12) {
-            const temp = jm;
-            jm = jd;
-            jd = temp;
+            const temp = jm; jm = jd; jd = temp;
         }
-        
+
         const g = jalaali.toGregorian(jy, jm, jd);
         const y = g.gy;
         const m = String(g.gm).padStart(2, '0');
@@ -2144,7 +2211,6 @@ app.post('/api/meetings/:id/send-minutes', async (req, res) => {
 // --- FULL-STACK DATA SYNCHRONIZATION ENDPOINTS ---
 const CRUD_COLLECTIONS = [
     { route: 'orders', dbKey: 'orders' },
-    { route: 'exit-permits', dbKey: 'exitPermits' },
     { route: 'security/logs', dbKey: 'securityLogs' },
     { route: 'security/delays', dbKey: 'personnelDelays' },
     { route: 'security/incidents', dbKey: 'securityIncidents' },
@@ -2210,6 +2276,109 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
         saveDb(db);
         res.json(db[dbKey]);
     });
+});
+
+// Dedicated Exit Permits Endpoints with Automated Notifications
+app.get('/api/exit-permits', (req, res) => {
+    const db = getDb();
+    res.json(db.exitPermits || []);
+});
+
+app.post('/api/exit-permits', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const item = req.body;
+        const existingIdx = db.exitPermits.findIndex(x => x.id === item.id);
+        const isEdit = existingIdx > -1;
+        
+        if (isEdit) {
+            db.exitPermits[existingIdx] = item;
+        } else {
+            db.exitPermits.push(item);
+        }
+        saveDb(db);
+        
+        // Return response immediately
+        res.json(db.exitPermits);
+
+        // Asynchronously trigger bot notifications based on settings & ticks
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const permit = (freshDb.exitPermits || []).find(x => x.id === item.id) || item;
+                const eventType = isEdit ? 'EDIT' : 'CREATE';
+                const stepName = isEdit ? 'ویرایش سند' : 'ثبت اولیه';
+                await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
+            } catch (err) {
+                console.error("Background notifyExitPermitStep error on POST /api/exit-permits:", err);
+            }
+        });
+    } catch (e) {
+        console.error("POST /api/exit-permits error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/exit-permits/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const idx = db.exitPermits.findIndex(x => x.id === req.params.id);
+        const isEdit = req.body.isEdit || false;
+        let updatedItem;
+        
+        if (idx > -1) {
+            db.exitPermits[idx] = { ...db.exitPermits[idx], ...req.body };
+            updatedItem = db.exitPermits[idx];
+        } else {
+            updatedItem = { id: req.params.id, ...req.body };
+            db.exitPermits.push(updatedItem);
+        }
+        saveDb(db);
+        
+        res.json(db.exitPermits);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const permit = (freshDb.exitPermits || []).find(x => x.id === req.params.id) || updatedItem;
+                const eventType = isEdit ? 'EDIT' : 'STEP';
+                const stepName = isEdit ? 'ویرایش سند' : (permit.status || 'بروزرسانی وضعیت');
+                await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
+            } catch (err) {
+                console.error("Background notifyExitPermitStep error on PUT /api/exit-permits:", err);
+            }
+        });
+    } catch (e) {
+        console.error("PUT /api/exit-permits error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/exit-permits/:id', (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const permitToDelete = db.exitPermits.find(x => x.id === req.params.id);
+        db.exitPermits = db.exitPermits.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.exitPermits);
+
+        if (permitToDelete) {
+            setImmediate(async () => {
+                try {
+                    const freshDb = getDb();
+                    await notifyExitPermitStep(permitToDelete, null, null, null, freshDb, 'حذف برگه خروج', 'DELETE');
+                } catch (err) {
+                    console.error("Background notifyExitPermitStep error on DELETE /api/exit-permits:", err);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("DELETE /api/exit-permits error:", e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // Custom endpoint for manual exit permit notification via bot

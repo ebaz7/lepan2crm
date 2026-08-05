@@ -229,70 +229,11 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
                 createdAt: Date.now()
             };
 
-            // Call API
+            // Call API (Server automatically triggers bot notifications based on settings & ticks)
             await saveExitPermit(newPermit);
             
-            // Navigate/clear immediately for instant response
+            setIsSubmitting(false);
             onSuccess();
-            
-            // Initiate Auto-Send Process asynchronously in background
-            setTempPermit(newPermit);
-            
-            setTimeout(async () => {
-                const elNoPrice = document.getElementById(`print-permit-create-noprice-${newPermit.id}`);
-                const elWithPrice = document.getElementById(`print-permit-create-price-${newPermit.id}`);
-                
-                if (elNoPrice && elWithPrice) {
-                    try {
-                        const can1 = await html2canvas(elNoPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-                        const base64NoPrice = can1.toDataURL('image/png').split(',')[1];
-                        
-                        const can2 = await html2canvas(elWithPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-                        const base64WithPrice = can2.toDataURL('image/png').split(',')[1];
-                        
-                        const users = await getUsers();
-                        const captionWithPrice = `📋 *صدور مجوز خروج کارخانه*\n🏭 شرکت: ${newPermit.company}\n🔢 شماره: ${newPermit.permitNumber}\n👤 گیرنده: ${newPermit.recipientName}\n📦 کالا: ${newPermit.goodsName}\n💰 مبلغ: ${newPermit.price}\n\nجهت بررسی و تایید مدیرعامل ارسال شد.`;
-                        const captionNoPrice = `📋 *صدور مجوز خروج کارخانه*\n🏭 شرکت: ${newPermit.company}\n🔢 شماره: ${newPermit.permitNumber}\n👤 گیرنده: ${newPermit.recipientName}\n📦 کالا: ${newPermit.goodsName}\n\nدر انتظار بررسی و تایید.`;
-                        
-                        const mediaNoPrice = { data: base64NoPrice, mimeType: 'image/png', filename: `Permit_${newPermit.permitNumber}.png` };
-                        const mediaWithPrice = { data: base64WithPrice, mimeType: 'image/png', filename: `Proforma_${newPermit.permitNumber}.png` };
-
-                        const ceos = users.filter(u => u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN);
-                        for(const c of ceos) {
-                            if (c.phoneNumber) await apiCall('/send-whatsapp', 'POST', { number: c.phoneNumber, message: captionWithPrice, mediaData: mediaWithPrice });
-                            const tgId = (c as any).telegramId || (c as any).telegramChatId;
-                            const blId = (c as any).baleId || (c as any).baleChatId;
-                            if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption: captionWithPrice, mediaData: mediaWithPrice });
-                            if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption: captionWithPrice, mediaData: mediaWithPrice });
-                        }
-                        
-                        // Check GROUP settings for CREATE action
-                        const companyConfig = settings?.companyNotifications?.[newPermit.company];
-                        const g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup;
-                        const g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId;
-                        const g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId;
-
-                        const g2Config = settings?.exitPermitSecondGroupConfig;
-                        const g2WA = g2Config?.groupId;
-                        const g2Bale = g2Config?.baleId;
-                        const g2Tg = g2Config?.telegramId;
-                        
-                        const g1StatusArray = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
-                        if (g1StatusArray.includes('CREATE')) {
-                            if (g1WA) await apiCall('/send-whatsapp', 'POST', { number: g1WA, message: captionNoPrice, mediaData: mediaNoPrice });
-                            if (g1Bale) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: g1Bale, caption: captionNoPrice, mediaData: mediaNoPrice });
-                            if (g1Tg) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: g1Tg, caption: captionNoPrice, mediaData: mediaNoPrice });
-                        }
-                        
-                        const g2StatusArray = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
-                        if (g2StatusArray.includes('CREATE')) {
-                            if (g2WA) await apiCall('/send-whatsapp', 'POST', { number: g2WA, message: captionNoPrice, mediaData: mediaNoPrice });
-                            if (g2Bale) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: g2Bale, caption: captionNoPrice, mediaData: mediaNoPrice });
-                            if (g2Tg) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: g2Tg, caption: captionNoPrice, mediaData: mediaNoPrice });
-                        }
-                    } catch (e) { console.error("Notification Error", e); }
-                }
-            }, 300);
 
         } catch (e: any) {
             console.error("Submit Error:", e);

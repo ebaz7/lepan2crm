@@ -315,6 +315,22 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     yesterday.setDate(yesterday.getDate() - 1);
     const jYesterday = jalaali.toJalaali(yesterday.getFullYear(), yesterday.getMonth() + 1, yesterday.getDate());
 
+    // Determine target year being inspected (e.g. 1404 or 1405)
+    const targetYear = (() => {
+      if (dateFrom) {
+        const match = dateFrom.match(/(\d{4})/);
+        if (match) return parseInt(match[1], 10);
+        const match2 = dateFrom.match(/(\d{1,4})/);
+        if (match2) {
+          let y = parseInt(match2[1], 10);
+          if (y < 100) y += 1400;
+          else if (y >= 100 && y < 1000) y += 1000;
+          return y;
+        }
+      }
+      return jNow.jy;
+    })();
+
     // Detailed Item Map
     const itemMap = new Map<string, {
       itemCode: string;
@@ -422,8 +438,9 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         }
       }
 
-      // Month
-      if (jRow.jy === jNow.jy && jRow.jm === jNow.jm) {
+      // Month (Match target year; if targetYear is current year use current month, else aggregate for month)
+      const targetMonth = targetYear === jNow.jy ? jNow.jm : (jRow.jm || 1);
+      if (jRow.jy === targetYear && (targetYear === jNow.jy ? jRow.jm === targetMonth : true)) {
         if (isReturn) monthNetAmt -= amt; else monthNetAmt += amt;
         if (isReturn) monthNetWgt -= qty; else monthNetWgt += qty;
       }
@@ -431,13 +448,13 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       // Quarter
       const currentQuarter = Math.ceil(jNow.jm / 3);
       const rowQuarter = Math.ceil(jRow.jm / 3);
-      if (jRow.jy === jNow.jy && rowQuarter === currentQuarter) {
+      if (jRow.jy === targetYear && (targetYear === jNow.jy ? rowQuarter === currentQuarter : true)) {
         if (isReturn) quarterNetAmt -= amt; else quarterNetAmt += amt;
         if (isReturn) quarterNetWgt -= qty; else quarterNetWgt += qty;
       }
 
       // Year
-      if (jRow.jy === jNow.jy) {
+      if (jRow.jy === targetYear) {
         if (isReturn) yearNetAmt -= amt; else yearNetAmt += amt;
         if (isReturn) yearNetWgt -= qty; else yearNetWgt += qty;
       }
@@ -484,9 +501,10 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         catSubItem.salesWgt += qty; catSubItem.salesAmt += amt;
       }
 
-      // Invoices List
-      if (!invoiceListMap.has(invNum)) {
-        invoiceListMap.set(invNum, {
+      // Invoices List - key by DocId (unique per document in Sayan DB) to prevent collisions across dates
+      const docKey = row.DocId ? String(row.DocId) : invNum;
+      if (!invoiceListMap.has(docKey)) {
+        invoiceListMap.set(docKey, {
           invoiceNum: invNum,
           date: toShamsiStr(row.Date),
           customerName: custName,
@@ -496,7 +514,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           paymentStatus: row.PaymentStatus || 'تسویه شده'
         });
       }
-      const invRecord = invoiceListMap.get(invNum)!;
+      const invRecord = invoiceListMap.get(docKey)!;
       if (isReturn) {
         invRecord.retAmt += amt;
         invRecord.netAmt -= amt;
@@ -965,98 +983,158 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   // ----------------------------------------------------------------------
   const handlePrint = () => {
     if (compareMode && comparisonMetrics) {
-      // Comparative Print Report
+      // Executive A4 Landscape Comparative Print Report
       const docHtml = `
         <html dir="rtl" lang="fa">
         <head>
           <meta charset="utf-8">
-          <title>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP</title>
+          <title>گزارش مدیریتی و تحلیلی مقایسه‌ای فروش سایان ERP</title>
           <style>
-            body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
-            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-            .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
-            .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
-            .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-            .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
-            .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
-            .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
-            th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; }
-            th { background-color: #0f172a; color: #fff; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f1f5f9; }
-            .total { font-weight: bold; background: #e2e8f0 !important; }
-            .growth-pos { color: #15803d; font-weight: bold; }
-            .growth-neg { color: #b91c1c; font-weight: bold; }
+            @page { size: A4 landscape; margin: 6mm 8mm; }
+            body { font-family: 'Tahoma', 'Vazirmatn', sans-serif; padding: 0; margin: 0; background: #fff; color: #0f172a; -webkit-print-color-adjust: exact; }
+            .container { width: 100%; padding: 10px; box-sizing: border-box; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
+            .header-title { display: flex; align-items: center; gap: 8px; }
+            .header-bar { width: 8px; height: 24px; background-color: #0f172a; border-radius: 2px; }
+            .header h1 { font-size: 16px; margin: 0; font-weight: 900; color: #0f172a; }
+            .header p { font-size: 10px; color: #64748b; margin: 2px 0 0; font-weight: bold; }
+            .date-badge { background: #0f172a; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-align: left; }
+            
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+            .kpi-card { border-right: 4px solid #0f172a; padding: 8px 10px; border-radius: 6px; background: #f8fafc; text-align: right; }
+            .kpi-card.indigo { border-right-color: #4338ca; }
+            .kpi-card.emerald { border-right-color: #047857; }
+            .kpi-card.dark { background: #0f172a; color: #fff; border-right-color: #f59e0b; }
+            .kpi-title { font-size: 9px; color: #64748b; font-weight: bold; }
+            .kpi-card.dark .kpi-title { color: #cbd5e1; }
+            .kpi-val { font-size: 14px; font-weight: 900; margin-top: 2px; font-family: monospace; }
+            .kpi-sub { font-size: 8.5px; color: #64748b; font-family: monospace; margin-top: 2px; }
+            .kpi-card.dark .kpi-sub { color: #94a3b8; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; border: 1px solid #cbd5e1; }
+            th, td { border: 1px solid #e2e8f0; padding: 4px 6px; text-align: center; }
+            th { background-color: #0f172a; color: #fff; font-weight: 900; font-size: 10px; }
+            tr:nth-child(even) { background-color: #f8fafc; }
+            .total { font-weight: 900; background: #fef3c7 !important; border-top: 2px solid #0f172a; }
+            .badge-pos { background-color: #d1fae5; color: #065f46; font-weight: 900; padding: 1px 5px; border-radius: 4px; font-size: 9px; display: inline-block; font-family: monospace; }
+            .badge-neg { background-color: #ffe4e6; color: #9f1239; font-weight: 900; padding: 1px 5px; border-radius: 4px; font-size: 9px; display: inline-block; font-family: monospace; }
+            
+            .footer-sig { margin-top: 12px; padding: 8px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+            .sig-titles { display: flex; justify-content: space-between; font-size: 8.5px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+            .sig-lines { display: flex; justify-content: space-between; margin-top: 8px; padding: 0 16px; }
+            .sig-line { height: 20px; width: 25%; border-bottom: 1px solid #cbd5e1; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
-            <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
-          </div>
+          <div class="container">
+            <div class="header">
+              <div>
+                <div class="header-title">
+                  <div class="header-bar"></div>
+                  <h1>گزارش مدیریتی و تحلیلی مقایسه‌ای فروش (سایان ERP)</h1>
+                </div>
+                <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
+              </div>
+              <div class="date-badge">
+                ${new Date().toLocaleDateString('fa-IR')}
+                <div style="font-size: 8px; color: #94a3b8; margin-top: 1px;">گزارش تک‌صفحه‌ای A4</div>
+              </div>
+            </div>
 
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-title">فروش کل دوره A</div>
-              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)} ریال</div>
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-title">تغییر مبلغ فروش کل (ریال)</div>
+                <div class="kpi-val" style="color: ${comparisonMetrics.amtGrowthPct >= 0 ? '#047857' : '#be123c'};">
+                  ${comparisonMetrics.amtGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.amtGrowthPct.toFixed(1)}%
+                </div>
+                <div class="kpi-sub">A: ${formatMoney(comparisonMetrics.netAmtA)} | B: ${formatMoney(comparisonMetrics.netAmtB)}</div>
+              </div>
+
+              <div class="kpi-card indigo">
+                <div class="kpi-title">تغییر وزن فروش کل (ک‌گ)</div>
+                <div class="kpi-val" style="color: ${comparisonMetrics.wgtGrowthPct >= 0 ? '#047857' : '#be123c'};">
+                  ${comparisonMetrics.wgtGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.wgtGrowthPct.toFixed(1)}%
+                </div>
+                <div class="kpi-sub">A: ${formatWeight(comparisonMetrics.netWgtA)} | B: ${formatWeight(comparisonMetrics.netWgtB)}</div>
+              </div>
+
+              <div class="kpi-card emerald">
+                <div class="kpi-title">تغییر فی متوسط نهایی</div>
+                <div class="kpi-val" style="color: ${comparisonMetrics.feeGrowthPct >= 0 ? '#047857' : '#be123c'};">
+                  ${comparisonMetrics.feeGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.feeGrowthPct.toFixed(1)}%
+                </div>
+                <div class="kpi-sub">A: ${formatMoney(comparisonMetrics.avgFeeA)} | B: ${formatMoney(comparisonMetrics.avgFeeB)}</div>
+              </div>
+
+              <div class="kpi-card dark">
+                <div class="kpi-title">تحلیل انحراف عملکرد</div>
+                <div class="kpi-val" style="color: #fcd34d;">
+                  ${comparisonMetrics.amtGrowthPct > 0 && comparisonMetrics.wgtGrowthPct > 0 ? 'رشد متوازن' :
+                    (comparisonMetrics.amtGrowthPct > 0 ? 'رشد مبلغمحور' :
+                    (comparisonMetrics.wgtGrowthPct > 0 ? 'رشد حجمی' : 'افت عملکرد'))}
+                </div>
+                <div class="kpi-sub">
+                  ${comparisonMetrics.amtGrowthPct > 0 && comparisonMetrics.wgtGrowthPct > 0 ? 'افزایش همزمان حجم و درآمد' :
+                    (comparisonMetrics.amtGrowthPct > 0 ? 'افزایش نرخ واحد کالا' :
+                    (comparisonMetrics.wgtGrowthPct > 0 ? 'افزایش حجم با قیمت رقابتی' : 'کاهش حجم و درآمد'))}
+                </div>
+              </div>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-title">فروش کل دوره B</div>
-              <div class="kpi-val">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtB : 0)} ریال</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-title">نرخ رشد درآمد (A نسبت به B)</div>
-              <div class="kpi-val ${comparisonMetrics && comparisonMetrics.amtGrowthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
-                ${comparisonMetrics ? (comparisonMetrics.amtGrowthPct >= 0 ? '+' : '') + comparisonMetrics.amtGrowthPct.toFixed(1) + '%' : '0%'}
+
+            <table>
+              <thead>
+                <tr>
+                  <th>ردیف</th>
+                  <th style="text-align:right;">گروه اصلی کالا</th>
+                  <th>وزن A (ک‌گ)</th>
+                  <th>مبلغ A (ریال)</th>
+                  <th>وزن B (ک‌گ)</th>
+                  <th>مبلغ B (ریال)</th>
+                  <th>تغییر وزن %</th>
+                  <th>تغییر مبلغ %</th>
+                  <th>تغییر فی %</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${comparisonMetrics.compareGroupRows.map((r, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td style="text-align:right; font-weight:bold;">${r.catName}</td>
+                    <td>${formatWeight(r.netWgtA)}</td>
+                    <td>${formatMoney(r.netAmtA)}</td>
+                    <td>${formatWeight(r.netWgtB)}</td>
+                    <td>${formatMoney(r.netAmtB)}</td>
+                    <td><span class="${r.wgtGrowthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${r.wgtGrowthPct >= 0 ? '+' : ''}${r.wgtGrowthPct.toFixed(1)}%</span></td>
+                    <td><span class="${r.growthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${r.growthPct >= 0 ? '+' : ''}${r.growthPct.toFixed(1)}%</span></td>
+                    <td><span class="${r.feeGrowthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${r.feeGrowthPct >= 0 ? '+' : ''}${r.feeGrowthPct.toFixed(1)}%</span></td>
+                  </tr>
+                `).join('')}
+                <tr class="total">
+                  <td colspan="2" style="text-align:right;">جمع کل خلاصه عملکرد</td>
+                  <td>${formatWeight(comparisonMetrics.netWgtA)}</td>
+                  <td>${formatMoney(comparisonMetrics.netAmtA)}</td>
+                  <td>${formatWeight(comparisonMetrics.netWgtB)}</td>
+                  <td>${formatMoney(comparisonMetrics.netAmtB)}</td>
+                  <td><span class="${comparisonMetrics.wgtGrowthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${comparisonMetrics.wgtGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.wgtGrowthPct.toFixed(1)}%</span></td>
+                  <td><span class="${comparisonMetrics.amtGrowthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${comparisonMetrics.amtGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.amtGrowthPct.toFixed(1)}%</span></td>
+                  <td><span class="${comparisonMetrics.feeGrowthPct >= 0 ? 'badge-pos' : 'badge-neg'}">${comparisonMetrics.feeGrowthPct >= 0 ? '+' : ''}${comparisonMetrics.feeGrowthPct.toFixed(1)}%</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="footer-sig">
+              <div class="sig-titles">
+                <span>محل مهر و امضای مدیریت ارشد</span>
+                <span>محل امضای مدیر بازرگانی و فروش</span>
+                <span>تأییدیه امور مالی</span>
+              </div>
+              <div class="sig-lines">
+                <div class="sig-line"></div>
+                <div class="sig-line"></div>
+                <div class="sig-line"></div>
               </div>
             </div>
           </div>
-
-          <h2>مقایسه عملکرد به تفکیک گروههای کالا</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>ردیف</th>
-                <th>نام گروه کالا</th>
-                <th>وزن خالص A (ک‌گ)</th>
-                <th>فروش خالص A (ریال)</th>
-                <th>فی A (ریال)</th>
-                <th>وزن خالص B (ک‌گ)</th>
-                <th>فروش خالص B (ریال)</th>
-                <th>فی B (ریال)</th>
-                <th>درصد رشد (%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${comparisonMetrics.compareGroupRows.map((r, idx) => `
-                <tr>
-                  <td style="text-align:center;">${idx + 1}</td>
-                  <td>${r.catName}</td>
-                  <td style="text-align:center;">${formatWeight(r.netWgtA)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netAmtA)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netFeeA)}</td>
-                  <td style="text-align:center;">${formatWeight(r.netWgtB)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netAmtB)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netFeeB)}</td>
-                  <td style="text-align:center;" class="${r.growthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
-                    ${r.growthPct >= 0 ? '+' : ''}${r.growthPct.toFixed(1)}%
-                  </td>
-                </tr>
-              `).join('')}
-              <tr class="total">
-                <td colspan="2">جمع کل</td>
-                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtA : 0)}</td>
-                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)}</td>
-                <td style="text-align:left;">-</td>
-                <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtB : 0)}</td>
-                <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtB : 0)}</td>
-                <td style="text-align:left;">-</td>
-                <td style="text-align:center;" class="${comparisonMetrics && comparisonMetrics.amtGrowthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
-                  ${comparisonMetrics ? (comparisonMetrics.amtGrowthPct >= 0 ? '+' : '') + comparisonMetrics.amtGrowthPct.toFixed(1) + '%' : '0%'}
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </body>
         </html>
       `;

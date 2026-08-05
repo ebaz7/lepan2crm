@@ -380,7 +380,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
         processRows(rowsB, false);
 
         let sumQtyA = 0, sumAmtA = 0, sumQtyB = 0, sumAmtB = 0;
-        const columns = ['ردیف', 'گروه کالا', `مقدار A (${labelA})`, `مبلغ A (ریال)`, `مقدار B (${labelB})`, `مبلغ B (ریال)`, 'تغییر مبلغ (%)'];
+        const columns = ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
 
         const tableRows = [];
         let index = 1;
@@ -391,47 +391,77 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
             sumQtyB += data.qtyB;
             sumAmtB += data.amtB;
 
+            const feeA = data.qtyA > 0 ? (data.amtA / data.qtyA) : 0;
+            const feeB = data.qtyB > 0 ? (data.amtB / data.qtyB) : 0;
+
+            const diffQty = data.qtyA - data.qtyB;
+            const qtyPct = data.qtyB > 0 ? ((diffQty / data.qtyB) * 100).toFixed(1) : (data.qtyA > 0 ? '+100' : '0');
+            const qtyPctStr = Number(qtyPct) >= 0 ? `+${qtyPct}%` : `${qtyPct}%`;
+
             const diffAmt = data.amtA - data.amtB;
-            const pct = data.amtB > 0 ? ((diffAmt / data.amtB) * 100).toFixed(1) : (data.amtA > 0 ? '+100' : '0');
-            const pctStr = Number(pct) >= 0 ? `+${pct}%` : `${pct}%`;
+            const amtPct = data.amtB > 0 ? ((diffAmt / data.amtB) * 100).toFixed(1) : (data.amtA > 0 ? '+100' : '0');
+            const amtPctStr = Number(amtPct) >= 0 ? `+${amtPct}%` : `${amtPct}%`;
+
+            const diffFee = feeA - feeB;
+            const feePct = feeB > 0 ? ((diffFee / feeB) * 100).toFixed(1) : (feeA > 0 ? '+100' : '0');
+            const feePctStr = Number(feePct) >= 0 ? `+${feePct}%` : `${feePct}%`;
 
             tableRows.push([
                 (index++).toLocaleString('fa-IR'),
                 groupName,
-                data.qtyA.toLocaleString('fa-IR'),
-                data.amtA.toLocaleString('fa-IR'),
-                data.qtyB.toLocaleString('fa-IR'),
-                data.amtB.toLocaleString('fa-IR'),
-                pctStr
+                data.qtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(data.amtA).toLocaleString('fa-IR') + ' ریال',
+                data.qtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(data.amtB).toLocaleString('fa-IR') + ' ریال',
+                qtyPctStr,
+                amtPctStr,
+                feePctStr
             ]);
         });
 
+        const avgFeeA = sumQtyA > 0 ? (sumAmtA / sumQtyA) : 0;
+        const avgFeeB = sumQtyB > 0 ? (sumAmtB / sumQtyB) : 0;
+
+        const totalDiffQty = sumQtyA - sumQtyB;
+        const totalQtyPct = sumQtyB > 0 ? ((totalDiffQty / sumQtyB) * 100).toFixed(1) : (sumQtyA > 0 ? '+100' : '0');
+        const totalQtyPctStr = Number(totalQtyPct) >= 0 ? `+${totalQtyPct}%` : `${totalQtyPct}%`;
+
         const totalDiffAmt = sumAmtA - sumAmtB;
-        const totalPct = sumAmtB > 0 ? ((totalDiffAmt / sumAmtB) * 100).toFixed(1) : (sumAmtA > 0 ? '+100' : '0');
-        const totalPctStr = Number(totalPct) >= 0 ? `+${totalPct}%` : `${totalPct}%`;
+        const totalAmtPct = sumAmtB > 0 ? ((totalDiffAmt / sumAmtB) * 100).toFixed(1) : (sumAmtA > 0 ? '+100' : '0');
+        const totalAmtPctStr = Number(totalAmtPct) >= 0 ? `+${totalAmtPct}%` : `${totalAmtPct}%`;
+
+        const totalDiffFee = avgFeeA - avgFeeB;
+        const totalFeePct = avgFeeB > 0 ? ((totalDiffFee / avgFeeB) * 100).toFixed(1) : (avgFeeA > 0 ? '+100' : '0');
+        const totalFeePctStr = Number(totalFeePct) >= 0 ? `+${totalFeePct}%` : `${totalFeePct}%`;
 
         tableRows.push([
             'جمع کل',
-            'خلاصه عملکرد',
-            sumQtyA.toLocaleString('fa-IR'),
-            sumAmtA.toLocaleString('fa-IR'),
-            sumQtyB.toLocaleString('fa-IR'),
-            sumAmtB.toLocaleString('fa-IR'),
-            totalPctStr
+            'خلاصه کل عملکرد',
+            sumQtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(sumAmtA).toLocaleString('fa-IR') + ' ریال',
+            sumQtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(sumAmtB).toLocaleString('fa-IR') + ' ریال',
+            totalQtyPctStr,
+            totalAmtPctStr,
+            totalFeePctStr
         ]);
 
-        const title = `گزارش مدیریتی مقایسه فروش Sayan ERP (دوره A: ${labelA} | دوره B: ${labelB})`;
-        const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows);
+        const title = `گزارش مدیریتی و تحلیلی مقایسه فروش (دوره A: ${labelA} | دوره B: ${labelB})`;
+        const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
         const filename = `Sayan_Sales_Comparison_${dateFromA}_VS_${dateFromB}.pdf`;
 
-        const caption = `📊 *گزارش مقایسه‌ای فروش Sayan ERP*\n\n` +
-            `🔹 **دوره A: ${labelA}:**\n` +
-            `   📦 مقدار کل: ${sumQtyA.toLocaleString('fa-IR')} کیلوگرم\n` +
-            `   💰 مبلغ کل: ${sumAmtA.toLocaleString('fa-IR')} ریال\n\n` +
-            `🔸 **دوره B: ${labelB}:**\n` +
-            `   📦 مقدار کل: ${sumQtyB.toLocaleString('fa-IR')} کیلوگرم\n` +
-            `   💰 مبلغ کل: ${sumAmtB.toLocaleString('fa-IR')} ریال\n\n` +
-            `📈 **درصد تغییرات فروش:** ${totalPctStr}`;
+        const caption = `📊 *گزارش مدیریتی و تحلیلی مقایسه‌ای فروش (سایان ERP)*\n\n` +
+            `🔹 **دوره A (${labelA}):**\n` +
+            `   📦 وزن کل: ${sumQtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
+            `   💰 مبلغ کل: ${Math.round(sumAmtA).toLocaleString('fa-IR')} ریال\n` +
+            `   🏷 فی متوسط: ${Math.round(avgFeeA).toLocaleString('fa-IR')} ریال/ک‌گ\n\n` +
+            `🔸 **دوره B (${labelB}):**\n` +
+            `   📦 وزن کل: ${sumQtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
+            `   💰 مبلغ کل: ${Math.round(sumAmtB).toLocaleString('fa-IR')} ریال\n` +
+            `   🏷 فی متوسط: ${Math.round(avgFeeB).toLocaleString('fa-IR')} ریال/ک‌گ\n\n` +
+            `📈 **تغییرات وزن:** ${totalQtyPctStr}\n` +
+            `💵 **تغییرات مبلغ:** ${totalAmtPctStr}\n` +
+            `📊 **تغییرات فی متوسط:** ${totalFeePctStr}`;
 
         await sendDocFn(chatId, pdfBuffer, filename, caption);
     } catch (err) {
@@ -2207,9 +2237,11 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
 
         // Map Persian Status to Internal Key for checking settings
         let statusKey = p.status;
-        if (eventType === 'DELETE') {
+        if (eventType === 'DELETE' || p.status === 'رد شده') {
             statusKey = 'REJECTED'; 
-        } else if (stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل') {
+        } else if (p.status === 'کنسل شده') {
+            statusKey = 'CANCELED';
+        } else if (eventType === 'CREATE' || stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل') {
             statusKey = 'CREATE';
         } else if (p.status === 'خارج شده (بایگانی)' || p.status === 'خارج شد') {
             // This is the final archived state
@@ -2234,6 +2266,40 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
         const g3Config = settings.exitPermitThirdGroupConfig || { activeStatuses: [] };
         if (g3Config.activeStatuses && g3Config.activeStatuses.includes(statusKey)) {
             targetGroups.push(3);
+        }
+
+        // Also if statusKey is CREATE and group 1 has no explicit activeStatuses configured yet, default group 1 if warehouseGroup or telegram/bale channel is configured
+        if (statusKey === 'CREATE' && targetGroups.length === 0 && (!g1Config.activeStatuses || g1Config.activeStatuses.length === 0)) {
+            targetGroups.push(1);
+        }
+
+        // --- CEO/Manager Notification on Initial Creation ---
+        if (statusKey === 'CREATE' && !isEdit && !isDelete) {
+            const managers = (db.users || []).filter(u => u.role === 'ceo' || u.role === 'admin' || u.role === 'sales_manager');
+            for (const mgr of managers) {
+                const captionWithPrice = generateCaption(mgr.telegramId || mgr.baleId || mgr.phoneNumber);
+                if (mgr.telegramId && settings.telegramBotToken) {
+                    const cleanId = sanitizeGroupId(mgr.telegramId);
+                    import('./telegram.js').then(mod => {
+                        if (mod?.sendBotPhoto) mod.sendBotPhoto(cleanId, imgPrice, captionWithPrice).catch(e => {});
+                    }).catch(e => {});
+                }
+                if (mgr.baleId && settings.baleBotToken) {
+                    const cleanId = sanitizeGroupId(mgr.baleId);
+                    import('./bale.js').then(mod => {
+                        if (mod?.sendBotPhoto) mod.sendBotPhoto(cleanId, imgPrice, captionWithPrice).catch(e => {});
+                    }).catch(e => {});
+                }
+                if (mgr.phoneNumber && settings.whatsappEnabled !== false) {
+                    import('./whatsapp.js').then(mod => {
+                        if (mod?.sendMessage) {
+                            const buffer = Buffer.from(imgPrice);
+                            const b64 = buffer.toString('base64');
+                            mod.sendMessage(mgr.phoneNumber, captionWithPrice, { data: b64, mimeType: 'image/png', filename: 'permit.png' }).catch(e => {});
+                        }
+                    }).catch(e => {});
+                }
+            }
         }
 
         // --- NEW: Customer Notification with Proforma Image ---
@@ -2284,23 +2350,21 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
             let companyConfig = settings.companyNotifications?.[p.company] || {};
 
             if (gNum === 1) {
-                const g1Config = settings.exitPermitFirstGroupConfig || {};
                 tgGroupId = g1Config.telegramId || companyConfig.telegramChannelId || settings.exitPermitNotificationTelegramId || '';
                 baleGroupId = g1Config.baleId || companyConfig.baleChannelId || settings.exitPermitNotificationBaleId || '';
                 waGroupId = g1Config.groupId || companyConfig.warehouseGroup || settings.exitPermitNotificationGroup || settings.defaultWarehouseGroup || '';
             } else if (gNum === 2) {
-                tgGroupId = g2Config.telegramId;
-                baleGroupId = g2Config.baleId;
-                waGroupId = g2Config.groupId;
+                tgGroupId = g2Config.telegramId || '';
+                baleGroupId = g2Config.baleId || '';
+                waGroupId = g2Config.groupId || '';
             } else if (gNum === 3) {
-                const g3Config = settings.exitPermitThirdGroupConfig || {};
-                tgGroupId = g3Config.telegramId;
-                baleGroupId = g3Config.baleId;
-                waGroupId = g3Config.groupId;
+                tgGroupId = g3Config.telegramId || '';
+                baleGroupId = g3Config.baleId || '';
+                waGroupId = g3Config.groupId || '';
             }
 
             // Fire Telegram
-            if (tgGroupId && settings.telegramBotToken) {
+            if (tgGroupId) {
                 const cleanId = sanitizeGroupId(tgGroupId);
                 const targetCaption = generateCaption(cleanId);
                 const targetImg = isLogisticsGroup(cleanId) ? imgNoPrice : imgPrice;
@@ -2310,7 +2374,7 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
             }
 
             // Fire Bale
-            if (baleGroupId && settings.baleBotToken) {
+            if (baleGroupId) {
                 const cleanId = sanitizeGroupId(baleGroupId);
                 const targetCaption = generateCaption(cleanId);
                 const targetImg = isLogisticsGroup(cleanId) ? imgNoPrice : imgPrice;
@@ -2320,7 +2384,7 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
             }
 
             // Fire WhatsApp
-            if (waGroupId && settings.whatsappEnabled) {
+            if (waGroupId && settings.whatsappEnabled !== false) {
                 const targetCaption = generateCaption(waGroupId);
                 const targetImg = isLogisticsGroup(waGroupId) ? imgNoPrice : imgPrice;
                 import('./whatsapp.js').then(mod => {

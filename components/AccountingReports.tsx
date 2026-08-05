@@ -120,67 +120,45 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     // ==========================================
     // DATE INITIALIZATION & CONVERSIONS
     // ==========================================
+    // Helper to parse any Jalali date format (1.1.1404, 24.1.1404, 1.1.04, 1404/01/01, etc.)
+    const parseShamsiParts = (str: string) => {
+        if (!str) return null;
+        const clean = str.trim()
+            .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+            .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
+        const parts = clean.split(/[\/\.\-]/).map(p => parseInt(p, 10)).filter(n => !isNaN(n));
+        if (parts.length !== 3) return null;
+
+        let jy = 0, jm = 0, jd = 0;
+
+        if (parts[0] >= 1300 || parts[0] === 404 || parts[0] === 405 || (parts[0] >= 100 && parts[0] < 1000)) {
+            jy = parts[0]; jm = parts[1]; jd = parts[2];
+        } else if (parts[2] >= 1300 || parts[2] === 404 || parts[2] === 405 || parts[2] >= 100) {
+            jy = parts[2]; jm = parts[1]; jd = parts[0];
+        } else {
+            if (parts[0] > 12) {
+                jd = parts[0]; jm = parts[1]; jy = parts[2];
+            } else {
+                jy = parts[2]; jm = parts[1]; jd = parts[0];
+            }
+        }
+
+        if (jy < 100) jy += 1400;
+        else if (jy >= 100 && jy < 1000) jy += 1000;
+
+        if (jm > 12 && jd <= 12) {
+            const tmp = jm; jm = jd; jd = tmp;
+        }
+
+        return { jy, jm, jd };
+    };
+
     const jalaliToGregorianStr = (jalaliStr: string) => {
         if (!jalaliStr) return '';
         try {
-            // Convert Persian/Arabic digits to English digits
-            let clean = jalaliStr.trim()
-                .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
-                .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
-            
-            // Split by slash, dot, or dash
-            const parts = clean.split(/[\/\.\-]/);
-            if (parts.length !== 3) return jalaliStr;
-            
-            let part0 = parseInt(parts[0], 10);
-            let part1 = parseInt(parts[1], 10);
-            let part2 = parseInt(parts[2], 10);
-            
-            if (isNaN(part0) || isNaN(part1) || isNaN(part2)) return jalaliStr;
-            
-            let jy = 0;
-            let jm = 0;
-            let jd = 0;
-            
-            // Determine which part is the year.
-            // If part2 is >= 100 (like 404, 1404, etc.), then it's DD/MM/YYYY
-            // Otherwise, we default to YYYY/MM/DD
-            if (part2 >= 100) {
-                jy = part2;
-                jm = part1;
-                jd = part0;
-            } else if (part0 >= 100) {
-                jy = part0;
-                jm = part1;
-                jd = part2;
-            } else {
-                // If neither is >= 100, e.g. "04/01/24" (YY/MM/DD) or "24/01/04" (DD/MM/YY)
-                if (part0 > 12) {
-                    jy = part2;
-                    jm = part1;
-                    jd = part0;
-                } else {
-                    jy = part0;
-                    jm = part1;
-                    jd = part2;
-                }
-            }
-            
-            // Normalize year (e.g. 404 -> 1404, 04 -> 1404, 1404 -> 1404)
-            if (jy < 100) {
-                jy += 1400;
-            } else if (jy >= 100 && jy < 1000) {
-                jy += 1000;
-            }
-            
-            // Validate month and day bounds just in case they are reversed
-            if (jm > 12 && jd <= 12) {
-                const temp = jm;
-                jm = jd;
-                jd = temp;
-            }
-            
-            const g = jalaali.toGregorian(jy, jm, jd);
+            const res = parseShamsiParts(jalaliStr);
+            if (!res) return jalaliStr;
+            const g = jalaali.toGregorian(res.jy, res.jm, res.jd);
             return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
         } catch {
             return jalaliStr;
