@@ -118,16 +118,16 @@ export const ReportDeliveryManager: React.FC = () => {
       return;
     }
 
-    let hasMissingId = false;
+    const missingPlatforms: string[] = [];
     selected.forEach(platform => {
-      if (platform === 'telegram' && !editingJob.destinationTelegram && !editingJob.destinationGroup) hasMissingId = true;
-      if (platform === 'bale' && !editingJob.destinationBale && !editingJob.destinationGroup) hasMissingId = true;
-      if (platform === 'whatsapp' && !editingJob.destinationWhatsapp && !editingJob.destinationGroup) hasMissingId = true;
-      if (platform === 'eitaa' && !editingJob.destinationEitaa && !editingJob.destinationGroup) hasMissingId = true;
+      if (platform === 'telegram' && !editingJob.destinationTelegram && !editingJob.destinationGroup) missingPlatforms.push('تلگرام');
+      if (platform === 'bale' && !editingJob.destinationBale && !editingJob.destinationGroup) missingPlatforms.push('بله');
+      if (platform === 'whatsapp' && !editingJob.destinationWhatsapp && !editingJob.destinationGroup) missingPlatforms.push('واتساپ');
+      if (platform === 'eitaa' && !editingJob.destinationEitaa && !editingJob.destinationGroup) missingPlatforms.push('ایتا');
     });
 
-    if (hasMissingId) {
-      toast.error('لطفاً شناسه مقصد را برای پلتفرم‌های انتخاب شده وارد نمایید.');
+    if (missingPlatforms.length > 0) {
+      toast.error(`لطفاً شناسه مقصد را برای پلتفرم‌های انتخاب شده (${missingPlatforms.join('، ')}) وارد نمایید.`);
       return;
     }
 
@@ -340,8 +340,8 @@ export const ReportDeliveryManager: React.FC = () => {
 
       {/* MODAL EDIT / CREATE */}
       {isModalOpen && editingJob && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans">
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">

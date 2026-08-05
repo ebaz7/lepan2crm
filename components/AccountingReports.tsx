@@ -63,6 +63,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     });
     const [isLoading, setIsLoading] = useState(false);
     
+    // Track previous fiscal year to prevent unwanted resets on background polling
+    const prevFiscalYearIdRef = React.useRef<string | undefined>(settings?.activeFiscalYearId);
+    
     // Default Date Range (Direct Shamsi format "YYYY/MM/DD")
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
@@ -116,6 +119,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [chequesData, setChequesData] = useState<any[]>([]);
     const [chequeStatusFilter, setChequeStatusFilter] = useState('all'); // all, in_hand, at_bank, returned, spent
     const [chequeSearch, setChequeSearch] = useState('');
+
+    // --- BOT SENDING STATES FOR TRAZ & STATEMENT ---
+    const [sendPlatforms, setSendPlatforms] = useState<string[]>(['telegram', 'bale']);
+    const [customBotTarget, setCustomBotTarget] = useState('');
+    const [isSendingTrazBot, setIsSendingTrazBot] = useState(false);
 
     // ==========================================
     // DATE INITIALIZATION & CONVERSIONS
@@ -233,35 +241,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     useEffect(() => {
-        // Initialize Date range directly in Shamsi
-        const today = new Date();
-        const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-        
-        const activeYear = getActiveFiscalYearLabel();
-        
-        const savedFrom = localStorage.getItem('sayan_default_date_from');
-        const savedTo = localStorage.getItem('sayan_default_date_to');
-        
-        const initialFrom = savedFrom || `${activeYear}/01/01`;
-        const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
-        
-        setDateFrom(initialFrom);
-        setDateTo(initialTo);
+        // Only trigger initialization if the active fiscal year ID actually changed (or on mount when ref is undefined)
+        const hasChanged = settings?.activeFiscalYearId && settings.activeFiscalYearId !== prevFiscalYearIdRef.current;
+        const isInitial = prevFiscalYearIdRef.current === undefined;
 
-        // Previous year default for comparisons (shifted by -1 year relative to Period A)
-        const shiftShamsiYear = (shamsiStr: string, delta: number) => {
-            if (!shamsiStr) return '';
-            const p = shamsiStr.split('/');
-            if (p.length !== 3) return shamsiStr;
-            const y = parseInt(p[0], 10);
-            return `${y + delta}/${p[1]}/${p[2]}`;
-        };
-        const startPrev = shiftShamsiYear(initialFrom, -1);
-        const endPrev = shiftShamsiYear(initialTo, -1);
-        setSalesDateFromB(startPrev);
-        setSalesDateToB(endPrev);
+        if (isInitial || hasChanged) {
+            prevFiscalYearIdRef.current = settings?.activeFiscalYearId;
 
-        fetchTafsilis();
+            // Initialize Date range directly in Shamsi
+            const today = new Date();
+            const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+            
+            const activeYear = getActiveFiscalYearLabel();
+            
+            const savedFrom = localStorage.getItem('sayan_default_date_from');
+            const savedTo = localStorage.getItem('sayan_default_date_to');
+            
+            const initialFrom = savedFrom || `${activeYear}/01/01`;
+            const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
+            
+            setDateFrom(initialFrom);
+            setDateTo(initialTo);
+
+            // Previous year default for comparisons (shifted by -1 year relative to Period A)
+            const shiftShamsiYear = (shamsiStr: string, delta: number) => {
+                if (!shamsiStr) return '';
+                const p = shamsiStr.split('/');
+                if (p.length !== 3) return shamsiStr;
+                const y = parseInt(p[0], 10);
+                return `${y + delta}/${p[1]}/${p[2]}`;
+            };
+            const startPrev = shiftShamsiYear(initialFrom, -1);
+            const endPrev = shiftShamsiYear(initialTo, -1);
+            setSalesDateFromB(startPrev);
+            setSalesDateToB(endPrev);
+
+            fetchTafsilis();
+        }
     }, [settings?.activeFiscalYearId]);
 
     const applyQuickDate = (mode: 'today' | 'yesterday' | 'month' | 'quarter' | 'default') => {
@@ -718,6 +734,110 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
+    const handleSendTrazReportToBots = async (isBed: boolean) => {
+        setIsSendingTrazBot(true);
+        try {
+            const subset = trazData.filter(row => isBed ? row.balance > 0 : row.balance < 0);
+            
+            if (subset.length === 0) {
+                toast.error(`هیچ حسابی با مانده ${isBed ? 'بدهکار' : 'بستانکار'} برای ارسال یافت نشد.`);
+                setIsSendingTrazBot(false);
+                return;
+            }
+
+            const customTargetsArray = customBotTarget
+                ? customBotTarget.split(',').map(s => s.trim()).filter(Boolean)
+                : [];
+
+            const response = await fetch('/api/sayan/traz-report/send-manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: isBed ? 'bed' : 'bes',
+                    selectedPlatforms: sendPlatforms,
+                    customTargets: customTargetsArray,
+                    list: subset,
+                    dateFrom,
+                    dateTo
+                })
+            });
+
+            const resData = await response.json();
+            if (!response.ok) throw new Error(resData.error || 'خطا در ارسال گزارش به ربات');
+
+            const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
+            const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
+
+            if (failed.length > 0) {
+                const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
+                const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
+                if (successes.length > 0) {
+                    toast(`گزارش تراز به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
+                } else {
+                    toast.error(`ارسال گزارش تراز ناموفق بود: ${failMsg}`, { duration: 10000 });
+                }
+            } else {
+                toast.success(resData.message || 'گزارش تراز با موفقیت به پیام‌رسان‌ها ارسال شد.');
+            }
+        } catch (e: any) {
+            toast.error(`خطا در ارسال گزارش تراز: ${e.message}`);
+        } finally {
+            setIsSendingTrazBot(false);
+        }
+    };
+
+    const handleSendStatementToBots = async () => {
+        setIsSendingTrazBot(true);
+        try {
+            if (filteredStatementData.length === 0) {
+                toast.error('هیچ تراکنشی در صورتحساب یافت نشد.');
+                setIsSendingTrazBot(false);
+                return;
+            }
+
+            const customTargetsArray = customBotTarget
+                ? customBotTarget.split(',').map(s => s.trim()).filter(Boolean)
+                : [];
+
+            const response = await fetch('/api/sayan/traz-report/send-manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'statement',
+                    selectedPlatforms: sendPlatforms,
+                    customTargets: customTargetsArray,
+                    statementRows: filteredStatementData,
+                    customerName: modalTafsiliName,
+                    customerCode: modalTafsiliCode,
+                    dateFrom,
+                    dateTo
+                })
+            });
+
+            const resData = await response.json();
+            if (!response.ok) throw new Error(resData.error || 'خطا در ارسال صورتحساب به ربات');
+
+            const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
+            const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
+
+            if (failed.length > 0) {
+                const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
+                const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
+                if (successes.length > 0) {
+                    toast(`صورتحساب به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
+                } else {
+                    toast.error(`ارسال صورتحساب ناموفق بود: ${failMsg}`, { duration: 10000 });
+                }
+            } else {
+                toast.success(resData.message || 'صورتحساب با موفقیت به پیام‌رسان‌ها ارسال شد.');
+            }
+        } catch (e: any) {
+            toast.error(`خطا در ارسال صورتحساب: ${e.message}`);
+        } finally {
+            setIsSendingTrazBot(false);
+        }
+    };
+
     // ==========================================
     // TAB 2: DETAILED STATEMENT (صورتحساب ریز تراکنش‌ها)
     // ==========================================
@@ -1097,7 +1217,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_029 as Notes,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
-                    COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                    COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -1115,7 +1235,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     GROUP BY t21_sub.Field_004
                 ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
                 LEFT JOIN (
-                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_sub.Field_003, t02_parent.Field_003)) as GroupName
                     FROM IND_TBL_021 t21_sub
                     LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                     LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -1177,7 +1297,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_029 as Notes,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
@@ -1195,7 +1315,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         GROUP BY t21_sub.Field_004
                     ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
                     LEFT JOIN (
-                        SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                        SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_sub.Field_003, t02_parent.Field_003)) as GroupName
                         FROM IND_TBL_021 t21_sub
                         LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                         LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -2626,7 +2746,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_008 as Date,
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
@@ -2640,7 +2760,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
                       AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
-                    ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
+                    ORDER BY COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
                 `;
                 
                 const rawRows = await runSayanQuery(sql);
@@ -3272,6 +3392,84 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md border border-emerald-200 text-xs font-semibold transition-colors"
                                 >
                                     <Printer className="w-3.5 h-3.5" /> خروجی بستانکاران
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Premium Messenger Sender Panel */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 rtl">
+                            <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
+                                <div className="space-y-1 min-w-[200px]">
+                                    <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                                        <Send className="w-4 h-4 text-blue-600 animate-pulse" />
+                                        ارسال مانده‌ها به پیام‌رسان‌ها
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 font-medium">ارسال دستی و آنی فایل PDF تراز اشخاص به کانال یا گروه ربات</p>
+                                </div>
+
+                                {/* Platform Selector */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-600">پلتفرم‌ها:</span>
+                                    {['telegram', 'bale', 'whatsapp'].map((plat) => {
+                                        const isSelected = sendPlatforms.includes(plat);
+                                        return (
+                                            <button
+                                                key={plat}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSendPlatforms(prev => 
+                                                        prev.includes(plat) 
+                                                            ? prev.filter(p => p !== plat) 
+                                                            : [...prev, plat]
+                                                    );
+                                                }}
+                                                className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1 cursor-pointer ${
+                                                    isSelected 
+                                                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSelected} 
+                                                    readOnly 
+                                                    className="w-3 h-3 accent-blue-600 rounded cursor-pointer pointer-events-none"
+                                                />
+                                                {plat === 'telegram' ? 'تلگرام' : plat === 'bale' ? 'بله' : 'واتساپ'}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Custom target input */}
+                                <div className="flex-1 min-w-[200px] space-y-1">
+                                    <label className="text-[11px] font-bold text-slate-600">ارسال به مقصد سفارشی (شناسه چت یا شماره):</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="مثال: telegram:-1001234567, bale:12345"
+                                        value={customBotTarget}
+                                        onChange={(e) => setCustomBotTarget(e.target.value)}
+                                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-2.5 justify-end shrink-0">
+                                <button
+                                    onClick={() => handleSendTrazReportToBots(true)}
+                                    disabled={isSendingTrazBot || sendPlatforms.length === 0}
+                                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm shadow-rose-600/10"
+                                >
+                                    {isSendingTrazBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                    ارسال فایل بدهکاران به بات
+                                </button>
+                                <button
+                                    onClick={() => handleSendTrazReportToBots(false)}
+                                    disabled={isSendingTrazBot || sendPlatforms.length === 0}
+                                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm shadow-emerald-600/10"
+                                >
+                                    {isSendingTrazBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                    ارسال فایل بستانکاران به بات
                                 </button>
                             </div>
                         </div>
@@ -5195,6 +5393,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 >
                                     <Printer className="w-3.5 h-3.5 text-slate-500" />
                                     چاپ / PDF
+                                </button>
+                                <button 
+                                    onClick={handleSendStatementToBots}
+                                    disabled={isLoading || filteredStatementData.length === 0 || isSendingTrazBot || sendPlatforms.length === 0}
+                                    className="flex-1 sm:flex-none px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all cursor-pointer shadow-sm shadow-indigo-600/10"
+                                    title={`ارسال صورتحساب به ${sendPlatforms.map(p => p === 'telegram' ? 'تلگرام' : p === 'bale' ? 'بله' : 'واتساپ').join(' و ')}`}
+                                >
+                                    {isSendingTrazBot ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                    ارسال صورتحساب به پیام‌رسان‌ها
                                 </button>
                             </div>
                         </div>

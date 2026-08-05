@@ -447,7 +447,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       if (!itemMap.has(itemKey)) {
         itemMap.set(itemKey, {
           itemCode: row.ItemCode || '',
-          itemName: row.ItemName || 'کالای بدون نام',
+          itemName: (row.ItemName && row.ItemName !== 'کالای بدون نام') ? row.ItemName : (row.ItemCode ? `کد کالا: ${row.ItemCode}` : 'کالای بدون نام'),
           groupName: row.GroupName || 'سایر',
           majorCategory: majorCat,
           salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0
@@ -734,8 +734,22 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       return { label: 'ثبات نسبی عملکرد', color: 'bg-slate-100 text-slate-700 border-slate-300' };
     };
 
-    // Mode 1: Group comparison rows (Level-2 15 Major Categories)
-    const compareGroupRows = MAJOR_CATEGORIES.map(catName => {
+    // Mode 1: Group comparison rows (Predefined Major Categories + active dynamic categories in period A/B)
+    const activeCategoriesSet = new Set<string>(MAJOR_CATEGORIES);
+    processedMetrics.categoryList.forEach(c => {
+      if (c.name && (c.salesAmt !== 0 || c.salesWgt !== 0 || c.retAmt !== 0 || c.retWgt !== 0)) {
+        activeCategoriesSet.add(c.name);
+      }
+    });
+    Array.from(catMapB.keys()).forEach(name => {
+      const catBRecord = catMapB.get(name);
+      if (name && catBRecord && (catBRecord.salesAmt !== 0 || catBRecord.salesWgt !== 0 || catBRecord.retAmt !== 0 || catBRecord.retWgt !== 0)) {
+        activeCategoriesSet.add(name);
+      }
+    });
+    const allCompareCategories = Array.from(activeCategoriesSet);
+
+    const compareGroupRows = allCompareCategories.map(catName => {
       const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
       const catBRecord = catMapB.get(catName);
       const grossAmtB = catBRecord ? catBRecord.salesAmt : 0;

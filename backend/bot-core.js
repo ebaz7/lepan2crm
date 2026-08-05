@@ -92,8 +92,8 @@ const resolveUser = (db, platform, chatId) => {
 
 const runSayanQuery = async (db, queryStr) => {
     const settings = db.settings || {};
-    const serverSayanBaseUrl = settings.sayanApiUrl;
-    const serverSayanApiKey = settings.sayanApiKey;
+    const serverSayanBaseUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+    const serverSayanApiKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
     
     if (!serverSayanBaseUrl || !serverSayanApiKey) {
         throw new Error('تنظیمات اتصال به سرور سایان (آدرس و رمز API) در سیستم پیکربندی نشده است.');
@@ -196,7 +196,7 @@ export const getCustomerBalancesData = async (db) => {
             `;
             const tafsilis = await runSayanQuery(db, tafsiliSql);
 
-            // 2. Fetch Traz
+            // 2. Fetch Traz from the aggregate balances (ACT_TBL_024) to match Sayan reports
             const trazSql = `
                 SELECT 
                     t24.Field_010 as TafsiliRaw,
@@ -206,8 +206,6 @@ export const getCustomerBalancesData = async (db) => {
                 WHERE (t24.Field_010 LIKE '11%' OR t24.Field_010 LIKE '%-11%' OR t24.Field_010 LIKE '31%' OR t24.Field_010 LIKE '%-31%') 
                   AND t24.Field_010 NOT LIKE '%-12%'
                   AND t24.Field_010 NOT LIKE '%-13%'
-                  AND t24.Field_005 NOT IN ('102', '103', '107', '109', '114', '116', '117')
-                  AND t24.Field_003 <> '9'
                 GROUP BY t24.Field_010
             `;
             const rawRows = await runSayanQuery(db, trazSql);
