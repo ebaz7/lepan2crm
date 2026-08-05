@@ -684,7 +684,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 amt = amt * 1.10;
             }
 
-            const isReturn = inv.OpCode === '13';
+            const isReturn = String(inv.OpCode).trim() === '13';
             
             if (isReturn) {
                 totalReturnQty += qty;

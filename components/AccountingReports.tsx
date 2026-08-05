@@ -1374,7 +1374,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         salesData.forEach(row => {
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = row.OpCode === '13';
+            const isReturn = String(row.OpCode).trim() === '13';
 
             if (isReturn) {
                 stats.rangeRetAmt += amt;
@@ -1613,7 +1613,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
             const amt = parseFloat(inv.Amount || 0);
-            const isReturn = inv.OpCode === '13';
+            const isReturn = String(inv.OpCode).trim() === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -1959,7 +1959,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = row.OpCode === '13';
+            const isReturn = String(row.OpCode).trim() === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -2658,7 +2658,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (row.OpCode === '13') {
+            if (String(row.OpCode).trim() === '13') {
                 groups[key].retAmountA += amt;
                 groups[key].retWeightA += qty;
                 groups[key].netAmountA -= amt;
@@ -2682,7 +2682,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (row.OpCode === '13') {
+            if (String(row.OpCode).trim() === '13') {
                 groups[key].retAmountB += amt;
                 groups[key].retWeightB += qty;
                 groups[key].netAmountB -= amt;
@@ -4143,7 +4143,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
                                 const qty = parseFloat(row.Quantity || 0);
                                 const amt = parseFloat(row.Amount || 0);
-                                const isReturn = row.OpCode === '13';
+                                const isReturn = String(row.OpCode).trim() === '13';
 
                                 if (!groupMap.has(key)) {
                                     groupMap.set(key, {
@@ -4574,7 +4574,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     const netW = parseNetWeight(row);
                                                     const grossW = parseGrossWeight(row);
                                                     const fee = parseFee(row, netW);
-                                                    const isRet = row.OpCode === '13';
+                                                    const isRet = String(row.OpCode).trim() === '13';
                                                     return (
                                                         <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${isRet ? 'bg-rose-50' : ''}`}>
                                                             <td className="p-3 font-medium text-slate-500 whitespace-nowrap">{formatDateToJalali(row.Date)}</td>
@@ -4789,7 +4789,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 const netW = parseNetWeight(row);
                                                 const grossW = parseGrossWeight(row);
                                                 const fee = parseFee(row, netW);
-                                                const isRet = row.OpCode === '13';
+                                                const isRet = String(row.OpCode).trim() === '13';
                                                 return (
                                                     <div key={idx} className={`p-4 space-y-2 text-xs ${isRet ? 'bg-rose-50' : ''}`}>
                                                         <div className="flex justify-between items-center">

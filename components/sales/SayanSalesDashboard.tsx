@@ -386,7 +386,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
-      const isReturn = row.OpCode === '13';
+      const isReturn = String(row.OpCode).trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
       const custName = row.CustomerName || 'مشتری متفرقه';
       const majorCat = classifyMajorCategory(row.GroupName, row.ItemName);
@@ -684,7 +684,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
-      const isReturn = row.OpCode === '13';
+      const isReturn = String(row.OpCode).trim() === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
       const cleanName = cleanProductName(row.ItemName, row.ItemCode);
       const itemKey = cleanName;

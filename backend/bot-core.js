@@ -348,7 +348,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                     amt = amt * 1.10;
                 }
 
-                const isReturn = r.OpCode === '13';
+                const isReturn = String(r.OpCode).trim() === '13';
 
                 if (!groupMap.has(grp)) {
                     groupMap.set(grp, { qtyA: 0, amtA: 0, qtyB: 0, amtB: 0 });
@@ -3811,7 +3811,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     amt = amt * 1.10;
                 }
 
-                const isReturn = inv.OpCode === '13';
+                const isReturn = String(inv.OpCode).trim() === '13';
 
                 if (isReturn) {
                     totalRetQty += qty;
