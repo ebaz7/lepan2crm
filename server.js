@@ -81,7 +81,7 @@ webpush.setVapidDetails(
 );
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(cors()); 
 // Maximum compression for speed
@@ -592,7 +592,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t10.Field_008 as Date,
             t10.Field_029 as Notes,
             t11.Field_005 as ItemCode,
-            COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005) as ItemName,
+            COALESCE(t_name.ItemName, t11.Field_005) as ItemName,
             t11.Field_006 as Quantity,
             t11.Field_031 as ItemNotes,
             t11.Field_007 as Amount,
@@ -630,7 +630,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             ${shamsiDate ? `OR t10.Field_008 LIKE '${shamsiDate}%'` : ''}
             ${shamsiClean ? `OR t10.Field_008 LIKE '${shamsiClean}%'` : ''}
             ${shamsiDash ? `OR t10.Field_008 LIKE '${shamsiDash}%'` : ''}
-            OR t10.Field_008 BETWEEN '${gregDate}T00:00:00.000Z' AND '${gregDate}T23:59:59.999Z'
+            OR t10.Field_008 BETWEEN '${gregDate}T00:00:00.000Z' AND '${gregDate}T23:59:59.000Z'
             OR t10.Field_008 BETWEEN '${gregDate} 00:00:00' AND '${gregDate} 23:59:59'
           )
         ORDER BY t10.Field_008 DESC
@@ -658,17 +658,24 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     }
     
     if (salesRows.length > 0) {
-        const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${shamsiDate} (${labelSuffix})`;
-        const columns = ['ردیف', 'گروه / نام کالا', 'فروش ناخالص (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص (ک‌گ / ریال)', 'فی نهایی (ریال)'];
+        const titleDetailed = `گزارش رسمی فروش ریز کالا سایان - مورخ ${shamsiDate} (${labelSuffix})`;
+        const titleGrouped = `گزارش رسمی فروش گروه کالا سایان - مورخ ${shamsiDate} (${labelSuffix})`;
         
-        const groupedMap = new Map();
+        const columnsDetailed = ['ردیف', 'گروه / نام کالا', 'فروش ناخالص (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص (ک‌گ / ریال)', 'فی نهایی (ریال)'];
+        const columnsGrouped = ['ردیف', 'گروه کالا', 'فروش ناخالص (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص (ک‌گ / ریال)', 'فی نهایی (ریال)'];
+        
+        const detailedMap = new Map();
+        const groupMap = new Map();
+
         let totalSalesQty = 0;
         let totalSalesAmt = 0;
         let totalReturnQty = 0;
         let totalReturnAmt = 0;
         
         salesRows.forEach(inv => {
-            const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
+            const keyDetailed = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
+            const keyGrouped = `${inv.GroupName || 'سایر گروه‌ها'}`;
+            
             const qty = parseFloat(inv.Quantity || 0);
             let amt = parseFloat(inv.Amount || 0);
             
@@ -678,7 +685,6 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             if (isOfficial) {
                 amt = amt * 1.10;
             }
-
             const isReturn = inv.OpCode === '13';
             
             if (isReturn) {
@@ -689,8 +695,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 totalSalesAmt += amt;
             }
             
-            if (!groupedMap.has(key)) {
-                groupedMap.set(key, {
+            // Detailed Map
+            if (!detailedMap.has(keyDetailed)) {
+                detailedMap.set(keyDetailed, {
                     itemName: inv.ItemName || 'کالای بدون نام',
                     groupName: inv.GroupName || 'سایر گروه‌ها',
                     salesQty: 0,
@@ -699,20 +706,50 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                     returnAmt: 0
                 });
             }
-            
-            const existing = groupedMap.get(key);
+            const existingDetailed = detailedMap.get(keyDetailed);
+
+            // Group Map
+            if (!groupMap.has(keyGrouped)) {
+                groupMap.set(keyGrouped, {
+                    groupName: keyGrouped,
+                    salesQty: 0,
+                    salesAmt: 0,
+                    returnQty: 0,
+                    returnAmt: 0
+                });
+            }
+            const existingGrouped = groupMap.get(keyGrouped);
+
             if (isReturn) {
-                existing.returnQty += qty;
-                existing.returnAmt += amt;
+                existingDetailed.returnQty += qty;
+                existingDetailed.returnAmt += amt;
+                existingGrouped.returnQty += qty;
+                existingGrouped.returnAmt += amt;
             } else {
-                existing.salesQty += qty;
-                existing.salesAmt += amt;
+                existingDetailed.salesQty += qty;
+                existingDetailed.salesAmt += amt;
+                existingGrouped.salesQty += qty;
+                existingGrouped.salesAmt += amt;
             }
         });
         
-        const groupedRows = Array.from(groupedMap.values());
+        const detailedRows = Array.from(detailedMap.values());
+        const groupedRows = Array.from(groupMap.values());
         
-        const tableRows = groupedRows.map((row, idx) => {
+        const grandNetQty = totalSalesQty - totalReturnQty;
+        const grandNetAmt = totalSalesAmt - totalReturnAmt;
+        const grandFinalPrice = grandNetQty > 0 ? (grandNetAmt / grandNetQty) : 0;
+        
+        const totalRowArr = [
+            'جمع کل',
+            '-',
+            `${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال`,
+            `${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalReturnAmt).toLocaleString('fa-IR')} ریال`,
+            `${grandNetQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال`,
+            Math.round(grandFinalPrice).toLocaleString('fa-IR')
+        ];
+
+        const tableRowsDetailed = detailedRows.map((row, idx) => {
             const netQty = row.salesQty - row.returnQty;
             const netAmt = row.salesAmt - row.returnAmt;
             const finalPrice = netQty > 0 ? (netAmt / netQty) : 0;
@@ -725,31 +762,47 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 Math.round(finalPrice).toLocaleString('fa-IR')
             ];
         });
+        tableRowsDetailed.push(totalRowArr);
+
+        const tableRowsGrouped = groupedRows.map((row, idx) => {
+            const netQty = row.salesQty - row.returnQty;
+            const netAmt = row.salesAmt - row.returnAmt;
+            const finalPrice = netQty > 0 ? (netAmt / netQty) : 0;
+            return [
+                (idx + 1).toLocaleString('fa-IR'),
+                row.groupName,
+                `${row.salesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(row.salesAmt).toLocaleString('fa-IR')} ریال`,
+                `${row.returnQty > 0 ? row.returnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0'} ک‌گ / ${Math.round(row.returnAmt).toLocaleString('fa-IR')} ریال`,
+                `${netQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(netAmt).toLocaleString('fa-IR')} ریال`,
+                Math.round(finalPrice).toLocaleString('fa-IR')
+            ];
+        });
+        tableRowsGrouped.push(totalRowArr);
         
-        const grandNetQty = totalSalesQty - totalReturnQty;
-        const grandNetAmt = totalSalesAmt - totalReturnAmt;
-        const grandFinalPrice = grandNetQty > 0 ? (grandNetAmt / grandNetQty) : 0;
+        const pdfBufferDetailed = await Renderer.generateReportPDF(titleDetailed, columnsDetailed, tableRowsDetailed, true);
+        const pdfBufferGrouped = await Renderer.generateReportPDF(titleGrouped, columnsGrouped, tableRowsGrouped, true);
         
-        tableRows.push([
-            'جمع کل',
-            '-',
-            `${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال`,
-            `${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalReturnAmt).toLocaleString('fa-IR')} ریال`,
-            `${grandNetQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال`,
-            Math.round(grandFinalPrice).toLocaleString('fa-IR')
-        ]);
-        
-        const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true); // Landscape
-        
-        if (!pdfBuffer) {
+        if (!pdfBufferDetailed || !pdfBufferGrouped) {
             throw new Error('خطا در تولید فایل PDF گزارش. لطفاً اطمینان حاصل کنید که مرورگر Chrome یا Edge روی سرور نصب شده باشد.');
         }
 
-        const filename = `Sayan_Daily_Sales_${gregDate}_${labelSuffix === 'دیروز' ? 'Yesterday' : 'Today'}.pdf`;
+        const filenameDetailed = `Sayan_Sales_Detailed_${gregDate}_${labelSuffix === 'دیروز' ? 'Yesterday' : 'Today'}.pdf`;
+        const filenameGrouped = `Sayan_Sales_Grouped_${gregDate}_${labelSuffix === 'دیروز' ? 'Yesterday' : 'Today'}.pdf`;
         
-        const caption = `📊 *گزارش فروش و مرجوعی روزانه سایان ERP*
+        const captionDetailed = `📊 *گزارش ریز کالا فروش سایان ERP*
 📅 *تاریخ:* ${shamsiDate} (${labelSuffix})
-🧾 *تعداد اقلام:* ${groupedRows.length} مورد
+🧾 *تعداد اقلام:* ${detailedRows.length} مورد
+📦 *وزن فروش ناخالص:* ${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+💵 *مبلغ فروش ناخالص:* ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال
+🔄 *وزن مرجوعی (کد ۱۳):* ${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+❌ *مبلغ مرجوعی:* ${Math.round(totalReturnAmt).toLocaleString('fa-IR')} ریال
+✅ *وزن خالص کل:* ${grandNetQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+💰 *فروش خالص کل:* ${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال
+🏷️ *فی نهایی میانگین:* ${Math.round(grandFinalPrice).toLocaleString('fa-IR')} ریال/کیلوگرم`;
+
+        const captionGrouped = `📊 *گزارش گروه کالا فروش سایان ERP*
+📅 *تاریخ:* ${shamsiDate} (${labelSuffix})
+🧾 *تعداد گروه‌ها:* ${groupedRows.length} گروه
 📦 *وزن فروش ناخالص:* ${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 💵 *مبلغ فروش ناخالص:* ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال
 🔄 *وزن مرجوعی (کد ۱۳):* ${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
@@ -761,25 +814,33 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         let successfulSends = 0;
         const sendDetails = [];
         let lastErr = null;
+
         for (const tgt of uniqueSalesTargets) {
             try {
                 if (tgt.platform === 'telegram') {
-                    await telegram.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
-                    successfulSends++;
+                    await telegram.sendBotDocument(tgt.id, pdfBufferGrouped, filenameGrouped, captionGrouped);
+                    await telegram.sendBotDocument(tgt.id, pdfBufferDetailed, filenameDetailed, captionDetailed);
+                    successfulSends += 2;
                     sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'bale') {
-                    await bale.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
-                    successfulSends++;
+                    await bale.sendBotDocument(tgt.id, pdfBufferGrouped, filenameGrouped, captionGrouped);
+                    await bale.sendBotDocument(tgt.id, pdfBufferDetailed, filenameDetailed, captionDetailed);
+                    successfulSends += 2;
                     sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
                 } else if (tgt.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
-                        await wa.sendMessage(tgt.id, caption, {
-                            data: pdfBuffer.toString('base64'),
+                        await wa.sendMessage(tgt.id, captionGrouped, {
+                            data: pdfBufferGrouped.toString('base64'),
                             mimeType: 'application/pdf',
-                            filename: filename
+                            filename: filenameGrouped
                         });
-                        successfulSends++;
+                        await wa.sendMessage(tgt.id, captionDetailed, {
+                            data: pdfBufferDetailed.toString('base64'),
+                            mimeType: 'application/pdf',
+                            filename: filenameDetailed
+                        });
+                        successfulSends += 2;
                         sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
                     } else {
                         throw new Error('ماژول واتساپ در دسترس نیست');
@@ -1313,21 +1374,21 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 t11.Field_005 as ItemCode,
-                COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
-              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
-            ORDER BY COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
+              AND t10.Field_008 <= '${gregToDate}T23:59:59.000Z'
+            ORDER BY COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
         `;
 
         const rawRows = await executeSayanQuery(db, sql);

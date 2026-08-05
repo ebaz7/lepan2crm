@@ -1,4 +1,5 @@
 
+import { Toaster } from 'react-hot-toast';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -1199,6 +1200,7 @@ function App() {
 
   return (
     <>
+        <Toaster position="bottom-center" toastOptions={{ duration: 4000, style: { zIndex: 9999999 } }} />
         <AnimatePresence>
             {toast && toast.show && toastStyle && (
                 <div className="fixed inset-x-0 top-6 z-[9999999] flex justify-center pointer-events-none w-full px-4">

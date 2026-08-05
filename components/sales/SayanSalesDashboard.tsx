@@ -81,26 +81,7 @@ const CATEGORY_COLORS = [
 ];
 
 export function classifyMajorCategory(groupName: string = '', itemName: string = ''): string {
-  const text = `${groupName} ${itemName}`.toLowerCase();
-  
-  if (text.includes('کاور') || text.includes('کاورینگ') || (text.includes('اسپاندکس') && text.includes('کاور'))) return 'اسپاندکس (کاور)';
-  if (text.includes('ساپورت') || text.includes('پوشش') || (text.includes('اسپاندکس') && text.includes('پوشش'))) return 'اسپاندکس پوشش (ساپورت)';
-  if (text.includes('شواتیز') || (text.includes('پلی استر') && text.includes('شواتیز'))) return 'پلی استر شواتیز';
-  if (text.includes('120') || text.includes('۱۲۰')) return 'نخ ۱۲۰ پلی استر';
-  if (text.includes('180') || text.includes('۱۸۰') || text.includes('اسپان')) return 'نخ ۱۸۰ پلی استر اسپان';
-  if (text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
-  if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
-  if (text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
-  if (text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
-  if (text.includes('چیپس') || text.includes('chip')) return 'چیپس';
-  if (text.includes('لایکرا') || text.includes('lycra')) return 'لایکرا';
-  if (text.includes('لاکرا')) return 'لاکرا';
-  if (text.includes('مستربچ') || text.includes('masterbatch')) return 'مستربچ';
-  if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
-  if (text.includes('کش') || text.includes('elastic')) return 'کش';
-  if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
-
-  return groupName || 'سایر محصولات';
+  return groupName ? groupName.trim() : 'سایر محصولات';
 }
 
 function formatMoney(amount: number): string {
@@ -337,17 +318,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       itemsMap: Map<string, { itemName: string; salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; }>;
     }>();
 
-    // Initialize all 15 Major Categories to preserve order
-    MAJOR_CATEGORIES.forEach(cat => {
-      categoryMap.set(cat, {
-        name: cat,
-        salesWgt: 0,
-        salesAmt: 0,
-        retWgt: 0,
-        retAmt: 0,
-        itemsMap: new Map()
-      });
-    });
 
     // Invoices list
     const invoiceListMap = new Map<string, {
@@ -443,7 +413,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       }
 
       // Item Accumulation
-      const itemKey = row.ItemCode || row.ItemName || 'کالا';
+      const itemKey = row.ItemName || 'کالا';
       if (!itemMap.has(itemKey)) {
         itemMap.set(itemKey, {
           itemCode: row.ItemCode || '',
@@ -554,6 +524,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         };
       }).filter(item => Math.abs(item.netAmt) > 0 || Math.abs(item.netWgt) > 0);
 
+      itemsList.sort((a, b) => b.netAmt - a.netAmt);
+
       return {
         name: c.name,
         salesWgt: c.salesWgt,
@@ -566,7 +538,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         sharePct,
         items: itemsList
       };
-    }).filter(c => Math.abs(c.netAmt) > 0 || Math.abs(c.netWgt) > 0 || c.salesAmt > 0);
+    }).filter(c => Math.abs(c.netAmt) > 0 || Math.abs(c.netWgt) > 0 || c.salesAmt > 0)
+      .sort((a, b) => b.netAmt - a.netAmt);
 
     // Build Detailed Items List
     const itemList = Array.from(itemMap.values()).map(i => {
@@ -666,7 +639,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
       const isReturn = row.OpCode === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
-      const itemKey = row.ItemCode || row.ItemName || 'کالا';
+      const itemKey = row.ItemName || 'کالا';
 
       if (isReturn) {
         retAmtB += amt;
@@ -735,7 +708,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     };
 
     // Mode 1: Group comparison rows (Predefined Major Categories + active dynamic categories in period A/B)
-    const activeCategoriesSet = new Set<string>(MAJOR_CATEGORIES);
+    const activeCategoriesSet = new Set<string>();
     processedMetrics.categoryList.forEach(c => {
       if (c.name && (c.salesAmt !== 0 || c.salesWgt !== 0 || c.retAmt !== 0 || c.retWgt !== 0)) {
         activeCategoriesSet.add(c.name);
@@ -1440,7 +1413,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <div class="kpi-card"><div class="kpi-title">تعداد فاکتورها</div><div class="kpi-val">${processedMetrics.invoiceCount} عدد</div></div>
         </div>
 
-        <h2>جدول عملکرد گروههای اصلی کالا (15 گروه)</h2>
+        <h2>جدول عملکرد گروه‌های اصلی کالا</h2>
         <table>
           <thead>
             <tr>
@@ -2314,14 +2287,14 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       )}
 
       {/* ================================================================== */}
-      {/* TAB 1: 15 MAJOR PRODUCT GROUPS REPORT WITH DRILL-DOWN */}
+      {/* TAB 1: MAJOR PRODUCT GROUPS REPORT WITH DRILL-DOWN */}
       {/* ================================================================== */}
       {activeTab === 'hierarchy' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fadeIn">
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-blue-400" />
-              <h2 className="text-sm font-extrabold">گزارش سرفصل‌های اصلی کالا (۱۵ گروه اصلی سایان) با قابلیت Drill-Down</h2>
+              <h2 className="text-sm font-extrabold">گزارش سرفصل‌های اصلی کالا (گروه‌های اصلی کالا) با قابلیت Drill-Down</h2>
             </div>
             <span className="text-[11px] bg-blue-500/20 border border-blue-400/30 text-blue-300 px-2.5 py-0.5 rounded-full font-mono">
               فروش خالص = فروش ناخالص - مرجوعی
@@ -2415,7 +2388,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tbody>
               <tfoot>
                 <tr className="bg-slate-900 text-white font-bold text-xs border-t-2 border-slate-700">
-                  <td colSpan={2} className="p-3.5">جمع کل عملکرد (۱۵ گروه اصلی):</td>
+                  <td colSpan={2} className="p-3.5">جمع کل عملکرد (گروه‌های اصلی):</td>
                   <td className="p-3.5 text-center font-mono">{formatWeight(processedMetrics.rangeSalesAmt ? (processedMetrics.rangeNetWgt + processedMetrics.rangeRetWgt) : 0)}</td>
                   <td className="p-3.5 text-center font-mono text-rose-300">{formatWeight(processedMetrics.rangeRetWgt)}</td>
                   <td className="p-3.5 text-center font-mono font-black text-blue-300">{formatWeight(processedMetrics.rangeNetWgt)}</td>

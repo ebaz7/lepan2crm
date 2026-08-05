@@ -1217,7 +1217,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_029 as Notes,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
-                    COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                    COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -1297,7 +1297,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_029 as Notes,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
@@ -2746,21 +2746,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_008 as Date,
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub
-                        LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
+                        LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                         GROUP BY t21_sub.Field_004
                     ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
-                      AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
-                    ORDER BY COALESCE(t22.Field_004, t11.Field_031, t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
+                      AND t10.Field_008 <= '${gregTo}T23:59:59.000Z'
+                    ORDER BY COALESCE(t_name.ItemName, t11.Field_005, 'کالای بدون نام'), t10.Field_008
                 `;
                 
                 const rawRows = await runSayanQuery(sql);
