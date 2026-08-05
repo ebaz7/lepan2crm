@@ -1314,7 +1314,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
 
         const sql = `
             SELECT 
-                t10.Field_001 as DocId,
+                t10.Field_005 as DocId,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
@@ -1331,14 +1331,14 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY t21_sub.Field_004
+                GROUP BY RTRIM(LTRIM(t21_sub.Field_004))
             ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
               AND (
                 (t10.Field_008 >= '${gregFromDate}T00:00:00.000Z' AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z')
                 OR (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59')
-                OR (t10.Field_008 >= '${cleanDateFrom}' AND t10.Field_008 <= '${cleanDateTo}')
+                OR (t10.Field_008 >= '${cleanDateFrom}' AND t10.Field_008 <= '${cleanDateTo} 23:59:59')
               )
             ORDER BY ItemName, t10.Field_008
         `;
