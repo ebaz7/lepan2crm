@@ -453,10 +453,18 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
 
     if (db.reportDeliveryJobs && Array.isArray(db.reportDeliveryJobs)) {
         db.reportDeliveryJobs.forEach(job => {
-            if (job.destinationGroup && Array.isArray(job.botPlatforms)) {
+            if (Array.isArray(job.botPlatforms)) {
                 job.botPlatforms.forEach(plat => {
                     if (platforms.includes(plat)) {
-                        salesTargets.push({ platform: plat, id: job.destinationGroup });
+                        let id = job.destinationGroup;
+                        if (plat === 'telegram' && job.destinationTelegram) id = job.destinationTelegram;
+                        if (plat === 'bale' && job.destinationBale) id = job.destinationBale;
+                        if (plat === 'whatsapp' && job.destinationWhatsapp) id = job.destinationWhatsapp;
+                        if (plat === 'eitaa' && job.destinationEitaa) id = job.destinationEitaa;
+                        
+                        if (id) {
+                            salesTargets.push({ platform: plat, id });
+                        }
                     }
                 });
             }
@@ -541,6 +549,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         FROM STR_TBL_010 t10
         INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                    AND t11.Field_003 = t10.Field_004
+                                   AND t11.Field_036 = t10.Field_009
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
             SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
@@ -1248,7 +1257,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
@@ -2838,6 +2847,8 @@ function setupDailyReports() {
                     reportType: 'daily_sales',
                     botPlatforms: ['telegram', 'bale'],
                     destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
+                    destinationTelegram: db.settings?.telegramGroupId || '-100123456789',
+                    destinationBale: db.settings?.baleGroupId || '1234567',
                     scheduleType: 'daily_1900',
                     cronExpression: '0 19 * * *',
                     attachPdf: true,
@@ -2853,6 +2864,8 @@ function setupDailyReports() {
                     reportType: 'sales_comparison',
                     botPlatforms: ['telegram', 'bale'],
                     destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
+                    destinationTelegram: db.settings?.telegramGroupId || '-100123456789',
+                    destinationBale: db.settings?.baleGroupId || '1234567',
                     scheduleType: 'daily_comp_1900',
                     cronExpression: '0 19 * * *',
                     attachPdf: true,
@@ -2901,8 +2914,8 @@ async function executeReportJob(job) {
         console.log(`🚀 Dispatching Scheduled Report Job [${job.title}] to platforms [${(job.botPlatforms || []).join(', ')}]...`);
         
         if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
-            const teleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
-            const baleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
+            const teleGroup = job.destinationTelegram || job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
+            const baleGroup = job.destinationBale || job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
             
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
@@ -2930,7 +2943,17 @@ async function executeReportJob(job) {
             await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
             // Standard daily sales report or other module
-            const customTargets = job.destinationGroup && job.botPlatforms ? job.botPlatforms.map(p => ({ platform: p, id: job.destinationGroup })) : null;
+            let customTargets = null;
+            if (Array.isArray(job.botPlatforms)) {
+                customTargets = job.botPlatforms.map(p => {
+                    let id = job.destinationGroup;
+                    if (p === 'telegram') id = job.destinationTelegram || job.destinationGroup;
+                    if (p === 'bale') id = job.destinationBale || job.destinationGroup;
+                    if (p === 'whatsapp') id = job.destinationWhatsapp || job.destinationGroup;
+                    if (p === 'eitaa') id = job.destinationEitaa || job.destinationGroup;
+                    return { platform: p, id };
+                }).filter(t => !!t.id);
+            }
             await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets, job.botPlatforms);
         }
 

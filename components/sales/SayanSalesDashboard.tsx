@@ -972,27 +972,179 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <meta charset="utf-8">
           <title>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP</title>
           <style>
-            body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
-            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-            .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
-            .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
-            .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-            .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
-            .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
-            .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
-            th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; }
-            th { background-color: #0f172a; color: #fff; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f1f5f9; }
-            .total { font-weight: bold; background: #e2e8f0 !important; }
-            .growth-pos { color: #15803d; font-weight: bold; }
-            .growth-neg { color: #b91c1c; font-weight: bold; }
+            @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+            body {
+              font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+              padding: 30px;
+              background: #ffffff;
+              color: #1e293b;
+              font-size: 11px;
+              direction: rtl;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .top-bar {
+              height: 6px;
+              background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+              border-radius: 3px;
+              margin-bottom: 20px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 18px;
+              font-weight: 900;
+              color: #1e3a8a;
+              letter-spacing: -0.025em;
+            }
+            .header p {
+              margin: 6px 0 0;
+              font-size: 12px;
+              color: #475569;
+              font-weight: 500;
+            }
+            .meta-info {
+              text-align: left;
+              font-size: 11px;
+              color: #475569;
+              line-height: 1.6;
+            }
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+              margin-bottom: 24px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              background-color: #f8fafc;
+              padding: 12px;
+              border-radius: 12px;
+              text-align: center;
+              box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+            }
+            .kpi-title {
+              margin: 0 0 6px 0;
+              font-size: 10px;
+              color: #475569;
+              font-weight: bold;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            .kpi-val {
+              margin: 0;
+              font-size: 13px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .growth-pos {
+              color: #15803d;
+              font-weight: bold;
+            }
+            .growth-neg {
+              color: #b91c1c;
+              font-weight: bold;
+            }
+            h2 {
+              font-size: 14px;
+              font-weight: 800;
+              color: #0f172a;
+              margin-top: 24px;
+              margin-bottom: 12px;
+              border-right: 3px solid #1e3a8a;
+              padding-right: 8px;
+            }
+            table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 0;
+              margin-top: 15px;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              overflow: hidden;
+            }
+            th {
+              background-color: #0f172a;
+              color: #ffffff;
+              padding: 10px 8px;
+              font-weight: 700;
+              font-size: 11px;
+              border-bottom: 1px solid #1e293b;
+              text-align: center;
+            }
+            td {
+              padding: 10px 8px;
+              border-bottom: 1px solid #e2e8f0;
+              border-left: 1px solid #e2e8f0;
+              color: #334155;
+              font-size: 11px;
+              vertical-align: middle;
+              text-align: center;
+            }
+            td:last-child {
+              border-left: none;
+            }
+            tr:nth-child(even) td {
+              background-color: #f8fafc;
+            }
+            tr:hover td {
+              background-color: #f1f5f9;
+            }
+            .total {
+              font-weight: bold;
+              background-color: #f1f5f9 !important;
+            }
+            .total td {
+              background-color: #f1f5f9 !important;
+              border-top: 2px solid #cbd5e1;
+              border-bottom: 2px solid #cbd5e1;
+              color: #0f172a;
+              font-weight: 800;
+            }
+            .signatures {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 24px;
+              margin-top: 50px;
+              text-align: center;
+              font-size: 11px;
+              font-weight: bold;
+            }
+            .signature-box {
+              height: 70px;
+              border-bottom: 1px dashed #cbd5e1;
+              margin-top: 10px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 40px;
+              font-size: 10px;
+              color: #64748b;
+              border-top: 1px dashed #e2e8f0;
+              padding-top: 16px;
+            }
+            @media print {
+              body { padding: 0; }
+            }
           </style>
         </head>
         <body>
+          <div class="top-bar"></div>
           <div class="header">
-            <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
-            <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
+            <div>
+              <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
+              <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
+            </div>
+            <div class="meta-info">
+              <p>تاریخ چاپ: <strong>${toShamsiStr(new Date().toISOString())}</strong></p>
+            </div>
           </div>
 
           <div class="kpi-grid">
@@ -1016,35 +1168,35 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <table>
             <thead>
               <tr>
-                <th>ردیف</th>
-                <th>نام گروه کالا</th>
+                <th style="width: 35px;">ردیف</th>
+                <th style="text-align: right; width: 180px;">نام گروه کالا</th>
                 <th>وزن خالص A (ک‌گ)</th>
                 <th>فروش خالص A (ریال)</th>
                 <th>فی A (ریال)</th>
                 <th>وزن خالص B (ک‌گ)</th>
                 <th>فروش خالص B (ریال)</th>
                 <th>فی B (ریال)</th>
-                <th>درصد رشد (%)</th>
+                <th style="width: 100px;">درصد رشد</th>
               </tr>
             </thead>
             <tbody>
               ${comparisonMetrics.compareGroupRows.map((r, idx) => `
                 <tr>
-                  <td style="text-align:center;">${idx + 1}</td>
-                  <td>${r.catName}</td>
+                  <td style="text-align:center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                  <td style="text-align: right; font-weight: bold; color: #0f172a;">${r.catName}</td>
                   <td style="text-align:center;">${formatWeight(r.netWgtA)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netAmtA)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netFeeA)}</td>
+                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netAmtA)}</td>
+                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netFeeA)}</td>
                   <td style="text-align:center;">${formatWeight(r.netWgtB)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netAmtB)}</td>
-                  <td style="text-align:left;">${formatMoney(r.netFeeB)}</td>
+                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netAmtB)}</td>
+                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netFeeB)}</td>
                   <td style="text-align:center;" class="${r.growthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
                     ${r.growthPct >= 0 ? '+' : ''}${r.growthPct.toFixed(1)}%
                   </td>
                 </tr>
               `).join('')}
               <tr class="total">
-                <td colspan="2">جمع کل</td>
+                <td colspan="2" style="text-align: right;">جمع کل</td>
                 <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtA : 0)}</td>
                 <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)}</td>
                 <td style="text-align:left;">-</td>
@@ -1057,6 +1209,25 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tr>
             </tbody>
           </table>
+
+          <div class="signatures">
+            <div>
+              <p>امضا تهیه کننده / واحد فروش</p>
+              <div class="signature-box"></div>
+            </div>
+            <div>
+              <p>امضا مدیر مالی</p>
+              <div class="signature-box"></div>
+            </div>
+            <div>
+              <p>امضا مدیریت عامل</p>
+              <div class="signature-box"></div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>سامانه مدیریت هوشمند و گزارشات مالی کارخانه سایان ERP - نسخه چاپ رسمی پایش مقایسه‌ای</p>
+          </div>
         </body>
         </html>
       `;
@@ -1081,25 +1252,171 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         <meta charset="utf-8">
         <title>داشبورد مدیریتی فروش سایان ERP</title>
         <style>
-          body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
-          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-          .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
-          .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
-          .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-          .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
-          .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
-          .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
-          th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; }
-          th { background-color: #0f172a; color: #fff; font-weight: bold; }
-          tr:nth-child(even) { background-color: #f1f5f9; }
-          .total { font-weight: bold; background: #e2e8f0 !important; }
+          @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+          body {
+            font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+            padding: 30px;
+            background: #ffffff;
+            color: #1e293b;
+            font-size: 11px;
+            direction: rtl;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .top-bar {
+            height: 6px;
+            background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+            border-radius: 3px;
+            margin-bottom: 20px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 900;
+            color: #1e3a8a;
+            letter-spacing: -0.025em;
+          }
+          .header p {
+            margin: 6px 0 0;
+            font-size: 12px;
+            color: #475569;
+            font-weight: 500;
+          }
+          .meta-info {
+            text-align: left;
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.6;
+          }
+          .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+          .kpi-card {
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+          }
+          .kpi-title {
+            margin: 0 0 6px 0;
+            font-size: 10px;
+            color: #475569;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .kpi-val {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 800;
+            color: #0f172a;
+          }
+          h2 {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            border-right: 3px solid #1e3a8a;
+            padding-right: 8px;
+          }
+          table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          th {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 10px 8px;
+            font-weight: 700;
+            font-size: 11px;
+            border-bottom: 1px solid #1e293b;
+            text-align: center;
+          }
+          td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 11px;
+            vertical-align: middle;
+            text-align: center;
+          }
+          td:last-child {
+            border-left: none;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc;
+          }
+          tr:hover td {
+            background-color: #f1f5f9;
+          }
+          .total {
+            font-weight: bold;
+            background-color: #f1f5f9 !important;
+          }
+          .total td {
+            background-color: #f1f5f9 !important;
+            border-top: 2px solid #cbd5e1;
+            border-bottom: 2px solid #cbd5e1;
+            color: #0f172a;
+            font-weight: 800;
+          }
+          .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 50px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+          }
+          .signature-box {
+            height: 70px;
+            border-bottom: 1px dashed #cbd5e1;
+            margin-top: 10px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 10px;
+            color: #64748b;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 16px;
+          }
+          @media print {
+            body { padding: 0; }
+          }
         </style>
       </head>
       <body>
+        <div class="top-bar"></div>
         <div class="header">
-          <h1>داشبورد تصمیم‌گیری و گزارشات مدیریتی فروش سایان ERP</h1>
-          <p>بازه گزارش: از ${dateFrom} تا ${dateTo} | تاریخ چاپ: ${toShamsiStr(new Date().toISOString())}</p>
+          <div>
+            <h1>داشبورد تصمیم‌گیری و گزارشات مدیریتی فروش سایان ERP</h1>
+            <p>بازه گزارش: از ${dateFrom} تا ${dateTo}</p>
+          </div>
+          <div class="meta-info">
+            <p>تاریخ چاپ: <strong>${toShamsiStr(new Date().toISOString())}</strong></p>
+          </div>
         </div>
 
         <div class="kpi-grid">
@@ -1113,27 +1430,27 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         <table>
           <thead>
             <tr>
-              <th>ردیف</th>
-              <th>نام گروه اصلی</th>
+              <th style="width: 35px;">ردیف</th>
+              <th style="text-align: right; width: 220px;">نام گروه اصلی</th>
               <th>وزن خالص (ک‌گ)</th>
               <th>فروش خالص (ریال)</th>
               <th>فی نهایی (ریال/ک‌گ)</th>
-              <th>سهم %</th>
+              <th style="width: 80px;">سهم %</th>
             </tr>
           </thead>
           <tbody>
             ${processedMetrics.categoryList.map((cat, idx) => `
               <tr>
-                <td style="text-align:center;">${idx + 1}</td>
-                <td>${cat.name}</td>
+                <td style="text-align:center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                <td style="text-align: right; font-weight: bold; color: #0f172a;">${cat.name}</td>
                 <td style="text-align:center;">${formatWeight(cat.netWgt)}</td>
-                <td style="text-align:left;">${formatMoney(cat.netAmt)}</td>
-                <td style="text-align:left;">${formatMoney(cat.netFee)}</td>
-                <td style="text-align:center;">${cat.sharePct.toFixed(1)}%</td>
+                <td style="text-align:left; font-weight: 500;">${formatMoney(cat.netAmt)}</td>
+                <td style="text-align:left; font-weight: 500;">${formatMoney(cat.netFee)}</td>
+                <td style="text-align:center; font-weight: 600;">${cat.sharePct.toFixed(1)}%</td>
               </tr>
             `).join('')}
             <tr class="total">
-              <td colspan="2">جمع کل</td>
+              <td colspan="2" style="text-align: right;">جمع کل</td>
               <td style="text-align:center;">${formatWeight(processedMetrics.rangeNetWgt)}</td>
               <td style="text-align:left;">${formatMoney(processedMetrics.rangeNetAmt)}</td>
               <td style="text-align:left;">${formatMoney(processedMetrics.rangeNetFee)}</td>
@@ -1141,6 +1458,25 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </tr>
           </tbody>
         </table>
+
+        <div class="signatures">
+          <div>
+            <p>امضا تهیه کننده / واحد فروش</p>
+            <div class="signature-box"></div>
+          </div>
+          <div>
+            <p>امضا مدیر مالی</p>
+            <div class="signature-box"></div>
+          </div>
+          <div>
+            <p>امضا مدیریت عامل</p>
+            <div class="signature-box"></div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>سامانه مدیریت هوشمند و گزارشات مالی کارخانه سایان ERP - نسخه چاپ رسمی</p>
+        </div>
       </body>
       </html>
     `;

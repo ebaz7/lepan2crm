@@ -151,6 +151,7 @@ export interface RolePermissions {
   canViewSecurity?: boolean;
   canCreateSecurityLog?: boolean;
   canApproveSecuritySupervisor?: boolean;
+  canEditSecurityCommands?: boolean;
   canViewKnowledgeBase?: boolean;
   canManageKnowledgeBase?: boolean;
   canViewMeetings?: boolean;

@@ -1148,16 +1148,20 @@ export const generateReportPDF = async (
       card3Value = `${pdfFormatNumber(rows.length > 1 ? Math.round(totalBalance / (rows.length - 1)) : 0)} ریال`;
     }
 
-    const colorClass = isDebtor ? "red" : "emerald";
-    const colorHex = isDebtor ? "#dc2626" : "#10b981";
-    const colorBg = isDebtor ? "#fef2f2" : "#ecfdf5";
-    const textClass = isDebtor ? "text-red-700" : "text-emerald-700";
-    const borderClass = isDebtor ? "border-red-600" : "border-emerald-600";
-    const bgHeader = isDebtor ? "bg-red-50" : "bg-emerald-50";
+    const colorClass = isSales ? "slate" : (isDebtor ? "red" : "emerald");
+    const colorHex = isSales ? "#1e1b4b" : (isDebtor ? "#dc2626" : "#10b981");
+    const colorBg = isSales ? "#f8fafc" : (isDebtor ? "#fef2f2" : "#ecfdf5");
+    const textClass = isSales ? "text-slate-900" : (isDebtor ? "text-red-700" : "text-emerald-700");
+    const borderClass = isSales ? "border-slate-800" : (isDebtor ? "border-red-600" : "border-emerald-600");
+    const bgHeader = isSales ? "bg-slate-900" : (isDebtor ? "bg-red-50" : "bg-emerald-50");
 
     let thead = "<tr>";
     columns.forEach((c) => {
-      thead += `<th class="p-4 text-center text-xs font-black border-b border-gray-200/50 ${isDebtor ? "bg-red-800 text-white" : "bg-emerald-800 text-white"}">${c}</th>`;
+      let thBgClass = isDebtor ? "bg-red-800 text-white" : "bg-emerald-800 text-white";
+      if (isSales) {
+        thBgClass = "bg-gradient-to-r from-slate-900 to-indigo-950 text-white";
+      }
+      thead += `<th class="p-4 text-center text-xs font-black border-b border-gray-200/50 ${thBgClass}">${c}</th>`;
     });
     thead += "</tr>";
 
@@ -1165,7 +1169,20 @@ export const generateReportPDF = async (
     rows.forEach((r, idx) => {
       const isEven = idx % 2 === 1;
       const isTotalRow = r[0] === 'جمع کل' || String(r[1]).includes('جمع کل');
-      const rowBgClass = isTotalRow ? (isDebtor ? "bg-red-50/80 font-black border-t-2 border-red-200" : "bg-emerald-50/80 font-black border-t-2 border-emerald-200") : (isEven ? "bg-gray-50/80" : "bg-white");
+      let rowBgClass;
+      if (isTotalRow) {
+        if (isSales) {
+          rowBgClass = "bg-slate-100 font-black border-t-2 border-slate-300";
+        } else {
+          rowBgClass = isDebtor ? "bg-red-50/80 font-black border-t-2 border-red-200" : "bg-emerald-50/80 font-black border-t-2 border-emerald-200";
+        }
+      } else {
+        if (isSales) {
+          rowBgClass = isEven ? "bg-slate-50/80" : "bg-white";
+        } else {
+          rowBgClass = isEven ? "bg-gray-50/80" : "bg-white";
+        }
+      }
 
       tbody += `<tr class="${rowBgClass} border-b border-gray-100/80 hover:bg-gray-100/30 transition-colors">`;
       r.forEach((cell, cellIdx) => {
@@ -1213,6 +1230,24 @@ export const generateReportPDF = async (
 <body class="p-0">
     <div class="max-w-[100%] mx-auto bg-white overflow-hidden p-10">
         
+        ${isSales ? `
+        <div class="bg-gradient-to-r from-slate-900 via-slate-950 to-indigo-950 text-white rounded-2xl p-6 shadow-md mb-8 relative overflow-hidden">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.08),transparent)] pointer-events-none"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2.5 h-7 bg-amber-400 rounded-full"></div>
+                        <h1 class="text-2xl font-extrabold tracking-tight text-white">${title}</h1>
+                    </div>
+                    <p class="text-xs text-slate-300 font-medium pr-5">${subtitleText}</p>
+                </div>
+                <div class="text-left space-y-1">
+                    <div class="inline-block bg-amber-500 text-slate-950 px-4 py-1.5 rounded-lg text-xs font-black">${new Date().toLocaleDateString("fa-IR")}</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })} | سامانه تحلیل و مدیریت فروش</div>
+                </div>
+            </div>
+        </div>
+        ` : `
         <div class="flex justify-between items-end border-b-4 ${isDebtor ? "border-red-700" : "border-emerald-700"} pb-6 mb-8">
             <div class="space-y-1">
                 <div class="flex items-center gap-2">
@@ -1226,20 +1261,21 @@ export const generateReportPDF = async (
                 <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">${new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })} | سیستم گزارشات هوشمند</div>
             </div>
         </div>
+        `}
 
         <div class="mb-10">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
+                <div class="${isSales ? "bg-gradient-to-br from-slate-50 to-slate-100/50 border-r-4 border-indigo-900" : `bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"}`} p-5 rounded-xl shadow-sm">
                     <div class="text-[10px] font-black text-gray-400 mb-1">${card1Title}</div>
                     <div class="text-2xl font-black text-gray-900 font-mono">${card1Value}</div>
                 </div>
 
-                <div class="bg-gray-50 border-r-4 border-gray-900 p-5 rounded-xl shadow-sm">
+                <div class="${isSales ? "bg-gradient-to-br from-slate-50 to-slate-100/50 border-r-4 border-slate-700" : "bg-gray-50 border-r-4 border-gray-900"} p-5 rounded-xl shadow-sm">
                     <div class="text-[10px] font-black text-gray-400 mb-1">${card2Title}</div>
                     <div class="text-2xl font-black text-gray-900 font-mono">${card2Value}</div>
                 </div>
 
-                <div class="bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"} p-5 rounded-xl shadow-sm">
+                <div class="${isSales ? "bg-gradient-to-br from-slate-50 to-slate-100/50 border-r-4 border-amber-500" : `bg-gray-50 border-r-4 ${isDebtor ? "border-red-600" : "border-emerald-600"}`} p-5 rounded-xl shadow-sm">
                     <div class="text-[10px] font-black text-gray-400 mb-1">${card3Title}</div>
                     <div class="text-2xl font-black text-gray-900 font-mono">${card3Value}</div>
                 </div>

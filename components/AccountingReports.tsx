@@ -559,55 +559,148 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #333; }
-                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px; }
-                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; }
-                    .header p { margin: 4px 0 0; font-size: 13px; color: #475569; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: right; font-size: 12px; }
-                    th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
-                    tr:nth-child(even) { background-color: #f1f5f9; }
-                    .total { font-weight: bold; background: #e2e8f0 !important; }
-                    .footer { text-align: center; margin-top: 40px; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+                    body {
+                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+                        padding: 30px;
+                        background: #ffffff;
+                        color: #1e293b;
+                        font-size: 11px;
+                        direction: rtl;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .top-bar {
+                        height: 6px;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+                        border-radius: 3px;
+                        margin-bottom: 20px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 900;
+                        color: #1e3a8a;
+                        letter-spacing: -0.025em;
+                    }
+                    .header p {
+                        margin: 6px 0 0;
+                        font-size: 12px;
+                        color: #475569;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        text-align: left;
+                        font-size: 11px;
+                        color: #475569;
+                        line-height: 1.6;
+                    }
+                    .meta-info strong {
+                        color: #0f172a;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                        margin-top: 15px;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    th {
+                        background-color: #0f172a;
+                        color: #ffffff;
+                        padding: 12px 10px;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-bottom: 1px solid #1e293b;
+                        text-align: center;
+                    }
+                    td {
+                        padding: 10px 12px;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #e2e8f0;
+                        color: #334155;
+                        font-size: 11px;
+                        vertical-align: middle;
+                        text-align: right;
+                    }
+                    td:last-child {
+                        border-left: none;
+                    }
+                    tr:nth-child(even) td {
+                        background-color: #f8fafc;
+                    }
+                    tr:hover td {
+                        background-color: #f1f5f9;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        background-color: #f1f5f9 !important;
+                    }
+                    .total-row td {
+                        background-color: #f1f5f9 !important;
+                        border-top: 2px solid #cbd5e1;
+                        border-bottom: 2px solid #cbd5e1;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 10px;
+                        color: #64748b;
+                        border-top: 1px dashed #e2e8f0;
+                        padding-top: 16px;
+                    }
                 </style>
             </head>
             <body>
+                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
-                        <p>دوره مالی: از ${formatDateToJalali(dateFrom)} تا ${formatDateToJalali(dateTo)}</p>
+                        <p>دوره مالی: از <strong>${formatDateToJalali(dateFrom)}</strong> تا <strong>${formatDateToJalali(dateTo)}</strong></p>
                     </div>
-                    <div style="text-align: left;">
-                        <p>تاریخ چاپ: ${formatDateToJalali(new Date().toISOString())}</p>
-                        <p>تعداد ردیف: ${sortedList.length}</p>
+                    <div class="meta-info">
+                        <div>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></div>
+                        <div>تعداد ردیف: <strong>${sortedList.length}</strong></div>
                     </div>
                 </div>
                 <table>
                     <thead>
                         <tr>
                             <th style="width: 60px; text-align: center;">ردیف</th>
-                            <th style="width: 120px;">کد حسابداری</th>
-                            <th>نام شخص</th>
-                            <th style="text-align: left; width: 200px;">مبلغ مانده (ریال)</th>
+                            <th style="width: 150px; text-align: center;">کد حسابداری</th>
+                            <th>نام شخص / طرف حساب</th>
+                            <th style="text-align: left; width: 220px;">مبلغ مانده (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${sortedList.map((row, idx) => `
                             <tr>
-                                <td style="text-align: center;">${idx + 1}</td>
-                                <td>${row.code}</td>
-                                <td>${row.name}</td>
-                                <td style="text-align: left; font-weight: 500;">${formatMoney(row.balance)}</td>
+                                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                                <td style="text-align: center; font-mono; font-weight: 600; color: #475569;">${row.code}</td>
+                                <td style="font-weight: 600; color: #0f172a;">${row.name}</td>
+                                <td style="text-align: left; font-weight: bold; color: ${row.balance > 0 ? '#15803d' : '#b91c1c'};">${formatMoney(row.balance)}</td>
                             </tr>
                         `).join('')}
-                        <tr class="total">
+                        <tr class="total-row">
                             <td colspan="3" style="text-align: left;">جمع کل مانده‌ها:</td>
                             <td style="text-align: left;">${formatMoney(sortedList.reduce((sum, r) => sum + r.balance, 0))}</td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="footer">
-                    <p>سیستم گزارشات حسابداری یکپارچه سایان ERP</p>
+                    <p>سیستم یکپارچه گزارشات حسابداری کارخانه (سایان ERP)</p>
                 </div>
             </body>
             </html>
@@ -776,28 +869,28 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         
         const hasCheques = guaranteeCheques.length > 0;
         const chequesSectionHtml = hasCheques ? `
-            <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 20px;">
-                <h2 style="font-size: 13px; margin-bottom: 12px; color: #1e293b; font-family: 'Tahoma', sans-serif;">لیست چک‌های تضمینی و تعهدات مرتبط</h2>
+            <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 24px; page-break-inside: avoid;">
+                <h2 style="font-size: 13px; font-weight: 800; margin-bottom: 12px; color: #1e3a8a;">لیست چک‌های تضمینی و تعهدات مرتبط</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th style="background-color: #fef3c7; color: #92400e;">ردیف</th>
-                            <th style="background-color: #fef3c7; color: #92400e;">تاریخ</th>
-                            <th style="background-color: #fef3c7; color: #92400e;">شماره سند</th>
-                            <th style="background-color: #fef3c7; color: #92400e;">سرفصل معین</th>
+                            <th style="background-color: #fef3c7; color: #92400e; width: 50px;">ردیف</th>
+                            <th style="background-color: #fef3c7; color: #92400e; width: 100px;">تاریخ</th>
+                            <th style="background-color: #fef3c7; color: #92400e; width: 100px;">شماره سند</th>
+                            <th style="background-color: #fef3c7; color: #92400e; width: 180px;">سرفصل معین</th>
                             <th style="background-color: #fef3c7; color: #92400e;">شرح آرتیکل</th>
-                            <th style="background-color: #fef3c7; color: #92400e;">مبلغ تضمین (ریال)</th>
+                            <th style="background-color: #fef3c7; color: #92400e; width: 180px; text-align: left;">مبلغ تضمین (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${guaranteeCheques.map((row, idx) => `
                             <tr>
-                                <td>${idx + 1}</td>
-                                <td>${formatDateToJalali(row.Date)}</td>
-                                <td>${row.SanadNo}</td>
-                                <td>${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
-                                <td>${row.Description || ''}</td>
-                                <td>${formatMoney(row.bed > 0 ? row.bed : row.bes)}</td>
+                                <td style="text-align: center; font-weight: bold; color: #78350f;">${idx + 1}</td>
+                                <td style="text-align: center; color: #78350f;">${formatDateToJalali(row.Date)}</td>
+                                <td style="text-align: center; font-weight: 600; color: #78350f;">${row.SanadNo}</td>
+                                <td style="color: #78350f;">${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
+                                <td style="color: #78350f; font-weight: 500;">${row.Description || ''}</td>
+                                <td style="text-align: left; font-weight: bold; color: #b45309;">${formatMoney(row.bed > 0 ? row.bed : row.bes)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -811,52 +904,157 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>ریز صورتحساب - ${name}</title>
                 <style>
-                    body { font-family: 'Tahoma', sans-serif; padding: 25px; background: #fff; }
-                    .header { border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
-                    .header h1 { font-size: 18px; margin: 0; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: right; font-size: 11px; }
-                    th { background-color: #f1f5f9; }
-                    .total { font-weight: bold; background: #f8fafc; }
+                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+                    body {
+                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+                        padding: 30px;
+                        background: #ffffff;
+                        color: #1e293b;
+                        font-size: 11px;
+                        direction: rtl;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .top-bar {
+                        height: 6px;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+                        border-radius: 3px;
+                        margin-bottom: 20px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 900;
+                        color: #1e3a8a;
+                        letter-spacing: -0.025em;
+                    }
+                    .header p {
+                        margin: 4px 0 0;
+                        font-size: 12px;
+                        color: #475569;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        text-align: left;
+                        font-size: 11px;
+                        color: #475569;
+                        line-height: 1.6;
+                    }
+                    .meta-info strong {
+                        color: #0f172a;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                        margin-top: 15px;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    th {
+                        background-color: #0f172a;
+                        color: #ffffff;
+                        padding: 12px 10px;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-bottom: 1px solid #1e293b;
+                        text-align: center;
+                    }
+                    td {
+                        padding: 10px 12px;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #e2e8f0;
+                        color: #334155;
+                        font-size: 11px;
+                        vertical-align: middle;
+                        text-align: right;
+                    }
+                    td:last-child {
+                        border-left: none;
+                    }
+                    tr:nth-child(even) td {
+                        background-color: #f8fafc;
+                    }
+                    tr:hover td {
+                        background-color: #f1f5f9;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        background-color: #f1f5f9 !important;
+                    }
+                    .total-row td {
+                        background-color: #f1f5f9 !important;
+                        border-top: 2px solid #cbd5e1;
+                        border-bottom: 2px solid #cbd5e1;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 10px;
+                        color: #64748b;
+                        border-top: 1px dashed #e2e8f0;
+                        padding-top: 16px;
+                    }
                 </style>
             </head>
             <body>
+                <div class="top-bar"></div>
                 <div class="header">
-                    <h1>ریز صورتحساب تراکنش‌ها</h1>
-                    <p>شخص: <strong>${name} (کد: ${selectedTafsili})</strong></p>
-                    <p>بازه گزارش: از ${formatDateToJalali(dateFrom)} تا ${formatDateToJalali(dateTo)}</p>
+                    <div>
+                        <h1>ریز صورتحساب تراکنش‌های مشتری</h1>
+                        <p>نام شخص: <strong>${name}</strong> (کد حسابداری: <strong>${selectedTafsili}</strong>)</p>
+                        <p>بازه گزارش: از <strong>${formatDateToJalali(dateFrom)}</strong> تا <strong>${formatDateToJalali(dateTo)}</strong></p>
+                    </div>
+                    <div class="meta-info">
+                        <div>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></div>
+                        <div>تعداد تراکنش‌ها: <strong>${filteredStatementData.length}</strong></div>
+                    </div>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>ردیف</th>
-                            <th>تاریخ</th>
-                            <th>شماره سند</th>
-                            <th>سرفصل معین</th>
+                            <th style="width: 45px; text-align: center;">ردیف</th>
+                            <th style="width: 85px; text-align: center;">تاریخ</th>
+                            <th style="width: 80px; text-align: center;">شماره سند</th>
+                            <th style="width: 140px; text-align: center;">سرفصل معین</th>
                             <th>شرح تراکنش</th>
-                            <th>بدهکار (ریال)</th>
-                            <th>بستانکار (ریال)</th>
-                            <th>مانده (ریال)</th>
+                            <th style="text-align: left; width: 140px;">بدهکار (ریال)</th>
+                            <th style="text-align: left; width: 140px;">بستانکار (ریال)</th>
+                            <th style="text-align: left; width: 160px;">مانده نهایی (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${filteredStatementData.map((row, idx) => `
                             <tr>
-                                <td>${idx + 1}</td>
-                                <td>${formatDateToJalali(row.Date)}</td>
-                                <td>${row.SanadNo}</td>
-                                <td>${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
-                                <td>${row.Description || ''}</td>
-                                <td>${row.bed > 0 ? formatMoney(row.bed) : '۰'}</td>
-                                <td>${row.bes > 0 ? formatMoney(row.bes) : '۰'}</td>
-                                <td>${formatMoney(row.balance)} (${row.balance > 0 ? 'بدهکار' : row.balance < 0 ? 'بستانکار' : 'بی‌حساب'})</td>
+                                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                                <td style="text-align: center; font-weight: 500;">${formatDateToJalali(row.Date)}</td>
+                                <td style="text-align: center; font-weight: bold; color: #475569;">${row.SanadNo}</td>
+                                <td style="font-size: 10px; color: #475569;">${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
+                                <td style="font-weight: 500; color: #0f172a;">${row.Description || ''}</td>
+                                <td style="text-align: left; font-weight: 600; color: ${row.bed > 0 ? '#1e293b' : '#94a3b8'};">${row.bed > 0 ? formatMoney(row.bed) : '۰'}</td>
+                                <td style="text-align: left; font-weight: 600; color: ${row.bes > 0 ? '#15803d' : '#94a3b8'};">${row.bes > 0 ? formatMoney(row.bes) : '۰'}</td>
+                                <td style="text-align: left; font-weight: bold; color: ${row.balance > 0 ? '#b91c1c' : row.balance < 0 ? '#15803d' : '#475569'};">
+                                    ${formatMoney(row.balance)}
+                                    <span style="font-size: 9px; font-weight: bold;">(${row.balance > 0 ? 'بدهکار' : row.balance < 0 ? 'بستانکار' : 'بی‌حساب'})</span>
+                                </td>
                             </tr>
                         `).join('')}
-                        <tr class="total">
-                            <td colspan="5" style="text-align: left;">جمع کل:</td>
-                            <td>${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))}</td>
-                            <td>${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))}</td>
-                            <td>${formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)}</td>
+                        <tr class="total-row">
+                            <td colspan="5" style="text-align: left;">جمع کل عملکرد بازه:</td>
+                            <td style="text-align: left;">${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))}</td>
+                            <td style="text-align: left;">${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))}</td>
+                            <td style="text-align: left;">${formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -908,6 +1106,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
+                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -987,6 +1186,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
+                                              AND t11.Field_036 = t10.Field_009
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1330,39 +1530,179 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #1e293b; font-size: 11px; }
-                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: bold; }
-                    .header p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
-                    .stats-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
-                    .stat-card { border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center; }
-                    .stat-card h3 { margin: 0 0 4px 0; font-size: 10px; color: #64748b; font-weight: bold; }
-                    .stat-card p { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; font-size: 11px; line-height: 1.4; }
-                    th { background-color: #0f172a; color: white; font-weight: bold; border: 1px solid #334155; }
-                    tr:nth-child(even) { background-color: #f8fafc; }
-                    .total { font-weight: bold; background: #1e293b !important; color: white !important; }
-                    .total td { border-color: #475569; color: white; }
-                    .ret { color: #e11d48; font-weight: bold; }
-                    .net { color: #15803d; font-weight: bold; }
-                    .footer { text-align: center; margin-top: 35px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
-                    .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; text-align: center; font-size: 11px; font-weight: bold; }
-                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 8px; }
+                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+                    body {
+                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+                        padding: 30px;
+                        background: #ffffff;
+                        color: #1e293b;
+                        font-size: 11px;
+                        direction: rtl;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .top-bar {
+                        height: 6px;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+                        border-radius: 3px;
+                        margin-bottom: 20px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 900;
+                        color: #1e3a8a;
+                        letter-spacing: -0.025em;
+                    }
+                    .header p {
+                        margin: 6px 0 0;
+                        font-size: 12px;
+                        color: #475569;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        text-align: left;
+                        font-size: 11px;
+                        color: #475569;
+                        line-height: 1.6;
+                    }
+                    .meta-info strong {
+                        color: #0f172a;
+                    }
+                    .stats-container {
+                        display: grid;
+                        grid-template-columns: repeat(5, 1fr);
+                        gap: 12px;
+                        margin-bottom: 24px;
+                    }
+                    .stat-card {
+                        border: 1px solid #e2e8f0;
+                        background-color: #f8fafc;
+                        padding: 12px;
+                        border-radius: 12px;
+                        text-align: center;
+                        box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+                    }
+                    .stat-card h3 {
+                        margin: 0 0 6px 0;
+                        font-size: 10px;
+                        color: #475569;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }
+                    .stat-card p {
+                        margin: 0;
+                        font-size: 13px;
+                        font-weight: 800;
+                        color: #0f172a;
+                    }
+                    .stat-card p.ret {
+                        color: #b91c1c;
+                    }
+                    .stat-card p.net {
+                        color: #15803d;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                        margin-top: 15px;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    th {
+                        background-color: #0f172a;
+                        color: #ffffff;
+                        padding: 12px 10px;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-bottom: 1px solid #1e293b;
+                        text-align: center;
+                    }
+                    td {
+                        padding: 10px 12px;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #e2e8f0;
+                        color: #334155;
+                        font-size: 11px;
+                        vertical-align: middle;
+                        text-align: right;
+                    }
+                    td:last-child {
+                        border-left: none;
+                    }
+                    tr:nth-child(even) td {
+                        background-color: #f8fafc;
+                    }
+                    tr:hover td {
+                        background-color: #f1f5f9;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        background-color: #f1f5f9 !important;
+                    }
+                    .total-row td {
+                        background-color: #f1f5f9 !important;
+                        border-top: 2px solid #cbd5e1;
+                        border-bottom: 2px solid #cbd5e1;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+                    .ret-text {
+                        color: #b91c1c;
+                        font-weight: bold;
+                    }
+                    .net-text {
+                        color: #15803d;
+                        font-weight: bold;
+                    }
+                    .signatures {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 24px;
+                        margin-top: 50px;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    .signature-box {
+                        height: 70px;
+                        border-bottom: 1px dashed #cbd5e1;
+                        margin-top: 10px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 10px;
+                        color: #64748b;
+                        border-top: 1px dashed #e2e8f0;
+                        padding-top: 16px;
+                    }
                     @media print {
                         body { padding: 0; }
                     }
                 </style>
             </head>
             <body>
+                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
                         <p>سیستم یکپارچه گزارشات مدیریتی سایان ERP - تفکیک فروش عادی و مرجوعی</p>
                     </div>
-                    <div style="text-align: left;">
+                    <div class="meta-info">
                         <p>تاریخ فاکتورها: <strong>${activeDate}</strong></p>
-                        <p>تاریخ چاپ: ${formatDateToJalali(new Date().toISOString())}</p>
+                        <p>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
                     </div>
                 </div>
 
@@ -1392,13 +1732,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 35px;">ردیف</th>
-                            <th>گروه کالا</th>
-                            <th>نام کالا / محصول</th>
-                            <th>فروش ناخالص (ک‌گ / ریال)</th>
-                            <th>مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
-                            <th>فروش خالص نهایی (ک‌گ / ریال)</th>
-                            <th>فی خالص نهایی (ریال)</th>
+                            <th style="width: 35px; text-align: center;">ردیف</th>
+                            <th style="width: 140px; text-align: center;">گروه کالا</th>
+                            <th style="text-align: right;">نام کالا / محصول</th>
+                            <th style="text-align: center; width: 140px;">فروش ناخالص (ک‌گ / ریال)</th>
+                            <th style="text-align: center; width: 140px;">مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
+                            <th style="text-align: center; width: 150px;">فروش خالص نهایی (ک‌گ / ریال)</th>
+                            <th style="text-align: left; width: 110px;">فی خالص نهایی</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1408,35 +1748,35 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             const netFee = netQty > 0 ? (netAmt / netQty) : 0;
                             return `
                                 <tr>
-                                    <td>${idx + 1}</td>
-                                    <td style="font-weight: bold; color: #334155;">${row.groupName}</td>
-                                    <td style="text-align: right; font-weight: 600;">${row.itemName}</td>
-                                    <td>
-                                        ${row.grossQty.toFixed(1)} ک‌گ<br/>
-                                        <span style="font-family: monospace;">${formatMoney(row.grossAmt)}</span>
+                                    <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                                    <td style="text-align: center; font-weight: 700; color: #475569;">${row.groupName}</td>
+                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.itemName}</td>
+                                    <td style="text-align: center;">
+                                        <strong>${row.grossQty.toFixed(1)}</strong> ک‌گ<br/>
+                                        <span style="font-size: 10px; color: #64748b;">${formatMoney(row.grossAmt)}</span>
                                     </td>
-                                    <td className="ret">
-                                        ${row.retQty > 0 ? `${row.retQty.toFixed(1)} ک‌گ<br/><span style="font-family: monospace; color: #e11d48;">${formatMoney(row.retAmt)}</span>` : '-'}
+                                    <td style="text-align: center;">
+                                        ${row.retQty > 0 ? `<strong class="ret-text">${row.retQty.toFixed(1)}</strong> ک‌گ<br/><span style="font-size: 10px; color: #b91c1c;">${formatMoney(row.retAmt)}</span>` : '-'}
                                     </td>
-                                    <td className="net">
-                                        <strong>${netQty.toFixed(1)} ک‌گ</strong><br/>
-                                        <span style="font-family: monospace; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
+                                    <td style="text-align: center;">
+                                        <strong class="net-text">${netQty.toFixed(1)}</strong> ک‌گ<br/>
+                                        <span style="font-size: 10px; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
                                     </td>
-                                    <td style="font-family: monospace; font-weight: bold;">${formatMoney(Math.round(netFee))}</td>
+                                    <td style="text-align: left; font-weight: bold; color: #0f172a;">${formatMoney(Math.round(netFee))}</td>
                                 </tr>
                             `;
                         }).join('') : `
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 30px; color: #64748b;">هیچ فاکتور فروشی برای این روز ثبت نشده است.</td>
+                                <td colspan="7" style="text-align: center; padding: 30px; color: #64748b; font-weight: bold;">هیچ فاکتور فروشی برای این روز ثبت نشده است.</td>
                             </tr>
                         `}
                         ${groupedRows.length > 0 ? `
-                        <tr class="total">
+                        <tr class="total-row">
                             <td colspan="3" style="text-align: left;">جمع کل فروش روزانه:</td>
-                            <td>${totalGrossQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
-                            <td>${totalRetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
-                            <td>${totalNetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
-                            <td>${formatMoney(Math.round(totalNetFee))}</td>
+                            <td style="text-align: center;"><strong>${totalGrossQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
+                            <td style="text-align: center;"><strong>${totalRetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
+                            <td style="text-align: center;"><strong>${totalNetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
+                            <td style="text-align: left;">${formatMoney(Math.round(totalNetFee))}</td>
                         </tr>
                         ` : ''}
                     </tbody>
@@ -1535,39 +1875,179 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #1e293b; font-size: 11px; }
-                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: bold; }
-                    .header p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
-                    .stats-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
-                    .stat-card { border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center; }
-                    .stat-card h3 { margin: 0 0 4px 0; font-size: 10px; color: #64748b; font-weight: bold; }
-                    .stat-card p { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; font-size: 11px; line-height: 1.4; }
-                    th { background-color: #0f172a; color: white; font-weight: bold; border: 1px solid #334155; }
-                    tr:nth-child(even) { background-color: #f8fafc; }
-                    .total { font-weight: bold; background: #1e293b !important; color: white !important; }
-                    .total td { border-color: #475569; color: white; }
-                    .ret { color: #e11d48; font-weight: bold; }
-                    .net { color: #15803d; font-weight: bold; }
-                    .footer { text-align: center; margin-top: 35px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
-                    .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; text-align: center; font-size: 11px; font-weight: bold; }
-                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 8px; }
+                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+                    body {
+                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+                        padding: 30px;
+                        background: #ffffff;
+                        color: #1e293b;
+                        font-size: 11px;
+                        direction: rtl;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .top-bar {
+                        height: 6px;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+                        border-radius: 3px;
+                        margin-bottom: 20px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 900;
+                        color: #1e3a8a;
+                        letter-spacing: -0.025em;
+                    }
+                    .header p {
+                        margin: 6px 0 0;
+                        font-size: 12px;
+                        color: #475569;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        text-align: left;
+                        font-size: 11px;
+                        color: #475569;
+                        line-height: 1.6;
+                    }
+                    .meta-info strong {
+                        color: #0f172a;
+                    }
+                    .stats-container {
+                        display: grid;
+                        grid-template-columns: repeat(5, 1fr);
+                        gap: 12px;
+                        margin-bottom: 24px;
+                    }
+                    .stat-card {
+                        border: 1px solid #e2e8f0;
+                        background-color: #f8fafc;
+                        padding: 12px;
+                        border-radius: 12px;
+                        text-align: center;
+                        box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+                    }
+                    .stat-card h3 {
+                        margin: 0 0 6px 0;
+                        font-size: 10px;
+                        color: #475569;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }
+                    .stat-card p {
+                        margin: 0;
+                        font-size: 13px;
+                        font-weight: 800;
+                        color: #0f172a;
+                    }
+                    .stat-card p.ret {
+                        color: #b91c1c;
+                    }
+                    .stat-card p.net {
+                        color: #15803d;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                        margin-top: 15px;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    th {
+                        background-color: #0f172a;
+                        color: #ffffff;
+                        padding: 12px 10px;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-bottom: 1px solid #1e293b;
+                        text-align: center;
+                    }
+                    td {
+                        padding: 10px 12px;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #e2e8f0;
+                        color: #334155;
+                        font-size: 11px;
+                        vertical-align: middle;
+                        text-align: right;
+                    }
+                    td:last-child {
+                        border-left: none;
+                    }
+                    tr:nth-child(even) td {
+                        background-color: #f8fafc;
+                    }
+                    tr:hover td {
+                        background-color: #f1f5f9;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        background-color: #f1f5f9 !important;
+                    }
+                    .total-row td {
+                        background-color: #f1f5f9 !important;
+                        border-top: 2px solid #cbd5e1;
+                        border-bottom: 2px solid #cbd5e1;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+                    .ret-text {
+                        color: #b91c1c;
+                        font-weight: bold;
+                    }
+                    .net-text {
+                        color: #15803d;
+                        font-weight: bold;
+                    }
+                    .signatures {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 24px;
+                        margin-top: 50px;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    .signature-box {
+                        height: 70px;
+                        border-bottom: 1px dashed #cbd5e1;
+                        margin-top: 10px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 10px;
+                        color: #64748b;
+                        border-top: 1px dashed #e2e8f0;
+                        padding-top: 16px;
+                    }
                     @media print {
                         body { padding: 0; }
                     }
                 </style>
             </head>
             <body>
+                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
                         <p>سامانه مدیریت هوشمند و تحلیل فروش سایان ERP</p>
                     </div>
-                    <div style="text-align: left;">
+                    <div class="meta-info">
                         <p>بازه زمانی: <strong>از ${dateFrom} تا ${dateTo}</strong></p>
-                        <p>تاریخ صدور: ${formatDateToJalali(new Date().toISOString())}</p>
+                        <p>تاریخ صدور: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
                     </div>
                 </div>
 
@@ -1597,13 +2077,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 35px;">ردیف</th>
-                            <th>گروه کالا</th>
-                            <th>نام کالا / محصول</th>
-                            <th>فروش ناخالص (ک‌گ / ریال)</th>
-                            <th>مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
-                            <th>فروش خالص نهایی (ک‌گ / ریال)</th>
-                            <th>فی خالص نهایی (ریال)</th>
+                            <th style="width: 35px; text-align: center;">ردیف</th>
+                            <th style="width: 140px; text-align: center;">گروه کالا</th>
+                            <th style="text-align: right;">نام کالا / محصول</th>
+                            <th style="text-align: center; width: 140px;">فروش ناخالص (ک‌گ / ریال)</th>
+                            <th style="text-align: center; width: 140px;">مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
+                            <th style="text-align: center; width: 150px;">فروش خالص نهایی (ک‌گ / ریال)</th>
+                            <th style="text-align: left; width: 110px;">فی خالص نهایی</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1613,37 +2093,37 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             const netFee = netQty > 0 ? (netAmt / netQty) : 0;
                             return `
                                 <tr>
-                                    <td>${idx + 1}</td>
-                                    <td style="font-weight: bold; color: #334155;">${row.groupName}</td>
-                                    <td style="text-align: right; font-weight: 600;">${row.itemName}</td>
-                                    <td>
-                                        ${row.grossQty.toFixed(1)} ک‌گ<br/>
-                                        <span style="font-family: monospace;">${formatMoney(row.grossAmt)}</span>
+                                    <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                                    <td style="text-align: center; font-weight: 700; color: #475569;">${row.groupName}</td>
+                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.itemName}</td>
+                                    <td style="text-align: center;">
+                                        <strong>${row.grossQty.toFixed(1)}</strong> ک‌گ<br/>
+                                        <span style="font-size: 10px; color: #64748b;">${formatMoney(row.grossAmt)}</span>
                                     </td>
-                                    <td>
-                                        ${row.retQty > 0 ? `<span class="ret">${row.retQty.toFixed(1)} ک‌گ</span><br/><span style="font-family: monospace; color: #e11d48;">${formatMoney(row.retAmt)}</span>` : '-'}
+                                    <td style="text-align: center;">
+                                        ${row.retQty > 0 ? `<strong class="ret-text">${row.retQty.toFixed(1)}</strong> ک‌گ<br/><span style="font-size: 10px; color: #b91c1c;">${formatMoney(row.retAmt)}</span>` : '-'}
                                     </td>
-                                    <td>
-                                        <strong>${netQty.toFixed(1)} ک‌گ</strong><br/>
-                                        <span style="font-family: monospace; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
+                                    <td style="text-align: center;">
+                                        <strong class="net-text">${netQty.toFixed(1)}</strong> ک‌گ<br/>
+                                        <span style="font-size: 10px; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
                                     </td>
-                                    <td style="font-family: monospace; font-weight: bold;">${formatMoney(Math.round(netFee))}</td>
+                                    <td style="text-align: left; font-weight: bold; color: #0f172a;">${formatMoney(Math.round(netFee))}</td>
                                 </tr>
                             `;
                         }).join('')}
                         ${groupedRows.length > 1000 ? `
                             <tr>
-                                <td colspan="7" style="text-align: center; color: #475569; font-weight: bold; background-color: #fef08a;">
+                                <td colspan="7" style="text-align: center; color: #7f1d1d; font-weight: bold; background-color: #fef2f2; padding: 15px; border-top: 1px solid #fca5a5;">
                                     نمایش ۱۰۰۰ ردیف اول از مجموع ${groupedRows.length} ردیف جهت کارایی چاپ
                                 </td>
                             </tr>
                         ` : ''}
-                        <tr class="total">
-                            <td colspan="3" style="text-align: left;">جمع کل بازه:</td>
-                            <td>${totalGrossQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
-                            <td>${totalRetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
-                            <td>${totalNetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
-                            <td>${formatMoney(Math.round(totalNetFee))}</td>
+                        <tr class="total-row">
+                            <td colspan="3" style="text-align: left;">جمع کل فروش بازه:</td>
+                            <td style="text-align: center;"><strong>${totalGrossQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
+                            <td style="text-align: center;"><strong>${totalRetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
+                            <td style="text-align: center;"><strong>${totalNetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
+                            <td style="text-align: left;">${formatMoney(Math.round(totalNetFee))}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1764,31 +2244,159 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    body { font-family: Tahoma, 'B Nazanin', Arial, sans-serif; margin: 25px; direction: rtl; color: #1e293b; font-size: 11px; }
-                    .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
-                    .header h1 { margin: 0; font-size: 18px; color: #1e3a8a; }
-                    .header p { margin: 5px 0 0 0; color: #64748b; font-size: 12px; }
-                    .info-box { display: flex; justify-content: space-between; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; }
-                    .info-box div { line-height: 1.6; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-                    th { background-color: #0f172a; color: white; padding: 10px 6px; text-align: center; border: 1px solid #334155; font-weight: bold; }
-                    td { border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center; }
-                    tr:nth-child(even) { background-color: #f8fafc; }
-                    .total { background-color: #1e293b !important; color: white !important; font-weight: bold; }
-                    .total td { border-color: #475569; color: white; }
-                    .pos { color: #16a34a; font-weight: bold; }
-                    .neg { color: #dc2626; font-weight: bold; }
-                    .ret { color: #e11d48; font-size: 9px; }
-                    .signatures { display: flex; justify-content: space-between; margin-top: 40px; page-break-inside: avoid; }
-                    .signatures div { text-align: center; width: 30%; }
-                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 10px; }
-                    .footer { text-align: center; margin-top: 30px; font-size: 9px; color: #94a3b8; border-t: 1px solid #e2e8f0; padding-top: 10px; }
+                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+                    body {
+                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+                        padding: 30px;
+                        background: #ffffff;
+                        color: #1e293b;
+                        font-size: 11px;
+                        direction: rtl;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    .top-bar {
+                        height: 6px;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+                        border-radius: 3px;
+                        margin-bottom: 20px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 18px;
+                        font-weight: 900;
+                        color: #1e3a8a;
+                        letter-spacing: -0.025em;
+                    }
+                    .header p {
+                        margin: 6px 0 0;
+                        font-size: 11px;
+                        color: #475569;
+                        font-weight: 500;
+                    }
+                    .info-box {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 16px;
+                        background-color: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .info-box div {
+                        line-height: 1.8;
+                        font-size: 11px;
+                        color: #475569;
+                    }
+                    .info-box strong {
+                        color: #0f172a;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                        margin-top: 15px;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        overflow: hidden;
+                    }
+                    th {
+                        background-color: #0f172a;
+                        color: #ffffff;
+                        padding: 10px 8px;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-bottom: 1px solid #1e293b;
+                        text-align: center;
+                    }
+                    td {
+                        padding: 10px 8px;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #e2e8f0;
+                        color: #334155;
+                        font-size: 11px;
+                        vertical-align: middle;
+                        text-align: center;
+                    }
+                    td:last-child {
+                        border-left: none;
+                    }
+                    tr:nth-child(even) td {
+                        background-color: #f8fafc;
+                    }
+                    tr:hover td {
+                        background-color: #f1f5f9;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        background-color: #f1f5f9 !important;
+                    }
+                    .total-row td {
+                        background-color: #f1f5f9 !important;
+                        border-top: 2px solid #cbd5e1;
+                        border-bottom: 2px solid #cbd5e1;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+                    .pos {
+                        color: #16a34a;
+                        font-weight: bold;
+                    }
+                    .neg {
+                        color: #dc2626;
+                        font-weight: bold;
+                    }
+                    .ret {
+                        color: #e11d48;
+                        font-size: 9px;
+                        font-weight: 500;
+                    }
+                    .signatures {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 24px;
+                        margin-top: 50px;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    .signature-box {
+                        height: 70px;
+                        border-bottom: 1px dashed #cbd5e1;
+                        margin-top: 10px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 10px;
+                        color: #64748b;
+                        border-top: 1px dashed #e2e8f0;
+                        padding-top: 16px;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                    }
                 </style>
             </head>
             <body>
+                <div class="top-bar"></div>
                 <div class="header">
-                    <h1>گزارش رسمـی و تحلیلی مقایسه‌ای فروش (سایان ERP)</h1>
-                    <p>پایش مقایسه‌ای وزن، مرجوعی کد ۱۳، مبلغ خالص و تغییرات فی نهایی اقلام</p>
+                    <div>
+                        <h1>گزارش رسمـی و تحلیلی مقایسه‌ای فروش (سایان ERP)</h1>
+                        <p>پایش مقایسه‌ای وزن، مرجوعی کد ۱۳، مبلغ خالص و تغییرات فی نهایی اقلام</p>
+                    </div>
+                    <div style="text-align: left; font-size: 11px; color: #475569;">
+                        <p>تاریخ صدور گزارش: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
+                    </div>
                 </div>
                 <div class="info-box">
                     <div>
@@ -1797,7 +2405,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     </div>
                     <div>
                         <strong>نحوه تفکیک:</strong> ${compareGroupBy === 'group' ? 'گروه کالا' : 'نام دقیق محصول'}<br/>
-                        <strong>تاریخ صدور گزارش:</strong> ${formatDateToJalali(new Date().toISOString())}
+                        <strong>تعداد اقلام مقایسه‌ای:</strong> ${data.length} قلم
                     </div>
                     <div>
                         <strong>رشد وزن کل:</strong> <span class="${totalWeightDiff >= 0 ? 'pos' : 'neg'}">${totalWeightDiff >= 0 ? '+' : ''}${totalWeightDiff.toFixed(1)}%</span><br/>
@@ -1809,16 +2417,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     <thead>
                         <tr>
                             <th style="width: 30px;">ردیف</th>
-                            <th>نام ${compareGroupBy === 'group' ? 'گروه کالا' : 'محصول'}</th>
+                            <th style="text-align: right; width: 180px;">نام ${compareGroupBy === 'group' ? 'گروه کالا' : 'محصول'}</th>
                             <th>وزن خالص A (ک‌گ)<br/><span style="font-size: 9px; font-weight: normal; color: #cbd5e1;">(مرجوعی)</span></th>
                             <th>مبلغ خالص A (ریال)</th>
                             <th>فی نهایی A (ریال)</th>
                             <th>وزن خالص B (ک‌گ)<br/><span style="font-size: 9px; font-weight: normal; color: #cbd5e1;">(مرجوعی)</span></th>
                             <th>مبلغ خالص B (ریال)</th>
                             <th>فی نهایی B (ریال)</th>
-                            <th>تغییر وزن (%)</th>
-                            <th>تغییر مبلغ (%)</th>
-                            <th>تغییر فی (%)</th>
+                            <th style="width: 75px;">تغییر وزن</th>
+                            <th style="width: 75px;">تغییر مبلغ</th>
+                            <th style="width: 75px;">تغییر فی</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1831,27 +2439,27 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             return `
                                 <tr>
-                                    <td>${idx + 1}</td>
-                                    <td style="text-align: right; font-weight: bold;">${row.name}</td>
+                                    <td style="font-weight: bold; color: #64748b;">${idx + 1}</td>
+                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.name}</td>
                                     <td>
                                         <strong>${row.netWeightA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
                                         ${row.retWeightA > 0 ? `<br/><span class="ret">مرجوعی: ${row.retWeightA.toFixed(1)}</span>` : ''}
                                     </td>
-                                    <td style="text-align: left; font-family: monospace;">${formatMoney(row.netAmountA)}</td>
-                                    <td style="text-align: left; font-family: monospace;">${formatMoney(Math.round(feeA))}</td>
+                                    <td style="text-align: left; font-weight: 500;">${formatMoney(row.netAmountA)}</td>
+                                    <td style="text-align: left; font-weight: 600;">${formatMoney(Math.round(feeA))}</td>
                                     <td>
                                         <strong>${row.netWeightB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
                                         ${row.retWeightB > 0 ? `<br/><span class="ret">مرجوعی: ${row.retWeightB.toFixed(1)}</span>` : ''}
                                     </td>
-                                    <td style="text-align: left; font-family: monospace;">${formatMoney(row.netAmountB)}</td>
-                                    <td style="text-align: left; font-family: monospace;">${formatMoney(Math.round(feeB))}</td>
+                                    <td style="text-align: left; font-weight: 500;">${formatMoney(row.netAmountB)}</td>
+                                    <td style="text-align: left; font-weight: 600;">${formatMoney(Math.round(feeB))}</td>
                                     <td class="${wDiff >= 0 ? 'pos' : 'neg'}">${wDiff >= 0 ? '+' : ''}${wDiff.toFixed(1)}%</td>
                                     <td class="${aDiff >= 0 ? 'pos' : 'neg'}">${aDiff >= 0 ? '+' : ''}${aDiff.toFixed(1)}%</td>
                                     <td class="${feeDiff >= 0 ? 'pos' : 'neg'}">${feeDiff >= 0 ? '+' : ''}${feeDiff.toFixed(1)}%</td>
                                 </tr>
                             `;
                         }).join('')}
-                        <tr class="total">
+                        <tr class="total-row">
                             <td colspan="2" style="text-align: right;">جمع کل عملکرد کارخانه:</td>
                             <td>${sumNetWA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                             <td style="text-align: left;">${formatMoney(sumNetAmtA)}</td>
@@ -2021,7 +2629,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
-                    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
+                    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub

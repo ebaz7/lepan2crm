@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 import { saveBlobAndOpenFile } from '../services/fileService';
 
 import { isInFinancialYear } from '../utils/dateUtils';
+import { IranPlateInput } from './IranPlateInput';
 
 interface Props { 
     currentUser: User; 
@@ -75,8 +76,8 @@ const TransactionEditModal = ({ tx, onClose, onSave, items }: { tx: WarehouseTra
                                     <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-3 font-bold bg-gray-50 dark:bg-gray-800 outline-none focus:border-red-400 transition-all" value={formData.driverName || ''} onChange={e => setFormData({...formData, driverName: e.target.value})} />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">پلاک خودرو</label>
-                                    <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-3 font-bold bg-gray-50 dark:bg-gray-800 outline-none focus:border-red-400 transition-all text-center dir-ltr" value={formData.plateNumber || ''} onChange={e => setFormData({...formData, plateNumber: e.target.value})} />
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">پلاک خودرو (ملی ایران)</label>
+                                    <IranPlateInput value={formData.plateNumber || ''} onChange={val => setFormData({...formData, plateNumber: val})} />
                                 </div>
                             </>
                         )}
@@ -1476,9 +1477,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                 <label className="text-[10px] font-black text-gray-400 mr-2 uppercase tracking-wide">نام راننده حامل</label>
                                 <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-2xl p-3.5 text-sm font-bold bg-gray-50 dark:bg-gray-800 focus:bg-white transition-all shadow-inner outline-none focus:border-rose-500" placeholder="..." value={driverName} onChange={e=>setDriverName(e.target.value)}/>
                             </div>
-                            <div className="col-span-1 space-y-1.5 text-center">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wide">شماره پلاک</label>
-                                <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-2xl p-3.5 text-sm font-black bg-gray-50 dark:bg-gray-800 focus:bg-white transition-all shadow-inner outline-none focus:border-rose-500 dir-ltr text-center" placeholder="-- --- --" value={plateNumber} onChange={e=>setPlateNumber(e.target.value)}/>
+                            <div className="col-span-1 space-y-1.5 flex flex-col items-center">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-wide">شماره پلاک (ملی ایران)</label>
+                                <IranPlateInput value={plateNumber} onChange={setPlateNumber} />
                             </div>
                             <div className="col-span-2 md:col-span-1 space-y-1.5 flex flex-col">
                                 <label className="text-[10px] font-black text-gray-400 mr-2 uppercase tracking-wide flex items-center gap-1"><Navigation size={10}/> مقصد بارگیری</label>

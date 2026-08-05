@@ -14,6 +14,10 @@ export interface ReportDeliveryJob {
   reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
   destinationGroup: string;
+  destinationTelegram?: string;
+  destinationBale?: string;
+  destinationWhatsapp?: string;
+  destinationEitaa?: string;
   scheduleType: 'daily_1900' | 'daily_comp_1900' | 'weekly' | 'monthly' | 'cron';
   cronExpression?: string;
   attachPdf: boolean;
@@ -83,6 +87,10 @@ export const ReportDeliveryManager: React.FC = () => {
       reportType: 'daily_sales',
       botPlatforms: ['telegram', 'bale'],
       destinationGroup: '',
+      destinationTelegram: '',
+      destinationBale: '',
+      destinationWhatsapp: '',
+      destinationEitaa: '',
       scheduleType: 'daily_1900',
       cronExpression: '0 19 * * *',
       attachPdf: true,
@@ -99,8 +107,27 @@ export const ReportDeliveryManager: React.FC = () => {
   };
 
   const handleSaveJob = async () => {
-    if (!editingJob?.title || !editingJob?.destinationGroup) {
-      toast.error('لطفاً عنوان و شناسه گروه مقصد را وارد نمایید.');
+    if (!editingJob?.title) {
+      toast.error('لطفاً عنوان زمان‌بندی را وارد نمایید.');
+      return;
+    }
+
+    const selected = editingJob.botPlatforms || [];
+    if (selected.length === 0) {
+      toast.error('لطفاً حداقل یک پلتفرم پیام‌رسان انتخاب کنید.');
+      return;
+    }
+
+    let hasMissingId = false;
+    selected.forEach(platform => {
+      if (platform === 'telegram' && !editingJob.destinationTelegram && !editingJob.destinationGroup) hasMissingId = true;
+      if (platform === 'bale' && !editingJob.destinationBale && !editingJob.destinationGroup) hasMissingId = true;
+      if (platform === 'whatsapp' && !editingJob.destinationWhatsapp && !editingJob.destinationGroup) hasMissingId = true;
+      if (platform === 'eitaa' && !editingJob.destinationEitaa && !editingJob.destinationGroup) hasMissingId = true;
+    });
+
+    if (hasMissingId) {
+      toast.error('لطفاً شناسه مقصد را برای پلتفرم‌های انتخاب شده وارد نمایید.');
       return;
     }
 
@@ -235,8 +262,20 @@ export const ReportDeliveryManager: React.FC = () => {
                     <span>پلتفرم‌ها: {job.botPlatforms.join('، ')}</span>
                   </span>
 
-                  <span className="flex items-center gap-1 font-mono text-[11px]">
-                    🆔 مقصد: {job.destinationGroup}
+                  <span className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+                    🆔 مقاصد: 
+                    {job.botPlatforms.map(p => {
+                      let id = '';
+                      if (p === 'telegram') id = job.destinationTelegram || job.destinationGroup;
+                      if (p === 'bale') id = job.destinationBale || job.destinationGroup;
+                      if (p === 'whatsapp') id = job.destinationWhatsapp || job.destinationGroup;
+                      if (p === 'eitaa') id = job.destinationEitaa || job.destinationGroup;
+                      return (
+                        <span key={p} className="bg-slate-100 px-2 py-0.5 rounded-md text-[10px] text-slate-600 font-bold border border-slate-200">
+                          {p === 'telegram' ? 'تلگرام' : p === 'bale' ? 'بله' : p === 'whatsapp' ? 'واتساپ' : 'ایتا'}: {id || 'نامشخص'}
+                        </span>
+                      );
+                    })}
                   </span>
                 </div>
 
@@ -355,15 +394,71 @@ export const ReportDeliveryManager: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">شناسه گروه/کانال مقصد (Chat ID):</label>
-                <input
-                  type="text"
-                  value={editingJob.destinationGroup || ''}
-                  onChange={(e) => setEditingJob(prev => ({ ...prev, destinationGroup: e.target.value }))}
-                  placeholder="مثلاً: -100123456789 یا @my_sales_channel"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left"
-                />
+              <div className="space-y-2.5 border border-slate-200 p-3 rounded-2xl bg-slate-50/50">
+                <label className="block font-extrabold text-slate-800 text-[11px]">شناسه‌های مقصد به تفکیک پلتفرم انتخاب شده:</label>
+                
+                {(editingJob.botPlatforms || []).includes('telegram') && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">شناسه گروه/کانال تلگرام:</label>
+                    <input
+                      type="text"
+                      value={editingJob.destinationTelegram || ''}
+                      onChange={(e) => setEditingJob(prev => ({ ...prev, destinationTelegram: e.target.value }))}
+                      placeholder="مثلاً: -100123456789 یا @my_tg_channel"
+                      className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                    />
+                  </div>
+                )}
+
+                {(editingJob.botPlatforms || []).includes('bale') && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">شناسه گروه/کانال بله (Bale):</label>
+                    <input
+                      type="text"
+                      value={editingJob.destinationBale || ''}
+                      onChange={(e) => setEditingJob(prev => ({ ...prev, destinationBale: e.target.value }))}
+                      placeholder="مثلاً: 1234567 یا @my_bale_channel"
+                      className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                    />
+                  </div>
+                )}
+
+                {(editingJob.botPlatforms || []).includes('whatsapp') && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">شماره یا شناسه گروه واتساپ:</label>
+                    <input
+                      type="text"
+                      value={editingJob.destinationWhatsapp || ''}
+                      onChange={(e) => setEditingJob(prev => ({ ...prev, destinationWhatsapp: e.target.value }))}
+                      placeholder="مثلاً: 989123456789 یا شناسه گروه"
+                      className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                    />
+                  </div>
+                )}
+
+                {(editingJob.botPlatforms || []).includes('eitaa') && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">شناسه کانال/گروه ایتا (Eitaa):</label>
+                    <input
+                      type="text"
+                      value={editingJob.destinationEitaa || ''}
+                      onChange={(e) => setEditingJob(prev => ({ ...prev, destinationEitaa: e.target.value }))}
+                      placeholder="مثلاً: @my_eitaa_channel"
+                      className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                    />
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-slate-200 mt-2">
+                  <label className="block text-[10px] font-bold text-slate-400 mb-0.5">شناسه عمومی / پیش‌فرض (پشتیبان):</label>
+                  <input
+                    type="text"
+                    value={editingJob.destinationGroup || ''}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, destinationGroup: e.target.value }))}
+                    placeholder="شناسه عمومی برای پلتفرم‌های فاقد شناسه اختصاصی بالا"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-xs text-slate-600 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                  />
+                </div>
               </div>
 
               <div>

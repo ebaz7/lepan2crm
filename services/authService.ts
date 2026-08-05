@@ -54,7 +54,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
                 canViewAll: true, canCreatePaymentOrder: true, canViewPaymentOrders: true, canApproveFinancial: true, canApproveManager: true, canApproveCeo: true, canEditOwn: true, canEditAll: true, canDeleteOwn: true, canDeleteAll: true, canManageTrade: true, canManageSettings: true,
                 canCreateExitPermit: true, canViewExitPermits: true, canApproveExitCeo: true, canApproveExitFactory: true, canApproveExitWarehouse: true, canApproveExitSecurity: true, canViewExitArchive: true, canEditExitArchive: true,
                 canManageWarehouse: true, canViewWarehouseReports: true, canApproveBijak: true,
-                canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canManagePurchase: true,
+                canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canEditSecurityCommands: true, canManagePurchase: true,
                 canViewNotifications: true, canCreateNotifications: true, canCreateAnnouncements: true,
                 canViewCustomerBalances: true, canImportCustomerBalances: true,
                 canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true
@@ -85,7 +85,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
             canViewAll: true, canCreatePaymentOrder: true, canViewPaymentOrders: true, canApproveFinancial: true, canApproveManager: true, canApproveCeo: true, canEditOwn: true, canEditAll: true, canDeleteOwn: true, canDeleteAll: true, canManageTrade: true, canManageSettings: true,
             canCreateExitPermit: true, canViewExitPermits: true, canApproveExitCeo: true, canApproveExitFactory: true, canApproveExitWarehouse: true, canApproveExitSecurity: true, canViewExitArchive: true, canEditExitArchive: true,
             canManageWarehouse: true, canViewWarehouseReports: true, canApproveBijak: true,
-            canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canManagePurchase: true,
+            canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canEditSecurityCommands: true, canManagePurchase: true,
             canViewNotifications: true, canCreateNotifications: true, canCreateAnnouncements: true,
             canViewCustomerBalances: true, canImportCustomerBalances: true,
             canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true,
@@ -106,7 +106,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
         canManageTrade: false, canManageSettings: false,
         canCreateExitPermit: false, canViewExitPermits: false, canApproveExitCeo: false, canApproveExitFactory: false, canApproveExitWarehouse: false, canApproveExitSecurity: false, canViewExitArchive: false, canEditExitArchive: false,
         canManageWarehouse: false, canViewWarehouseReports: false, canApproveBijak: false,
-        canViewSecurity: false, canCreateSecurityLog: false, canApproveSecuritySupervisor: false,
+        canViewSecurity: false, canCreateSecurityLog: false, canApproveSecuritySupervisor: false, canEditSecurityCommands: false,
         canViewNotifications: false, canCreateNotifications: false, canCreateAnnouncements: false,
         canViewCustomerBalances: false, canImportCustomerBalances: false,
         canViewSayan: false, canViewSayanTraz: false, canViewSayanSales: false, canViewSayanProduction: false, canViewSayanCheques: false
@@ -168,6 +168,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
             perms.canApproveExitSecurity = true; // CRITICAL DEFAULT
             perms.canViewSecurity = true;
             perms.canApproveSecuritySupervisor = true;
+            perms.canEditSecurityCommands = true;
             break;
             
         case UserRole.SECURITY_GUARD:
