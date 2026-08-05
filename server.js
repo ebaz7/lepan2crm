@@ -2391,7 +2391,6 @@ app.post('/api/meetings/:id/send-minutes', async (req, res) => {
 // --- FULL-STACK DATA SYNCHRONIZATION ENDPOINTS ---
 const CRUD_COLLECTIONS = [
     { route: 'orders', dbKey: 'orders' },
-    { route: 'exit-permits', dbKey: 'exitPermits' },
     { route: 'security/logs', dbKey: 'securityLogs' },
     { route: 'security/delays', dbKey: 'personnelDelays' },
     { route: 'security/incidents', dbKey: 'securityIncidents' },
@@ -2457,6 +2456,91 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
         saveDb(db);
         res.json(db[dbKey]);
     });
+});
+
+// --- DEDICATED EXIT PERMITS ENDPOINTS WITH AUTOMATIC SERVER-SIDE BOT NOTIFICATIONS ---
+app.get('/api/exit-permits', (req, res) => {
+    const db = getDb();
+    if (!db.exitPermits) db.exitPermits = [];
+    res.json(db.exitPermits);
+});
+
+app.post('/api/exit-permits', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const item = req.body;
+        const existingIdx = db.exitPermits.findIndex(x => x.id === item.id);
+        if (existingIdx > -1) {
+            db.exitPermits[existingIdx] = item;
+        } else {
+            db.exitPermits.push(item);
+        }
+        saveDb(db);
+        res.json(db.exitPermits);
+
+        // Auto-send bot/group notifications server-side upon permit creation
+        notifyExitPermitStep(item, null, null, null, db, 'ثبت اولیه', 'CREATE')
+            .catch(err => console.error("Auto notification error on exit permit create:", err));
+    } catch (e) {
+        console.error("Error creating exit permit:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/exit-permits/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const idx = db.exitPermits.findIndex(x => x.id === req.params.id);
+        let updatedPermit;
+        if (idx > -1) {
+            updatedPermit = { ...db.exitPermits[idx], ...req.body };
+            db.exitPermits[idx] = updatedPermit;
+        } else {
+            updatedPermit = { id: req.params.id, ...req.body };
+            db.exitPermits.push(updatedPermit);
+        }
+        saveDb(db);
+        res.json(db.exitPermits);
+
+        // Determine human-readable step name
+        let stepName = 'تغییر وضعیت';
+        const st = updatedPermit.status;
+        if (st === 'در انتظار مدیر کارخانه' || st === 'PENDING_FACTORY') stepName = 'تایید مدیرعامل / ارجاع به مدیر کارخانه';
+        else if (st === 'در انتظار تایید انبار' || st === 'PENDING_WAREHOUSE') stepName = 'تایید مدیر کارخانه / ارجاع به انبار';
+        else if (st === 'در انتظار خروج (انتظامات)' || st === 'PENDING_SECURITY') stepName = 'تایید و توزین انبار / ارجاع به انتظامات';
+        else if (st === 'در انتظار تایید نهایی مدیر کارخانه' || st === 'PENDING_FACTORY_FINAL') stepName = 'تایید انتظامات / ارجاع به مدیر کارخانه';
+        else if (st === 'خارج شده (بایگانی)' || st === 'خارج شد' || st === 'EXITED') stepName = 'تایید نهایی خروج و بایگانی';
+        else if (st === 'کنسل شده' || st === 'CANCELED') stepName = 'ابطال و کنسلی سند';
+        else if (st === 'رد شده' || st === 'REJECTED') stepName = 'رد مجوز خروج';
+
+        // Auto-send bot/group notifications server-side upon permit update
+        notifyExitPermitStep(updatedPermit, null, null, null, db, stepName, 'STEP')
+            .catch(err => console.error("Auto notification error on exit permit update:", err));
+    } catch (e) {
+        console.error("Error updating exit permit:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/exit-permits/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const permit = db.exitPermits.find(x => x.id === req.params.id);
+        db.exitPermits = db.exitPermits.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.exitPermits);
+
+        if (permit) {
+            notifyExitPermitStep(permit, null, null, null, db, 'حذف سند خروج', 'DELETE')
+                .catch(err => console.error("Auto notification error on exit permit delete:", err));
+        }
+    } catch (e) {
+        console.error("Error deleting exit permit:", e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // Custom endpoint for manual exit permit notification via bot

@@ -2207,30 +2207,56 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
         let statusKey = p.status;
         if (eventType === 'DELETE') {
             statusKey = 'REJECTED'; 
-        } else if (stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل') {
+        } else if (stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل' || eventType === 'CREATE') {
             statusKey = 'CREATE';
-        } else if (p.status === 'خارج شده (بایگانی)' || p.status === 'خارج شد') {
+        } else if (p.status === 'خارج شده (بایگانی)' || p.status === 'خارج شد' || p.status === 'EXITED') {
             // This is the final archived state
             statusKey = 'ARCHIVED'; 
+        } else if (p.status === 'کنسل شده' || p.status === 'CANCELED') {
+            statusKey = 'CANCELED';
+        } else if (p.status === 'رد شده' || p.status === 'REJECTED') {
+            statusKey = 'REJECTED';
         }
+
+        const isGroupActiveForPermit = (gConfig, pStatus, sKey, hasDestination) => {
+            if (!hasDestination) return false;
+            const activeStatuses = gConfig?.activeStatuses;
+            if (!activeStatuses || !Array.isArray(activeStatuses) || activeStatuses.length === 0) {
+                // Default to true if destination is set but no specific checkboxes filtered
+                return true;
+            }
+            if (activeStatuses.includes(sKey)) return true;
+            if (activeStatuses.includes(pStatus)) return true;
+            if (sKey === 'CREATE' && (activeStatuses.includes('CREATE') || activeStatuses.includes('در انتظار تایید مدیرعامل'))) return true;
+            if (sKey === 'ARCHIVED' && (activeStatuses.includes('ARCHIVED') || activeStatuses.includes('خارج شده (بایگانی)') || activeStatuses.includes('خارج شد'))) return true;
+            if (sKey === 'CANCELED' && (activeStatuses.includes('CANCELED') || activeStatuses.includes('کنسل شده'))) return true;
+            if (sKey === 'REJECTED' && (activeStatuses.includes('REJECTED') || activeStatuses.includes('رد شده'))) return true;
+            return false;
+        };
 
         let targetGroups = [];
 
         // Group 1 logic (Settings-based routing)
-        const g1Config = settings.exitPermitFirstGroupConfig || { activeStatuses: [] };
-        if (g1Config.activeStatuses && g1Config.activeStatuses.includes(statusKey)) {
+        const g1Config = settings.exitPermitFirstGroupConfig || {};
+        const companyConfig = settings.companyNotifications?.[p.company] || {};
+        const hasG1 = !!(g1Config.groupId || g1Config.baleId || g1Config.telegramId || 
+                         settings.exitPermitNotificationGroup || settings.exitPermitNotificationBaleId || settings.exitPermitNotificationTelegramId || 
+                         settings.defaultWarehouseGroup || companyConfig.warehouseGroup || companyConfig.telegramChannelId || companyConfig.baleChannelId);
+        if (isGroupActiveForPermit(g1Config, p.status, statusKey, hasG1)) {
             targetGroups.push(1);
         }
         
         // Group 2 logic (Settings-based routing)
-        const g2Config = settings.exitPermitSecondGroupConfig || { activeStatuses: [] };
-        if (g2Config.activeStatuses && g2Config.activeStatuses.includes(statusKey)) {
+        const g2Config = settings.exitPermitSecondGroupConfig || {};
+        const hasG2 = !!(g2Config.groupId || g2Config.baleId || g2Config.telegramId);
+        if (isGroupActiveForPermit(g2Config, p.status, statusKey, hasG2)) {
             targetGroups.push(2);
         }
 
         // Group 3 logic (Settings-based routing)
-        const g3Config = settings.exitPermitThirdGroupConfig || { activeStatuses: [] };
-        if (g3Config.activeStatuses && g3Config.activeStatuses.includes(statusKey)) {
+        const g3Config = settings.exitPermitThirdGroupConfig || {};
+        const hasG3 = !!(g3Config.groupId || g3Config.baleId || g3Config.telegramId);
+        if (isGroupActiveForPermit(g3Config, p.status, statusKey, hasG3)) {
             targetGroups.push(3);
         }
 
