@@ -3972,7 +3972,7 @@ const Settings: React.FC<SettingsProps> = ({
                       <h4 className="font-bold text-sm text-indigo-800">
                         ⚙️ تنظیمات گروه مخصوص ارسال آمار تولید
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                           <label className="text-xs font-bold text-gray-600 block mb-1">
                             شناسه گروه تلگرام آمار تولید
@@ -4005,6 +4005,23 @@ const Settings: React.FC<SettingsProps> = ({
                             }
                             className="w-full border rounded-lg p-2 text-xs dir-ltr"
                             placeholder="ID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه واتساپ آمار تولید
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.productionWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                productionWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
                           />
                         </div>
                       </div>

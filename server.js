@@ -368,15 +368,15 @@ const buildProductionCaption = (dateStr, totals, waste) => {
 مجموع ضایعات:${totalWaste}`;
 };
 
-// Unified Helper to collect all configured bot targets (groups / users) across settings and DB
-const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null } = {}) => {
+// Unified Helper to collect configured bot targets for specific categories (sales, production, accounting, or all)
+const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null } = {}) => {
     if (customTargets && Array.isArray(customTargets) && customTargets.length > 0) {
         return customTargets;
     }
     const settings = db.settings || {};
     const salesTargets = [];
 
-    const targetConfigList = [
+    const salesKeys = [
         { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
         { key: 'dailySalesBaleGroupId', plat: 'bale' },
         { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
@@ -386,18 +386,24 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         { key: 'botDailySalesGroupId', plat: 'telegram' },
         { key: 'dailySalesGroupId', plat: 'telegram' },
         { key: 'salesGroupId', plat: 'telegram' },
+    ];
 
+    const accountingKeys = [
         { key: 'botAccountingGroupIdTele', plat: 'telegram' },
         { key: 'botAccountingGroupIdBale', plat: 'bale' },
         { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
         { key: 'botAccountingGroupId', plat: 'telegram' },
         { key: 'accountingGroupId', plat: 'telegram' },
+    ];
 
+    const productionKeys = [
         { key: 'productionTelegramGroupId', plat: 'telegram' },
         { key: 'productionBaleGroupId', plat: 'bale' },
         { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
         { key: 'factoryGroupId', plat: 'telegram' },
+    ];
 
+    const reportsKeys = [
         { key: 'reportsGroupId', plat: 'telegram' },
         { key: 'telegramReportsGroupId', plat: 'telegram' },
         { key: 'telegramReportsGroupId2', plat: 'telegram' },
@@ -405,7 +411,9 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         { key: 'baleReportsGroupId2', plat: 'bale' },
         { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
         { key: 'whatsappReportsGroupId2', plat: 'whatsapp' },
+    ];
 
+    const generalKeys = [
         { key: 'telegramChatId', plat: 'telegram' },
         { key: 'baleChatId', plat: 'bale' },
         { key: 'telegramGroupId', plat: 'telegram' },
@@ -413,57 +421,83 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         { key: 'whatsappGroupId', plat: 'whatsapp' }
     ];
 
-    targetConfigList.forEach(({ key, plat }) => {
+    let keysToUse = [];
+    if (category === 'production') {
+        keysToUse = productionKeys;
+    } else if (category === 'sales') {
+        keysToUse = salesKeys;
+    } else if (category === 'accounting') {
+        keysToUse = accountingKeys;
+    } else {
+        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...reportsKeys, ...generalKeys];
+    }
+
+    keysToUse.forEach(({ key, plat }) => {
         const val = settings[key];
         if (val && platforms.includes(plat)) {
             salesTargets.push({ platform: plat, id: val });
         }
     });
 
-    if (db.groups && Array.isArray(db.groups)) {
-        db.groups.forEach(g => {
-            if (g.chatId) {
-                const plat = g.platform || 'telegram';
-                if (platforms.includes(plat)) {
-                    salesTargets.push({ platform: plat, id: g.chatId });
+    if (category === 'all') {
+        if (db.groups && Array.isArray(db.groups)) {
+            db.groups.forEach(g => {
+                if (g.chatId) {
+                    const plat = g.platform || 'telegram';
+                    if (platforms.includes(plat)) {
+                        salesTargets.push({ platform: plat, id: g.chatId });
+                    }
                 }
-            }
-        });
-    }
+            });
+        }
 
-    if (db.botUsers && Array.isArray(db.botUsers)) {
-        db.botUsers.forEach(u => {
-            if (u.telegramChatId && platforms.includes('telegram')) {
-                salesTargets.push({ platform: 'telegram', id: u.telegramChatId });
-            }
-            if (u.baleChatId && platforms.includes('bale')) {
-                salesTargets.push({ platform: 'bale', id: u.baleChatId });
-            }
-            if (u.whatsappChatId && platforms.includes('whatsapp')) {
-                salesTargets.push({ platform: 'whatsapp', id: u.whatsappChatId });
-            }
-            if (u.chatId && !u.telegramChatId && !u.baleChatId && !u.whatsappChatId) {
-                const plat = u.platform || 'telegram';
-                if (platforms.includes(plat)) {
-                    salesTargets.push({ platform: plat, id: u.chatId });
+        if (db.botUsers && Array.isArray(db.botUsers)) {
+            db.botUsers.forEach(u => {
+                if (u.telegramChatId && platforms.includes('telegram')) {
+                    salesTargets.push({ platform: 'telegram', id: u.telegramChatId });
                 }
-            }
-        });
+                if (u.baleChatId && platforms.includes('bale')) {
+                    salesTargets.push({ platform: 'bale', id: u.baleChatId });
+                }
+                if (u.whatsappChatId && platforms.includes('whatsapp')) {
+                    salesTargets.push({ platform: 'whatsapp', id: u.whatsappChatId });
+                }
+                if (u.chatId && !u.telegramChatId && !u.baleChatId && !u.whatsappChatId) {
+                    const plat = u.platform || 'telegram';
+                    if (platforms.includes(plat)) {
+                        salesTargets.push({ platform: plat, id: u.chatId });
+                    }
+                }
+            });
+        }
     }
 
     if (db.reportDeliveryJobs && Array.isArray(db.reportDeliveryJobs)) {
         db.reportDeliveryJobs.forEach(job => {
-            if (job.destinationGroup && Array.isArray(job.botPlatforms)) {
+            const isMatch = category === 'all' ||
+                (category === 'production' && (job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'inventory_stock')) ||
+                (category === 'sales' && (job.module === 'sales' || job.reportType === 'daily_sales' || job.reportType === 'sales_comparison')) ||
+                (category === 'accounting' && (job.module === 'accounting' || job.reportType === 'customer_balances' || job.reportType === 'cheque_alerts'));
+
+            if (isMatch && Array.isArray(job.botPlatforms)) {
                 job.botPlatforms.forEach(plat => {
                     if (platforms.includes(plat)) {
-                        salesTargets.push({ platform: plat, id: job.destinationGroup });
+                        let id = null;
+                        if (plat === 'telegram') id = job.telegramGroup || job.destinationGroup;
+                        else if (plat === 'bale') id = job.baleGroup || job.destinationGroup;
+                        else if (plat === 'whatsapp') id = job.whatsappGroup || job.destinationGroup;
+                        else id = job.destinationGroup;
+
+                        if (id) {
+                            salesTargets.push({ platform: plat, id });
+                        }
                     }
                 });
             }
         });
     }
 
-    if (settings.savedContacts && Array.isArray(settings.savedContacts)) {
+    if (category === 'all' && settings.savedContacts && Array.isArray(settings.savedContacts)) {
         settings.savedContacts.forEach(c => {
             if (c.telegramId && platforms.includes('telegram')) {
                 salesTargets.push({ platform: 'telegram', id: c.telegramId });
@@ -500,7 +534,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
 
     const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride });
+    const uniqueSalesTargets = collectBotTargets(db, { category: 'sales', platforms, customTargets: targetsOverride });
 
     if (uniqueSalesTargets.length === 0) {
         throw new Error('شناسه گروه اطلاع‌رسانی مالی/فروش در تنظیمات ثبت نشده است! جهت ارسال گزارش فروش، لطفاً به بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها -> تنظیمات اطلاع‌رسانی مالی و خروج» بروید و شناسه چت یا گروه تلگرام/بله (مانند 100123456789- یا آیدی عددی) را وارد نمایید.');
@@ -807,7 +841,7 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         }
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets });
+        const uniqueSalesTargets = collectBotTargets(db, { category: 'sales', platforms, customTargets });
         
         if (uniqueSalesTargets.length === 0) {
             throw new Error('گروهی برای ارسال گزارش فروش (تلگرام یا بله) در تنظیمات سیستم ثبت نشده است. لطفاً در تنظیمات سیستم -> تب ربات‌ها آیدی گروه مقصد را وارد نمایید.');
@@ -1063,7 +1097,7 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
         const title = `داشبورد مدیریتی گزارش فروش سایان ERP (${dateFrom || 'امروز'} تا ${dateTo || 'امروز'})`;
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueTargets = collectBotTargets(db, { platforms, customTargets });
+        const uniqueTargets = collectBotTargets(db, { category: 'sales', platforms, customTargets });
 
         if (uniqueTargets.length === 0) {
             throw new Error('هیچ شناسه گروه یا چت مقصد برای پیام‌رسان‌های انتخاب شده یافت نشد. لطفاً در بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها» شناسه چت یا گروه تلگرام/بله را وارد نمایید.');
@@ -1551,10 +1585,10 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
         const filename = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.pdf`;
         const settings = db.settings || {};
         
-        const uniqueTargets = collectBotTargets(db);
+        const uniqueTargets = collectBotTargets(db, { category: 'production' });
 
         if (uniqueTargets.length === 0) {
-            return res.status(400).json({ error: 'هیچ شناسه گروه یا چت باتی در تنظیمات سیستم یافت نشد.' });
+            return res.status(400).json({ error: 'هیچ شناسه گروه آمار تولید (تلگرام، بله یا واتساپ) در تنظیمات سیستم یافت نشد. لطفاً در «تنظیمات سیستم -> اطلاع‌رسانی ربات» شناسه گروه آمار تولید را وارد نمایید.' });
         }
 
         let sentCount = 0;
@@ -3069,16 +3103,35 @@ async function executeReportJob(job) {
     try {
         console.log(`🚀 Dispatching Scheduled Report Job [${job.title}] to platforms [${(job.botPlatforms || []).join(', ')}]...`);
         
+        const isProdJob = job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'inventory_stock';
+        const isSalesJob = job.module === 'sales' || job.reportType === 'daily_sales' || job.reportType === 'sales_comparison';
+
+        const defaultTgGroup = isProdJob
+            ? (db.settings?.productionTelegramGroupId || db.settings?.factoryGroupId)
+            : (isSalesJob ? (db.settings?.dailySalesTelegramGroupId || db.settings?.botDailySalesGroupIdTele) : (db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId));
+
+        const defaultBaleGroup = isProdJob
+            ? db.settings?.productionBaleGroupId
+            : (isSalesJob ? (db.settings?.dailySalesBaleGroupId || db.settings?.botDailySalesGroupIdBale) : (db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId));
+
+        const defaultWaGroup = isProdJob
+            ? db.settings?.productionWhatsappGroupId
+            : (isSalesJob ? (db.settings?.dailySalesWhatsappGroupId || db.settings?.botDailySalesGroupIdWhatsApp) : (db.settings?.botBijakGroupIdWhatsApp || db.settings?.defaultWarehouseGroup));
+
+        const teleGroup = job.telegramGroup || job.destinationGroup || defaultTgGroup;
+        const baleGroup = job.baleGroup || job.destinationGroup || defaultBaleGroup;
+        const waGroup = job.whatsappGroup || job.destinationGroup || defaultWaGroup;
+
         if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
-            const teleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
-            const baleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
-            
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
                     try { await telegram.sendBotMessage(teleGroup, text, opts); } catch(e){ console.error("TG Send err:", e.message); }
                 }
                 if (job.botPlatforms?.includes('bale') && baleGroup) {
                     try { await bale.sendBotMessage(baleGroup, text, opts); } catch(e){ console.error("Bale Send err:", e.message); }
+                }
+                if (job.botPlatforms?.includes('whatsapp') && waGroup) {
+                    try { await whatsapp.sendMessage(waGroup, text); } catch(e){ console.error("WA Send err:", e.message); }
                 }
             };
 
@@ -3089,6 +3142,12 @@ async function executeReportJob(job) {
                 if (job.botPlatforms?.includes('bale') && baleGroup) {
                     try { await bale.sendBotDocument(baleGroup, buffer, filename, caption); } catch(e){ console.error("Bale Send Doc err:", e.message); }
                 }
+                if (job.botPlatforms?.includes('whatsapp') && waGroup) {
+                    try {
+                        const b64 = buffer.toString('base64');
+                        await whatsapp.sendMessage(waGroup, caption || '', { data: b64, mimeType: 'application/pdf', filename: filename });
+                    } catch(e){ console.error("WA Send Doc err:", e.message); }
+                }
             };
 
             const todayTehran = utils.getTehranDateString ? utils.getTehranDateString() : new Date().toISOString().split('T')[0];
@@ -3096,11 +3155,24 @@ async function executeReportJob(job) {
             yesterdayDate.setDate(yesterdayDate.getDate() - 1);
             const yesterdayTehran = utils.getTehranDateString ? utils.getTehranDateString(yesterdayDate) : yesterdayDate.toISOString().split('T')[0];
 
-            await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
+            await generateAndSendComparisonPDF(db, teleGroup || baleGroup || waGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
             // Standard daily sales report or other module
-            const customTargets = job.destinationGroup && job.botPlatforms ? job.botPlatforms.map(p => ({ platform: p, id: job.destinationGroup })) : null;
-            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets, job.botPlatforms);
+            const customTargets = [];
+            if (job.botPlatforms?.includes('telegram')) {
+                const tgId = job.telegramGroup || job.destinationGroup;
+                if (tgId) customTargets.push({ platform: 'telegram', id: tgId });
+            }
+            if (job.botPlatforms?.includes('bale')) {
+                const baleId = job.baleGroup || job.destinationGroup;
+                if (baleId) customTargets.push({ platform: 'bale', id: baleId });
+            }
+            if (job.botPlatforms?.includes('whatsapp')) {
+                const waId = job.whatsappGroup || job.destinationGroup;
+                if (waId) customTargets.push({ platform: 'whatsapp', id: waId });
+            }
+
+            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets.length > 0 ? customTargets : null, job.botPlatforms);
         }
 
         // Update last run timestamp

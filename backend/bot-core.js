@@ -2237,7 +2237,9 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
 
         // Map Persian Status to Internal Key for checking settings
         let statusKey = p.status;
-        if (eventType === 'DELETE' || p.status === 'رد شده') {
+        if (eventType === 'DELETE' || isDelete) {
+            statusKey = 'DELETE';
+        } else if (p.status === 'رد شده') {
             statusKey = 'REJECTED'; 
         } else if (p.status === 'کنسل شده') {
             statusKey = 'CANCELED';
@@ -2252,25 +2254,41 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
 
         // Group 1 logic (Settings-based routing)
         const g1Config = settings.exitPermitFirstGroupConfig || { activeStatuses: [] };
-        if (g1Config.activeStatuses && g1Config.activeStatuses.includes(statusKey)) {
+        if (g1Config.activeStatuses && (g1Config.activeStatuses.includes(statusKey) || (isDelete && (g1Config.activeStatuses.includes('DELETE') || g1Config.activeStatuses.includes('REJECTED'))))) {
             targetGroups.push(1);
         }
         
         // Group 2 logic (Settings-based routing)
         const g2Config = settings.exitPermitSecondGroupConfig || { activeStatuses: [] };
-        if (g2Config.activeStatuses && g2Config.activeStatuses.includes(statusKey)) {
+        if (g2Config.activeStatuses && (g2Config.activeStatuses.includes(statusKey) || (isDelete && (g2Config.activeStatuses.includes('DELETE') || g2Config.activeStatuses.includes('REJECTED'))))) {
             targetGroups.push(2);
         }
 
         // Group 3 logic (Settings-based routing)
         const g3Config = settings.exitPermitThirdGroupConfig || { activeStatuses: [] };
-        if (g3Config.activeStatuses && g3Config.activeStatuses.includes(statusKey)) {
+        if (g3Config.activeStatuses && (g3Config.activeStatuses.includes(statusKey) || (isDelete && (g3Config.activeStatuses.includes('DELETE') || g3Config.activeStatuses.includes('REJECTED'))))) {
             targetGroups.push(3);
         }
 
-        // Also if statusKey is CREATE and group 1 has no explicit activeStatuses configured yet, default group 1 if warehouseGroup or telegram/bale channel is configured
-        if (statusKey === 'CREATE' && targetGroups.length === 0 && (!g1Config.activeStatuses || g1Config.activeStatuses.length === 0)) {
-            targetGroups.push(1);
+        // Default routing fallbacks
+        if (targetGroups.length === 0) {
+            if (statusKey === 'CREATE' && (!g1Config.activeStatuses || g1Config.activeStatuses.length === 0)) {
+                targetGroups.push(1);
+            } else if (isDelete || eventType === 'DELETE') {
+                // On permit deletion, notify all exit permit groups that have configured targets
+                const companyConfig = settings.companyNotifications?.[p.company] || {};
+                const hasG1 = !!(g1Config.telegramId || g1Config.baleId || g1Config.groupId || companyConfig.telegramChannelId || companyConfig.baleChannelId || companyConfig.warehouseGroup || settings.exitPermitNotificationTelegramId || settings.exitPermitNotificationBaleId || settings.exitPermitNotificationGroup || settings.defaultWarehouseGroup);
+                const hasG2 = !!(g2Config.telegramId || g2Config.baleId || g2Config.groupId);
+                const hasG3 = !!(g3Config.telegramId || g3Config.baleId || g3Config.groupId);
+
+                if (hasG1) targetGroups.push(1);
+                if (hasG2) targetGroups.push(2);
+                if (hasG3) targetGroups.push(3);
+
+                if (targetGroups.length === 0) {
+                    targetGroups.push(1);
+                }
+            }
         }
 
         // --- CEO/Manager Notification on Initial Creation ---

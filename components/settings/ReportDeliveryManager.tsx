@@ -13,7 +13,10 @@ export interface ReportDeliveryJob {
   module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr';
   reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
-  destinationGroup: string;
+  destinationGroup?: string;
+  telegramGroup?: string;
+  baleGroup?: string;
+  whatsappGroup?: string;
   scheduleType: 'daily_1900' | 'daily_comp_1900' | 'weekly' | 'monthly' | 'cron';
   cronExpression?: string;
   attachPdf: boolean;
@@ -83,6 +86,9 @@ export const ReportDeliveryManager: React.FC = () => {
       reportType: 'daily_sales',
       botPlatforms: ['telegram', 'bale'],
       destinationGroup: '',
+      telegramGroup: '',
+      baleGroup: '',
+      whatsappGroup: '',
       scheduleType: 'daily_1900',
       cronExpression: '0 19 * * *',
       attachPdf: true,
@@ -94,25 +100,49 @@ export const ReportDeliveryManager: React.FC = () => {
   };
 
   const handleOpenEditModal = (job: ReportDeliveryJob) => {
-    setEditingJob({ ...job });
+    setEditingJob({
+      ...job,
+      telegramGroup: job.telegramGroup || (job.botPlatforms?.includes('telegram') ? job.destinationGroup || '' : ''),
+      baleGroup: job.baleGroup || (job.botPlatforms?.includes('bale') ? job.destinationGroup || '' : ''),
+      whatsappGroup: job.whatsappGroup || (job.botPlatforms?.includes('whatsapp') ? job.destinationGroup || '' : ''),
+    });
     setIsModalOpen(true);
   };
 
   const handleSaveJob = async () => {
-    if (!editingJob?.title || !editingJob?.destinationGroup) {
-      toast.error('لطفاً عنوان و شناسه گروه مقصد را وارد نمایید.');
+    if (!editingJob?.title?.trim()) {
+      toast.error('لطفاً عنوان زمان‌بندی را وارد نمایید.');
       return;
     }
 
+    const tg = editingJob.telegramGroup?.trim() || '';
+    const bale = editingJob.baleGroup?.trim() || '';
+    const wa = editingJob.whatsappGroup?.trim() || '';
+    const dest = editingJob.destinationGroup?.trim() || '';
+
+    if (!tg && !bale && !wa && !dest) {
+      toast.error('لطفاً حداقل شناسه گروه مقصد برای یکی از پیام‌رسان‌ها (تلگرام، بله یا واتساپ) را وارد نمایید.');
+      return;
+    }
+
+    const payload = {
+      ...editingJob,
+      telegramGroup: tg,
+      baleGroup: bale,
+      whatsappGroup: wa,
+      destinationGroup: tg || bale || wa || dest
+    };
+
     try {
       if (editingJob.id) {
-        await apiCall(`/report-delivery/jobs/${editingJob.id}`, 'PUT', editingJob);
+        await apiCall(`/report-delivery/jobs/${editingJob.id}`, 'PUT', payload);
         toast.success('زمان‌بندی با موفقیت به‌روزرسانی شد.');
       } else {
-        await apiCall('/report-delivery/jobs', 'POST', editingJob);
+        await apiCall('/report-delivery/jobs', 'POST', payload);
         toast.success('موتور زمان‌بندی جدید با موفقیت ثبت گردید.');
       }
       setIsModalOpen(false);
+      setEditingJob(null);
       fetchJobs();
     } catch (e: any) {
       toast.error(`خطا در ذخیره زمان‌بندی: ${e?.message || e}`);
@@ -234,10 +264,15 @@ export const ReportDeliveryManager: React.FC = () => {
                     <Send size={14} className="text-emerald-500" />
                     <span>پلتفرم‌ها: {job.botPlatforms.join('، ')}</span>
                   </span>
+                </div>
 
-                  <span className="flex items-center gap-1 font-mono text-[11px]">
-                    🆔 مقصد: {job.destinationGroup}
-                  </span>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-600 pt-0.5">
+                  {job.telegramGroup && <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200">تلگرام: {job.telegramGroup}</span>}
+                  {job.baleGroup && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200">بله: {job.baleGroup}</span>}
+                  {job.whatsappGroup && <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-200">واتساپ: {job.whatsappGroup}</span>}
+                  {!job.telegramGroup && !job.baleGroup && !job.whatsappGroup && job.destinationGroup && (
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200">مقصد: {job.destinationGroup}</span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 pt-1">
@@ -301,15 +336,15 @@ export const ReportDeliveryManager: React.FC = () => {
 
       {/* MODAL EDIT / CREATE */}
       {isModalOpen && editingJob && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans my-auto z-[10000]">
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-600" />
                 <span>{editingJob.id ? 'ویرایش زمان‌بندی گزارش' : 'افزودن زمان‌بندی گزارش جدید'}</span>
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X size={18} />
               </button>
             </div>
@@ -355,15 +390,56 @@ export const ReportDeliveryManager: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">شناسه گروه/کانال مقصد (Chat ID):</label>
-                <input
-                  type="text"
-                  value={editingJob.destinationGroup || ''}
-                  onChange={(e) => setEditingJob(prev => ({ ...prev, destinationGroup: e.target.value }))}
-                  placeholder="مثلاً: -100123456789 یا @my_sales_channel"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left"
-                />
+              {/* SEPARATE TARGET GROUPS FOR BALE, TELEGRAM, WHATSAPP */}
+              <div className="space-y-2 p-3 bg-slate-50/90 rounded-2xl border border-slate-200">
+                <label className="block font-extrabold text-slate-800 text-xs">
+                  شناسه گروه / چت‌آیدی مقاصد (به تفکیک پیام‌رسان):
+                </label>
+
+                {/* Telegram Group */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 mb-1">
+                    <Send size={13} />
+                    <span>گروه / کانال تلگرام:</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={editingJob.telegramGroup || ''}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, telegramGroup: e.target.value }))}
+                    placeholder="مثلاً: -100123456789 یا @my_sales_channel"
+                    className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dir-ltr text-left bg-white"
+                  />
+                </div>
+
+                {/* Bale Group */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 mb-1">
+                    <MessageSquare size={13} />
+                    <span>گروه / کانال بله:</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={editingJob.baleGroup || ''}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, baleGroup: e.target.value }))}
+                    placeholder="مثلاً: -100123456789 یا bale_sales_channel"
+                    className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-emerald-500 dir-ltr text-left bg-white"
+                  />
+                </div>
+
+                {/* WhatsApp Group */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-green-700 mb-1">
+                    <Bot size={13} />
+                    <span>گروه / شماره واتساپ:</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={editingJob.whatsappGroup || ''}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, whatsappGroup: e.target.value }))}
+                    placeholder="مثلاً: 12036301234567890@g.us یا 09123456789"
+                    className="w-full p-2 border border-slate-200 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-green-600 dir-ltr text-left bg-white"
+                  />
+                </div>
               </div>
 
               <div>
