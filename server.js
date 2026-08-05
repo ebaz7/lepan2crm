@@ -2212,6 +2212,25 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
     });
 });
 
+// Custom endpoint for manual exit permit notification via bot
+app.post('/api/exit-permits/:id/bot-notify', async (req, res) => {
+    try {
+        const db = getDb();
+        const { id } = req.params;
+        const permit = (db.exitPermits || []).find(p => p.id === id);
+        if (!permit) {
+            return res.status(404).json({ error: 'برگه خروج یافت نشد' });
+        }
+        
+        // Trigger bot core helper for exit permit notifications with 'MANUAL' type to skip deduplication
+        await notifyExitPermitStep(permit, null, null, null, db, 'ارسال دستی', 'MANUAL');
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Manual bot notify error in server.js:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/groups', (req, res) => res.json(getDb().groups || []));
 app.post('/api/groups', (req, res) => { const db = getDb(); if(!db.groups) db.groups=[]; db.groups.push(req.body); saveDb(db); res.json(db.groups); });
 app.put('/api/groups/:id', (req, res) => { const db = getDb(); const idx = db.groups.findIndex(g => g.id === req.params.id); if(idx > -1) { db.groups[idx] = { ...db.groups[idx], ...req.body }; saveDb(db); res.json(db.groups); } else res.status(404).send('Not Found'); });

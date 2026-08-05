@@ -271,8 +271,15 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             let g2Bale = g2Config?.baleId;
             let g2Tg = g2Config?.telegramId;
 
+            // Group 3 IDs
+            const g3Config = settings?.exitPermitThirdGroupConfig;
+            let g3WA = g3Config?.groupId;
+            let g3Bale = g3Config?.baleId;
+            let g3Tg = g3Config?.telegramId;
+
             const g1Statuses = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
             const g2Statuses = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
+            const g3Statuses = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
 
             if (g1Statuses.includes('CANCELED')) {
                 if (g1WA) targets.push({ group: g1WA });
@@ -284,6 +291,12 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 if (g2WA) targets.push({ group: g2WA });
                 if (g2Bale) targets.push({ platform: 'bale', id: g2Bale });
                 if (g2Tg) targets.push({ platform: 'telegram', id: g2Tg });
+            }
+
+            if (g3Statuses.includes('CANCELED')) {
+                if (g3WA) targets.push({ group: g3WA });
+                if (g3Bale) targets.push({ platform: 'bale', id: g3Bale });
+                if (g3Tg) targets.push({ platform: 'telegram', id: g3Tg });
             }
 
             let caption = `❌ *برگه خروج کارخانه ابطال/کنسل شد* ❌\n`;
@@ -481,16 +494,37 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             let g2Bale = g2Config?.baleId;
             let g2Tg = g2Config?.telegramId;
 
+            // Group 3 IDs
+            const g3Config = settings?.exitPermitThirdGroupConfig;
+            let g3WA = g3Config?.groupId;
+            let g3Bale = g3Config?.baleId;
+            let g3Tg = g3Config?.telegramId;
+
             // Check config arrays directly
-            const nextStatus = permit.status;
-            const configOptionStr1 = prevStatus + '->' + nextStatus;
+            const nextStatusStr = String(permit.status);
+            const configOptionStr1 = prevStatus + '->' + nextStatusStr;
             const fallbackOptionStr = prevStatus; // For older formats
+
+            const statusKey = (nextStatusStr === 'خارج شده (بایگانی)' || nextStatusStr === 'خارج شد') ? 'ARCHIVED' :
+                              (nextStatusStr === 'در انتظار تایید مدیرعامل' || nextStatusStr === 'ثبت اولیه' || nextStatusStr === 'ثبت توسط ربات') ? 'CREATE' : nextStatusStr;
             
             const g1StatusArray = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
-            const isG1Active = g1StatusArray.includes(configOptionStr1) || g1StatusArray.includes(fallbackOptionStr);
+            const isG1Active = g1StatusArray.includes(configOptionStr1) || 
+                               g1StatusArray.includes(fallbackOptionStr) || 
+                               g1StatusArray.includes(nextStatusStr) || 
+                               g1StatusArray.includes(statusKey);
             
             const g2StatusArray = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
-            const isG2Active = g2StatusArray.includes(configOptionStr1) || g2StatusArray.includes(fallbackOptionStr);
+            const isG2Active = g2StatusArray.includes(configOptionStr1) || 
+                               g2StatusArray.includes(fallbackOptionStr) || 
+                               g2StatusArray.includes(nextStatusStr) || 
+                               g2StatusArray.includes(statusKey);
+
+            const g3StatusArray = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
+            const isG3Active = g3StatusArray.includes(configOptionStr1) || 
+                               g3StatusArray.includes(fallbackOptionStr) || 
+                               g3StatusArray.includes(nextStatusStr) || 
+                               g3StatusArray.includes(statusKey);
             
             if (isG1Active) {
                 if (g1WA) targets.push({ group: g1WA });
@@ -501,6 +535,11 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 if (g2WA) targets.push({ group: g2WA });
                 if (g2Bale) targets.push({ platform: 'bale', id: g2Bale });
                 if (g2Tg) targets.push({ platform: 'telegram', id: g2Tg });
+            }
+            if (isG3Active) {
+                if (g3WA) targets.push({ group: g3WA });
+                if (g3Bale) targets.push({ platform: 'bale', id: g3Bale });
+                if (g3Tg) targets.push({ platform: 'telegram', id: g3Tg });
             }
 
             let captionTitle = '';
