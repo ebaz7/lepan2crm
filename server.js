@@ -3331,7 +3331,7 @@ app.post('/api/report-delivery/execute-now', async (req, res) => {
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const isExplicitDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
 
-if (isExplicitDev || !fs.existsSync(DIST_DIR)) {
+if (isExplicitDev || !fs.existsSync(DIST_DIR) || !fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
     console.log("Starting in Development mode with Vite Middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
