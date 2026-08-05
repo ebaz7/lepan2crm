@@ -3130,12 +3130,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 
                 // Categorization logic based on status string
                 let statusGroup = 'in_hand'; // default نزد صندوق
-                if (desc.includes('بانک') || desc.includes('کلر')) {
-                    statusGroup = 'at_bank';
-                } else if (desc.includes('برگشت') || desc.includes('واخواست')) {
-                    statusGroup = 'returned';
-                } else if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت')) {
+                if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('واگذار')) {
                     statusGroup = 'spent';
+                } else if (desc.includes('برگشت') || desc.includes('واخواست')) {
+                    if (desc.includes('مشتری') || desc.includes('صاحب') || desc.includes('دهنده')) {
+                        statusGroup = 'returned_to_customer';
+                    } else {
+                        statusGroup = 'bounced_in_safe';
+                    }
+                } else if (desc.includes('بانک') || desc.includes('کلر') || desc.includes('حساب')) {
+                    statusGroup = 'at_bank';
                 }
 
                 return {
@@ -3164,8 +3168,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                   c.bankName.toLowerCase().includes(chequeSearch.toLowerCase());
             if (!matchesSearch) return false;
             
-            if (chequeStatusFilter !== 'all' && c.statusGroup !== chequeStatusFilter) {
-                return false;
+            if (chequeStatusFilter !== 'all') {
+                if (chequeStatusFilter === 'in_hand') {
+                    if (c.statusGroup !== 'in_hand' && c.statusGroup !== 'bounced_in_safe') return false;
+                } else if (chequeStatusFilter === 'returned') {
+                    if (c.statusGroup !== 'bounced_in_safe' && c.statusGroup !== 'returned_to_customer' && c.statusGroup !== 'returned') return false;
+                } else if (c.statusGroup !== chequeStatusFilter) {
+                    return false;
+                }
             }
             return true;
         });
@@ -5279,7 +5289,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <td className="p-3 text-center">
                                                     <span className={`px-2.5 py-0.5 rounded text-[10px] font-extrabold border ${
                                                         row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                        row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                                        (row.statusGroup === 'returned' || row.statusGroup === 'bounced_in_safe' || row.statusGroup === 'returned_to_customer') ? 'bg-rose-50 text-rose-700 border-rose-100' :
                                                         row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                                         'bg-slate-50 text-slate-700 border-slate-200'
                                                     }`}>
@@ -5303,7 +5313,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <span className="text-[10px] text-slate-400 font-bold font-mono">#{idx + 1} | چک: {row.chequeNo}</span>
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${
                                                     row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                    row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                                    (row.statusGroup === 'returned' || row.statusGroup === 'bounced_in_safe' || row.statusGroup === 'returned_to_customer') ? 'bg-rose-50 text-rose-700 border-rose-100' :
                                                     row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                                     'bg-slate-50 text-slate-700 border-slate-200'
                                                 }`}>

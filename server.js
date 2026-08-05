@@ -416,6 +416,8 @@ const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], c
         }
     } else if (reportType === 'accounting') {
         targetConfigList = [
+            { key: 'trazTelegramGroupId', plat: 'telegram' },
+            { key: 'trazBaleGroupId', plat: 'bale' },
             { key: 'botAccountingGroupIdTele', plat: 'telegram' },
             { key: 'botAccountingGroupIdBale', plat: 'bale' },
             { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },

@@ -3969,6 +3969,48 @@ const Settings: React.FC<SettingsProps> = ({
                     </div>
 
                     <div className="border-t pt-4 mt-4 space-y-4">
+                      <h4 className="font-bold text-sm text-green-800">
+                        💰 تنظیمات ارسال صورتحساب و مانده مشتریان
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه تلگرام مانده مشتریان
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.trazTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                trazTelegramGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="-100..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه بله مانده مشتریان
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.trazBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                trazBaleGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="ID..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4 mt-4 space-y-4">
                       <h4 className="font-bold text-sm text-indigo-800">
                         ⚙️ تنظیمات گروه مخصوص ارسال آمار تولید
                       </h4>

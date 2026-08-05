@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Send, Clock, Calendar, CheckCircle2, AlertCircle, RefreshCw, Plus, 
   Trash2, Edit3, Power, FileText, Download, Image, Sparkles, Layers,
@@ -339,8 +340,8 @@ export const ReportDeliveryManager: React.FC = () => {
       </div>
 
       {/* MODAL EDIT / CREATE */}
-      {isModalOpen && editingJob && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4">
+      {isModalOpen && editingJob && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans">
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -560,7 +561,8 @@ export const ReportDeliveryManager: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
