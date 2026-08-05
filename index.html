@@ -41,47 +41,6 @@
 </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Global error recovery for blank/white screen issues
-      window.addEventListener('error', function(e) {
-        console.error('Global script error detected:', e);
-      });
-      
-      // Auto-detect white screen if React fails to mount within 5 seconds
-      setTimeout(function() {
-        var root = document.getElementById('root');
-        if (root && root.children.length === 0) {
-          console.warn('White screen detected: Root element is empty after timeout.');
-          root.innerHTML = `
-            <div style="font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #f9fafb; padding: 20px; text-align: center;" dir="rtl">
-              <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); max-width: 440px; width: 100%; border: 1px solid #fee2e2;">
-                <div style="width: 64px; height: 64px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #dc2626; font-size: 32px;">⚠️</div>
-                <h2 style="margin: 0 0 8px; font-size: 20px; color: #1f2937;">خطا در بارگیری نسخه جدید</h2>
-                <p style="margin: 0 0 20px; font-size: 14px; color: #6b7280; line-height: 1.6;">نسخه جدید برنامه روی سرور به‌روزرسانی شده اما کش مرورگر نیاز به پاک‌سازی دارد.</p>
-                <button onclick="clearAppCacheAndReload()" style="background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
-                  🔄 پاک‌سازی حافظه پنهان و بارگیری مجدد
-                </button>
-              </div>
-            </div>
-          `;
-        }
-      }, 5000);
-
-      function clearAppCacheAndReload() {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(regs) {
-            for (let reg of regs) reg.unregister();
-          });
-        }
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            for (let name of names) caches.delete(name);
-          });
-        }
-        localStorage.removeItem('app_data_settings');
-        window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
-      }
-    </script>
     <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {

@@ -81,7 +81,26 @@ const CATEGORY_COLORS = [
 ];
 
 export function classifyMajorCategory(groupName: string = '', itemName: string = ''): string {
-  return groupName ? groupName.trim() : 'سایر محصولات';
+  const text = `${groupName} ${itemName}`.toLowerCase();
+  
+  if (text.includes('کاور') || text.includes('کاورینگ') || (text.includes('اسپاندکس') && text.includes('کاور'))) return 'اسپاندکس (کاور)';
+  if (text.includes('ساپورت') || text.includes('پوشش') || (text.includes('اسپاندکس') && text.includes('پوشش'))) return 'اسپاندکس پوشش (ساپورت)';
+  if (text.includes('شواتیز') || (text.includes('پلی استر') && text.includes('شواتیز'))) return 'پلی استر شواتیز';
+  if (text.includes('120') || text.includes('۱۲۰')) return 'نخ ۱۲۰ پلی استر';
+  if (text.includes('180') || text.includes('۱۸۰') || text.includes('اسپان')) return 'نخ ۱۸۰ پلی استر اسپان';
+  if (text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
+  if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
+  if (text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
+  if (text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
+  if (text.includes('چیپس') || text.includes('chip')) return 'چیپس';
+  if (text.includes('لایکرا') || text.includes('lycra')) return 'لایکرا';
+  if (text.includes('لاکرا')) return 'لاکرا';
+  if (text.includes('مستربچ') || text.includes('masterbatch')) return 'مستربچ';
+  if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
+  if (text.includes('کش') || text.includes('elastic')) return 'کش';
+  if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
+
+  return groupName || 'سایر محصولات';
 }
 
 function formatMoney(amount: number): string {
@@ -318,6 +337,17 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       itemsMap: Map<string, { itemName: string; salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; }>;
     }>();
 
+    // Initialize all 15 Major Categories to preserve order
+    MAJOR_CATEGORIES.forEach(cat => {
+      categoryMap.set(cat, {
+        name: cat,
+        salesWgt: 0,
+        salesAmt: 0,
+        retWgt: 0,
+        retAmt: 0,
+        itemsMap: new Map()
+      });
+    });
 
     // Invoices list
     const invoiceListMap = new Map<string, {
@@ -413,7 +443,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       }
 
       // Item Accumulation
-      const itemKey = row.ItemName || 'کالا';
+      const itemKey = row.ItemCode || row.ItemName || 'کالا';
       if (!itemMap.has(itemKey)) {
         itemMap.set(itemKey, {
           itemCode: row.ItemCode || '',
@@ -524,8 +554,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         };
       }).filter(item => Math.abs(item.netAmt) > 0 || Math.abs(item.netWgt) > 0);
 
-      itemsList.sort((a, b) => b.netAmt - a.netAmt);
-
       return {
         name: c.name,
         salesWgt: c.salesWgt,
@@ -538,8 +566,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         sharePct,
         items: itemsList
       };
-    }).filter(c => Math.abs(c.netAmt) > 0 || Math.abs(c.netWgt) > 0 || c.salesAmt > 0)
-      .sort((a, b) => b.netAmt - a.netAmt);
+    }).filter(c => Math.abs(c.netAmt) > 0 || Math.abs(c.netWgt) > 0 || c.salesAmt > 0);
 
     // Build Detailed Items List
     const itemList = Array.from(itemMap.values()).map(i => {
@@ -630,7 +657,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     if (!compareMode || !compareDataB || compareDataB.length === 0) return null;
 
     let netAmtB = 0, netWgtB = 0, salesAmtB = 0, retAmtB = 0, salesWgtB = 0, retWgtB = 0;
-    const catMapB = new Map<string, { salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; itemsMap: Map<string, { itemName: string; salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; }>; }>();
+    const catMapB = new Map<string, { salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; }>();
     const itemMapB = new Map<string, { itemCode: string; itemName: string; groupName: string; majorCategory: string; salesQty: number; salesAmt: number; returnQty: number; returnAmt: number; }>();
 
     compareDataB.forEach(row => {
@@ -639,7 +666,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
       const isReturn = row.OpCode === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
-      const itemKey = row.ItemName || 'کالا';
+      const itemKey = row.ItemCode || row.ItemName || 'کالا';
 
       if (isReturn) {
         retAmtB += amt;
@@ -655,22 +682,13 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       // Group Map B
       if (!catMapB.has(cat)) {
-        catMapB.set(cat, { salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0, itemsMap: new Map() });
+        catMapB.set(cat, { salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
       }
       const catRecord = catMapB.get(cat)!;
       if (isReturn) {
         catRecord.retWgt += qty; catRecord.retAmt += amt;
       } else {
         catRecord.salesWgt += qty; catRecord.salesAmt += amt;
-      }
-      if (!catRecord.itemsMap.has(itemKey)) {
-        catRecord.itemsMap.set(itemKey, { itemName: row.ItemName || 'کالای بدون نام', salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
-      }
-      const catSubRecord = catRecord.itemsMap.get(itemKey)!;
-      if (isReturn) {
-        catSubRecord.retWgt += qty; catSubRecord.retAmt += amt;
-      } else {
-        catSubRecord.salesWgt += qty; catSubRecord.salesAmt += amt;
       }
 
       // Item Map B
@@ -717,7 +735,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     };
 
     // Mode 1: Group comparison rows (Predefined Major Categories + active dynamic categories in period A/B)
-    const activeCategoriesSet = new Set<string>();
+    const activeCategoriesSet = new Set<string>(MAJOR_CATEGORIES);
     processedMetrics.categoryList.forEach(c => {
       if (c.name && (c.salesAmt !== 0 || c.salesWgt !== 0 || c.retAmt !== 0 || c.retWgt !== 0)) {
         activeCategoriesSet.add(c.name);
@@ -732,7 +750,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     const allCompareCategories = Array.from(activeCategoriesSet);
 
     const compareGroupRows = allCompareCategories.map(catName => {
-      const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0, items: [] };
+      const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
       const catBRecord = catMapB.get(catName);
       const grossAmtB = catBRecord ? catBRecord.salesAmt : 0;
       const retAmtB_row = catBRecord ? catBRecord.retAmt : 0;
@@ -751,48 +769,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       const sharePctA = netAmtA > 0 ? ((catA.netAmt / netAmtA) * 100) : 0;
       const sharePctB = netAmtB > 0 ? ((catBNetAmt / netAmtB) * 100) : 0;
-
-      const subItemKeys = new Set<string>();
-      (catA.items || []).forEach((i: any) => subItemKeys.add(i.itemName));
-      if (catBRecord && catBRecord.itemsMap) {
-        Array.from(catBRecord.itemsMap.keys()).forEach(k => subItemKeys.add(k));
-      }
-
-      const itemsList = Array.from(subItemKeys).map(itemName => {
-        const subA = (catA.items || []).find((i: any) => i.itemName === itemName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
-        const subBRecord = (catBRecord && catBRecord.itemsMap) ? catBRecord.itemsMap.get(itemName) : null;
-        
-        const subGrossAmtB = subBRecord ? subBRecord.salesAmt : 0;
-        const subRetAmtB = subBRecord ? subBRecord.retAmt : 0;
-        const subGrossWgtB = subBRecord ? subBRecord.salesWgt : 0;
-        const subRetWgtB = subBRecord ? subBRecord.retWgt : 0;
-        const subNetAmtB = subGrossAmtB - subRetAmtB;
-        const subNetWgtB = subGrossWgtB - subRetWgtB;
-        const subNetFeeB = subNetWgtB > 0 ? (subNetAmtB / subNetWgtB) : 0;
-
-        const subDiffAmt = subA.netAmt - subNetAmtB;
-        const subGrowthPct = subNetAmtB ? ((subDiffAmt / subNetAmtB) * 100) : 0;
-        const subDiffWgt = subA.netWgt - subNetWgtB;
-        const subDiffFee = subA.netFee - subNetFeeB;
-
-        const subSharePctA = netAmtA > 0 ? ((subA.netAmt / netAmtA) * 100) : 0;
-        const subSharePctB = netAmtB > 0 ? ((subNetAmtB / netAmtB) * 100) : 0;
-
-        return {
-          itemName,
-          netAmtA: subA.netAmt,
-          netWgtA: subA.netWgt,
-          netFeeA: subA.netFee,
-          sharePctA: subSharePctA,
-          netAmtB: subNetAmtB,
-          netWgtB: subNetWgtB,
-          netFeeB: subNetFeeB,
-          sharePctB: subSharePctB,
-          diffAmt: subDiffAmt,
-          growthPct: subGrowthPct,
-          variance: getVariance(subDiffAmt, subDiffWgt, subDiffFee)
-        };
-      }).sort((a, b) => b.netAmtA - a.netAmtA);
 
       return {
         catName,
@@ -817,8 +793,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         diffWgt,
         wgtGrowthPctRow,
         diffFee,
-        variance: getVariance(diffAmt, diffWgt, diffFee),
-        items: itemsList
+        variance: getVariance(diffAmt, diffWgt, diffFee)
       };
     }).filter(r => Math.abs(r.netAmtA) > 0 || Math.abs(r.netAmtB) > 0);
 
@@ -1465,7 +1440,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <div class="kpi-card"><div class="kpi-title">تعداد فاکتورها</div><div class="kpi-val">${processedMetrics.invoiceCount} عدد</div></div>
         </div>
 
-        <h2>جدول عملکرد گروه‌های اصلی کالا</h2>
+        <h2>جدول عملکرد گروههای اصلی کالا (15 گروه)</h2>
         <table>
           <thead>
             <tr>
@@ -2339,14 +2314,14 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       )}
 
       {/* ================================================================== */}
-      {/* TAB 1: MAJOR PRODUCT GROUPS REPORT WITH DRILL-DOWN */}
+      {/* TAB 1: 15 MAJOR PRODUCT GROUPS REPORT WITH DRILL-DOWN */}
       {/* ================================================================== */}
       {activeTab === 'hierarchy' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fadeIn">
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-blue-400" />
-              <h2 className="text-sm font-extrabold">گزارش سرفصل‌های اصلی کالا (گروه‌های اصلی کالا) با قابلیت Drill-Down</h2>
+              <h2 className="text-sm font-extrabold">گزارش سرفصل‌های اصلی کالا (۱۵ گروه اصلی سایان) با قابلیت Drill-Down</h2>
             </div>
             <span className="text-[11px] bg-blue-500/20 border border-blue-400/30 text-blue-300 px-2.5 py-0.5 rounded-full font-mono">
               فروش خالص = فروش ناخالص - مرجوعی
@@ -2440,7 +2415,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tbody>
               <tfoot>
                 <tr className="bg-slate-900 text-white font-bold text-xs border-t-2 border-slate-700">
-                  <td colSpan={2} className="p-3.5">جمع کل عملکرد (گروه‌های اصلی):</td>
+                  <td colSpan={2} className="p-3.5">جمع کل عملکرد (۱۵ گروه اصلی):</td>
                   <td className="p-3.5 text-center font-mono">{formatWeight(processedMetrics.rangeSalesAmt ? (processedMetrics.rangeNetWgt + processedMetrics.rangeRetWgt) : 0)}</td>
                   <td className="p-3.5 text-center font-mono text-rose-300">{formatWeight(processedMetrics.rangeRetWgt)}</td>
                   <td className="p-3.5 text-center font-mono font-black text-blue-300">{formatWeight(processedMetrics.rangeNetWgt)}</td>
@@ -2825,7 +2800,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                       }`}
                     >
                       <Grid className="w-3.5 h-3.5" />
-                      <span>۱. خلاصه گروه‌های اصلی کالا</span>
+                      <span>۱. خلاصه گروه‌های کالا (۱۵ گروه اصلی)</span>
                     </button>
                     <button
                       type="button"
@@ -2862,84 +2837,34 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {comparisonMetrics?.compareGroupRows.map((row, idx) => {
-                          const isExpanded = !!expandedCategories[row.catName];
-                          return (
-                          <React.Fragment key={idx}>
-                            <tr 
-                              onClick={() => toggleCategory(row.catName)}
-                              className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50/60' : ''}`}
-                            >
-                              <td className="p-3 text-center text-slate-400 font-mono">
-                                {row.items && row.items.length > 0 ? (
-                                  isExpanded ? <ChevronDown className="w-4 h-4 text-blue-600 inline-block" /> : <ChevronRight className="w-4 h-4 text-slate-400 inline-block" />
-                                ) : (idx + 1)}
-                              </td>
-                              <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
-                                <span>{row.catName}</span>
-                                {row.items && row.items.length > 0 && (
-                                  <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-md font-mono">
-                                    {row.items.length} کالا
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
-                              <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
-                              <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
-                              <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
-                              <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
-                              <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
-                              <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
-                              </td>
-                              <td className="p-3 text-center font-mono font-black">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                  row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
-                                </span>
-                              </td>
-                              <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
-                              <td className="p-3 text-center">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
-                                  {row.variance.label}
-                                </span>
-                              </td>
-                            </tr>
-                            {isExpanded && row.items && row.items.map((sub: any, sIdx: number) => (
-                              <tr key={`${idx}_sub_${sIdx}`} className="bg-slate-50/80 text-[11px] hover:bg-slate-100/80 transition-colors border-l-4 border-l-blue-500">
-                                <td className="p-2.5 text-center text-slate-300 font-mono"></td>
-                                <td className="p-2.5 pr-8 text-slate-700 font-medium flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                  <span>{sub.itemName}</span>
-                                </td>
-                                <td className="p-2.5 text-left font-mono font-bold text-blue-800 bg-blue-50/10">{formatMoney(sub.netAmtA)}</td>
-                                <td className="p-2.5 text-left font-mono font-bold text-indigo-800 bg-indigo-50/10">{formatMoney(sub.netAmtB)}</td>
-                                <td className="p-2.5 text-center font-mono text-blue-800 bg-blue-50/10">{formatWeight(sub.netWgtA)}</td>
-                                <td className="p-2.5 text-center font-mono text-indigo-800 bg-indigo-50/10">{formatWeight(sub.netWgtB)}</td>
-                                <td className="p-2.5 text-left font-mono text-blue-800 bg-blue-50/10">{formatMoney(sub.netFeeA)}</td>
-                                <td className="p-2.5 text-left font-mono text-indigo-800 bg-indigo-50/10">{formatMoney(sub.netFeeB)}</td>
-                                <td className={`p-2.5 text-left font-mono font-black ${sub.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                  {sub.diffAmt >= 0 ? '+' : ''}{formatMoney(sub.diffAmt)}
-                                </td>
-                                <td className="p-2.5 text-center font-mono font-black">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                    sub.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : sub.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                    {sub.growthPct > 0 ? '+' : ''}{sub.growthPct.toFixed(1)}%
-                                  </span>
-                                </td>
-                                <td className="p-2.5 text-center font-mono text-slate-500">{sub.sharePctA.toFixed(1)}%</td>
-                                <td className="p-2.5 text-center">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${sub.variance.color}`}>
-                                    {sub.variance.label}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                          );
-                        })}
+                        {comparisonMetrics?.compareGroupRows.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                            <td className="p-3 font-bold text-slate-900">{row.catName}</td>
+                            <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
+                            <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
+                            <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
+                            <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
+                            <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
+                            <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
+                            <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
+                            </td>
+                            <td className="p-3 text-center font-mono font-black">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
+                                {row.variance.label}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   ) : (

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finance-app-v8';
+const CACHE_NAME = 'finance-app-v6';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -26,17 +26,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle page navigation: always try fresh network response first
+  // Handle page navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
+      fetch(event.request)
         .then((response) => {
-          if (response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
+          // Clone and cache the navigated page
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
           return response;
         })
         .catch(() => caches.match('/index.html'))
@@ -48,8 +47,8 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
+        // If it's a valid successful response, cache it for offline use (if it's not an API call)
         const url = event.request.url;
-        // Only cache successful non-API requests
         if (response.status === 200 && !url.includes('/api/') && !url.includes('chrome-extension')) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {

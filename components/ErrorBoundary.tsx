@@ -52,34 +52,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               </code>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <button 
-                  onClick={() => window.location.reload()} 
-                  className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95 text-sm"
-              >
-                  <RefreshCcw size={18} />
-                  <span>تلاش مجدد (رفرش)</span>
-              </button>
-              
-              <button 
-                  onClick={() => {
-                    if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.getRegistrations().then(regs => {
-                        for (let reg of regs) reg.unregister();
-                      });
-                    }
-                    if ('caches' in window) {
-                      caches.keys().then(names => {
-                        for (let name of names) caches.delete(name);
-                      });
-                    }
-                    window.location.href = window.location.origin + window.location.pathname + '?nocache=' + Date.now();
-                  }} 
-                  className="w-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-all text-xs"
-              >
-                  <span>پاک‌سازی کامل کش و بروزرسانی</span>
-              </button>
-            </div>
+            <button 
+                onClick={() => window.location.reload()} 
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+            >
+                <RefreshCcw size={20} />
+                <span>تلاش مجدد (رفرش)</span>
+            </button>
           </div>
         </div>
       );
