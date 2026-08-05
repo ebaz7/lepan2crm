@@ -732,7 +732,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     const allCompareCategories = Array.from(activeCategoriesSet);
 
     const compareGroupRows = allCompareCategories.map(catName => {
-      const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
+      const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0, items: [] };
       const catBRecord = catMapB.get(catName);
       const grossAmtB = catBRecord ? catBRecord.salesAmt : 0;
       const retAmtB_row = catBRecord ? catBRecord.retAmt : 0;
