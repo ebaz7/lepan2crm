@@ -151,7 +151,6 @@ export interface RolePermissions {
   canViewSecurity?: boolean;
   canCreateSecurityLog?: boolean;
   canApproveSecuritySupervisor?: boolean;
-  canEditSecurityCommands?: boolean;
   canViewKnowledgeBase?: boolean;
   canManageKnowledgeBase?: boolean;
   canViewMeetings?: boolean;
@@ -361,8 +360,6 @@ export interface SystemSettings {
   dailySalesBaleGroupId?: string;
   productionTelegramGroupId?: string;
   productionBaleGroupId?: string;
-  trazTelegramGroupId?: string;
-  trazBaleGroupId?: string;
   
   salesNotificationUsers?: { username: string; platforms: string[]; name?: string }[]; // Usernames and their active platforms (telegram, bale)
   salesContactMessage?: string;

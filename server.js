@@ -369,155 +369,94 @@ const buildProductionCaption = (dateStr, totals, waste) => {
 };
 
 // Unified Helper to collect all configured bot targets (groups / users) across settings and DB
-const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null, reportType = 'sales' } = {}) => {
+const collectBotTargets = (db, { platforms = ['telegram', 'bale', 'whatsapp'], customTargets = null } = {}) => {
     if (customTargets && Array.isArray(customTargets) && customTargets.length > 0) {
         return customTargets;
     }
     const settings = db.settings || {};
     const salesTargets = [];
 
-    let targetConfigList = [];
-    if (reportType === 'sales') {
-        targetConfigList = [
-            { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
-            { key: 'dailySalesBaleGroupId', plat: 'bale' },
-            { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
-            { key: 'botDailySalesGroupIdTele', plat: 'telegram' },
-            { key: 'botDailySalesGroupIdBale', plat: 'bale' },
-            { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp' },
-            { key: 'botDailySalesGroupId', plat: 'telegram' },
-            { key: 'dailySalesGroupId', plat: 'telegram' },
-            { key: 'salesGroupId', plat: 'telegram' }
-        ];
-        
-        const hasSpecificSales = targetConfigList.some(({ key }) => !!settings[key]);
-        if (!hasSpecificSales) {
-            targetConfigList.push(
-                { key: 'telegramGroupId', plat: 'telegram' },
-                { key: 'baleGroupId', plat: 'bale' },
-                { key: 'whatsappGroupId', plat: 'whatsapp' }
-            );
-        }
-    } else if (reportType === 'production') {
-        targetConfigList = [
-            { key: 'productionTelegramGroupId', plat: 'telegram' },
-            { key: 'productionBaleGroupId', plat: 'bale' },
-            { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
-            { key: 'factoryGroupId', plat: 'telegram' }
-        ];
-        
-        const hasSpecificProd = targetConfigList.some(({ key }) => !!settings[key]);
-        if (!hasSpecificProd) {
-            targetConfigList.push(
-                { key: 'telegramGroupId', plat: 'telegram' },
-                { key: 'baleGroupId', plat: 'bale' },
-                { key: 'whatsappGroupId', plat: 'whatsapp' }
-            );
-        }
-    } else if (reportType === 'accounting') {
-        targetConfigList = [
-            { key: 'trazTelegramGroupId', plat: 'telegram' },
-            { key: 'trazBaleGroupId', plat: 'bale' },
-            { key: 'botAccountingGroupIdTele', plat: 'telegram' },
-            { key: 'botAccountingGroupIdBale', plat: 'bale' },
-            { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
-            { key: 'botAccountingGroupId', plat: 'telegram' },
-            { key: 'accountingGroupId', plat: 'telegram' }
-        ];
-        
-        const hasSpecificAcc = targetConfigList.some(({ key }) => !!settings[key]);
-        if (!hasSpecificAcc) {
-            targetConfigList.push(
-                { key: 'telegramGroupId', plat: 'telegram' },
-                { key: 'baleGroupId', plat: 'bale' },
-                { key: 'whatsappGroupId', plat: 'whatsapp' }
-            );
-        }
-    } else {
-        targetConfigList = [
-            { key: 'telegramChatId', plat: 'telegram' },
-            { key: 'baleChatId', plat: 'bale' },
-            { key: 'telegramGroupId', plat: 'telegram' },
-            { key: 'baleGroupId', plat: 'bale' },
-            { key: 'whatsappGroupId', plat: 'whatsapp' },
-            { key: 'reportsGroupId', plat: 'telegram' },
-            { key: 'telegramReportsGroupId', plat: 'telegram' },
-            { key: 'telegramReportsGroupId2', plat: 'telegram' },
-            { key: 'baleReportsGroupId', plat: 'bale' },
-            { key: 'baleReportsGroupId2', plat: 'bale' },
-            { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
-            { key: 'whatsappReportsGroupId2', plat: 'whatsapp' }
-        ];
-    }
+    const targetConfigList = [
+        { key: 'dailySalesTelegramGroupId', plat: 'telegram' },
+        { key: 'dailySalesBaleGroupId', plat: 'bale' },
+        { key: 'dailySalesWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'botDailySalesGroupIdTele', plat: 'telegram' },
+        { key: 'botDailySalesGroupIdBale', plat: 'bale' },
+        { key: 'botDailySalesGroupIdWhatsApp', plat: 'whatsapp' },
+        { key: 'botDailySalesGroupId', plat: 'telegram' },
+        { key: 'dailySalesGroupId', plat: 'telegram' },
+        { key: 'salesGroupId', plat: 'telegram' },
+
+        { key: 'botAccountingGroupIdTele', plat: 'telegram' },
+        { key: 'botAccountingGroupIdBale', plat: 'bale' },
+        { key: 'botAccountingGroupIdWhatsApp', plat: 'whatsapp' },
+        { key: 'botAccountingGroupId', plat: 'telegram' },
+        { key: 'accountingGroupId', plat: 'telegram' },
+
+        { key: 'productionTelegramGroupId', plat: 'telegram' },
+        { key: 'productionBaleGroupId', plat: 'bale' },
+        { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'factoryGroupId', plat: 'telegram' },
+
+        { key: 'reportsGroupId', plat: 'telegram' },
+        { key: 'telegramReportsGroupId', plat: 'telegram' },
+        { key: 'telegramReportsGroupId2', plat: 'telegram' },
+        { key: 'baleReportsGroupId', plat: 'bale' },
+        { key: 'baleReportsGroupId2', plat: 'bale' },
+        { key: 'whatsappReportsGroupId', plat: 'whatsapp' },
+        { key: 'whatsappReportsGroupId2', plat: 'whatsapp' },
+
+        { key: 'telegramChatId', plat: 'telegram' },
+        { key: 'baleChatId', plat: 'bale' },
+        { key: 'telegramGroupId', plat: 'telegram' },
+        { key: 'baleGroupId', plat: 'bale' },
+        { key: 'whatsappGroupId', plat: 'whatsapp' }
+    ];
 
     targetConfigList.forEach(({ key, plat }) => {
         const val = settings[key];
         if (val && platforms.includes(plat)) {
-            if (!salesTargets.some(t => t.platform === plat && t.id === val)) {
-                salesTargets.push({ platform: plat, id: val });
-            }
+            salesTargets.push({ platform: plat, id: val });
         }
     });
 
-    if (reportType === 'all') {
-        if (db.groups && Array.isArray(db.groups)) {
-            db.groups.forEach(g => {
-                if (g.chatId) {
-                    const plat = g.platform || 'telegram';
-                    if (platforms.includes(plat)) {
-                        if (!salesTargets.some(t => t.platform === plat && t.id === g.chatId)) {
-                            salesTargets.push({ platform: plat, id: g.chatId });
-                        }
-                    }
+    if (db.groups && Array.isArray(db.groups)) {
+        db.groups.forEach(g => {
+            if (g.chatId) {
+                const plat = g.platform || 'telegram';
+                if (platforms.includes(plat)) {
+                    salesTargets.push({ platform: plat, id: g.chatId });
                 }
-            });
-        }
+            }
+        });
+    }
 
-        if (db.botUsers && Array.isArray(db.botUsers)) {
-            db.botUsers.forEach(u => {
-                if (u.telegramChatId && platforms.includes('telegram')) {
-                    if (!salesTargets.some(t => t.platform === 'telegram' && t.id === u.telegramChatId)) {
-                        salesTargets.push({ platform: 'telegram', id: u.telegramChatId });
-                    }
+    if (db.botUsers && Array.isArray(db.botUsers)) {
+        db.botUsers.forEach(u => {
+            if (u.telegramChatId && platforms.includes('telegram')) {
+                salesTargets.push({ platform: 'telegram', id: u.telegramChatId });
+            }
+            if (u.baleChatId && platforms.includes('bale')) {
+                salesTargets.push({ platform: 'bale', id: u.baleChatId });
+            }
+            if (u.whatsappChatId && platforms.includes('whatsapp')) {
+                salesTargets.push({ platform: 'whatsapp', id: u.whatsappChatId });
+            }
+            if (u.chatId && !u.telegramChatId && !u.baleChatId && !u.whatsappChatId) {
+                const plat = u.platform || 'telegram';
+                if (platforms.includes(plat)) {
+                    salesTargets.push({ platform: plat, id: u.chatId });
                 }
-                if (u.baleChatId && platforms.includes('bale')) {
-                    if (!salesTargets.some(t => t.platform === 'bale' && t.id === u.baleChatId)) {
-                        salesTargets.push({ platform: 'bale', id: u.baleChatId });
-                    }
-                }
-                if (u.whatsappChatId && platforms.includes('whatsapp')) {
-                    if (!salesTargets.some(t => t.platform === 'whatsapp' && t.id === u.whatsappChatId)) {
-                        salesTargets.push({ platform: 'whatsapp', id: u.whatsappChatId });
-                    }
-                }
-                if (u.chatId && !u.telegramChatId && !u.baleChatId && !u.whatsappChatId) {
-                    const plat = u.platform || 'telegram';
-                    if (platforms.includes(plat)) {
-                        if (!salesTargets.some(t => t.platform === plat && t.id === u.chatId)) {
-                            salesTargets.push({ platform: plat, id: u.chatId });
-                        }
-                    }
-                }
-            });
-        }
+            }
+        });
     }
 
     if (db.reportDeliveryJobs && Array.isArray(db.reportDeliveryJobs)) {
         db.reportDeliveryJobs.forEach(job => {
-            if (Array.isArray(job.botPlatforms)) {
+            if (job.destinationGroup && Array.isArray(job.botPlatforms)) {
                 job.botPlatforms.forEach(plat => {
                     if (platforms.includes(plat)) {
-                        let id = job.destinationGroup;
-                        if (plat === 'telegram' && job.destinationTelegram) id = job.destinationTelegram;
-                        if (plat === 'bale' && job.destinationBale) id = job.destinationBale;
-                        if (plat === 'whatsapp' && job.destinationWhatsapp) id = job.destinationWhatsapp;
-                        if (plat === 'eitaa' && job.destinationEitaa) id = job.destinationEitaa;
-                        
-                        if (id) {
-                            if (!salesTargets.some(t => t.platform === plat && t.id === id)) {
-                                salesTargets.push({ platform: plat, id });
-                            }
-                        }
+                        salesTargets.push({ platform: plat, id: job.destinationGroup });
                     }
                 });
             }
@@ -561,7 +500,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
 
     const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride, reportType: 'sales' });
+    const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets: targetsOverride });
 
     if (uniqueSalesTargets.length === 0) {
         throw new Error('شناسه گروه اطلاع‌رسانی مالی/فروش در تنظیمات ثبت نشده است! جهت ارسال گزارش فروش، لطفاً به بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها -> تنظیمات اطلاع‌رسانی مالی و خروج» بروید و شناسه چت یا گروه تلگرام/بله (مانند 100123456789- یا آیدی عددی) را وارد نمایید.');
@@ -592,12 +531,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t10.Field_008 as Date,
             t10.Field_029 as Notes,
             t11.Field_005 as ItemCode,
-            COALESCE(
-                NULLIF(RTRIM(LTRIM(t22.Field_004)), ''), 
-                NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''), 
-                NULLIF(RTRIM(LTRIM(t11.Field_005)), ''), 
-                'کالای بدون نام'
-            ) as ItemName,
+            t22.Field_004 as ItemName,
             t11.Field_006 as Quantity,
             t11.Field_031 as ItemNotes,
             t11.Field_007 as Amount,
@@ -607,16 +541,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         FROM STR_TBL_010 t10
         INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                    AND t11.Field_003 = t10.Field_004
-                                   AND t11.Field_036 = t10.Field_009
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
-            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-            FROM IND_TBL_021 t21_sub
-            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-            GROUP BY t21_sub.Field_004
-        ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
-        LEFT JOIN (
-            SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_sub.Field_003, t02_parent.Field_003)) as GroupName
+            SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
             LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -684,7 +611,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 amt = amt * 1.10;
             }
 
-            const isReturn = String(inv.OpCode).trim() === '13';
+            const isReturn = inv.OpCode === '13';
             
             if (isReturn) {
                 totalReturnQty += qty;
@@ -880,7 +807,7 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
         }
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets, reportType: 'sales' });
+        const uniqueSalesTargets = collectBotTargets(db, { platforms, customTargets });
         
         if (uniqueSalesTargets.length === 0) {
             throw new Error('گروهی برای ارسال گزارش فروش (تلگرام یا بله) در تنظیمات سیستم ثبت نشده است. لطفاً در تنظیمات سیستم -> تب ربات‌ها آیدی گروه مقصد را وارد نمایید.');
@@ -1050,7 +977,7 @@ app.post('/api/sayan/sales-report/send-executive', async (req, res) => {
         const title = `داشبورد مدیریتی گزارش فروش سایان ERP (${dateFrom || 'امروز'} تا ${dateTo || 'امروز'})`;
 
         const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
-        const uniqueTargets = collectBotTargets(db, { platforms, customTargets, reportType: 'sales' });
+        const uniqueTargets = collectBotTargets(db, { platforms, customTargets });
 
         if (uniqueTargets.length === 0) {
             throw new Error('هیچ شناسه گروه یا چت مقصد برای پیام‌رسان‌های انتخاب شده یافت نشد. لطفاً در بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها» شناسه چت یا گروه تلگرام/بله را وارد نمایید.');
@@ -1314,33 +1241,25 @@ app.get('/api/sayan/production-report', async (req, res) => {
 
         const sql = `
             SELECT 
-                t10.Field_005 as DocId,
+                t10.Field_001 as DocId,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
-                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                COALESCE(
-                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''), 
-                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''), 
-                    NULLIF(RTRIM(LTRIM(t11.Field_005)), ''), 
-                    'کالای بدون نام'
-                ) as ItemName,
+                t11.Field_005 as ItemCode,
+                COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY RTRIM(LTRIM(t21_sub.Field_004))
+                LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
+                GROUP BY t21_sub.Field_004
             ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
-              AND (
-                (t10.Field_008 >= '${gregFromDate}T00:00:00.000Z' AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z')
-                OR (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59')
-                OR (t10.Field_008 >= '${cleanDateFrom}' AND t10.Field_008 <= '${cleanDateTo} 23:59:59')
-              )
-            ORDER BY ItemName, t10.Field_008
+              AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
+            ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
         `;
 
         const rawRows = await executeSayanQuery(db, sql);
@@ -1565,7 +1484,7 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
         const filename = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.pdf`;
         const settings = db.settings || {};
         
-        const uniqueTargets = collectBotTargets(db, { reportType: 'production' });
+        const uniqueTargets = collectBotTargets(db);
 
         if (uniqueTargets.length === 0) {
             return res.status(400).json({ error: 'هیچ شناسه گروه یا چت باتی در تنظیمات سیستم یافت نشد.' });
@@ -1667,185 +1586,6 @@ app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
         });
     } catch (e) {
         console.error("Manual Sales Report Sending Error:", e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/api/sayan/traz-report/send-manual', async (req, res) => {
-    try {
-        const db = getDb();
-        const { type, selectedPlatforms = [], customTargets = [], list = [], statementRows = [], customerName = '', customerCode = '', dateFrom = '', dateTo = '' } = req.body;
-
-        const Renderer = await safeImport('./backend/renderer.js');
-        if (!Renderer || !Renderer.generateReportPDF) {
-            throw new Error('ماژول تولید PDF گزارش در دسترس نیست.');
-        }
-
-        let pdfBuffer;
-        let filename;
-        let caption;
-
-        if (type === 'bed' || type === 'bes') {
-            const isBed = type === 'bed';
-            const title = isBed ? 'گزارش مانده بدهکاران سایان ERP' : 'گزارش مانده بستانکاران سایان ERP';
-            const columns = ['ردیف', 'کد حسابداری', 'نام شخص / طرف حساب', 'مبلغ مانده (ریال)', 'وضعیت'];
-            
-            const tableRows = list.map((row, idx) => [
-                (idx + 1).toLocaleString('fa-IR'),
-                row.code || row.Code || '',
-                row.name || row.Name || '',
-                `${Math.round(row.balance || row.Balance || 0).toLocaleString('fa-IR')} ریال`,
-                isBed ? 'بدهکار' : 'بستانکار'
-            ]);
-
-            const sumBalance = list.reduce((sum, r) => sum + (r.balance || r.Balance || 0), 0);
-            tableRows.push([
-                'جمع کل',
-                '-',
-                '-',
-                `${Math.round(sumBalance).toLocaleString('fa-IR')} ریال`,
-                '-'
-            ]);
-
-            pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, false); // Portrait
-            filename = isBed ? 'Sayan_Debtors_Balance.pdf' : 'Sayan_Creditors_Balance.pdf';
-            caption = `📊 *گزارش تراز مانده مشتریان (سایان ERP)*
-📋 *نوع گزارش:* ${isBed ? '🔴 مانده بدهکاران (بدهکار)' : '🟢 مانده بستانکاران (بستانکار)'}
-📅 *بازه گزارش:* ${dateFrom && dateTo ? `از ${dateFrom} تا ${dateTo}` : 'کل دوره'}
-🧾 *تعداد طرف‌های حساب:* ${list.length.toLocaleString('fa-IR')} شخص
-💰 *جمع کل مانده حساب‌ها:* ${Math.round(Math.abs(sumBalance)).toLocaleString('fa-IR')} ریال`;
-
-        } else if (type === 'statement') {
-            const title = `صورتحساب تکی مشتری: ${customerName} (کد: ${customerCode})`;
-            const columns = ['ردیف', 'تاریخ', 'شرح تراکنش', 'بدهکار (ریال)', 'بستانکار (ریال)', 'مانده (ریال)'];
-            
-            const tableRows = statementRows.map((row, idx) => [
-                (idx + 1).toLocaleString('fa-IR'),
-                row.date || row.Date || '',
-                row.description || row.Description || '',
-                row.bed > 0 ? Math.round(row.bed).toLocaleString('fa-IR') : '0',
-                row.bes > 0 ? Math.round(row.bes).toLocaleString('fa-IR') : '0',
-                Math.round(row.balance || 0).toLocaleString('fa-IR')
-            ]);
-
-            const totalBed = statementRows.reduce((sum, r) => sum + (r.bed || 0), 0);
-            const totalBes = statementRows.reduce((sum, r) => sum + (r.bes || 0), 0);
-            const finalBalance = statementRows[statementRows.length - 1]?.balance || 0;
-
-            tableRows.push([
-                'جمع کل',
-                '-',
-                '-',
-                Math.round(totalBed).toLocaleString('fa-IR'),
-                Math.round(totalBes).toLocaleString('fa-IR'),
-                Math.round(finalBalance).toLocaleString('fa-IR')
-            ]);
-
-            pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, false); // Portrait
-            filename = `Sayan_Statement_${customerCode || 'Client'}.pdf`;
-            caption = `👤 *صورتحساب مشتری (سایان ERP)*
-👤 *نام مشتری:* ${customerName}
-🔢 *کد تفصیلی:* ${customerCode}
-📅 *بازه گزارش:* ${dateFrom && dateTo ? `از ${dateFrom} تا ${dateTo}` : 'کل دوره'}
-🧾 *تعداد تراکنش‌ها:* ${statementRows.length.toLocaleString('fa-IR')} مورد
-🔴 *جمع بدهکار (خرید/بدهی):* ${Math.round(totalBed).toLocaleString('fa-IR')} ریال
-🟢 *جمع بستانکار (پرداخت/طلب):* ${Math.round(totalBes).toLocaleString('fa-IR')} ریال
-💰 *مانده نهایی:* ${Math.round(Math.abs(finalBalance)).toLocaleString('fa-IR')} ریال (${finalBalance > 0 ? '🔴 بدهکار' : finalBalance < 0 ? '🟢 بستانکار' : 'تسویه'})`;
-        } else {
-            return res.status(400).json({ error: 'نوع گزارش نامعتبر است' });
-        }
-
-        if (!pdfBuffer) {
-            throw new Error('خطا در تولید فایل PDF گزارش.');
-        }
-
-        const targets = [];
-        if (customTargets && customTargets.length > 0) {
-            customTargets.forEach(tgt => {
-                if (typeof tgt === 'string' && tgt.includes(':')) {
-                    const [platform, id] = tgt.split(':');
-                    targets.push({ platform, id });
-                } else if (typeof tgt === 'object' && tgt.platform && tgt.id) {
-                    targets.push(tgt);
-                } else {
-                    selectedPlatforms.forEach(p => {
-                        targets.push({ platform: p, id: tgt });
-                    });
-                }
-            });
-        } else {
-            const defaultTargets = collectBotTargets(db, { platforms: selectedPlatforms, reportType: 'accounting' });
-            defaultTargets.forEach(tgt => {
-                if (selectedPlatforms.includes(tgt.platform)) {
-                    targets.push(tgt);
-                }
-            });
-        }
-
-        const uniqueTargets = [];
-        const seen = new Set();
-        targets.forEach(t => {
-            const key = `${t.platform}_${t.id}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueTargets.push(t);
-            }
-        });
-
-        if (uniqueTargets.length === 0) {
-            return res.status(400).json({ error: 'هیچ مقصد یا پلتفرمی برای ارسال گزارش انتخاب نشده است.' });
-        }
-
-        let successfulSends = 0;
-        const sendDetails = [];
-        let lastErr = null;
-
-        const telegram = await safeImport('./backend/telegram.js');
-        const bale = await safeImport('./backend/bale.js');
-
-        for (const tgt of uniqueTargets) {
-            try {
-                if (tgt.platform === 'telegram' && telegram) {
-                    await telegram.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
-                    successfulSends++;
-                    sendDetails.push({ platform: 'telegram', id: tgt.id, status: 'success' });
-                } else if (tgt.platform === 'bale' && bale) {
-                    await bale.sendBotDocument(tgt.id, pdfBuffer, filename, caption);
-                    successfulSends++;
-                    sendDetails.push({ platform: 'bale', id: tgt.id, status: 'success' });
-                } else if (tgt.platform === 'whatsapp') {
-                    const wa = await safeImport('./backend/whatsapp.js');
-                    if (wa && wa.sendMessage) {
-                        await wa.sendMessage(tgt.id, caption, {
-                            data: pdfBuffer.toString('base64'),
-                            mimeType: 'application/pdf',
-                            filename: filename
-                        });
-                        successfulSends++;
-                        sendDetails.push({ platform: 'whatsapp', id: tgt.id, status: 'success' });
-                    } else {
-                        throw new Error('ماژول واتساپ در دسترس نیست');
-                    }
-                }
-            } catch (e) {
-                lastErr = e.message;
-                console.error(`[Manual Traz Send] Failed for ${tgt.platform}:${tgt.id}:`, e.message);
-                sendDetails.push({ platform: tgt.platform, id: tgt.id, status: 'failed', error: e.message });
-            }
-        }
-
-        if (successfulSends === 0) {
-            return res.status(400).json({ error: `ارسال گزارش ناموفق بود: ${lastErr || 'خطا در اتصال به پیام‌رسان‌ها'}` });
-        }
-
-        res.json({
-            success: true,
-            message: `گزارش با موفقیت به ${successfulSends} مقصد در پیام‌رسان‌ها ارسال شد.`,
-            sendDetails
-        });
-
-    } catch (e) {
-        console.error("Manual Traz Send Error:", e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -2404,6 +2144,7 @@ app.post('/api/meetings/:id/send-minutes', async (req, res) => {
 // --- FULL-STACK DATA SYNCHRONIZATION ENDPOINTS ---
 const CRUD_COLLECTIONS = [
     { route: 'orders', dbKey: 'orders' },
+    { route: 'exit-permits', dbKey: 'exitPermits' },
     { route: 'security/logs', dbKey: 'securityLogs' },
     { route: 'security/delays', dbKey: 'personnelDelays' },
     { route: 'security/incidents', dbKey: 'securityIncidents' },
@@ -2469,91 +2210,6 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
         saveDb(db);
         res.json(db[dbKey]);
     });
-});
-
-// --- DEDICATED EXIT PERMITS ENDPOINTS WITH AUTOMATIC SERVER-SIDE BOT NOTIFICATIONS ---
-app.get('/api/exit-permits', (req, res) => {
-    const db = getDb();
-    if (!db.exitPermits) db.exitPermits = [];
-    res.json(db.exitPermits);
-});
-
-app.post('/api/exit-permits', async (req, res) => {
-    try {
-        const db = getDb();
-        if (!db.exitPermits) db.exitPermits = [];
-        const item = req.body;
-        const existingIdx = db.exitPermits.findIndex(x => x.id === item.id);
-        if (existingIdx > -1) {
-            db.exitPermits[existingIdx] = item;
-        } else {
-            db.exitPermits.push(item);
-        }
-        saveDb(db);
-        res.json(db.exitPermits);
-
-        // Auto-send bot/group notifications server-side upon permit creation
-        notifyExitPermitStep(item, null, null, null, db, 'ثبت اولیه', 'CREATE')
-            .catch(err => console.error("Auto notification error on exit permit create:", err));
-    } catch (e) {
-        console.error("Error creating exit permit:", e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.put('/api/exit-permits/:id', async (req, res) => {
-    try {
-        const db = getDb();
-        if (!db.exitPermits) db.exitPermits = [];
-        const idx = db.exitPermits.findIndex(x => x.id === req.params.id);
-        let updatedPermit;
-        if (idx > -1) {
-            updatedPermit = { ...db.exitPermits[idx], ...req.body };
-            db.exitPermits[idx] = updatedPermit;
-        } else {
-            updatedPermit = { id: req.params.id, ...req.body };
-            db.exitPermits.push(updatedPermit);
-        }
-        saveDb(db);
-        res.json(db.exitPermits);
-
-        // Determine human-readable step name
-        let stepName = 'تغییر وضعیت';
-        const st = updatedPermit.status;
-        if (st === 'در انتظار مدیر کارخانه' || st === 'PENDING_FACTORY') stepName = 'تایید مدیرعامل / ارجاع به مدیر کارخانه';
-        else if (st === 'در انتظار تایید انبار' || st === 'PENDING_WAREHOUSE') stepName = 'تایید مدیر کارخانه / ارجاع به انبار';
-        else if (st === 'در انتظار خروج (انتظامات)' || st === 'PENDING_SECURITY') stepName = 'تایید و توزین انبار / ارجاع به انتظامات';
-        else if (st === 'در انتظار تایید نهایی مدیر کارخانه' || st === 'PENDING_FACTORY_FINAL') stepName = 'تایید انتظامات / ارجاع به مدیر کارخانه';
-        else if (st === 'خارج شده (بایگانی)' || st === 'خارج شد' || st === 'EXITED') stepName = 'تایید نهایی خروج و بایگانی';
-        else if (st === 'کنسل شده' || st === 'CANCELED') stepName = 'ابطال و کنسلی سند';
-        else if (st === 'رد شده' || st === 'REJECTED') stepName = 'رد مجوز خروج';
-
-        // Auto-send bot/group notifications server-side upon permit update
-        notifyExitPermitStep(updatedPermit, null, null, null, db, stepName, 'STEP')
-            .catch(err => console.error("Auto notification error on exit permit update:", err));
-    } catch (e) {
-        console.error("Error updating exit permit:", e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.delete('/api/exit-permits/:id', async (req, res) => {
-    try {
-        const db = getDb();
-        if (!db.exitPermits) db.exitPermits = [];
-        const permit = db.exitPermits.find(x => x.id === req.params.id);
-        db.exitPermits = db.exitPermits.filter(x => x.id !== req.params.id);
-        saveDb(db);
-        res.json(db.exitPermits);
-
-        if (permit) {
-            notifyExitPermitStep(permit, null, null, null, db, 'حذف سند خروج', 'DELETE')
-                .catch(err => console.error("Auto notification error on exit permit delete:", err));
-        }
-    } catch (e) {
-        console.error("Error deleting exit permit:", e);
-        res.status(500).json({ error: e.message });
-    }
 });
 
 // Custom endpoint for manual exit permit notification via bot
@@ -3182,8 +2838,6 @@ function setupDailyReports() {
                     reportType: 'daily_sales',
                     botPlatforms: ['telegram', 'bale'],
                     destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
-                    destinationTelegram: db.settings?.telegramGroupId || '-100123456789',
-                    destinationBale: db.settings?.baleGroupId || '1234567',
                     scheduleType: 'daily_1900',
                     cronExpression: '0 19 * * *',
                     attachPdf: true,
@@ -3199,8 +2853,6 @@ function setupDailyReports() {
                     reportType: 'sales_comparison',
                     botPlatforms: ['telegram', 'bale'],
                     destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
-                    destinationTelegram: db.settings?.telegramGroupId || '-100123456789',
-                    destinationBale: db.settings?.baleGroupId || '1234567',
                     scheduleType: 'daily_comp_1900',
                     cronExpression: '0 19 * * *',
                     attachPdf: true,
@@ -3249,8 +2901,8 @@ async function executeReportJob(job) {
         console.log(`🚀 Dispatching Scheduled Report Job [${job.title}] to platforms [${(job.botPlatforms || []).join(', ')}]...`);
         
         if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
-            const teleGroup = job.destinationTelegram || job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
-            const baleGroup = job.destinationBale || job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
+            const teleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId;
+            const baleGroup = job.destinationGroup || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId;
             
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
@@ -3278,17 +2930,7 @@ async function executeReportJob(job) {
             await generateAndSendComparisonPDF(db, teleGroup || baleGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
             // Standard daily sales report or other module
-            let customTargets = null;
-            if (Array.isArray(job.botPlatforms)) {
-                customTargets = job.botPlatforms.map(p => {
-                    let id = job.destinationGroup;
-                    if (p === 'telegram') id = job.destinationTelegram || job.destinationGroup;
-                    if (p === 'bale') id = job.destinationBale || job.destinationGroup;
-                    if (p === 'whatsapp') id = job.destinationWhatsapp || job.destinationGroup;
-                    if (p === 'eitaa') id = job.destinationEitaa || job.destinationGroup;
-                    return { platform: p, id };
-                }).filter(t => !!t.id);
-            }
+            const customTargets = job.destinationGroup && job.botPlatforms ? job.botPlatforms.map(p => ({ platform: p, id: job.destinationGroup })) : null;
             await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets, job.botPlatforms);
         }
 
@@ -3315,9 +2957,9 @@ app.post('/api/report-delivery/jobs', (req, res) => {
     const db = getDb();
     if (!db.reportDeliveryJobs) db.reportDeliveryJobs = [];
     const newJob = {
-        ...req.body,
         id: 'job_' + Date.now(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        ...req.body
     };
     db.reportDeliveryJobs.push(newJob);
     saveDb(db);

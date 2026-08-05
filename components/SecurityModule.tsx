@@ -8,7 +8,6 @@ import { PrintSecurityDailyLog, PrintPersonnelDelay, PrintIncidentReport } from 
 import { getRolePermissions } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator';
 import { isInFinancialYear } from '../utils/dateUtils';
-import { IranPlateInput, IranPlateBadge } from './IranPlateInput';
 
 interface Props {
     currentUser: User;
@@ -529,13 +528,7 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
 
     const canEdit = (status: SecurityStatus) => {
         if (currentUser.role === UserRole.ADMIN) return true;
-        if (status === SecurityStatus.ARCHIVED) return false;
-        
-        if (permissions && permissions.canEditSecurityCommands !== undefined) {
-            return !!permissions.canEditSecurityCommands;
-        }
-        
-        if (status === SecurityStatus.PENDING_CEO) return false;
+        if (status === SecurityStatus.ARCHIVED || status === SecurityStatus.PENDING_CEO) return false;
         return true; 
     };
 
@@ -1416,15 +1409,9 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                     )}
                                 </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex flex-col items-center justify-center gap-2 bg-gray-50/50 p-4 rounded-xl border-2 border-dashed border-gray-200">
-                                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest">شماره پلاک ملی ایران</label>
-                                        <IranPlateInput value={logForm.plateNumber || ''} onChange={val => setLogForm({...logForm, plateNumber: val})} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold block mb-1">مجوز دهنده</label>
-                                        <input className="w-full border rounded p-2" value={logForm.permitProvider} onChange={e=>setLogForm({...logForm, permitProvider:e.target.value})}/>
-                                    </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="text-xs font-bold block mb-1">شماره پلاک</label><input className="w-full border rounded p-2 dir-ltr" placeholder="12 A 345 67" value={logForm.plateNumber} onChange={e=>setLogForm({...logForm, plateNumber:e.target.value})}/></div>
+                                    <div><label className="text-xs font-bold block mb-1">مجوز دهنده</label><input className="w-full border rounded p-2" value={logForm.permitProvider} onChange={e=>setLogForm({...logForm, permitProvider:e.target.value})}/></div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="col-span-2"><label className="text-xs font-bold block mb-1">نام کالا</label><input className="w-full border rounded p-2" value={logForm.goodsName} onChange={e=>setLogForm({...logForm, goodsName:e.target.value})}/></div>
@@ -1499,7 +1486,7 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                             <td className="p-3">
                                                 <div className="font-bold">{log.driverName}</div>
                                                 <div className="text-[10px] text-gray-500 font-mono">{log.driverPhone}</div>
-                                                <div className="mt-1"><IranPlateBadge plate={log.plateNumber} /></div>
+                                                <div className="font-mono text-blue-700 bg-blue-50 px-1 rounded inline-block mt-1">{log.plateNumber}</div>
                                                 {log.attachment && (
                                                     <button 
                                                         onClick={() => setViewAttachmentUrl(log.attachment)} 

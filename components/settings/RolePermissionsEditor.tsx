@@ -82,8 +82,7 @@ const PERMISSION_GROUPS = [
         items: [
             { id: 'canViewSecurity', label: 'مشاهده ماژول انتظامات' },
             { id: 'canCreateSecurityLog', label: 'ثبت گزارشات (نگهبان)' },
-            { id: 'canApproveSecuritySupervisor', label: 'تایید گزارشات (سرپرست)' },
-            { id: 'canEditSecurityCommands', label: 'ویرایش دستورات (سرپرست انتظامات تا قبل از بایگانی)' }
+            { id: 'canApproveSecuritySupervisor', label: 'تایید گزارشات (سرپرست)' }
         ] 
     }, 
     { 

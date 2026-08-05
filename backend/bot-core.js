@@ -92,8 +92,8 @@ const resolveUser = (db, platform, chatId) => {
 
 const runSayanQuery = async (db, queryStr) => {
     const settings = db.settings || {};
-    const serverSayanBaseUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
-    const serverSayanApiKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+    const serverSayanBaseUrl = settings.sayanApiUrl;
+    const serverSayanApiKey = settings.sayanApiKey;
     
     if (!serverSayanBaseUrl || !serverSayanApiKey) {
         throw new Error('تنظیمات اتصال به سرور سایان (آدرس و رمز API) در سیستم پیکربندی نشده است.');
@@ -196,7 +196,7 @@ export const getCustomerBalancesData = async (db) => {
             `;
             const tafsilis = await runSayanQuery(db, tafsiliSql);
 
-            // 2. Fetch Traz from the aggregate balances (ACT_TBL_024) to match Sayan reports
+            // 2. Fetch Traz
             const trazSql = `
                 SELECT 
                     t24.Field_010 as TafsiliRaw,
@@ -206,6 +206,8 @@ export const getCustomerBalancesData = async (db) => {
                 WHERE (t24.Field_010 LIKE '11%' OR t24.Field_010 LIKE '%-11%' OR t24.Field_010 LIKE '31%' OR t24.Field_010 LIKE '%-31%') 
                   AND t24.Field_010 NOT LIKE '%-12%'
                   AND t24.Field_010 NOT LIKE '%-13%'
+                  AND t24.Field_005 NOT IN ('102', '103', '107', '109', '114', '116', '117')
+                  AND t24.Field_003 <> '9'
                 GROUP BY t24.Field_010
             `;
             const rawRows = await runSayanQuery(db, trazSql);
@@ -309,7 +311,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t_group.GroupName,
                 t07.Field_006 as CustomerName
             FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
@@ -348,7 +350,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                     amt = amt * 1.10;
                 }
 
-                const isReturn = String(r.OpCode).trim() === '13';
+                const isReturn = r.OpCode === '13';
 
                 if (!groupMap.has(grp)) {
                     groupMap.set(grp, { qtyA: 0, amtA: 0, qtyB: 0, amtB: 0 });
@@ -2207,56 +2209,30 @@ export const notifyExitPermitStep = async (p, platform, chatId, sendPhotoFn, db,
         let statusKey = p.status;
         if (eventType === 'DELETE') {
             statusKey = 'REJECTED'; 
-        } else if (stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل' || eventType === 'CREATE') {
+        } else if (stepName === 'ثبت اولیه' || stepName === 'ثبت توسط ربات' || p.status === 'در انتظار تایید مدیرعامل') {
             statusKey = 'CREATE';
-        } else if (p.status === 'خارج شده (بایگانی)' || p.status === 'خارج شد' || p.status === 'EXITED') {
+        } else if (p.status === 'خارج شده (بایگانی)' || p.status === 'خارج شد') {
             // This is the final archived state
             statusKey = 'ARCHIVED'; 
-        } else if (p.status === 'کنسل شده' || p.status === 'CANCELED') {
-            statusKey = 'CANCELED';
-        } else if (p.status === 'رد شده' || p.status === 'REJECTED') {
-            statusKey = 'REJECTED';
         }
-
-        const isGroupActiveForPermit = (gConfig, pStatus, sKey, hasDestination) => {
-            if (!hasDestination) return false;
-            const activeStatuses = gConfig?.activeStatuses;
-            if (!activeStatuses || !Array.isArray(activeStatuses) || activeStatuses.length === 0) {
-                // Default to true if destination is set but no specific checkboxes filtered
-                return true;
-            }
-            if (activeStatuses.includes(sKey)) return true;
-            if (activeStatuses.includes(pStatus)) return true;
-            if (sKey === 'CREATE' && (activeStatuses.includes('CREATE') || activeStatuses.includes('در انتظار تایید مدیرعامل'))) return true;
-            if (sKey === 'ARCHIVED' && (activeStatuses.includes('ARCHIVED') || activeStatuses.includes('خارج شده (بایگانی)') || activeStatuses.includes('خارج شد'))) return true;
-            if (sKey === 'CANCELED' && (activeStatuses.includes('CANCELED') || activeStatuses.includes('کنسل شده'))) return true;
-            if (sKey === 'REJECTED' && (activeStatuses.includes('REJECTED') || activeStatuses.includes('رد شده'))) return true;
-            return false;
-        };
 
         let targetGroups = [];
 
         // Group 1 logic (Settings-based routing)
-        const g1Config = settings.exitPermitFirstGroupConfig || {};
-        const companyConfig = settings.companyNotifications?.[p.company] || {};
-        const hasG1 = !!(g1Config.groupId || g1Config.baleId || g1Config.telegramId || 
-                         settings.exitPermitNotificationGroup || settings.exitPermitNotificationBaleId || settings.exitPermitNotificationTelegramId || 
-                         settings.defaultWarehouseGroup || companyConfig.warehouseGroup || companyConfig.telegramChannelId || companyConfig.baleChannelId);
-        if (isGroupActiveForPermit(g1Config, p.status, statusKey, hasG1)) {
+        const g1Config = settings.exitPermitFirstGroupConfig || { activeStatuses: [] };
+        if (g1Config.activeStatuses && g1Config.activeStatuses.includes(statusKey)) {
             targetGroups.push(1);
         }
         
         // Group 2 logic (Settings-based routing)
-        const g2Config = settings.exitPermitSecondGroupConfig || {};
-        const hasG2 = !!(g2Config.groupId || g2Config.baleId || g2Config.telegramId);
-        if (isGroupActiveForPermit(g2Config, p.status, statusKey, hasG2)) {
+        const g2Config = settings.exitPermitSecondGroupConfig || { activeStatuses: [] };
+        if (g2Config.activeStatuses && g2Config.activeStatuses.includes(statusKey)) {
             targetGroups.push(2);
         }
 
         // Group 3 logic (Settings-based routing)
-        const g3Config = settings.exitPermitThirdGroupConfig || {};
-        const hasG3 = !!(g3Config.groupId || g3Config.baleId || g3Config.telegramId);
-        if (isGroupActiveForPermit(g3Config, p.status, statusKey, hasG3)) {
+        const g3Config = settings.exitPermitThirdGroupConfig || { activeStatuses: [] };
+        if (g3Config.activeStatuses && g3Config.activeStatuses.includes(statusKey)) {
             targetGroups.push(3);
         }
 
@@ -3767,7 +3743,6 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
-                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
@@ -3811,7 +3786,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     amt = amt * 1.10;
                 }
 
-                const isReturn = String(inv.OpCode).trim() === '13';
+                const isReturn = inv.OpCode === '13';
 
                 if (isReturn) {
                     totalRetQty += qty;

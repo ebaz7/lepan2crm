@@ -99,27 +99,8 @@ export function classifyMajorCategory(groupName: string = '', itemName: string =
   if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
   if (text.includes('کش') || text.includes('elastic')) return 'کش';
   if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
-  if (text.includes('پلی استر') || text.includes('polyester')) return 'پلی استر';
 
   return groupName || 'سایر محصولات';
-}
-
-export function cleanProductName(rawName: string = '', itemCode: string = ''): string {
-  if (!rawName || rawName === 'کالای بدون نام') {
-    return itemCode ? `کد کالا: ${itemCode}` : 'کالای بدون نام';
-  }
-  let clean = rawName.trim();
-  
-  // Strip label details, serial numbers, lot codes, label prefixes
-  clean = clean.replace(/[\(\[\{-]?\s*لیبل\s*[:\d\-_\s\w]*[\)\]\}]?/gi, '');
-  clean = clean.replace(/لیبل\s*#?\d+/gi, '');
-  clean = clean.replace(/[\/\\]\s*لیبل.*/gi, '');
-  clean = clean.replace(/^[\s\-_:=]+|[\s\-_:=]+$/g, '').trim();
-
-  if (!clean || clean === 'کالای بدون نام') {
-    return itemCode ? `کد کالا: ${itemCode}` : 'کالای بدون نام';
-  }
-  return clean;
 }
 
 function formatMoney(amount: number): string {
@@ -386,7 +367,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
-      const isReturn = String(row.OpCode).trim() === '13';
+      const isReturn = row.OpCode === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
       const custName = row.CustomerName || 'مشتری متفرقه';
       const majorCat = classifyMajorCategory(row.GroupName, row.ItemName);
@@ -461,13 +442,12 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         if (isReturn) yearNetWgt -= qty; else yearNetWgt += qty;
       }
 
-      // Item Accumulation (Grouped strictly by clean product name)
-      const cleanName = cleanProductName(row.ItemName, row.ItemCode);
-      const itemKey = cleanName;
+      // Item Accumulation
+      const itemKey = row.ItemCode || row.ItemName || 'کالا';
       if (!itemMap.has(itemKey)) {
         itemMap.set(itemKey, {
           itemCode: row.ItemCode || '',
-          itemName: cleanName,
+          itemName: row.ItemName || 'کالای بدون نام',
           groupName: row.GroupName || 'سایر',
           majorCategory: majorCat,
           salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0
@@ -495,7 +475,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       // Sub-items inside category
       if (!catRecord.itemsMap.has(itemKey)) {
-        catRecord.itemsMap.set(itemKey, { itemName: cleanName, salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
+        catRecord.itemsMap.set(itemKey, { itemName: row.ItemName, salesWgt: 0, salesAmt: 0, retWgt: 0, retAmt: 0 });
       }
       const catSubItem = catRecord.itemsMap.get(itemKey)!;
       if (isReturn) {
@@ -684,10 +664,9 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش). OpCode 14 is Purchase (خرید) and must not be treated as return.
-      const isReturn = String(row.OpCode).trim() === '13';
+      const isReturn = row.OpCode === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
-      const cleanName = cleanProductName(row.ItemName, row.ItemCode);
-      const itemKey = cleanName;
+      const itemKey = row.ItemCode || row.ItemName || 'کالا';
 
       if (isReturn) {
         retAmtB += amt;
@@ -716,7 +695,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       if (!itemMapB.has(itemKey)) {
         itemMapB.set(itemKey, {
           itemCode: row.ItemCode || '',
-          itemName: cleanName,
+          itemName: row.ItemName || 'کالای بدون نام',
           groupName: row.GroupName || 'سایر',
           majorCategory: cat,
           salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0
@@ -755,80 +734,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       return { label: 'ثبات نسبی عملکرد', color: 'bg-slate-100 text-slate-700 border-slate-300' };
     };
 
-    // Mode 1: Group comparison rows (Predefined Major Categories + active dynamic categories in period A/B)
-    const activeCategoriesSet = new Set<string>(MAJOR_CATEGORIES);
-    processedMetrics.categoryList.forEach(c => {
-      if (c.name && (c.salesAmt !== 0 || c.salesWgt !== 0 || c.retAmt !== 0 || c.retWgt !== 0)) {
-        activeCategoriesSet.add(c.name);
-      }
-    });
-    Array.from(catMapB.keys()).forEach(name => {
-      const catBRecord = catMapB.get(name);
-      if (name && catBRecord && (catBRecord.salesAmt !== 0 || catBRecord.salesWgt !== 0 || catBRecord.retAmt !== 0 || catBRecord.retWgt !== 0)) {
-        activeCategoriesSet.add(name);
-      }
-    });
-    const allCompareCategories = Array.from(activeCategoriesSet);
-
-    // Build sub-items comparison mapping for each category
-    const subItemsByCat = new Map<string, Array<any>>();
-    const allCatSubItemKeys = new Set<string>();
-    processedMetrics.itemList.forEach(i => {
-      if (i.majorCategory && i.itemName) {
-        allCatSubItemKeys.add(`${i.majorCategory}|||${i.itemName}`);
-      }
-    });
-    Array.from(itemMapB.values()).forEach(i => {
-      if (i.majorCategory && i.itemName) {
-        allCatSubItemKeys.add(`${i.majorCategory}|||${i.itemName}`);
-      }
-    });
-
-    allCatSubItemKeys.forEach(composite => {
-      const parts = composite.split('|||');
-      const catName = parts[0];
-      const itemName = parts[1];
-
-      const itemA = processedMetrics.itemList.find(i => i.majorCategory === catName && i.itemName === itemName) || {
-        netAmt: 0, netQty: 0, netFee: 0
-      };
-      const itemB = Array.from(itemMapB.values()).find(i => i.majorCategory === catName && i.itemName === itemName);
-
-      const netAmtA = itemA.netAmt || 0;
-      const netWgtA = itemA.netQty || 0;
-      const netFeeA = itemA.netFee || (netWgtA > 0 ? netAmtA / netWgtA : 0);
-
-      const salesAmtB = itemB ? itemB.salesAmt : 0;
-      const retAmtB = itemB ? itemB.returnAmt : 0;
-      const netAmtB = salesAmtB - retAmtB;
-      const salesQtyB = itemB ? itemB.salesQty : 0;
-      const retQtyB = itemB ? itemB.returnQty : 0;
-      const netWgtB = salesQtyB - retQtyB;
-      const netFeeB = netWgtB > 0 ? (netAmtB / netWgtB) : 0;
-
-      const diffAmt = netAmtA - netAmtB;
-      const growthPct = netAmtB ? ((diffAmt / netAmtB) * 100) : 0;
-      const diffWgt = netWgtA - netWgtB;
-      const diffFee = netFeeA - netFeeB;
-
-      if (!subItemsByCat.has(catName)) {
-        subItemsByCat.set(catName, []);
-      }
-      subItemsByCat.get(catName)!.push({
-        itemName,
-        netAmtA,
-        netWgtA,
-        netFeeA,
-        netAmtB,
-        netWgtB,
-        netFeeB,
-        diffAmt,
-        growthPct,
-        variance: getVariance(diffAmt, diffWgt, diffFee)
-      });
-    });
-
-    const compareGroupRows = allCompareCategories.map(catName => {
+    // Mode 1: Group comparison rows (Level-2 15 Major Categories)
+    const compareGroupRows = MAJOR_CATEGORIES.map(catName => {
       const catA = processedMetrics.categoryList.find(c => c.name === catName) || { salesAmt: 0, retAmt: 0, netAmt: 0, salesWgt: 0, retWgt: 0, netWgt: 0, netFee: 0 };
       const catBRecord = catMapB.get(catName);
       const grossAmtB = catBRecord ? catBRecord.salesAmt : 0;
@@ -851,7 +758,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
       return {
         catName,
-        subItems: subItemsByCat.get(catName) || [],
         grossAmtA: catA.salesAmt,
         retAmtA: catA.retAmt,
         netAmtA: catA.netAmt,
@@ -1066,179 +972,27 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <meta charset="utf-8">
           <title>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP</title>
           <style>
-            @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-            body {
-              font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-              padding: 30px;
-              background: #ffffff;
-              color: #1e293b;
-              font-size: 11px;
-              direction: rtl;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .top-bar {
-              height: 6px;
-              background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-              border-radius: 3px;
-              margin-bottom: 20px;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 2px solid #e2e8f0;
-              padding-bottom: 16px;
-              margin-bottom: 24px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 18px;
-              font-weight: 900;
-              color: #1e3a8a;
-              letter-spacing: -0.025em;
-            }
-            .header p {
-              margin: 6px 0 0;
-              font-size: 12px;
-              color: #475569;
-              font-weight: 500;
-            }
-            .meta-info {
-              text-align: left;
-              font-size: 11px;
-              color: #475569;
-              line-height: 1.6;
-            }
-            .kpi-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 12px;
-              margin-bottom: 24px;
-            }
-            .kpi-card {
-              border: 1px solid #e2e8f0;
-              background-color: #f8fafc;
-              padding: 12px;
-              border-radius: 12px;
-              text-align: center;
-              box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
-            }
-            .kpi-title {
-              margin: 0 0 6px 0;
-              font-size: 10px;
-              color: #475569;
-              font-weight: bold;
-              text-transform: uppercase;
-              letter-spacing: 0.05em;
-            }
-            .kpi-val {
-              margin: 0;
-              font-size: 13px;
-              font-weight: 800;
-              color: #0f172a;
-            }
-            .growth-pos {
-              color: #15803d;
-              font-weight: bold;
-            }
-            .growth-neg {
-              color: #b91c1c;
-              font-weight: bold;
-            }
-            h2 {
-              font-size: 14px;
-              font-weight: 800;
-              color: #0f172a;
-              margin-top: 24px;
-              margin-bottom: 12px;
-              border-right: 3px solid #1e3a8a;
-              padding-right: 8px;
-            }
-            table {
-              width: 100%;
-              border-collapse: separate;
-              border-spacing: 0;
-              margin-top: 15px;
-              border: 1px solid #e2e8f0;
-              border-radius: 8px;
-              overflow: hidden;
-            }
-            th {
-              background-color: #0f172a;
-              color: #ffffff;
-              padding: 10px 8px;
-              font-weight: 700;
-              font-size: 11px;
-              border-bottom: 1px solid #1e293b;
-              text-align: center;
-            }
-            td {
-              padding: 10px 8px;
-              border-bottom: 1px solid #e2e8f0;
-              border-left: 1px solid #e2e8f0;
-              color: #334155;
-              font-size: 11px;
-              vertical-align: middle;
-              text-align: center;
-            }
-            td:last-child {
-              border-left: none;
-            }
-            tr:nth-child(even) td {
-              background-color: #f8fafc;
-            }
-            tr:hover td {
-              background-color: #f1f5f9;
-            }
-            .total {
-              font-weight: bold;
-              background-color: #f1f5f9 !important;
-            }
-            .total td {
-              background-color: #f1f5f9 !important;
-              border-top: 2px solid #cbd5e1;
-              border-bottom: 2px solid #cbd5e1;
-              color: #0f172a;
-              font-weight: 800;
-            }
-            .signatures {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 24px;
-              margin-top: 50px;
-              text-align: center;
-              font-size: 11px;
-              font-weight: bold;
-            }
-            .signature-box {
-              height: 70px;
-              border-bottom: 1px dashed #cbd5e1;
-              margin-top: 10px;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 40px;
-              font-size: 10px;
-              color: #64748b;
-              border-top: 1px dashed #e2e8f0;
-              padding-top: 16px;
-            }
-            @media print {
-              body { padding: 0; }
-            }
+            body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
+            .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+            .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
+            .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
+            .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; }
+            th { background-color: #0f172a; color: #fff; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f1f5f9; }
+            .total { font-weight: bold; background: #e2e8f0 !important; }
+            .growth-pos { color: #15803d; font-weight: bold; }
+            .growth-neg { color: #b91c1c; font-weight: bold; }
           </style>
         </head>
         <body>
-          <div class="top-bar"></div>
           <div class="header">
-            <div>
-              <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
-              <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
-            </div>
-            <div class="meta-info">
-              <p>تاریخ چاپ: <strong>${toShamsiStr(new Date().toISOString())}</strong></p>
-            </div>
+            <h1>گزارش تحلیلی و مقایسه‌ای فروش سایان ERP (دوره A vs دوره B)</h1>
+            <p>دوره A (پایه): از ${dateFrom} تا ${dateTo} | دوره B (تطبیقی): از ${salesDateFromB} تا ${salesDateToB}</p>
           </div>
 
           <div class="kpi-grid">
@@ -1262,35 +1016,35 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           <table>
             <thead>
               <tr>
-                <th style="width: 35px;">ردیف</th>
-                <th style="text-align: right; width: 180px;">نام گروه کالا</th>
+                <th>ردیف</th>
+                <th>نام گروه کالا</th>
                 <th>وزن خالص A (ک‌گ)</th>
                 <th>فروش خالص A (ریال)</th>
                 <th>فی A (ریال)</th>
                 <th>وزن خالص B (ک‌گ)</th>
                 <th>فروش خالص B (ریال)</th>
                 <th>فی B (ریال)</th>
-                <th style="width: 100px;">درصد رشد</th>
+                <th>درصد رشد (%)</th>
               </tr>
             </thead>
             <tbody>
               ${comparisonMetrics.compareGroupRows.map((r, idx) => `
                 <tr>
-                  <td style="text-align:center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                  <td style="text-align: right; font-weight: bold; color: #0f172a;">${r.catName}</td>
+                  <td style="text-align:center;">${idx + 1}</td>
+                  <td>${r.catName}</td>
                   <td style="text-align:center;">${formatWeight(r.netWgtA)}</td>
-                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netAmtA)}</td>
-                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netFeeA)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netAmtA)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netFeeA)}</td>
                   <td style="text-align:center;">${formatWeight(r.netWgtB)}</td>
-                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netAmtB)}</td>
-                  <td style="text-align:left; font-weight: 500;">${formatMoney(r.netFeeB)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netAmtB)}</td>
+                  <td style="text-align:left;">${formatMoney(r.netFeeB)}</td>
                   <td style="text-align:center;" class="${r.growthPct >= 0 ? 'growth-pos' : 'growth-neg'}">
                     ${r.growthPct >= 0 ? '+' : ''}${r.growthPct.toFixed(1)}%
                   </td>
                 </tr>
               `).join('')}
               <tr class="total">
-                <td colspan="2" style="text-align: right;">جمع کل</td>
+                <td colspan="2">جمع کل</td>
                 <td style="text-align:center;">${formatWeight(comparisonMetrics ? comparisonMetrics.netWgtA : 0)}</td>
                 <td style="text-align:left;">${formatMoney(comparisonMetrics ? comparisonMetrics.netAmtA : 0)}</td>
                 <td style="text-align:left;">-</td>
@@ -1303,25 +1057,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tr>
             </tbody>
           </table>
-
-          <div class="signatures">
-            <div>
-              <p>امضا تهیه کننده / واحد فروش</p>
-              <div class="signature-box"></div>
-            </div>
-            <div>
-              <p>امضا مدیر مالی</p>
-              <div class="signature-box"></div>
-            </div>
-            <div>
-              <p>امضا مدیریت عامل</p>
-              <div class="signature-box"></div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>سامانه مدیریت هوشمند و گزارشات مالی کارخانه سایان ERP - نسخه چاپ رسمی پایش مقایسه‌ای</p>
-          </div>
         </body>
         </html>
       `;
@@ -1346,171 +1081,25 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         <meta charset="utf-8">
         <title>داشبورد مدیریتی فروش سایان ERP</title>
         <style>
-          @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-          body {
-            font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-            padding: 30px;
-            background: #ffffff;
-            color: #1e293b;
-            font-size: 11px;
-            direction: rtl;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .top-bar {
-            height: 6px;
-            background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-            border-radius: 3px;
-            margin-bottom: 20px;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-          }
-          .header h1 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 900;
-            color: #1e3a8a;
-            letter-spacing: -0.025em;
-          }
-          .header p {
-            margin: 6px 0 0;
-            font-size: 12px;
-            color: #475569;
-            font-weight: 500;
-          }
-          .meta-info {
-            text-align: left;
-            font-size: 11px;
-            color: #475569;
-            line-height: 1.6;
-          }
-          .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 24px;
-          }
-          .kpi-card {
-            border: 1px solid #e2e8f0;
-            background-color: #f8fafc;
-            padding: 12px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
-          }
-          .kpi-title {
-            margin: 0 0 6px 0;
-            font-size: 10px;
-            color: #475569;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .kpi-val {
-            margin: 0;
-            font-size: 13px;
-            font-weight: 800;
-            color: #0f172a;
-          }
-          h2 {
-            font-size: 14px;
-            font-weight: 800;
-            color: #0f172a;
-            margin-top: 24px;
-            margin-bottom: 12px;
-            border-right: 3px solid #1e3a8a;
-            padding-right: 8px;
-          }
-          table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 15px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-          }
-          th {
-            background-color: #0f172a;
-            color: #ffffff;
-            padding: 10px 8px;
-            font-weight: 700;
-            font-size: 11px;
-            border-bottom: 1px solid #1e293b;
-            text-align: center;
-          }
-          td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #e2e8f0;
-            border-left: 1px solid #e2e8f0;
-            color: #334155;
-            font-size: 11px;
-            vertical-align: middle;
-            text-align: center;
-          }
-          td:last-child {
-            border-left: none;
-          }
-          tr:nth-child(even) td {
-            background-color: #f8fafc;
-          }
-          tr:hover td {
-            background-color: #f1f5f9;
-          }
-          .total {
-            font-weight: bold;
-            background-color: #f1f5f9 !important;
-          }
-          .total td {
-            background-color: #f1f5f9 !important;
-            border-top: 2px solid #cbd5e1;
-            border-bottom: 2px solid #cbd5e1;
-            color: #0f172a;
-            font-weight: 800;
-          }
-          .signatures {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            margin-top: 50px;
-            text-align: center;
-            font-size: 11px;
-            font-weight: bold;
-          }
-          .signature-box {
-            height: 70px;
-            border-bottom: 1px dashed #cbd5e1;
-            margin-top: 10px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 40px;
-            font-size: 10px;
-            color: #64748b;
-            border-top: 1px dashed #e2e8f0;
-            padding-top: 16px;
-          }
-          @media print {
-            body { padding: 0; }
-          }
+          body { font-family: 'Tahoma', sans-serif; padding: 20px; background: #fff; color: #1e293b; }
+          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+          .header h1 { font-size: 18px; margin: 0; color: #0f172a; }
+          .header p { font-size: 11px; color: #64748b; margin: 4px 0 0; }
+          .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .kpi-card { border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; background: #f8fafc; text-align: center; }
+          .kpi-title { font-size: 10px; color: #64748b; font-weight: bold; }
+          .kpi-val { font-size: 14px; font-weight: bold; color: #0f172a; margin-top: 4px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; }
+          th { background-color: #0f172a; color: #fff; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f1f5f9; }
+          .total { font-weight: bold; background: #e2e8f0 !important; }
         </style>
       </head>
       <body>
-        <div class="top-bar"></div>
         <div class="header">
-          <div>
-            <h1>داشبورد تصمیم‌گیری و گزارشات مدیریتی فروش سایان ERP</h1>
-            <p>بازه گزارش: از ${dateFrom} تا ${dateTo}</p>
-          </div>
-          <div class="meta-info">
-            <p>تاریخ چاپ: <strong>${toShamsiStr(new Date().toISOString())}</strong></p>
-          </div>
+          <h1>داشبورد تصمیم‌گیری و گزارشات مدیریتی فروش سایان ERP</h1>
+          <p>بازه گزارش: از ${dateFrom} تا ${dateTo} | تاریخ چاپ: ${toShamsiStr(new Date().toISOString())}</p>
         </div>
 
         <div class="kpi-grid">
@@ -1524,27 +1113,27 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         <table>
           <thead>
             <tr>
-              <th style="width: 35px;">ردیف</th>
-              <th style="text-align: right; width: 220px;">نام گروه اصلی</th>
+              <th>ردیف</th>
+              <th>نام گروه اصلی</th>
               <th>وزن خالص (ک‌گ)</th>
               <th>فروش خالص (ریال)</th>
               <th>فی نهایی (ریال/ک‌گ)</th>
-              <th style="width: 80px;">سهم %</th>
+              <th>سهم %</th>
             </tr>
           </thead>
           <tbody>
             ${processedMetrics.categoryList.map((cat, idx) => `
               <tr>
-                <td style="text-align:center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                <td style="text-align: right; font-weight: bold; color: #0f172a;">${cat.name}</td>
+                <td style="text-align:center;">${idx + 1}</td>
+                <td>${cat.name}</td>
                 <td style="text-align:center;">${formatWeight(cat.netWgt)}</td>
-                <td style="text-align:left; font-weight: 500;">${formatMoney(cat.netAmt)}</td>
-                <td style="text-align:left; font-weight: 500;">${formatMoney(cat.netFee)}</td>
-                <td style="text-align:center; font-weight: 600;">${cat.sharePct.toFixed(1)}%</td>
+                <td style="text-align:left;">${formatMoney(cat.netAmt)}</td>
+                <td style="text-align:left;">${formatMoney(cat.netFee)}</td>
+                <td style="text-align:center;">${cat.sharePct.toFixed(1)}%</td>
               </tr>
             `).join('')}
             <tr class="total">
-              <td colspan="2" style="text-align: right;">جمع کل</td>
+              <td colspan="2">جمع کل</td>
               <td style="text-align:center;">${formatWeight(processedMetrics.rangeNetWgt)}</td>
               <td style="text-align:left;">${formatMoney(processedMetrics.rangeNetAmt)}</td>
               <td style="text-align:left;">${formatMoney(processedMetrics.rangeNetFee)}</td>
@@ -1552,25 +1141,6 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </tr>
           </tbody>
         </table>
-
-        <div class="signatures">
-          <div>
-            <p>امضا تهیه کننده / واحد فروش</p>
-            <div class="signature-box"></div>
-          </div>
-          <div>
-            <p>امضا مدیر مالی</p>
-            <div class="signature-box"></div>
-          </div>
-          <div>
-            <p>امضا مدیریت عامل</p>
-            <div class="signature-box"></div>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>سامانه مدیریت هوشمند و گزارشات مالی کارخانه سایان ERP - نسخه چاپ رسمی</p>
-        </div>
       </body>
       </html>
     `;
@@ -2917,84 +2487,34 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {comparisonMetrics?.compareGroupRows.map((row, idx) => {
-                          const isExpanded = !!expandedCategories[row.catName];
-                          return (
-                            <React.Fragment key={idx}>
-                              <tr 
-                                onClick={() => toggleCategory(row.catName)}
-                                className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${
-                                  isExpanded ? 'bg-blue-50/60 font-bold' : ''
-                                }`}
-                              >
-                                <td className="p-3 text-center text-slate-400 font-mono">
-                                  {row.subItems.length > 0 ? (
-                                    isExpanded ? <ChevronDown className="w-4 h-4 text-blue-600 mx-auto" /> : <ChevronRight className="w-4 h-4 text-slate-400 mx-auto" />
-                                  ) : idx + 1}
-                                </td>
-                                <td className="p-3 font-extrabold text-slate-900 flex items-center gap-2">
-                                  <span>{row.catName}</span>
-                                  {row.subItems.length > 0 && (
-                                    <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-md font-mono">
-                                      {row.subItems.length} زیرمجموعه
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
-                                <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
-                                <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
-                                <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
-                                <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
-                                <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
-                                <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                  {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
-                                </td>
-                                <td className="p-3 text-center font-mono font-black">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                    row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                    {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
-                                  </span>
-                                </td>
-                                <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
-                                <td className="p-3 text-center">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
-                                    {row.variance.label}
-                                  </span>
-                                </td>
-                              </tr>
-
-                              {/* Comparative Sub-Items Drill-Down */}
-                              {isExpanded && row.subItems.map((sub: any, sIdx: number) => (
-                                <tr key={`${idx}_sub_${sIdx}`} className="bg-slate-50/90 text-[11px] hover:bg-slate-100 transition-colors border-l-4 border-l-blue-500">
-                                  <td></td>
-                                  <td className="p-2.5 pr-8 text-slate-800 font-medium flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                    <span>{sub.itemName}</span>
-                                  </td>
-                                  <td className="p-2.5 text-left font-mono font-bold text-blue-800">{formatMoney(sub.netAmtA)}</td>
-                                  <td className="p-2.5 text-left font-mono font-bold text-indigo-800">{formatMoney(sub.netAmtB)}</td>
-                                  <td className="p-2.5 text-center font-mono text-blue-800">{formatWeight(sub.netWgtA)}</td>
-                                  <td className="p-2.5 text-center font-mono text-indigo-800">{formatWeight(sub.netWgtB)}</td>
-                                  <td className="p-2.5 text-left font-mono text-blue-800">{formatMoney(sub.netFeeA)}</td>
-                                  <td className="p-2.5 text-left font-mono text-indigo-800">{formatMoney(sub.netFeeB)}</td>
-                                  <td className={`p-2.5 text-left font-mono font-bold ${sub.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                    {sub.diffAmt >= 0 ? '+' : ''}{formatMoney(sub.diffAmt)}
-                                  </td>
-                                  <td className="p-2.5 text-center font-mono">
-                                    <span className={`px-1.5 py-0.2 rounded text-[10px] ${
-                                      sub.growthPct > 0 ? 'text-emerald-800 bg-emerald-50' : sub.growthPct < 0 ? 'text-rose-800 bg-rose-50' : 'text-slate-600'
-                                    }`}>
-                                      {sub.growthPct > 0 ? '+' : ''}{sub.growthPct.toFixed(1)}%
-                                    </span>
-                                  </td>
-                                  <td className="p-2.5 text-center font-mono text-slate-400">-</td>
-                                  <td className="p-2.5 text-center text-[10px] text-slate-500">{sub.variance.label}</td>
-                                </tr>
-                              ))}
-                            </React.Fragment>
-                          );
-                        })}
+                        {comparisonMetrics?.compareGroupRows.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                            <td className="p-3 font-bold text-slate-900">{row.catName}</td>
+                            <td className="p-3 text-left font-mono font-bold text-blue-900 bg-blue-50/20">{formatMoney(row.netAmtA)}</td>
+                            <td className="p-3 text-left font-mono font-bold text-indigo-900 bg-indigo-50/20">{formatMoney(row.netAmtB)}</td>
+                            <td className="p-3 text-center font-mono text-blue-900 bg-blue-50/20">{formatWeight(row.netWgtA)}</td>
+                            <td className="p-3 text-center font-mono text-indigo-900 bg-indigo-50/20">{formatWeight(row.netWgtB)}</td>
+                            <td className="p-3 text-left font-mono text-blue-900 bg-blue-50/20">{formatMoney(row.netFeeA)}</td>
+                            <td className="p-3 text-left font-mono text-indigo-900 bg-indigo-50/20">{formatMoney(row.netFeeB)}</td>
+                            <td className={`p-3 text-left font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)}
+                            </td>
+                            <td className="p-3 text-center font-mono font-black">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                row.growthPct > 0 ? 'bg-emerald-100 text-emerald-800' : row.growthPct < 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono text-slate-600">{row.sharePctA.toFixed(1)}%</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${row.variance.color}`}>
+                                {row.variance.label}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   ) : (

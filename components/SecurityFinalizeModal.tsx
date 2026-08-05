@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ExitPermit } from '../types';
 import { X, ShieldCheck, CheckCircle, Smartphone, User, Truck, Paperclip, Trash2 } from 'lucide-react';
-import { IranPlateInput } from './IranPlateInput';
 
 interface Props {
   permit: ExitPermit;
@@ -17,7 +16,16 @@ const SecurityFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) 
   const [attachments, setAttachments] = useState<{fileName: string, data: string}[]>(permit.attachments || []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [plateNumber, setPlateNumber] = useState(permit.plateNumber || '');
+  // Plate parts: [12] [الف] [123] [11]
+  const initialPlate = permit.plateNumber || '';
+  const plateMatch = initialPlate.match(/^(\d{2})([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی])(\d{3})(\d{2})$/);
+  
+  const [plate1, setPlate1] = useState(plateMatch ? plateMatch[1] : '');
+  const [plateChar, setPlateChar] = useState(plateMatch ? plateMatch[2] : '');
+  const [plate2, setPlate2] = useState(plateMatch ? plateMatch[3] : '');
+  const [plateCity, setPlateCity] = useState(plateMatch ? plateMatch[4] : '');
+
+  const plateChars = ['الف', 'ب', 'ت', 'ج', 'د', 'س', 'ص', 'ط', 'ع', 'ق', 'ل', 'م', 'ن', 'و', 'ه', 'ی', 'ژ', 'ت'];
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
@@ -37,10 +45,14 @@ const SecurityFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) 
   };
 
   const handleSubmit = () => {
+    const finalPlate = (plate1 && plateChar && plate2 && plateCity) 
+        ? `${plate1}${plateChar}${plate2}${plateCity}` 
+        : (permit.plateNumber || '');
+
     onConfirm({
       driverName,
       driverPhone,
-      plateNumber,
+      plateNumber: finalPlate,
       exitTime: '', // Handled in next stage
       attachments
     });
@@ -89,9 +101,41 @@ const SecurityFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) 
             <h3 className="font-bold text-gray-700 flex items-center gap-2 border-r-4 border-orange-500 pr-3">
               <Truck size={18} className="text-orange-500" /> 🚛 مشخصات خودرو و پلاک
             </h3>
-            <div className="flex flex-col items-center gap-2 bg-white p-6 rounded-3xl border-2 border-dashed border-gray-200">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">پلاک ملی ایران</label>
-                <IranPlateInput value={plateNumber} onChange={setPlateNumber} />
+            <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-3xl border-2 border-dashed border-gray-200">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Iran National Plate</label>
+                <div className="flex items-center bg-white border-2 border-gray-800 rounded-md overflow-hidden h-16 font-black shadow-lg ring-offset-4 ring-2 ring-blue-50" dir="ltr">
+                    <div className="bg-[#1E4198] w-8 h-full flex flex-col items-center justify-center text-white py-1 relative">
+                        <div className="flex flex-col items-center gap-0.5">
+                            <div className="flex gap-[1px]">
+                                <div className="w-2 h-1 bg-green-500"></div>
+                                <div className="w-2 h-1 bg-white"></div>
+                                <div className="w-2 h-1 bg-red-500"></div>
+                            </div>
+                            <span className="text-[7px] font-bold leading-none">I.R.</span>
+                            <span className="text-[7px] font-bold leading-none">IRAN</span>
+                        </div>
+                    </div>
+
+                    <div className="w-14 h-full flex items-center justify-center">
+                        <input className="w-full h-full text-center text-3xl outline-none focus:bg-blue-50/50" value={plate1} onChange={e => setPlate1(e.target.value.slice(0,2).replace(/\D/g,''))} placeholder="--" maxLength={2} />
+                    </div>
+
+                    <div className="w-14 h-full flex items-center justify-center border-x border-gray-200">
+                       <select className="w-full h-full text-center text-2xl bg-transparent outline-none appearance-none cursor-pointer" value={plateChar} onChange={e => setPlateChar(e.target.value)}>
+                         <option value=""></option>
+                         {plateChars.map(c => <option key={c} value={c}>{c}</option>)}
+                       </select>
+                    </div>
+
+                    <div className="w-20 h-full flex items-center justify-center">
+                        <input className="w-full h-full text-center text-3xl outline-none focus:bg-blue-50/50" value={plate2} onChange={e => setPlate2(e.target.value.slice(0,3).replace(/\D/g,''))} placeholder="---" maxLength={3} />
+                    </div>
+
+                    <div className="w-14 h-full flex flex-col border-l-2 border-gray-800 bg-gray-50/30">
+                        <div className="h-5 flex items-center justify-center text-[8px] border-b border-gray-300 font-bold text-gray-400">IRAN</div>
+                        <input className="w-full flex-1 h-full text-center text-2xl outline-none bg-transparent" value={plateCity} onChange={e => setPlateCity(e.target.value.slice(0,2).replace(/\D/g,''))} placeholder="--" maxLength={2} />
+                    </div>
+                </div>
             </div>
           </div>
           {/* Attachments Section */}

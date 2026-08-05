@@ -468,7 +468,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
             const amt = parseFloat(inv.Amount || 0);
-            const isReturn = String(inv.OpCode).trim() === '13';
+            const isReturn = inv.OpCode === '13';
             
             if (isReturn) {
                 totalReturnQty += qty;

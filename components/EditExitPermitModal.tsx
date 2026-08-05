@@ -9,7 +9,6 @@ import { getUsers } from '../services/authService';
 import { apiCall } from '../services/apiService';
 import { getSettings } from '../services/storageService'; 
 import html2canvas from 'html2canvas';
-import { IranPlateInput } from './IranPlateInput';
 
 interface EditExitPermitModalProps {
   permit: ExitPermit;
@@ -260,16 +259,7 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4 mt-6">
                     <h3 className="font-bold text-gray-700 text-sm flex items-center gap-2"><Truck size={18}/> اطلاعات راننده (اختیاری)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold block mb-1">نام راننده</label>
-                            <input className="w-full border rounded-lg p-2 text-sm" value={driverInfo.driverName} onChange={e => setDriverInfo({...driverInfo, driverName: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold block mb-1">شماره پلاک (ملی ایران)</label>
-                            <IranPlateInput value={driverInfo.plateNumber} onChange={val => setDriverInfo({...driverInfo, plateNumber: val})} />
-                        </div>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-xs font-bold block mb-1">نام راننده</label><input className="w-full border rounded-lg p-2 text-sm" value={driverInfo.driverName} onChange={e => setDriverInfo({...driverInfo, driverName: e.target.value})} /></div><div><label className="text-xs font-bold block mb-1">شماره پلاک</label><input className="w-full border rounded-lg p-2 text-sm dir-ltr" placeholder="12 A 345 67" value={driverInfo.plateNumber} onChange={e => setDriverInfo({...driverInfo, plateNumber: e.target.value})} /></div></div>
                     <div><label className="text-xs font-bold block mb-1">توضیحات تکمیلی</label><textarea className="w-full border rounded-lg p-2 text-sm h-20 resize-none" value={driverInfo.description} onChange={e => setDriverInfo({...driverInfo, description: e.target.value})} /></div>
                 </div>
 

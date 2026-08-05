@@ -255,17 +255,15 @@ export const saveDb = (data) => {
         try {
             if (isSaving) return;
             isSaving = true;
-            fs.writeFile(DB_FILE, JSON.stringify(MEMORY_DB_CACHE), (err) => {
-                if (err) console.error("DB Save Error:", err);
-                saveTimeout = null;
-                isSaving = false;
-            });
+            fs.writeFileSync(DB_FILE, JSON.stringify(MEMORY_DB_CACHE, null, 2));
+            saveTimeout = null;
+            isSaving = false;
         } catch (e) {
-            console.error("DB Save Setup Error:", e);
+            console.error("DB Save Error:", e);
             saveTimeout = null;
             isSaving = false;
         }
-    }, 1000);
+    }, 3000);
     
     return true;
 };
@@ -275,9 +273,7 @@ export const saveDbImmediate = (data) => {
     try {
         MEMORY_DB_CACHE = data;
         if (saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
-        fs.writeFile(DB_FILE, JSON.stringify(data, null, 2), (err) => {
-            if (err) console.error("Immediate DB Save Error:", err);
-        });
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
         return true;
     } catch (e) {
         console.error("Immediate DB Save Error:", e);

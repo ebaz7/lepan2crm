@@ -26,7 +26,6 @@ import {
     Trash2
 } from 'lucide-react';
 import * as jalaali from 'jalaali-js';
-import * as XLSX from 'xlsx';
 import { 
     BarChart, 
     Bar, 
@@ -63,9 +62,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return 'traz';
     });
     const [isLoading, setIsLoading] = useState(false);
-    
-    // Track previous fiscal year to prevent unwanted resets on background polling
-    const prevFiscalYearIdRef = React.useRef<string | undefined>(settings?.activeFiscalYearId);
     
     // Default Date Range (Direct Shamsi format "YYYY/MM/DD")
     const [dateFrom, setDateFrom] = useState('');
@@ -120,11 +116,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [chequesData, setChequesData] = useState<any[]>([]);
     const [chequeStatusFilter, setChequeStatusFilter] = useState('all'); // all, in_hand, at_bank, returned, spent
     const [chequeSearch, setChequeSearch] = useState('');
-
-    // --- BOT SENDING STATES FOR TRAZ & STATEMENT ---
-    const [sendPlatforms, setSendPlatforms] = useState<string[]>(['telegram', 'bale']);
-    const [customBotTarget, setCustomBotTarget] = useState('');
-    const [isSendingTrazBot, setIsSendingTrazBot] = useState(false);
 
     // ==========================================
     // DATE INITIALIZATION & CONVERSIONS
@@ -242,43 +233,35 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     useEffect(() => {
-        // Only trigger initialization if the active fiscal year ID actually changed (or on mount when ref is undefined)
-        const hasChanged = settings?.activeFiscalYearId && settings.activeFiscalYearId !== prevFiscalYearIdRef.current;
-        const isInitial = prevFiscalYearIdRef.current === undefined;
+        // Initialize Date range directly in Shamsi
+        const today = new Date();
+        const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+        
+        const activeYear = getActiveFiscalYearLabel();
+        
+        const savedFrom = localStorage.getItem('sayan_default_date_from');
+        const savedTo = localStorage.getItem('sayan_default_date_to');
+        
+        const initialFrom = savedFrom || `${activeYear}/01/01`;
+        const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
+        
+        setDateFrom(initialFrom);
+        setDateTo(initialTo);
 
-        if (isInitial || hasChanged) {
-            prevFiscalYearIdRef.current = settings?.activeFiscalYearId;
+        // Previous year default for comparisons (shifted by -1 year relative to Period A)
+        const shiftShamsiYear = (shamsiStr: string, delta: number) => {
+            if (!shamsiStr) return '';
+            const p = shamsiStr.split('/');
+            if (p.length !== 3) return shamsiStr;
+            const y = parseInt(p[0], 10);
+            return `${y + delta}/${p[1]}/${p[2]}`;
+        };
+        const startPrev = shiftShamsiYear(initialFrom, -1);
+        const endPrev = shiftShamsiYear(initialTo, -1);
+        setSalesDateFromB(startPrev);
+        setSalesDateToB(endPrev);
 
-            // Initialize Date range directly in Shamsi
-            const today = new Date();
-            const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-            
-            const activeYear = getActiveFiscalYearLabel();
-            
-            const savedFrom = localStorage.getItem('sayan_default_date_from');
-            const savedTo = localStorage.getItem('sayan_default_date_to');
-            
-            const initialFrom = savedFrom || `${activeYear}/01/01`;
-            const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
-            
-            setDateFrom(initialFrom);
-            setDateTo(initialTo);
-
-            // Previous year default for comparisons (shifted by -1 year relative to Period A)
-            const shiftShamsiYear = (shamsiStr: string, delta: number) => {
-                if (!shamsiStr) return '';
-                const p = shamsiStr.split('/');
-                if (p.length !== 3) return shamsiStr;
-                const y = parseInt(p[0], 10);
-                return `${y + delta}/${p[1]}/${p[2]}`;
-            };
-            const startPrev = shiftShamsiYear(initialFrom, -1);
-            const endPrev = shiftShamsiYear(initialTo, -1);
-            setSalesDateFromB(startPrev);
-            setSalesDateToB(endPrev);
-
-            fetchTafsilis();
-        }
+        fetchTafsilis();
     }, [settings?.activeFiscalYearId]);
 
     const applyQuickDate = (mode: 'today' | 'yesterday' | 'month' | 'quarter' | 'default') => {
@@ -576,148 +559,55 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-                    body {
-                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-                        padding: 30px;
-                        background: #ffffff;
-                        color: #1e293b;
-                        font-size: 11px;
-                        direction: rtl;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .top-bar {
-                        height: 6px;
-                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-                        border-radius: 3px;
-                        margin-bottom: 20px;
-                    }
-                    .header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2px solid #e2e8f0;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .header h1 {
-                        margin: 0;
-                        font-size: 18px;
-                        font-weight: 900;
-                        color: #1e3a8a;
-                        letter-spacing: -0.025em;
-                    }
-                    .header p {
-                        margin: 6px 0 0;
-                        font-size: 12px;
-                        color: #475569;
-                        font-weight: 500;
-                    }
-                    .meta-info {
-                        text-align: left;
-                        font-size: 11px;
-                        color: #475569;
-                        line-height: 1.6;
-                    }
-                    .meta-info strong {
-                        color: #0f172a;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin-top: 15px;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }
-                    th {
-                        background-color: #0f172a;
-                        color: #ffffff;
-                        padding: 12px 10px;
-                        font-weight: 700;
-                        font-size: 11px;
-                        border-bottom: 1px solid #1e293b;
-                        text-align: center;
-                    }
-                    td {
-                        padding: 10px 12px;
-                        border-bottom: 1px solid #e2e8f0;
-                        border-left: 1px solid #e2e8f0;
-                        color: #334155;
-                        font-size: 11px;
-                        vertical-align: middle;
-                        text-align: right;
-                    }
-                    td:last-child {
-                        border-left: none;
-                    }
-                    tr:nth-child(even) td {
-                        background-color: #f8fafc;
-                    }
-                    tr:hover td {
-                        background-color: #f1f5f9;
-                    }
-                    .total-row {
-                        font-weight: bold;
-                        background-color: #f1f5f9 !important;
-                    }
-                    .total-row td {
-                        background-color: #f1f5f9 !important;
-                        border-top: 2px solid #cbd5e1;
-                        border-bottom: 2px solid #cbd5e1;
-                        color: #0f172a;
-                        font-weight: 800;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 10px;
-                        color: #64748b;
-                        border-top: 1px dashed #e2e8f0;
-                        padding-top: 16px;
-                    }
+                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #333; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px; }
+                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; }
+                    .header p { margin: 4px 0 0; font-size: 13px; color: #475569; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: right; font-size: 12px; }
+                    th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
+                    tr:nth-child(even) { background-color: #f1f5f9; }
+                    .total { font-weight: bold; background: #e2e8f0 !important; }
+                    .footer { text-align: center; margin-top: 40px; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
                 </style>
             </head>
             <body>
-                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
-                        <p>دوره مالی: از <strong>${formatDateToJalali(dateFrom)}</strong> تا <strong>${formatDateToJalali(dateTo)}</strong></p>
+                        <p>دوره مالی: از ${formatDateToJalali(dateFrom)} تا ${formatDateToJalali(dateTo)}</p>
                     </div>
-                    <div class="meta-info">
-                        <div>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></div>
-                        <div>تعداد ردیف: <strong>${sortedList.length}</strong></div>
+                    <div style="text-align: left;">
+                        <p>تاریخ چاپ: ${formatDateToJalali(new Date().toISOString())}</p>
+                        <p>تعداد ردیف: ${sortedList.length}</p>
                     </div>
                 </div>
                 <table>
                     <thead>
                         <tr>
                             <th style="width: 60px; text-align: center;">ردیف</th>
-                            <th style="width: 150px; text-align: center;">کد حسابداری</th>
-                            <th>نام شخص / طرف حساب</th>
-                            <th style="text-align: left; width: 220px;">مبلغ مانده (ریال)</th>
+                            <th style="width: 120px;">کد حسابداری</th>
+                            <th>نام شخص</th>
+                            <th style="text-align: left; width: 200px;">مبلغ مانده (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${sortedList.map((row, idx) => `
                             <tr>
-                                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                                <td style="text-align: center; font-mono; font-weight: 600; color: #475569;">${row.code}</td>
-                                <td style="font-weight: 600; color: #0f172a;">${row.name}</td>
-                                <td style="text-align: left; font-weight: bold; color: ${row.balance > 0 ? '#15803d' : '#b91c1c'};">${formatMoney(row.balance)}</td>
+                                <td style="text-align: center;">${idx + 1}</td>
+                                <td>${row.code}</td>
+                                <td>${row.name}</td>
+                                <td style="text-align: left; font-weight: 500;">${formatMoney(row.balance)}</td>
                             </tr>
                         `).join('')}
-                        <tr class="total-row">
+                        <tr class="total">
                             <td colspan="3" style="text-align: left;">جمع کل مانده‌ها:</td>
                             <td style="text-align: left;">${formatMoney(sortedList.reduce((sum, r) => sum + r.balance, 0))}</td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="footer">
-                    <p>سیستم یکپارچه گزارشات حسابداری کارخانه (سایان ERP)</p>
+                    <p>سیستم گزارشات حسابداری یکپارچه سایان ERP</p>
                 </div>
             </body>
             </html>
@@ -732,110 +622,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 printWindow.print();
                 printWindow.close();
             }, 500);
-        }
-    };
-
-    const handleSendTrazReportToBots = async (isBed: boolean) => {
-        setIsSendingTrazBot(true);
-        try {
-            const subset = trazData.filter(row => isBed ? row.balance > 0 : row.balance < 0);
-            
-            if (subset.length === 0) {
-                toast.error(`هیچ حسابی با مانده ${isBed ? 'بدهکار' : 'بستانکار'} برای ارسال یافت نشد.`);
-                setIsSendingTrazBot(false);
-                return;
-            }
-
-            const customTargetsArray = customBotTarget
-                ? customBotTarget.split(',').map(s => s.trim()).filter(Boolean)
-                : [];
-
-            const response = await fetch('/api/sayan/traz-report/send-manual', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: isBed ? 'bed' : 'bes',
-                    selectedPlatforms: sendPlatforms,
-                    customTargets: customTargetsArray,
-                    list: subset,
-                    dateFrom,
-                    dateTo
-                })
-            });
-
-            const resData = await response.json();
-            if (!response.ok) throw new Error(resData.error || 'خطا در ارسال گزارش به ربات');
-
-            const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
-            const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
-
-            if (failed.length > 0) {
-                const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
-                const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
-                if (successes.length > 0) {
-                    toast(`گزارش تراز به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
-                } else {
-                    toast.error(`ارسال گزارش تراز ناموفق بود: ${failMsg}`, { duration: 10000 });
-                }
-            } else {
-                toast.success(resData.message || 'گزارش تراز با موفقیت به پیام‌رسان‌ها ارسال شد.');
-            }
-        } catch (e: any) {
-            toast.error(`خطا در ارسال گزارش تراز: ${e.message}`);
-        } finally {
-            setIsSendingTrazBot(false);
-        }
-    };
-
-    const handleSendStatementToBots = async () => {
-        setIsSendingTrazBot(true);
-        try {
-            if (filteredStatementData.length === 0) {
-                toast.error('هیچ تراکنشی در صورتحساب یافت نشد.');
-                setIsSendingTrazBot(false);
-                return;
-            }
-
-            const customTargetsArray = customBotTarget
-                ? customBotTarget.split(',').map(s => s.trim()).filter(Boolean)
-                : [];
-
-            const response = await fetch('/api/sayan/traz-report/send-manual', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'statement',
-                    selectedPlatforms: sendPlatforms,
-                    customTargets: customTargetsArray,
-                    statementRows: filteredStatementData,
-                    customerName: modalTafsiliName,
-                    customerCode: modalTafsiliCode,
-                    dateFrom,
-                    dateTo
-                })
-            });
-
-            const resData = await response.json();
-            if (!response.ok) throw new Error(resData.error || 'خطا در ارسال صورتحساب به ربات');
-
-            const failed = resData.sendDetails?.filter((d: any) => d.status === 'failed') || [];
-            const successes = resData.sendDetails?.filter((d: any) => d.status === 'success') || [];
-
-            if (failed.length > 0) {
-                const successMsg = successes.map((s: any) => s.platform === 'telegram' ? 'تلگرام' : s.platform === 'bale' ? 'بله' : s.platform).join(' و ');
-                const failMsg = failed.map((f: any) => `${f.platform === 'telegram' ? 'تلگرام' : f.platform === 'bale' ? 'بله' : f.platform} (خطا: ${f.error || 'نامشخص'})`).join('، ');
-                if (successes.length > 0) {
-                    toast(`صورتحساب به ${successMsg} ارسال شد، اما در ارسال به ${failMsg} خطا رخ داد.`, { icon: '⚠️', duration: 10000 });
-                } else {
-                    toast.error(`ارسال صورتحساب ناموفق بود: ${failMsg}`, { duration: 10000 });
-                }
-            } else {
-                toast.success(resData.message || 'صورتحساب با موفقیت به پیام‌رسان‌ها ارسال شد.');
-            }
-        } catch (e: any) {
-            toast.error(`خطا در ارسال صورتحساب: ${e.message}`);
-        } finally {
-            setIsSendingTrazBot(false);
         }
     };
 
@@ -990,28 +776,28 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         
         const hasCheques = guaranteeCheques.length > 0;
         const chequesSectionHtml = hasCheques ? `
-            <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 24px; page-break-inside: avoid;">
-                <h2 style="font-size: 13px; font-weight: 800; margin-bottom: 12px; color: #1e3a8a;">لیست چک‌های تضمینی و تعهدات مرتبط</h2>
+            <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 20px;">
+                <h2 style="font-size: 13px; margin-bottom: 12px; color: #1e293b; font-family: 'Tahoma', sans-serif;">لیست چک‌های تضمینی و تعهدات مرتبط</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th style="background-color: #fef3c7; color: #92400e; width: 50px;">ردیف</th>
-                            <th style="background-color: #fef3c7; color: #92400e; width: 100px;">تاریخ</th>
-                            <th style="background-color: #fef3c7; color: #92400e; width: 100px;">شماره سند</th>
-                            <th style="background-color: #fef3c7; color: #92400e; width: 180px;">سرفصل معین</th>
+                            <th style="background-color: #fef3c7; color: #92400e;">ردیف</th>
+                            <th style="background-color: #fef3c7; color: #92400e;">تاریخ</th>
+                            <th style="background-color: #fef3c7; color: #92400e;">شماره سند</th>
+                            <th style="background-color: #fef3c7; color: #92400e;">سرفصل معین</th>
                             <th style="background-color: #fef3c7; color: #92400e;">شرح آرتیکل</th>
-                            <th style="background-color: #fef3c7; color: #92400e; width: 180px; text-align: left;">مبلغ تضمین (ریال)</th>
+                            <th style="background-color: #fef3c7; color: #92400e;">مبلغ تضمین (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${guaranteeCheques.map((row, idx) => `
                             <tr>
-                                <td style="text-align: center; font-weight: bold; color: #78350f;">${idx + 1}</td>
-                                <td style="text-align: center; color: #78350f;">${formatDateToJalali(row.Date)}</td>
-                                <td style="text-align: center; font-weight: 600; color: #78350f;">${row.SanadNo}</td>
-                                <td style="color: #78350f;">${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
-                                <td style="color: #78350f; font-weight: 500;">${row.Description || ''}</td>
-                                <td style="text-align: left; font-weight: bold; color: #b45309;">${formatMoney(row.bed > 0 ? row.bed : row.bes)}</td>
+                                <td>${idx + 1}</td>
+                                <td>${formatDateToJalali(row.Date)}</td>
+                                <td>${row.SanadNo}</td>
+                                <td>${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
+                                <td>${row.Description || ''}</td>
+                                <td>${formatMoney(row.bed > 0 ? row.bed : row.bes)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1025,157 +811,52 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>ریز صورتحساب - ${name}</title>
                 <style>
-                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-                    body {
-                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-                        padding: 30px;
-                        background: #ffffff;
-                        color: #1e293b;
-                        font-size: 11px;
-                        direction: rtl;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .top-bar {
-                        height: 6px;
-                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-                        border-radius: 3px;
-                        margin-bottom: 20px;
-                    }
-                    .header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2px solid #e2e8f0;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .header h1 {
-                        margin: 0;
-                        font-size: 18px;
-                        font-weight: 900;
-                        color: #1e3a8a;
-                        letter-spacing: -0.025em;
-                    }
-                    .header p {
-                        margin: 4px 0 0;
-                        font-size: 12px;
-                        color: #475569;
-                        font-weight: 500;
-                    }
-                    .meta-info {
-                        text-align: left;
-                        font-size: 11px;
-                        color: #475569;
-                        line-height: 1.6;
-                    }
-                    .meta-info strong {
-                        color: #0f172a;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin-top: 15px;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }
-                    th {
-                        background-color: #0f172a;
-                        color: #ffffff;
-                        padding: 12px 10px;
-                        font-weight: 700;
-                        font-size: 11px;
-                        border-bottom: 1px solid #1e293b;
-                        text-align: center;
-                    }
-                    td {
-                        padding: 10px 12px;
-                        border-bottom: 1px solid #e2e8f0;
-                        border-left: 1px solid #e2e8f0;
-                        color: #334155;
-                        font-size: 11px;
-                        vertical-align: middle;
-                        text-align: right;
-                    }
-                    td:last-child {
-                        border-left: none;
-                    }
-                    tr:nth-child(even) td {
-                        background-color: #f8fafc;
-                    }
-                    tr:hover td {
-                        background-color: #f1f5f9;
-                    }
-                    .total-row {
-                        font-weight: bold;
-                        background-color: #f1f5f9 !important;
-                    }
-                    .total-row td {
-                        background-color: #f1f5f9 !important;
-                        border-top: 2px solid #cbd5e1;
-                        border-bottom: 2px solid #cbd5e1;
-                        color: #0f172a;
-                        font-weight: 800;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 10px;
-                        color: #64748b;
-                        border-top: 1px dashed #e2e8f0;
-                        padding-top: 16px;
-                    }
+                    body { font-family: 'Tahoma', sans-serif; padding: 25px; background: #fff; }
+                    .header { border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
+                    .header h1 { font-size: 18px; margin: 0; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: right; font-size: 11px; }
+                    th { background-color: #f1f5f9; }
+                    .total { font-weight: bold; background: #f8fafc; }
                 </style>
             </head>
             <body>
-                <div class="top-bar"></div>
                 <div class="header">
-                    <div>
-                        <h1>ریز صورتحساب تراکنش‌های مشتری</h1>
-                        <p>نام شخص: <strong>${name}</strong> (کد حسابداری: <strong>${selectedTafsili}</strong>)</p>
-                        <p>بازه گزارش: از <strong>${formatDateToJalali(dateFrom)}</strong> تا <strong>${formatDateToJalali(dateTo)}</strong></p>
-                    </div>
-                    <div class="meta-info">
-                        <div>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></div>
-                        <div>تعداد تراکنش‌ها: <strong>${filteredStatementData.length}</strong></div>
-                    </div>
+                    <h1>ریز صورتحساب تراکنش‌ها</h1>
+                    <p>شخص: <strong>${name} (کد: ${selectedTafsili})</strong></p>
+                    <p>بازه گزارش: از ${formatDateToJalali(dateFrom)} تا ${formatDateToJalali(dateTo)}</p>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 45px; text-align: center;">ردیف</th>
-                            <th style="width: 85px; text-align: center;">تاریخ</th>
-                            <th style="width: 80px; text-align: center;">شماره سند</th>
-                            <th style="width: 140px; text-align: center;">سرفصل معین</th>
+                            <th>ردیف</th>
+                            <th>تاریخ</th>
+                            <th>شماره سند</th>
+                            <th>سرفصل معین</th>
                             <th>شرح تراکنش</th>
-                            <th style="text-align: left; width: 140px;">بدهکار (ریال)</th>
-                            <th style="text-align: left; width: 140px;">بستانکار (ریال)</th>
-                            <th style="text-align: left; width: 160px;">مانده نهایی (ریال)</th>
+                            <th>بدهکار (ریال)</th>
+                            <th>بستانکار (ریال)</th>
+                            <th>مانده (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${filteredStatementData.map((row, idx) => `
                             <tr>
-                                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                                <td style="text-align: center; font-weight: 500;">${formatDateToJalali(row.Date)}</td>
-                                <td style="text-align: center; font-weight: bold; color: #475569;">${row.SanadNo}</td>
-                                <td style="font-size: 10px; color: #475569;">${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
-                                <td style="font-weight: 500; color: #0f172a;">${row.Description || ''}</td>
-                                <td style="text-align: left; font-weight: 600; color: ${row.bed > 0 ? '#1e293b' : '#94a3b8'};">${row.bed > 0 ? formatMoney(row.bed) : '۰'}</td>
-                                <td style="text-align: left; font-weight: 600; color: ${row.bes > 0 ? '#15803d' : '#94a3b8'};">${row.bes > 0 ? formatMoney(row.bes) : '۰'}</td>
-                                <td style="text-align: left; font-weight: bold; color: ${row.balance > 0 ? '#b91c1c' : row.balance < 0 ? '#15803d' : '#475569'};">
-                                    ${formatMoney(row.balance)}
-                                    <span style="font-size: 9px; font-weight: bold;">(${row.balance > 0 ? 'بدهکار' : row.balance < 0 ? 'بستانکار' : 'بی‌حساب'})</span>
-                                </td>
+                                <td>${idx + 1}</td>
+                                <td>${formatDateToJalali(row.Date)}</td>
+                                <td>${row.SanadNo}</td>
+                                <td>${row.MoeinGroup && row.MoeinParent && row.MoeinCode ? `${row.MoeinGroup}${row.MoeinParent}${row.MoeinCode} - ${row.MoeinName || 'سایر'}` : '-'}</td>
+                                <td>${row.Description || ''}</td>
+                                <td>${row.bed > 0 ? formatMoney(row.bed) : '۰'}</td>
+                                <td>${row.bes > 0 ? formatMoney(row.bes) : '۰'}</td>
+                                <td>${formatMoney(row.balance)} (${row.balance > 0 ? 'بدهکار' : row.balance < 0 ? 'بستانکار' : 'بی‌حساب'})</td>
                             </tr>
                         `).join('')}
-                        <tr class="total-row">
-                            <td colspan="5" style="text-align: left;">جمع کل عملکرد بازه:</td>
-                            <td style="text-align: left;">${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))}</td>
-                            <td style="text-align: left;">${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))}</td>
-                            <td style="text-align: left;">${formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)}</td>
+                        <tr class="total">
+                            <td colspan="5" style="text-align: left;">جمع کل:</td>
+                            <td>${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))}</td>
+                            <td>${formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))}</td>
+                            <td>${formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1227,7 +908,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
-                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1236,7 +916,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     GROUP BY t21_sub.Field_004
                 ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
                 LEFT JOIN (
-                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_sub.Field_003, t02_parent.Field_003)) as GroupName
+                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                     FROM IND_TBL_021 t21_sub
                     LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                     LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -1307,7 +987,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
-                                              AND t11.Field_036 = t10.Field_009
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1316,7 +995,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         GROUP BY t21_sub.Field_004
                     ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
                     LEFT JOIN (
-                        SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_sub.Field_003, t02_parent.Field_003)) as GroupName
+                        SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                         FROM IND_TBL_021 t21_sub
                         LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                         LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -1374,7 +1053,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         salesData.forEach(row => {
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = String(row.OpCode).trim() === '13';
+            const isReturn = row.OpCode === '13';
 
             if (isReturn) {
                 stats.rangeRetAmt += amt;
@@ -1613,7 +1292,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
             const amt = parseFloat(inv.Amount || 0);
-            const isReturn = String(inv.OpCode).trim() === '13';
+            const isReturn = inv.OpCode === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -1651,179 +1330,39 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-                    body {
-                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-                        padding: 30px;
-                        background: #ffffff;
-                        color: #1e293b;
-                        font-size: 11px;
-                        direction: rtl;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .top-bar {
-                        height: 6px;
-                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-                        border-radius: 3px;
-                        margin-bottom: 20px;
-                    }
-                    .header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2px solid #e2e8f0;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .header h1 {
-                        margin: 0;
-                        font-size: 18px;
-                        font-weight: 900;
-                        color: #1e3a8a;
-                        letter-spacing: -0.025em;
-                    }
-                    .header p {
-                        margin: 6px 0 0;
-                        font-size: 12px;
-                        color: #475569;
-                        font-weight: 500;
-                    }
-                    .meta-info {
-                        text-align: left;
-                        font-size: 11px;
-                        color: #475569;
-                        line-height: 1.6;
-                    }
-                    .meta-info strong {
-                        color: #0f172a;
-                    }
-                    .stats-container {
-                        display: grid;
-                        grid-template-columns: repeat(5, 1fr);
-                        gap: 12px;
-                        margin-bottom: 24px;
-                    }
-                    .stat-card {
-                        border: 1px solid #e2e8f0;
-                        background-color: #f8fafc;
-                        padding: 12px;
-                        border-radius: 12px;
-                        text-align: center;
-                        box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
-                    }
-                    .stat-card h3 {
-                        margin: 0 0 6px 0;
-                        font-size: 10px;
-                        color: #475569;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                    }
-                    .stat-card p {
-                        margin: 0;
-                        font-size: 13px;
-                        font-weight: 800;
-                        color: #0f172a;
-                    }
-                    .stat-card p.ret {
-                        color: #b91c1c;
-                    }
-                    .stat-card p.net {
-                        color: #15803d;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin-top: 15px;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }
-                    th {
-                        background-color: #0f172a;
-                        color: #ffffff;
-                        padding: 12px 10px;
-                        font-weight: 700;
-                        font-size: 11px;
-                        border-bottom: 1px solid #1e293b;
-                        text-align: center;
-                    }
-                    td {
-                        padding: 10px 12px;
-                        border-bottom: 1px solid #e2e8f0;
-                        border-left: 1px solid #e2e8f0;
-                        color: #334155;
-                        font-size: 11px;
-                        vertical-align: middle;
-                        text-align: right;
-                    }
-                    td:last-child {
-                        border-left: none;
-                    }
-                    tr:nth-child(even) td {
-                        background-color: #f8fafc;
-                    }
-                    tr:hover td {
-                        background-color: #f1f5f9;
-                    }
-                    .total-row {
-                        font-weight: bold;
-                        background-color: #f1f5f9 !important;
-                    }
-                    .total-row td {
-                        background-color: #f1f5f9 !important;
-                        border-top: 2px solid #cbd5e1;
-                        border-bottom: 2px solid #cbd5e1;
-                        color: #0f172a;
-                        font-weight: 800;
-                    }
-                    .ret-text {
-                        color: #b91c1c;
-                        font-weight: bold;
-                    }
-                    .net-text {
-                        color: #15803d;
-                        font-weight: bold;
-                    }
-                    .signatures {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 24px;
-                        margin-top: 50px;
-                        text-align: center;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                    .signature-box {
-                        height: 70px;
-                        border-bottom: 1px dashed #cbd5e1;
-                        margin-top: 10px;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 10px;
-                        color: #64748b;
-                        border-top: 1px dashed #e2e8f0;
-                        padding-top: 16px;
-                    }
+                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #1e293b; font-size: 11px; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: bold; }
+                    .header p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
+                    .stats-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+                    .stat-card { border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center; }
+                    .stat-card h3 { margin: 0 0 4px 0; font-size: 10px; color: #64748b; font-weight: bold; }
+                    .stat-card p { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; font-size: 11px; line-height: 1.4; }
+                    th { background-color: #0f172a; color: white; font-weight: bold; border: 1px solid #334155; }
+                    tr:nth-child(even) { background-color: #f8fafc; }
+                    .total { font-weight: bold; background: #1e293b !important; color: white !important; }
+                    .total td { border-color: #475569; color: white; }
+                    .ret { color: #e11d48; font-weight: bold; }
+                    .net { color: #15803d; font-weight: bold; }
+                    .footer { text-align: center; margin-top: 35px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+                    .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; text-align: center; font-size: 11px; font-weight: bold; }
+                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 8px; }
                     @media print {
                         body { padding: 0; }
                     }
                 </style>
             </head>
             <body>
-                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
                         <p>سیستم یکپارچه گزارشات مدیریتی سایان ERP - تفکیک فروش عادی و مرجوعی</p>
                     </div>
-                    <div class="meta-info">
+                    <div style="text-align: left;">
                         <p>تاریخ فاکتورها: <strong>${activeDate}</strong></p>
-                        <p>تاریخ چاپ: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
+                        <p>تاریخ چاپ: ${formatDateToJalali(new Date().toISOString())}</p>
                     </div>
                 </div>
 
@@ -1853,13 +1392,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 35px; text-align: center;">ردیف</th>
-                            <th style="width: 140px; text-align: center;">گروه کالا</th>
-                            <th style="text-align: right;">نام کالا / محصول</th>
-                            <th style="text-align: center; width: 140px;">فروش ناخالص (ک‌گ / ریال)</th>
-                            <th style="text-align: center; width: 140px;">مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
-                            <th style="text-align: center; width: 150px;">فروش خالص نهایی (ک‌گ / ریال)</th>
-                            <th style="text-align: left; width: 110px;">فی خالص نهایی</th>
+                            <th style="width: 35px;">ردیف</th>
+                            <th>گروه کالا</th>
+                            <th>نام کالا / محصول</th>
+                            <th>فروش ناخالص (ک‌گ / ریال)</th>
+                            <th>مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
+                            <th>فروش خالص نهایی (ک‌گ / ریال)</th>
+                            <th>فی خالص نهایی (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1869,35 +1408,35 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             const netFee = netQty > 0 ? (netAmt / netQty) : 0;
                             return `
                                 <tr>
-                                    <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                                    <td style="text-align: center; font-weight: 700; color: #475569;">${row.groupName}</td>
-                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.itemName}</td>
-                                    <td style="text-align: center;">
-                                        <strong>${row.grossQty.toFixed(1)}</strong> ک‌گ<br/>
-                                        <span style="font-size: 10px; color: #64748b;">${formatMoney(row.grossAmt)}</span>
+                                    <td>${idx + 1}</td>
+                                    <td style="font-weight: bold; color: #334155;">${row.groupName}</td>
+                                    <td style="text-align: right; font-weight: 600;">${row.itemName}</td>
+                                    <td>
+                                        ${row.grossQty.toFixed(1)} ک‌گ<br/>
+                                        <span style="font-family: monospace;">${formatMoney(row.grossAmt)}</span>
                                     </td>
-                                    <td style="text-align: center;">
-                                        ${row.retQty > 0 ? `<strong class="ret-text">${row.retQty.toFixed(1)}</strong> ک‌گ<br/><span style="font-size: 10px; color: #b91c1c;">${formatMoney(row.retAmt)}</span>` : '-'}
+                                    <td className="ret">
+                                        ${row.retQty > 0 ? `${row.retQty.toFixed(1)} ک‌گ<br/><span style="font-family: monospace; color: #e11d48;">${formatMoney(row.retAmt)}</span>` : '-'}
                                     </td>
-                                    <td style="text-align: center;">
-                                        <strong class="net-text">${netQty.toFixed(1)}</strong> ک‌گ<br/>
-                                        <span style="font-size: 10px; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
+                                    <td className="net">
+                                        <strong>${netQty.toFixed(1)} ک‌گ</strong><br/>
+                                        <span style="font-family: monospace; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
                                     </td>
-                                    <td style="text-align: left; font-weight: bold; color: #0f172a;">${formatMoney(Math.round(netFee))}</td>
+                                    <td style="font-family: monospace; font-weight: bold;">${formatMoney(Math.round(netFee))}</td>
                                 </tr>
                             `;
                         }).join('') : `
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 30px; color: #64748b; font-weight: bold;">هیچ فاکتور فروشی برای این روز ثبت نشده است.</td>
+                                <td colspan="7" style="text-align: center; padding: 30px; color: #64748b;">هیچ فاکتور فروشی برای این روز ثبت نشده است.</td>
                             </tr>
                         `}
                         ${groupedRows.length > 0 ? `
-                        <tr class="total-row">
+                        <tr class="total">
                             <td colspan="3" style="text-align: left;">جمع کل فروش روزانه:</td>
-                            <td style="text-align: center;"><strong>${totalGrossQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
-                            <td style="text-align: center;"><strong>${totalRetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
-                            <td style="text-align: center;"><strong>${totalNetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
-                            <td style="text-align: left;">${formatMoney(Math.round(totalNetFee))}</td>
+                            <td>${totalGrossQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
+                            <td>${totalRetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
+                            <td>${totalNetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
+                            <td>${formatMoney(Math.round(totalNetFee))}</td>
                         </tr>
                         ` : ''}
                     </tbody>
@@ -1959,7 +1498,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
             const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
-            const isReturn = String(row.OpCode).trim() === '13';
+            const isReturn = row.OpCode === '13';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
@@ -1996,179 +1535,39 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-                    body {
-                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-                        padding: 30px;
-                        background: #ffffff;
-                        color: #1e293b;
-                        font-size: 11px;
-                        direction: rtl;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .top-bar {
-                        height: 6px;
-                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-                        border-radius: 3px;
-                        margin-bottom: 20px;
-                    }
-                    .header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2px solid #e2e8f0;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .header h1 {
-                        margin: 0;
-                        font-size: 18px;
-                        font-weight: 900;
-                        color: #1e3a8a;
-                        letter-spacing: -0.025em;
-                    }
-                    .header p {
-                        margin: 6px 0 0;
-                        font-size: 12px;
-                        color: #475569;
-                        font-weight: 500;
-                    }
-                    .meta-info {
-                        text-align: left;
-                        font-size: 11px;
-                        color: #475569;
-                        line-height: 1.6;
-                    }
-                    .meta-info strong {
-                        color: #0f172a;
-                    }
-                    .stats-container {
-                        display: grid;
-                        grid-template-columns: repeat(5, 1fr);
-                        gap: 12px;
-                        margin-bottom: 24px;
-                    }
-                    .stat-card {
-                        border: 1px solid #e2e8f0;
-                        background-color: #f8fafc;
-                        padding: 12px;
-                        border-radius: 12px;
-                        text-align: center;
-                        box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
-                    }
-                    .stat-card h3 {
-                        margin: 0 0 6px 0;
-                        font-size: 10px;
-                        color: #475569;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                    }
-                    .stat-card p {
-                        margin: 0;
-                        font-size: 13px;
-                        font-weight: 800;
-                        color: #0f172a;
-                    }
-                    .stat-card p.ret {
-                        color: #b91c1c;
-                    }
-                    .stat-card p.net {
-                        color: #15803d;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin-top: 15px;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }
-                    th {
-                        background-color: #0f172a;
-                        color: #ffffff;
-                        padding: 12px 10px;
-                        font-weight: 700;
-                        font-size: 11px;
-                        border-bottom: 1px solid #1e293b;
-                        text-align: center;
-                    }
-                    td {
-                        padding: 10px 12px;
-                        border-bottom: 1px solid #e2e8f0;
-                        border-left: 1px solid #e2e8f0;
-                        color: #334155;
-                        font-size: 11px;
-                        vertical-align: middle;
-                        text-align: right;
-                    }
-                    td:last-child {
-                        border-left: none;
-                    }
-                    tr:nth-child(even) td {
-                        background-color: #f8fafc;
-                    }
-                    tr:hover td {
-                        background-color: #f1f5f9;
-                    }
-                    .total-row {
-                        font-weight: bold;
-                        background-color: #f1f5f9 !important;
-                    }
-                    .total-row td {
-                        background-color: #f1f5f9 !important;
-                        border-top: 2px solid #cbd5e1;
-                        border-bottom: 2px solid #cbd5e1;
-                        color: #0f172a;
-                        font-weight: 800;
-                    }
-                    .ret-text {
-                        color: #b91c1c;
-                        font-weight: bold;
-                    }
-                    .net-text {
-                        color: #15803d;
-                        font-weight: bold;
-                    }
-                    .signatures {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 24px;
-                        margin-top: 50px;
-                        text-align: center;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                    .signature-box {
-                        height: 70px;
-                        border-bottom: 1px dashed #cbd5e1;
-                        margin-top: 10px;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 10px;
-                        color: #64748b;
-                        border-top: 1px dashed #e2e8f0;
-                        padding-top: 16px;
-                    }
+                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 25px; background: #fff; color: #1e293b; font-size: 11px; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+                    .header h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: bold; }
+                    .header p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
+                    .stats-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+                    .stat-card { border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center; }
+                    .stat-card h3 { margin: 0 0 4px 0; font-size: 10px; color: #64748b; font-weight: bold; }
+                    .stat-card p { margin: 0; font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; font-size: 11px; line-height: 1.4; }
+                    th { background-color: #0f172a; color: white; font-weight: bold; border: 1px solid #334155; }
+                    tr:nth-child(even) { background-color: #f8fafc; }
+                    .total { font-weight: bold; background: #1e293b !important; color: white !important; }
+                    .total td { border-color: #475569; color: white; }
+                    .ret { color: #e11d48; font-weight: bold; }
+                    .net { color: #15803d; font-weight: bold; }
+                    .footer { text-align: center; margin-top: 35px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+                    .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; text-align: center; font-size: 11px; font-weight: bold; }
+                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 8px; }
                     @media print {
                         body { padding: 0; }
                     }
                 </style>
             </head>
             <body>
-                <div class="top-bar"></div>
                 <div class="header">
                     <div>
                         <h1>${title}</h1>
                         <p>سامانه مدیریت هوشمند و تحلیل فروش سایان ERP</p>
                     </div>
-                    <div class="meta-info">
+                    <div style="text-align: left;">
                         <p>بازه زمانی: <strong>از ${dateFrom} تا ${dateTo}</strong></p>
-                        <p>تاریخ صدور: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
+                        <p>تاریخ صدور: ${formatDateToJalali(new Date().toISOString())}</p>
                     </div>
                 </div>
 
@@ -2198,13 +1597,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 35px; text-align: center;">ردیف</th>
-                            <th style="width: 140px; text-align: center;">گروه کالا</th>
-                            <th style="text-align: right;">نام کالا / محصول</th>
-                            <th style="text-align: center; width: 140px;">فروش ناخالص (ک‌گ / ریال)</th>
-                            <th style="text-align: center; width: 140px;">مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
-                            <th style="text-align: center; width: 150px;">فروش خالص نهایی (ک‌گ / ریال)</th>
-                            <th style="text-align: left; width: 110px;">فی خالص نهایی</th>
+                            <th style="width: 35px;">ردیف</th>
+                            <th>گروه کالا</th>
+                            <th>نام کالا / محصول</th>
+                            <th>فروش ناخالص (ک‌گ / ریال)</th>
+                            <th>مرجوعی کد ۱۳ (ک‌گ / ریال)</th>
+                            <th>فروش خالص نهایی (ک‌گ / ریال)</th>
+                            <th>فی خالص نهایی (ریال)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2214,37 +1613,37 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             const netFee = netQty > 0 ? (netAmt / netQty) : 0;
                             return `
                                 <tr>
-                                    <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
-                                    <td style="text-align: center; font-weight: 700; color: #475569;">${row.groupName}</td>
-                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.itemName}</td>
-                                    <td style="text-align: center;">
-                                        <strong>${row.grossQty.toFixed(1)}</strong> ک‌گ<br/>
-                                        <span style="font-size: 10px; color: #64748b;">${formatMoney(row.grossAmt)}</span>
+                                    <td>${idx + 1}</td>
+                                    <td style="font-weight: bold; color: #334155;">${row.groupName}</td>
+                                    <td style="text-align: right; font-weight: 600;">${row.itemName}</td>
+                                    <td>
+                                        ${row.grossQty.toFixed(1)} ک‌گ<br/>
+                                        <span style="font-family: monospace;">${formatMoney(row.grossAmt)}</span>
                                     </td>
-                                    <td style="text-align: center;">
-                                        ${row.retQty > 0 ? `<strong class="ret-text">${row.retQty.toFixed(1)}</strong> ک‌گ<br/><span style="font-size: 10px; color: #b91c1c;">${formatMoney(row.retAmt)}</span>` : '-'}
+                                    <td>
+                                        ${row.retQty > 0 ? `<span class="ret">${row.retQty.toFixed(1)} ک‌گ</span><br/><span style="font-family: monospace; color: #e11d48;">${formatMoney(row.retAmt)}</span>` : '-'}
                                     </td>
-                                    <td style="text-align: center;">
-                                        <strong class="net-text">${netQty.toFixed(1)}</strong> ک‌گ<br/>
-                                        <span style="font-size: 10px; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
+                                    <td>
+                                        <strong>${netQty.toFixed(1)} ک‌گ</strong><br/>
+                                        <span style="font-family: monospace; font-weight: bold; color: #15803d;">${formatMoney(netAmt)}</span>
                                     </td>
-                                    <td style="text-align: left; font-weight: bold; color: #0f172a;">${formatMoney(Math.round(netFee))}</td>
+                                    <td style="font-family: monospace; font-weight: bold;">${formatMoney(Math.round(netFee))}</td>
                                 </tr>
                             `;
                         }).join('')}
                         ${groupedRows.length > 1000 ? `
                             <tr>
-                                <td colspan="7" style="text-align: center; color: #7f1d1d; font-weight: bold; background-color: #fef2f2; padding: 15px; border-top: 1px solid #fca5a5;">
+                                <td colspan="7" style="text-align: center; color: #475569; font-weight: bold; background-color: #fef08a;">
                                     نمایش ۱۰۰۰ ردیف اول از مجموع ${groupedRows.length} ردیف جهت کارایی چاپ
                                 </td>
                             </tr>
                         ` : ''}
-                        <tr class="total-row">
-                            <td colspan="3" style="text-align: left;">جمع کل فروش بازه:</td>
-                            <td style="text-align: center;"><strong>${totalGrossQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
-                            <td style="text-align: center;"><strong>${totalRetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
-                            <td style="text-align: center;"><strong>${totalNetQty.toFixed(1)}</strong> ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
-                            <td style="text-align: left;">${formatMoney(Math.round(totalNetFee))}</td>
+                        <tr class="total">
+                            <td colspan="3" style="text-align: left;">جمع کل بازه:</td>
+                            <td>${totalGrossQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalGrossAmt)}</td>
+                            <td>${totalRetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalRetAmt)}</td>
+                            <td>${totalNetQty.toFixed(1)} ک‌گ<br/>${formatMoney(totalNetAmt)}</td>
+                            <td>${formatMoney(Math.round(totalNetFee))}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -2365,159 +1764,31 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <meta charset="utf-8">
                 <title>${title}</title>
                 <style>
-                    @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-                    body {
-                        font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-                        padding: 30px;
-                        background: #ffffff;
-                        color: #1e293b;
-                        font-size: 11px;
-                        direction: rtl;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .top-bar {
-                        height: 6px;
-                        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-                        border-radius: 3px;
-                        margin-bottom: 20px;
-                    }
-                    .header {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        border-bottom: 2px solid #e2e8f0;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .header h1 {
-                        margin: 0;
-                        font-size: 18px;
-                        font-weight: 900;
-                        color: #1e3a8a;
-                        letter-spacing: -0.025em;
-                    }
-                    .header p {
-                        margin: 6px 0 0;
-                        font-size: 11px;
-                        color: #475569;
-                        font-weight: 500;
-                    }
-                    .info-box {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 16px;
-                        background-color: #f8fafc;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 12px;
-                        padding: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .info-box div {
-                        line-height: 1.8;
-                        font-size: 11px;
-                        color: #475569;
-                    }
-                    .info-box strong {
-                        color: #0f172a;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: separate;
-                        border-spacing: 0;
-                        margin-top: 15px;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        overflow: hidden;
-                    }
-                    th {
-                        background-color: #0f172a;
-                        color: #ffffff;
-                        padding: 10px 8px;
-                        font-weight: 700;
-                        font-size: 11px;
-                        border-bottom: 1px solid #1e293b;
-                        text-align: center;
-                    }
-                    td {
-                        padding: 10px 8px;
-                        border-bottom: 1px solid #e2e8f0;
-                        border-left: 1px solid #e2e8f0;
-                        color: #334155;
-                        font-size: 11px;
-                        vertical-align: middle;
-                        text-align: center;
-                    }
-                    td:last-child {
-                        border-left: none;
-                    }
-                    tr:nth-child(even) td {
-                        background-color: #f8fafc;
-                    }
-                    tr:hover td {
-                        background-color: #f1f5f9;
-                    }
-                    .total-row {
-                        font-weight: bold;
-                        background-color: #f1f5f9 !important;
-                    }
-                    .total-row td {
-                        background-color: #f1f5f9 !important;
-                        border-top: 2px solid #cbd5e1;
-                        border-bottom: 2px solid #cbd5e1;
-                        color: #0f172a;
-                        font-weight: 800;
-                    }
-                    .pos {
-                        color: #16a34a;
-                        font-weight: bold;
-                    }
-                    .neg {
-                        color: #dc2626;
-                        font-weight: bold;
-                    }
-                    .ret {
-                        color: #e11d48;
-                        font-size: 9px;
-                        font-weight: 500;
-                    }
-                    .signatures {
-                        display: grid;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 24px;
-                        margin-top: 50px;
-                        text-align: center;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                    .signature-box {
-                        height: 70px;
-                        border-bottom: 1px dashed #cbd5e1;
-                        margin-top: 10px;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 10px;
-                        color: #64748b;
-                        border-top: 1px dashed #e2e8f0;
-                        padding-top: 16px;
-                    }
-                    @media print {
-                        body { padding: 0; }
-                    }
+                    body { font-family: Tahoma, 'B Nazanin', Arial, sans-serif; margin: 25px; direction: rtl; color: #1e293b; font-size: 11px; }
+                    .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
+                    .header h1 { margin: 0; font-size: 18px; color: #1e3a8a; }
+                    .header p { margin: 5px 0 0 0; color: #64748b; font-size: 12px; }
+                    .info-box { display: flex; justify-content: space-between; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; }
+                    .info-box div { line-height: 1.6; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+                    th { background-color: #0f172a; color: white; padding: 10px 6px; text-align: center; border: 1px solid #334155; font-weight: bold; }
+                    td { border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center; }
+                    tr:nth-child(even) { background-color: #f8fafc; }
+                    .total { background-color: #1e293b !important; color: white !important; font-weight: bold; }
+                    .total td { border-color: #475569; color: white; }
+                    .pos { color: #16a34a; font-weight: bold; }
+                    .neg { color: #dc2626; font-weight: bold; }
+                    .ret { color: #e11d48; font-size: 9px; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 40px; page-break-inside: avoid; }
+                    .signatures div { text-align: center; width: 30%; }
+                    .signature-box { height: 60px; border-bottom: 1px dashed #94a3b8; margin-top: 10px; }
+                    .footer { text-align: center; margin-top: 30px; font-size: 9px; color: #94a3b8; border-t: 1px solid #e2e8f0; padding-top: 10px; }
                 </style>
             </head>
             <body>
-                <div class="top-bar"></div>
                 <div class="header">
-                    <div>
-                        <h1>گزارش رسمـی و تحلیلی مقایسه‌ای فروش (سایان ERP)</h1>
-                        <p>پایش مقایسه‌ای وزن، مرجوعی کد ۱۳، مبلغ خالص و تغییرات فی نهایی اقلام</p>
-                    </div>
-                    <div style="text-align: left; font-size: 11px; color: #475569;">
-                        <p>تاریخ صدور گزارش: <strong>${formatDateToJalali(new Date().toISOString())}</strong></p>
-                    </div>
+                    <h1>گزارش رسمـی و تحلیلی مقایسه‌ای فروش (سایان ERP)</h1>
+                    <p>پایش مقایسه‌ای وزن، مرجوعی کد ۱۳، مبلغ خالص و تغییرات فی نهایی اقلام</p>
                 </div>
                 <div class="info-box">
                     <div>
@@ -2526,7 +1797,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     </div>
                     <div>
                         <strong>نحوه تفکیک:</strong> ${compareGroupBy === 'group' ? 'گروه کالا' : 'نام دقیق محصول'}<br/>
-                        <strong>تعداد اقلام مقایسه‌ای:</strong> ${data.length} قلم
+                        <strong>تاریخ صدور گزارش:</strong> ${formatDateToJalali(new Date().toISOString())}
                     </div>
                     <div>
                         <strong>رشد وزن کل:</strong> <span class="${totalWeightDiff >= 0 ? 'pos' : 'neg'}">${totalWeightDiff >= 0 ? '+' : ''}${totalWeightDiff.toFixed(1)}%</span><br/>
@@ -2538,16 +1809,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     <thead>
                         <tr>
                             <th style="width: 30px;">ردیف</th>
-                            <th style="text-align: right; width: 180px;">نام ${compareGroupBy === 'group' ? 'گروه کالا' : 'محصول'}</th>
+                            <th>نام ${compareGroupBy === 'group' ? 'گروه کالا' : 'محصول'}</th>
                             <th>وزن خالص A (ک‌گ)<br/><span style="font-size: 9px; font-weight: normal; color: #cbd5e1;">(مرجوعی)</span></th>
                             <th>مبلغ خالص A (ریال)</th>
                             <th>فی نهایی A (ریال)</th>
                             <th>وزن خالص B (ک‌گ)<br/><span style="font-size: 9px; font-weight: normal; color: #cbd5e1;">(مرجوعی)</span></th>
                             <th>مبلغ خالص B (ریال)</th>
                             <th>فی نهایی B (ریال)</th>
-                            <th style="width: 75px;">تغییر وزن</th>
-                            <th style="width: 75px;">تغییر مبلغ</th>
-                            <th style="width: 75px;">تغییر فی</th>
+                            <th>تغییر وزن (%)</th>
+                            <th>تغییر مبلغ (%)</th>
+                            <th>تغییر فی (%)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2560,27 +1831,27 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             return `
                                 <tr>
-                                    <td style="font-weight: bold; color: #64748b;">${idx + 1}</td>
-                                    <td style="text-align: right; font-weight: bold; color: #0f172a;">${row.name}</td>
+                                    <td>${idx + 1}</td>
+                                    <td style="text-align: right; font-weight: bold;">${row.name}</td>
                                     <td>
                                         <strong>${row.netWeightA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
                                         ${row.retWeightA > 0 ? `<br/><span class="ret">مرجوعی: ${row.retWeightA.toFixed(1)}</span>` : ''}
                                     </td>
-                                    <td style="text-align: left; font-weight: 500;">${formatMoney(row.netAmountA)}</td>
-                                    <td style="text-align: left; font-weight: 600;">${formatMoney(Math.round(feeA))}</td>
+                                    <td style="text-align: left; font-family: monospace;">${formatMoney(row.netAmountA)}</td>
+                                    <td style="text-align: left; font-family: monospace;">${formatMoney(Math.round(feeA))}</td>
                                     <td>
                                         <strong>${row.netWeightB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
                                         ${row.retWeightB > 0 ? `<br/><span class="ret">مرجوعی: ${row.retWeightB.toFixed(1)}</span>` : ''}
                                     </td>
-                                    <td style="text-align: left; font-weight: 500;">${formatMoney(row.netAmountB)}</td>
-                                    <td style="text-align: left; font-weight: 600;">${formatMoney(Math.round(feeB))}</td>
+                                    <td style="text-align: left; font-family: monospace;">${formatMoney(row.netAmountB)}</td>
+                                    <td style="text-align: left; font-family: monospace;">${formatMoney(Math.round(feeB))}</td>
                                     <td class="${wDiff >= 0 ? 'pos' : 'neg'}">${wDiff >= 0 ? '+' : ''}${wDiff.toFixed(1)}%</td>
                                     <td class="${aDiff >= 0 ? 'pos' : 'neg'}">${aDiff >= 0 ? '+' : ''}${aDiff.toFixed(1)}%</td>
                                     <td class="${feeDiff >= 0 ? 'pos' : 'neg'}">${feeDiff >= 0 ? '+' : ''}${feeDiff.toFixed(1)}%</td>
                                 </tr>
                             `;
                         }).join('')}
-                        <tr class="total-row">
+                        <tr class="total">
                             <td colspan="2" style="text-align: right;">جمع کل عملکرد کارخانه:</td>
                             <td>${sumNetWA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                             <td style="text-align: left;">${formatMoney(sumNetAmtA)}</td>
@@ -2658,7 +1929,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (String(row.OpCode).trim() === '13') {
+            if (row.OpCode === '13') {
                 groups[key].retAmountA += amt;
                 groups[key].retWeightA += qty;
                 groups[key].netAmountA -= amt;
@@ -2682,7 +1953,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const amt = parseFloat(row.Amount || 0);
             const qty = parseNetWeight(row);
-            if (String(row.OpCode).trim() === '13') {
+            if (row.OpCode === '13') {
                 groups[key].retAmountB += amt;
                 groups[key].retWeightB += qty;
                 groups[key].netAmountB -= amt;
@@ -2743,33 +2014,25 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const sql = `
                     SELECT 
-                        t10.Field_005 as DocId,
+                        t10.Field_001 as DocId,
                         t10.Field_008 as Date,
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
-                        RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                        COALESCE(
-                            NULLIF(RTRIM(LTRIM(t22.Field_004)), ''), 
-                            NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''), 
-                            NULLIF(RTRIM(LTRIM(t11.Field_005)), ''), 
-                            'کالای بدون نام'
-                        ) as ItemName,
+                        t11.Field_005 as ItemCode,
+                        COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
-                    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004 AND t11.Field_036 = t10.Field_009
+                    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub
-                        LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                        GROUP BY RTRIM(LTRIM(t21_sub.Field_004))
+                        LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
+                        GROUP BY t21_sub.Field_004
                     ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
-                      AND (
-                        (t10.Field_008 >= '${gregFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gregTo}T23:59:59.999Z')
-                        OR (t10.Field_008 >= '${gregFrom} 00:00:00' AND t10.Field_008 <= '${gregTo} 23:59:59')
-                        OR (t10.Field_008 >= '${cleanDateFrom}' AND t10.Field_008 <= '${cleanDateTo} 23:59:59')
-                      )
-                    ORDER BY ItemName, t10.Field_008
+                      AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
+                      AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
+                    ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
                 `;
                 
                 const rawRows = await runSayanQuery(sql);
@@ -2981,71 +2244,79 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             return;
         }
 
-        const data: any[][] = [
-            ["گزارش آمار تولید سایان"],
-            [`از تاریخ: ${dateFrom} تا تاریخ: ${dateTo}`],
-            [""],
-            [
-                "نام کالا",
-                "واحد",
-                "سند ۶۱ (POY)",
-                "سند ۶۷ (DTY)",
-                "سند ۷۹ (کش)",
-                "سند ۷۳ (اسپاندکس)",
-                "جمع کل"
-            ]
+        const headers = [
+            "کالا",
+            "واحد",
+            "سند ۶۱ (POY)",
+            "سند ۶۷ (DTY)",
+            "سند ۷۹ (کش)",
+            "سند ۷۳ (اسپاندکس)",
+            "جمع کل"
         ];
 
+        const rows = [headers.join(",")];
+
         prodLiveItems.forEach((item: any) => {
-            data.push([
-                item.name,
-                item.unit || "کیلوگرم",
+            const row = [
+                `"${item.name.replace(/"/g, '""')}"`,
+                `"${(item.unit || "کیلوگرم").replace(/"/g, '""')}"`,
                 item.qty_61 || 0,
                 item.qty_67 || 0,
                 item.qty_79 || 0,
                 item.qty_73 || 0,
                 item.total || 0
-            ]);
+            ];
+            rows.push(row.join(","));
         });
 
-        data.push([""]);
-        data.push([
-            "جمع کل تولید",
-            "کیلوگرم",
+        // Add blank row
+        rows.push("");
+
+        // Add Totals row
+        const totalRow = [
+            `"جمع کل تولید"`,
+            `"کیلوگرم"`,
             prodLiveTotals.qty_61 || 0,
             prodLiveTotals.qty_67 || 0,
             prodLiveTotals.qty_79 || 0,
             prodLiveTotals.qty_73 || 0,
             prodLiveTotals.grandTotal || 0
-        ]);
+        ];
+        rows.push(totalRow.join(","));
 
-        data.push([
-            "ضایعات (ورود دستی)",
-            "کیلوگرم",
+        // Add Waste row
+        const wasteRow = [
+            `"ضایعات (ورود دستی)"`,
+            `"کیلوگرم"`,
             prodWaste.waste_61 || 0,
             prodWaste.waste_67 || 0,
             prodWaste.waste_79 || 0,
             prodWaste.waste_73 || 0,
             prodWaste.totalWaste || 0
-        ]);
+        ];
+        rows.push(wasteRow.join(","));
 
-        data.push([
-            "درصد ضایعات",
-            "درصد",
+        // Add Waste Pct row
+        const pctRow = [
+            `"درصد ضایعات"`,
+            `"درصد"`,
             (prodWaste.pct_61 || 0).toFixed(2) + "%",
             (prodWaste.pct_67 || 0).toFixed(2) + "%",
             (prodWaste.pct_79 || 0).toFixed(2) + "%",
             (prodWaste.pct_73 || 0).toFixed(2) + "%",
             (prodWaste.totalPct || 0).toFixed(2) + "%"
-        ]);
+        ];
+        rows.push(pctRow.join(","));
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "آمار تولید");
-        
-        const cleanFileName = `آمار_تولید_${dateFrom.replace(/[\/\\]/g, '-')}_تا_${dateTo.replace(/[\/\\]/g, '-')}.xlsx`;
-        XLSX.writeFile(wb, cleanFileName);
-        toast.success("فایل اکسل آمار تولید با موفقیت دانلود شد.");
+        const bom = "\uFEFF"; 
+        const blob = new Blob([bom + rows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Production_Report_${dateFrom.replace(/[\/\\]/g, '-')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("فایل اکسل (CSV) با موفقیت دانلود شد.");
     };
 
     // Aggregate production by selection
@@ -3131,16 +2402,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 
                 // Categorization logic based on status string
                 let statusGroup = 'in_hand'; // default نزد صندوق
-                if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('واگذار')) {
-                    statusGroup = 'spent';
-                } else if (desc.includes('برگشت') || desc.includes('واخواست')) {
-                    if (desc.includes('مشتری') || desc.includes('صاحب') || desc.includes('دهنده')) {
-                        statusGroup = 'returned_to_customer';
-                    } else {
-                        statusGroup = 'bounced_in_safe';
-                    }
-                } else if (desc.includes('بانک') || desc.includes('کلر') || desc.includes('حساب')) {
+                if (desc.includes('بانک') || desc.includes('کلر')) {
                     statusGroup = 'at_bank';
+                } else if (desc.includes('برگشت') || desc.includes('واخواست')) {
+                    statusGroup = 'returned';
+                } else if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت')) {
+                    statusGroup = 'spent';
                 }
 
                 return {
@@ -3169,14 +2436,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                   c.bankName.toLowerCase().includes(chequeSearch.toLowerCase());
             if (!matchesSearch) return false;
             
-            if (chequeStatusFilter !== 'all') {
-                if (chequeStatusFilter === 'in_hand') {
-                    if (c.statusGroup !== 'in_hand' && c.statusGroup !== 'bounced_in_safe') return false;
-                } else if (chequeStatusFilter === 'returned') {
-                    if (c.statusGroup !== 'bounced_in_safe' && c.statusGroup !== 'returned_to_customer' && c.statusGroup !== 'returned') return false;
-                } else if (c.statusGroup !== chequeStatusFilter) {
-                    return false;
-                }
+            if (chequeStatusFilter !== 'all' && c.statusGroup !== chequeStatusFilter) {
+                return false;
             }
             return true;
         });
@@ -3403,84 +2664,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md border border-emerald-200 text-xs font-semibold transition-colors"
                                 >
                                     <Printer className="w-3.5 h-3.5" /> خروجی بستانکاران
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Premium Messenger Sender Panel */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 rtl">
-                            <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
-                                <div className="space-y-1 min-w-[200px]">
-                                    <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                                        <Send className="w-4 h-4 text-blue-600 animate-pulse" />
-                                        ارسال مانده‌ها به پیام‌رسان‌ها
-                                    </h4>
-                                    <p className="text-[11px] text-slate-500 font-medium">ارسال دستی و آنی فایل PDF تراز اشخاص به کانال یا گروه ربات</p>
-                                </div>
-
-                                {/* Platform Selector */}
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-slate-600">پلتفرم‌ها:</span>
-                                    {['telegram', 'bale', 'whatsapp'].map((plat) => {
-                                        const isSelected = sendPlatforms.includes(plat);
-                                        return (
-                                            <button
-                                                key={plat}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSendPlatforms(prev => 
-                                                        prev.includes(plat) 
-                                                            ? prev.filter(p => p !== plat) 
-                                                            : [...prev, plat]
-                                                    );
-                                                }}
-                                                className={`px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1 cursor-pointer ${
-                                                    isSelected 
-                                                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
-                                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={isSelected} 
-                                                    readOnly 
-                                                    className="w-3 h-3 accent-blue-600 rounded cursor-pointer pointer-events-none"
-                                                />
-                                                {plat === 'telegram' ? 'تلگرام' : plat === 'bale' ? 'بله' : 'واتساپ'}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Custom target input */}
-                                <div className="flex-1 min-w-[200px] space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-600">ارسال به مقصد سفارشی (شناسه چت یا شماره):</label>
-                                    <input 
-                                        type="text"
-                                        placeholder="مثال: telegram:-1001234567, bale:12345"
-                                        value={customBotTarget}
-                                        onChange={(e) => setCustomBotTarget(e.target.value)}
-                                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-2.5 justify-end shrink-0">
-                                <button
-                                    onClick={() => handleSendTrazReportToBots(true)}
-                                    disabled={isSendingTrazBot || sendPlatforms.length === 0}
-                                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm shadow-rose-600/10"
-                                >
-                                    {isSendingTrazBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                    ارسال فایل بدهکاران به بات
-                                </button>
-                                <button
-                                    onClick={() => handleSendTrazReportToBots(false)}
-                                    disabled={isSendingTrazBot || sendPlatforms.length === 0}
-                                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm shadow-emerald-600/10"
-                                >
-                                    {isSendingTrazBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                    ارسال فایل بستانکاران به بات
                                 </button>
                             </div>
                         </div>
@@ -4143,7 +3326,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
                                 const qty = parseFloat(row.Quantity || 0);
                                 const amt = parseFloat(row.Amount || 0);
-                                const isReturn = String(row.OpCode).trim() === '13';
+                                const isReturn = row.OpCode === '13';
 
                                 if (!groupMap.has(key)) {
                                     groupMap.set(key, {
@@ -4574,7 +3757,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     const netW = parseNetWeight(row);
                                                     const grossW = parseGrossWeight(row);
                                                     const fee = parseFee(row, netW);
-                                                    const isRet = String(row.OpCode).trim() === '13';
+                                                    const isRet = row.OpCode === '13';
                                                     return (
                                                         <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${isRet ? 'bg-rose-50' : ''}`}>
                                                             <td className="p-3 font-medium text-slate-500 whitespace-nowrap">{formatDateToJalali(row.Date)}</td>
@@ -4789,7 +3972,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 const netW = parseNetWeight(row);
                                                 const grossW = parseGrossWeight(row);
                                                 const fee = parseFee(row, netW);
-                                                const isRet = String(row.OpCode).trim() === '13';
+                                                const isRet = row.OpCode === '13';
                                                 return (
                                                     <div key={idx} className={`p-4 space-y-2 text-xs ${isRet ? 'bg-rose-50' : ''}`}>
                                                         <div className="flex justify-between items-center">
@@ -5290,7 +4473,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <td className="p-3 text-center">
                                                     <span className={`px-2.5 py-0.5 rounded text-[10px] font-extrabold border ${
                                                         row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                        (row.statusGroup === 'returned' || row.statusGroup === 'bounced_in_safe' || row.statusGroup === 'returned_to_customer') ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                                        row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
                                                         row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                                         'bg-slate-50 text-slate-700 border-slate-200'
                                                     }`}>
@@ -5314,7 +4497,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <span className="text-[10px] text-slate-400 font-bold font-mono">#{idx + 1} | چک: {row.chequeNo}</span>
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${
                                                     row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                    (row.statusGroup === 'returned' || row.statusGroup === 'bounced_in_safe' || row.statusGroup === 'returned_to_customer') ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                                    row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
                                                     row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                                     'bg-slate-50 text-slate-700 border-slate-200'
                                                 }`}>
@@ -5404,15 +4587,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 >
                                     <Printer className="w-3.5 h-3.5 text-slate-500" />
                                     چاپ / PDF
-                                </button>
-                                <button 
-                                    onClick={handleSendStatementToBots}
-                                    disabled={isLoading || filteredStatementData.length === 0 || isSendingTrazBot || sendPlatforms.length === 0}
-                                    className="flex-1 sm:flex-none px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all cursor-pointer shadow-sm shadow-indigo-600/10"
-                                    title={`ارسال صورتحساب به ${sendPlatforms.map(p => p === 'telegram' ? 'تلگرام' : p === 'bale' ? 'بله' : 'واتساپ').join(' و ')}`}
-                                >
-                                    {isSendingTrazBot ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                    ارسال صورتحساب به پیام‌رسان‌ها
                                 </button>
                             </div>
                         </div>

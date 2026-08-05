@@ -8,7 +8,6 @@ import { getUsers } from '../services/authService';
 import { Save, Loader2, Truck, Package, MapPin, Hash, Plus, Trash2, Building2, User as UserIcon, Calendar, CheckSquare, ArrowLeft, GitMerge, Users, X, Paperclip } from 'lucide-react';
 import PrintExitPermit from './PrintExitPermit';
 import html2canvas from 'html2canvas';
-import { IranPlateInput } from './IranPlateInput';
 
 const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> = ({ onSuccess, currentUser }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -454,10 +453,7 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
                         </div>
                         <div className="space-y-3 mt-2">
                             <div><label className="text-xs font-bold block mb-1">نام راننده</label><input className="w-full border rounded-xl p-2 text-sm glass-panel" value={driverInfo.driverName} onChange={e => setDriverInfo({...driverInfo, driverName: e.target.value})} /></div>
-                            <div>
-                                <label className="text-xs font-bold block mb-1">پلاک خودرو (ملی ایران)</label>
-                                <IranPlateInput value={driverInfo.plateNumber} onChange={val => setDriverInfo({...driverInfo, plateNumber: val})} />
-                            </div>
+                            <div><label className="text-xs font-bold block mb-1">پلاک خودرو</label><input className="w-full border rounded-xl p-2 text-sm glass-panel dir-ltr text-center font-mono font-bold tracking-widest" placeholder="12 A 345 67" value={driverInfo.plateNumber} onChange={e => setDriverInfo({...driverInfo, plateNumber: e.target.value})} /></div>
                             <div><label className="text-xs font-bold block mb-1">توضیحات تکمیلی</label><textarea className="w-full border rounded-xl p-2 text-sm glass-panel h-20 resize-none" placeholder="توضیحات..." value={driverInfo.description} onChange={e => setDriverInfo({...driverInfo, description: e.target.value})} /></div>
                         </div>
                     </div>
