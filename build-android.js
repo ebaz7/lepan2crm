@@ -114,18 +114,20 @@ try {
 
     // 3. Assemble APK via Gradle
     const isRelease = process.argv.includes('--release');
-    const gradleTask = isRelease ? 'assembleRelease' : 'assembleDebug';
-    console.log(`⚙️  Step 3/4: Building Android APK in ${isRelease ? 'RELEASE' : 'DEBUG'} mode using Gradle... (This may take a moment)`);
+    const buildType = isRelease ? 'Release' : 'Debug';
+    const taskName = `assemble${buildType}`;
+    
+    console.log(`⚙️  Step 3/4: Building Android ${buildType} APK using Gradle... (This may take a moment)`);
     
     const gradlewName = isWindows ? 'gradlew.bat' : 'gradlew';
     const gradlewPath = join(gradleDir, gradlewName);
 
     let gradleCmd = '';
     if (existsSync(gradlewPath)) {
-        gradleCmd = isWindows ? `gradlew.bat ${gradleTask}` : `./gradlew ${gradleTask}`;
+        gradleCmd = isWindows ? `gradlew.bat ${taskName}` : `./gradlew ${taskName}`;
     } else {
-        console.log(`ℹ️  Gradle wrapper not found, trying system gradle...`);
-        gradleCmd = `gradle ${gradleTask}`;
+        console.log('ℹ️  Gradle wrapper not found, trying system gradle...');
+        gradleCmd = `gradle ${taskName}`;
     }
 
     console.log(`🚀 Executing: ${gradleCmd} inside ./android`);
@@ -137,7 +139,7 @@ try {
         extraEnv.ANDROID_SDK_ROOT = sdkPath;
     }
     
-    // Execute gradle assembly
+    // Execute gradle assemble task
     execSync(gradleCmd, { 
         cwd: gradleDir, 
         stdio: 'inherit',
@@ -150,26 +152,31 @@ try {
 
     // 4. Locating and copying APK to root
     console.log('📂 Step 4/4: Locating compiled APK file...');
-    let defaultApkPath = '';
-    if (isRelease) {
-        const signedReleasePath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
-        const unsignedReleasePath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release-unsigned.apk');
-        defaultApkPath = existsSync(signedReleasePath) ? signedReleasePath : unsignedReleasePath;
-    } else {
-        defaultApkPath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+    const apkSubDir = isRelease ? 'release' : 'debug';
+    const primaryApkName = isRelease ? 'app-release-unsigned.apk' : 'app-debug.apk';
+    const secondaryApkName = isRelease ? 'app-release.apk' : 'app-debug.apk';
+    
+    const primaryApkPath = join(gradleDir, 'app', 'build', 'outputs', 'apk', apkSubDir, primaryApkName);
+    const secondaryApkPath = join(gradleDir, 'app', 'build', 'outputs', 'apk', apkSubDir, secondaryApkName);
+    const rootApkPath = join(process.cwd(), isRelease ? 'payment-system-release.apk' : 'payment-system-latest.apk');
+
+    let selectedApkPath = null;
+    if (existsSync(primaryApkPath)) {
+        selectedApkPath = primaryApkPath;
+    } else if (existsSync(secondaryApkPath)) {
+        selectedApkPath = secondaryApkPath;
     }
 
-    const outputName = isRelease ? 'payment-system-release.apk' : 'payment-system-latest.apk';
-    const rootApkPath = join(process.cwd(), outputName);
-
-    if (existsSync(defaultApkPath)) {
-        copyFileSync(defaultApkPath, rootApkPath);
+    if (selectedApkPath) {
+        copyFileSync(selectedApkPath, rootApkPath);
         console.log('====================================================');
-        console.log(`🎉 SUCCESS! ${isRelease ? 'RELEASE' : 'DEBUG'} APK BUILT SUCCESSFULLY! 🎉`);
+        console.log(`🎉 SUCCESS! ${buildType.toUpperCase()} APK BUILT SUCCESSFULLY! 🎉`);
         console.log(`📁 Saved to: ${rootApkPath}`);
         console.log('====================================================');
     } else {
-        console.warn(`⚠️ Warning: APK build finished, but output file was not found at expected path: ${defaultApkPath}`);
+        console.warn(`⚠️ Warning: APK build finished, but output file (${primaryApkName} or ${secondaryApkName}) was not found in:`);
+        console.log(`   - ${primaryApkPath}`);
+        console.log(`   - ${secondaryApkPath}`);
         console.log('Please check your Android Studio configuration or ./android build files.');
     }
 

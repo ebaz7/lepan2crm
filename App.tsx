@@ -165,10 +165,18 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'light-aurora'>('light-aurora');
 
   useEffect(() => {
-    // Automatically default to the premium transparent glass theme (light-aurora) on every page refresh/load
-    setTheme('light-aurora');
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('theme-light-aurora');
+    // Load persisted theme from localStorage, defaulting to 'light-aurora' (premium transparent glass)
+    const savedTheme = localStorage.getItem('theme') || 'light-aurora';
+    setTheme(savedTheme as any);
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('theme-light-aurora');
+    } else if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark', 'theme-light-aurora');
+    } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('theme-light-aurora');
+    }
   }, []);
 
   const toggleTheme = () => {

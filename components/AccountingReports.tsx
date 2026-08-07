@@ -41,6 +41,16 @@ import {
 import { getRolePermissions } from '../services/authService';
 import SayanSalesDashboard from './sales/SayanSalesDashboard';
 import { UserRole } from '../types';
+import { getServerHost } from '../services/apiService';
+
+const getEffectiveApiUrl = (path: string) => {
+    const host = getServerHost();
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    if (!host) {
+        return cleanPath;
+    }
+    return `${host}${cleanPath}`;
+};
 
 export default function AccountingReports({ currentUser, settings }: { currentUser?: any, settings?: any }) {
     // Determine Sayan permissions
@@ -368,7 +378,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     // BACKEND DATABASE COMMUNICATORS (Sayan Proxy)
     // ==========================================
     const runSayanQuery = async (queryStr: string) => {
-        const res = await fetch('/api/sayan-proxy', {
+        const res = await fetch(getEffectiveApiUrl('/api/sayan-proxy'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1225,7 +1235,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         if (!confirm(`آیا از ارسال گزارش فروش ${label} به گروه‌های تلگرام / بله اطمینان دارید؟`)) return;
         setIsSendingSalesBot(true);
         try {
-            const res = await fetch('/api/sayan/sales-report/send-manual', {
+            const res = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-manual'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1974,7 +1984,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             try {
                 const url = `/api/sayan/production-report?dateFrom=${encodeURIComponent(cleanDateFrom)}&dateTo=${encodeURIComponent(cleanDateTo)}`;
-                const res = await fetch(url);
+                const res = await fetch(getEffectiveApiUrl(url));
                 const data = await res.json();
                 if (data.success) {
                     items = data.items || [];
@@ -2103,7 +2113,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const fetchProdArchive = async () => {
         setIsFetchingArchive(true);
         try {
-            const res = await fetch('/api/sayan/production-report/archive');
+            const res = await fetch(getEffectiveApiUrl('/api/sayan/production-report/archive'));
             const data = await res.json();
             if (data.success) {
                 setProdArchive(data.archive || []);
@@ -2118,7 +2128,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const handleDeleteArchiveEntry = async (id: string) => {
         if (!confirm('آیا از حذف این رکورد بایگانی اطمینان دارید؟')) return;
         try {
-            const res = await fetch(`/api/sayan/production-report/archive/${id}`, {
+            const res = await fetch(getEffectiveApiUrl(`/api/sayan/production-report/archive/${id}`), {
                 method: 'DELETE'
             });
             const data = await res.json();
@@ -2136,7 +2146,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const handleSaveWaste = async () => {
         setIsSavingWaste(true);
         try {
-            const res = await fetch('/api/sayan/production-report/save-waste', {
+            const res = await fetch(getEffectiveApiUrl('/api/sayan/production-report/save-waste'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2192,7 +2202,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         if (!confirm(`آیا از ارسال این گزارش تولید و ضایعات به گروه‌های تعریف‌شده در تلگرام/بله اطمینان دارید؟`)) return;
         setIsSendingBot(true);
         try {
-            const res = await fetch('/api/sayan/production-report/send-bot', {
+            const res = await fetch(getEffectiveApiUrl('/api/sayan/production-report/send-bot'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -3863,7 +3873,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <button
                                                     onClick={async () => {
                                                         try {
-                                                            const res = await fetch('/api/sayan/sales-report/send-compare', {
+                                                            const res = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-compare'), {
                                                                 method: 'POST',
                                                                 headers: { 'Content-Type': 'application/json' },
                                                                 body: JSON.stringify({ chartData, dateFromA: dateFrom, dateToA: dateTo, dateFromB: salesDateFromB, dateToB: salesDateToB })
