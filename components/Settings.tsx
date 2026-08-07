@@ -67,7 +67,7 @@ import {
   Camera,
   Bot,
 } from "lucide-react";
-import { apiCall } from "../services/apiService";
+import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
 import {
   requestNotificationPermission,
@@ -234,18 +234,11 @@ const Settings: React.FC<SettingsProps> = ({
     }
 
     try {
-      const response = await fetch('/api/sayan/sales-report/send-manual', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ targetDate })
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        alert(`✅ ${data.message}`);
+      const data = await apiCall<{ success: boolean; message?: string; error?: string }>('/sayan/sales-report/send-manual', 'POST', { targetDate });
+      if (data && data.success) {
+        alert(`✅ ${data.message || 'عملیات با موفقیت انجام شد'}`);
       } else {
-        alert(`❌ خطا در ارسال گزارش: ${data.error || 'پاسخ ناموفق از سرور'}`);
+        alert(`❌ خطا در ارسال گزارش: ${data?.error || 'پاسخ ناموفق از سرور'}`);
       }
     } catch (e: any) {
       alert(`❌ خطا در برقراری ارتباط با سرور: ${e.message || e}`);
@@ -327,20 +320,13 @@ const Settings: React.FC<SettingsProps> = ({
       if (isLiveFetching) return;
       setIsLiveFetching(true);
       try {
-        const response = await fetch('/api/security/proxy-snapshot', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            url: cameraNetworkUrl,
-            username: cameraNetworkUsername,
-            password: cameraNetworkPassword
-          })
+        const data = await apiCall<{ success: boolean; imageBase64: string }>('/security/proxy-snapshot', 'POST', { 
+          url: cameraNetworkUrl,
+          username: cameraNetworkUsername,
+          password: cameraNetworkPassword
         });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && active) {
-            setLiveSnapshotBase64(data.imageBase64);
-          }
+        if (data && data.success && active) {
+          setLiveSnapshotBase64(data.imageBase64);
         }
       } catch (err) {
         console.error("Live test snapshot proxy error:", err);

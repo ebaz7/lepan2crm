@@ -14,6 +14,7 @@ import * as jalaali from 'jalaali-js';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
+import { getServerHost, apiCall } from '../../services/apiService';
 
 // ----------------------------------------------------------------------
 // TYPES & INTERFACES
