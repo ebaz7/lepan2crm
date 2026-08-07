@@ -120,10 +120,11 @@
 
 /* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
 .theme-light-aurora .bg-blobs {
-  background-image: url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2500&auto=format&fit=crop') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
+  background: 
+    radial-gradient(circle at 10% 20%, rgba(13, 148, 136, 0.2) 0%, transparent 45%),
+    radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 80%, rgba(20, 184, 166, 0.15) 0%, transparent 50%),
+    linear-gradient(to bottom, #eaeff5 0%, #dfe7f0 100%) !important;
 }
 
 .theme-light-aurora .blob {
@@ -1079,4 +1080,80 @@ td {
 .theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button.text-blue-600 svg {
     color: #1d4ed8 !important;
 }
+
+/* --- MOBILE & ANDROID HARDWARE PERFORMANCE OPTIMIZATIONS --- */
+@media (max-width: 768px) {
+    /* Disable layout-invalidating and heavy CPU keyframe animations */
+    .blob {
+        animation: none !important;
+        transform: none !important;
+        will-change: auto !important;
+    }
+
+    /* Completely eliminate GPU-heavy real-time backdrop blurs on mobile screen layers */
+    .theme-light-aurora .apple-glass,
+    .theme-light-aurora .glass-panel,
+    .theme-light-aurora .glass-header,
+    .theme-light-aurora main,
+    .theme-light-aurora aside,
+    .theme-light-aurora header,
+    .theme-light-aurora input[type="text"], 
+    .theme-light-aurora input[type="number"], 
+    .theme-light-aurora input[type="password"], 
+    .theme-light-aurora input[type="email"], 
+    .theme-light-aurora input[type="date"], 
+    .theme-light-aurora input[type="search"], 
+    .theme-light-aurora select, 
+    .theme-light-aurora textarea {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* Replace with lightweight, highly optimized solid elements with beautiful contrast */
+    .theme-light-aurora .apple-glass,
+    .theme-light-aurora .glass-panel {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-color: rgba(255, 255, 255, 0.9) !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+    }
+    
+    .theme-light-aurora main {
+        background: #f1f5f9 !important; /* Elegant super fast rendering */
+    }
+
+    .theme-light-aurora header {
+        background: #ffffff !important;
+        border-bottom: 1.5px solid rgba(0, 0, 0, 0.06) !important;
+    }
+
+    .theme-light-aurora input[type="text"], 
+    .theme-light-aurora input[type="number"], 
+    .theme-light-aurora input[type="password"], 
+    .theme-light-aurora input[type="email"], 
+    .theme-light-aurora input[type="date"], 
+    .theme-light-aurora input[type="search"], 
+    .theme-light-aurora select, 
+    .theme-light-aurora textarea {
+        background-color: #ffffff !important;
+        border-color: rgba(0, 0, 0, 0.08) !important;
+    }
+    
+    /* Optimize slide-up drawer panel under glass theme on mobile */
+    .theme-light-aurora .relative.w-full.max-h-\[85vh\] {
+        background: #ffffff !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-top: 1.5px solid rgba(0, 0, 0, 0.08) !important;
+    }
+
+    /* Mobile bottom navigation dock */
+    .theme-light-aurora .fixed.bottom-4.bg-white\/75 {
+        background-color: rgba(255, 255, 255, 0.97) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: 1px solid rgba(0, 0, 0, 0.06) !important;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08) !important;
+    }
+}
+
 
