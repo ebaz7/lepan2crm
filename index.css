@@ -120,9 +120,7 @@
 
 /* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
 .theme-light-aurora .bg-blobs {
-  background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-    url('https://images.unsplash.com/photo-1531147632973-4743f9109fd2?q=80&w=2500&auto=format&fit=crop') !important;
+  background-image: url('https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?q=80&w=2500&auto=format&fit=crop') !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
@@ -264,13 +262,27 @@
   border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
+.theme-light-aurora .bg-white,
 .theme-light-aurora .bg-zinc-50,
 .theme-light-aurora .bg-gray-50,
 .theme-light-aurora .bg-slate-50,
 .theme-light-aurora .bg-zinc-100,
 .theme-light-aurora .bg-gray-100,
-.theme-light-aurora .bg-slate-100 {
-  background-color: rgba(255, 255, 255, 0.2) !important;
+.theme-light-aurora .bg-slate-100,
+.theme-light-aurora .bg-zinc-50/50,
+.theme-light-aurora .bg-zinc-100/50,
+.theme-light-aurora .bg-zinc-50/30,
+.theme-light-aurora .bg-white/45,
+.theme-light-aurora .bg-white/70,
+.theme-light-aurora .bg-white/75,
+.theme-light-aurora .bg-white/95,
+.theme-light-aurora .bg-zinc-950/95,
+.theme-light-aurora main,
+.theme-light-aurora aside,
+.theme-light-aurora header {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  backdrop-filter: blur(40px) saturate(240%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(240%) !important;
 }
 
 /* Premium Apple Liquid Glass Layout and Shadows */
