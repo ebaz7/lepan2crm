@@ -796,6 +796,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         growthPct,
         diffWgt,
         wgtGrowthPctRow,
+        wgtGrowthPct: wgtGrowthPctRow,
+        feeGrowthPct: catBNetFee ? ((diffFee / catBNetFee) * 100) : 0,
         diffFee,
         variance: getVariance(diffAmt, diffWgt, diffFee)
       };

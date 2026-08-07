@@ -547,43 +547,47 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                                 })}
                             </div>
                         </div>
-
-                        {canSeeNotifications && (
-                            <label className="flex items-center gap-2 text-sm cursor-pointer bg-gray-50 p-3 rounded-lg">
-                                <input type="checkbox" checked={profileForm.receiveNotifications} onChange={e => setProfileForm({...profileForm, receiveNotifications: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
-                                <span className="text-gray-700 dark:text-gray-300">دریافت پیام‌های اطلاع‌رسانی</span>
-                            </label>
-                        )}
-
-                        <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all mt-2">ذخیره تغییرات</button>
+                        
+                        <div className="flex items-center gap-2 pt-2">
+                            <input 
+                                type="checkbox" 
+                                id="receiveNotifications" 
+                                checked={profileForm.receiveNotifications} 
+                                onChange={e => setProfileForm({...profileForm, receiveNotifications: e.target.checked})} 
+                                className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                            />
+                            <label htmlFor="receiveNotifications" className="text-xs font-bold text-gray-700 select-none">دریافت نوتیفیکیشن‌های سیستم</label>
+                        </div>
+                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 mt-4 shadow-md">
+                            <Save size={14}/> ذخیره اطلاعات پروفایل
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
       )}
-
-      {/* Desktop Sidebar with Google Gemini brand aesthetics */}
-      <aside className={`flex-shrink-0 hidden md:flex flex-col no-print relative h-screen sticky top-0 transition-all duration-300 z-[60] bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-l border-zinc-200/50 dark:border-zinc-800/50 shadow-[4px_0_24px_rgba(0,0,0,0.01)] text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
-          <div className="p-6 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between gap-3">
+      <aside className={`flex-shrink-0 hidden md:flex flex-col no-print relative h-screen sticky top-0 transition-all duration-300 z-[60] bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 shadow-sm text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
+          <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
               <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'hidden'}`}>
-                  <div className="bg-gradient-to-tr from-[#4b90ff] via-[#aa72ff] to-[#ff6097] p-2 rounded-xl text-white shadow-lg shadow-purple-500/10 animate-pulse-subtle"><Sparkles className="w-5 h-5" /></div>
-                  <div className="whitespace-nowrap"><h1 className="text-base font-black tracking-tight gemini-gradient-text bg-gradient-to-r from-[#4b90ff] to-[#ff6097]">{settings?.appName || 'سیستم مالی'}</h1><span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold block mt-0.5">پنل کاربری جمینای</span></div>
+                  <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm"><Sparkles className="w-5 h-5" /></div>
+                  <div className="whitespace-nowrap">
+                      <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white">{settings?.appName || 'سیستم مالی'}</h1>
+                      <span className="text-[10px] text-zinc-400 font-bold block mt-0.5">سیستم مدیریت مالی و اداری</span>
+                  </div>
               </div>
-              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-zinc-100 dark:bg-zinc-800/40 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors mx-auto">
-                 <Menu size={20}/>
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors mx-auto">
+                 <Menu size={18}/>
               </button>
           </div>
           
-          <div className={`p-4 bg-zinc-100/30 dark:bg-zinc-800/10 mx-4 mt-4 rounded-2xl flex items-center gap-3 border border-zinc-200/20 dark:border-zinc-800/50 relative group cursor-pointer hover:bg-zinc-100/60 dark:hover:bg-zinc-800/25 transition-all ${!isSidebarOpen && 'justify-center mx-2 px-0'}`} onClick={() => setShowProfileModal(true)} title="تنظیمات کاربری">
-              <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-[#4b90ff] via-[#aa72ff] to-[#ff6097] flex items-center justify-center overflow-hidden shrink-0 text-white shadow-md">
-                 <div className="w-full h-full bg-zinc-900 rounded-full overflow-hidden flex items-center justify-center">
-                    {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover"/> : <span className="font-bold text-xs">{currentUser.fullName.charAt(0)}</span>}
-                 </div>
+          <div className={`p-3 bg-zinc-50 dark:bg-zinc-900/30 mx-4 mt-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/30 relative group cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-all ${!isSidebarOpen && 'justify-center mx-2 px-0'}`} onClick={() => setShowProfileModal(true)} title="تنظیمات کاربری">
+              <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 overflow-hidden shrink-0">
+                  {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300">{currentUser.fullName.charAt(0)}</div>}
               </div>
               {isSidebarOpen && (
                  <div className="overflow-hidden flex-1">
-                     <p className="text-sm font-black truncate text-zinc-800 dark:text-zinc-100">{currentUser.fullName}</p>
-                     <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate font-black bg-zinc-100 dark:bg-zinc-800/40 inline-flex items-center gap-1 px-1.5 py-0.5 rounded mt-0.5"><span>نقش:</span> <span className="text-purple-600 dark:text-purple-400">{currentUser.role}</span></p>
+                     <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{currentUser.fullName}</p>
+                     <p className="text-[10px] text-zinc-400 truncate font-bold inline-flex items-center gap-1 mt-0.5"><span>نقش:</span> <span className="text-blue-600 dark:text-blue-400">{currentUser.role}</span></p>
                  </div>
               )}
           </div>
@@ -596,129 +600,146 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                     <button 
                         key={item.id} 
                         onClick={() => setActiveTab(item.id)} 
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 font-black' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/85 dark:hover:bg-zinc-800/40'} ${!isSidebarOpen && 'justify-center'}`} 
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/10 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/50'} ${!isSidebarOpen && 'justify-center'}`} 
                         title={item.label}
                     >
                         <div className="relative z-10 flex items-center justify-between w-full">
                             <div className="flex items-center gap-3">
-                                <Icon size={20} className={isActive ? 'text-[#4b90ff] dark:text-[#ff8da1]' : 'group-hover:scale-110 transition-transform'} />
-                                {isSidebarOpen && <span className="text-sm whitespace-nowrap">{item.label}</span>}
+                                <Icon size={18} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-colors'} />
+                                {isSidebarOpen && <span className="text-xs whitespace-nowrap">{item.label}</span>}
                             </div>
                             {item.id === 'chat' && unreadChatCount > 0 && isSidebarOpen && (
-                                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold shadow-sm animate-pulse">{unreadChatCount}</span>
+                                <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full min-w-[16px] text-center font-bold shadow-sm">{unreadChatCount}</span>
                             )}
                             {item.id === 'chat' && unreadChatCount > 0 && !isSidebarOpen && (
-                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></span>
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-900"></span>
                             )}
                         </div>
                         {isActive && (
-                            <motion.div
-                                layoutId="desktopActiveTab"
-                                className="absolute inset-0 bg-gradient-to-r from-blue-50/40 via-purple-50/25 to-pink-50/15 dark:from-[#4b90ff]/5 dark:via-[#aa72ff]/5 dark:to-transparent border-r-4 border-blue-500 dark:border-[#4b90ff] rounded-xl"
-                                transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
-                            />
+                            <div className="absolute right-0 top-1 bottom-1 w-1 bg-blue-600 dark:bg-blue-500 rounded-l" />
                         )}
                     </button>
                   ); 
               })}
               
               {canSeeNotifications && (
-                  <div className="pt-4 mt-2 border-t border-gray-200/50 dark:border-white/5 relative" ref={notifRef}>
+                  <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 relative" ref={notifRef}>
                       <button onClick={() => {
                           const nextState = !showNotifDropdown;
                           setShowNotifDropdown(nextState);
                           if (nextState && markAllNotificationsAsRead) {
                               markAllNotificationsAsRead();
                           }
-                      }} className={`notification-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm relative ${unreadCount > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'} ${!isSidebarOpen && 'justify-center'}`} title="اعلان‌ها">
+                      }} className={`notification-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-xs relative ${unreadCount > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'} ${!isSidebarOpen && 'justify-center'}`} title="اعلان‌ها">
                           <div className="relative">
-                              <Bell size={20} />
-                              {unreadCount > 0 && (<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white animate-bounce">{unreadCount}</span>)}
+                              <Bell size={18} className={unreadCount > 0 ? 'text-blue-600' : 'text-zinc-400'} />
+                              {unreadCount > 0 && (<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white">{unreadCount}</span>)}
                           </div>
                           {isSidebarOpen && <span className="font-bold whitespace-nowrap">مرکز اعلان‌ها</span>}
                       </button>
                       {showNotifDropdown && <NotificationDropdown />}
                       
                       {!notifEnabled && isSidebarOpen && (
-                          <button onClick={handleToggleNotif} className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs bg-red-50 text-red-600 hover:bg-red-100 transition-all font-black border border-red-100">
-                              <BellRing size={18} />
-                              <span>فعال‌سازی نوتـیفـیکیشـن</span>
+                          <button onClick={handleToggleNotif} className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs bg-red-50 text-red-600 hover:bg-red-100 transition-all font-black border border-red-100">
+                              <BellRing size={16} />
+                              <span>فعال‌سازی نوتیفیکیشن</span>
                           </button>
                       )}
                   </div>
               )}
           </nav>
           
-          <div className="p-4 border-t border-gray-200/50 dark:border-white/10 flex flex-col gap-2">
-              <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors font-bold ${!isSidebarOpen && 'justify-center'}`} title="تغییر پوسته">
-                  {theme === 'light' ? <Moon size={20} className="text-gray-600 dark:text-gray-400" /> : <Sun size={20} className="text-yellow-400" />}
-                  {isSidebarOpen && <span className="whitespace-nowrap dark:text-gray-300">تغییر پوسته</span>}
+          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
+              <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="تغییر پوسته">
+                  {theme === 'light' ? <Moon size={18} className="text-zinc-500" /> : <Sun size={18} className="text-yellow-400" />}
+                  {isSidebarOpen && <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">تغییر پوسته</span>}
               </button>
-              <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors font-bold ${!isSidebarOpen && 'justify-center'}`} title="خروج از سیستم">
-                  <LogOut size={20} />
+              <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="خروج از سیستم">
+                  <LogOut size={18} />
                   {isSidebarOpen && <span className="whitespace-nowrap">خروج از سیستم</span>}
               </button>
           </div>
       </aside>
       
-      {/* Mobile Drawer */}
-      {showMobileMenu && (
-          <div className="fixed inset-0 z-[100] md:hidden animate-fade-in flex justify-end">
-              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShowMobileMenu(false)}></div>
-              <div className="relative w-72 bg-white/90 backdrop-blur-2xl h-full shadow-2xl flex flex-col transform transition-transform border-l border-white/50 animate-slide-in-right">
+      {/* Mobile Drawer - Option 2: Elegant shadcn/ui style Slide-Up Bottom Sheet */}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <div className="fixed inset-0 z-[100] md:hidden flex flex-col justify-end">
+              {/* Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                onClick={() => setShowMobileMenu(false)}
+              />
+              {/* Slide-Up Panel */}
+              <motion.div 
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="relative w-full max-h-[85vh] bg-white dark:bg-zinc-950 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden z-10"
+              >
+                  {/* Drag Handle */}
+                  <div className="w-full py-3 flex justify-center cursor-pointer" onClick={() => setShowMobileMenu(false)}>
+                      <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-800 rounded-full" />
+                  </div>
+
                   {/* Header */}
-                  <div className="p-6 border-b border-white/40 flex justify-between items-center bg-white/40">
+                  <div className="px-6 pb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-center bg-white dark:bg-zinc-950">
                       <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30 border border-white">
+                          <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center font-bold text-sm text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800">
                               {currentUser.fullName.charAt(0)}
                           </div>
                           <div>
-                              <div className="font-black text-gray-800 text-sm">{currentUser.fullName}</div>
-                              <div className="text-[10px] text-gray-500 font-bold bg-gray-100/50 px-2 rounded-full inline-block">{currentUser.role}</div>
+                              <div className="font-bold text-zinc-900 dark:text-white text-sm">{currentUser.fullName}</div>
+                              <div className="text-[10px] text-zinc-500 font-medium">{currentUser.role}</div>
                           </div>
                       </div>
+                      <button onClick={() => setShowMobileMenu(false)} className="p-1.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full text-zinc-500 transition-colors">
+                          <X size={16} />
+                      </button>
                   </div>
                   
-                  {/* Notification Toggle */}
+                  {/* Notification Alert in bottom-sheet if disabled */}
                   {canSeeNotifications && !notifEnabled && (
-                      <div className="px-5 mt-5">
-                          <div className="bg-red-50/80 border border-red-100 p-3 rounded-2xl flex flex-col gap-2 shadow-sm backdrop-blur-md">
-                              <div className="flex items-center gap-2 text-red-600 text-xs font-bold">
+                      <div className="px-6 mt-4">
+                          <div className="bg-red-50/80 border border-red-100 dark:bg-red-950/20 dark:border-red-950 p-3 rounded-xl flex items-center justify-between shadow-sm">
+                              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-bold">
                                   <Bell size={16} />
                                   <span>اعلان‌ها غیرفعال است</span>
                               </div>
-                              <button onClick={handleToggleNotif} className="bg-red-600 text-white w-full py-2 rounded-xl text-xs font-bold shadow-md hover:bg-red-700">
-                                  فعال‌سازی (الزامی)
+                              <button onClick={handleToggleNotif} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-md hover:bg-red-700">
+                                  فعال‌سازی
                               </button>
                           </div>
                       </div>
                   )}
 
-                  {/* Settings User Shortcut */}
-                  <div className="px-5 mt-4">
-                      <button onClick={() => { setShowMobileMenu(false); setShowProfileModal(true); }} className="w-full flex items-center gap-3 p-3 bg-white/60 hover:bg-white/90 rounded-2xl border border-white shadow-sm transition-colors text-gray-700 font-bold text-xs">
-                          <Settings size={18} className="text-gray-500"/> تنظیمات پروفایل
-                      </button>
-                  </div>
-
-                  {/* List Menu */}
-                  <div className="p-3 flex-1 overflow-y-auto custom-scrollbar mt-2">
-                      <div className="space-y-1">
-                          {navItems.map((item) => {
+                  {/* All other menu items in a clean, high-end visual grid (shadcn/ui style card elements) */}
+                  <div className="px-6 py-4 flex-1 overflow-y-auto custom-scrollbar">
+                      <h4 className="text-xs font-bold text-zinc-400 mb-3 block">بخش‌های تکمیلی سیستم</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                          {menuItems.map((item) => {
                               const Icon = item.icon;
                               const isActive = activeTab === item.id;
                               return (
                                   <button 
                                     key={item.id} 
                                     onClick={() => { setActiveTab(item.id); setShowMobileMenu(false); }}
-                                    className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-600 hover:bg-white/80'}`}
+                                    className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all border relative ${
+                                        isActive 
+                                        ? 'bg-blue-50/50 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400' 
+                                        : 'bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
+                                    }`}
                                   >
-                                      <div className="flex items-center gap-3">
-                                          <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                                          <span className="text-xs font-bold">{item.label}</span>
+                                      <div className={`p-2 rounded-lg ${isActive ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'}`}>
+                                          <Icon size={18} strokeWidth={2} />
                                       </div>
+                                      <span className="text-[10px] font-bold text-center leading-tight truncate w-full">{item.label}</span>
                                       {item.id === 'chat' && unreadChatCount > 0 && (
-                                          <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold shadow-sm">{unreadChatCount}</span>
+                                          <span className="absolute top-2 left-2 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full min-w-[14px] text-center font-bold shadow-sm">{unreadChatCount}</span>
                                       )}
                                   </button>
                               );
@@ -726,175 +747,170 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                       </div>
                   </div>
                   
-                  <div className="p-5 border-t border-white/50 dark:border-white/10 bg-white/40 dark:bg-black/20 flex flex-col gap-2">
-                      <button onClick={toggleTheme} className="w-full p-3 bg-white/60 dark:bg-white/10 text-gray-700 dark:text-gray-300 rounded-2xl border border-white dark:border-white/5 font-bold text-sm hover:bg-white/80 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                          {theme === 'light' ? <Moon size={18}/> : <Sun size={18} className="text-yellow-400"/>} تغییر پوسته
-                      </button>
-                      <button onClick={handleLogout} className="w-full p-3 bg-white/60 dark:bg-white/10 text-red-600 dark:text-red-400 rounded-2xl border border-white dark:border-white/5 font-bold text-sm hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                          <LogOut size={18}/> خروج از سیستم
+                  {/* Bottom sheet footer with settings and quick controls */}
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-900 flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-3">
+                          <button onClick={() => { setShowMobileMenu(false); setShowProfileModal(true); }} className="flex items-center justify-center gap-2 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50">
+                              <Settings size={14} className="text-zinc-500" /> تنظیمات پروفایل
+                          </button>
+                          <button onClick={toggleTheme} className="flex items-center justify-center gap-2 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50">
+                              {theme === 'light' ? <Moon size={14} className="text-zinc-500"/> : <Sun size={14} className="text-yellow-400"/>} تغییر پوسته
+                          </button>
+                      </div>
+                      <button onClick={handleLogout} className="flex items-center justify-center gap-2 p-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/30 border border-red-100 dark:border-red-950/50 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition-colors">
+                          <LogOut size={14}/> خروج از سیستم
                       </button>
                   </div>
-              </div>
+              </motion.div>
           </div>
-      )}
-
-             {/* Mobile Bottom Navigation - Attractive Float Pill */}
-      <AnimatePresence>
-        {activeTab === 'dashboard' && (
-          <motion.div 
-            initial={{ y: 0, opacity: 1 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="bottom-nav-bar md:hidden fixed z-[90] bottom-8 left-6 right-6 glass-panel border border-white/40 dark:border-white/10 flex justify-around items-center p-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.2)] rounded-[2.5rem] backdrop-blur-3xl"
-          >
-              {bottomVisibleItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                      <button 
-                          key={item.id}
-                          onClick={() => setActiveTab(item.id)} 
-                          className={`flex flex-col items-center gap-0.5 p-1 transition-all duration-300 flex-1 relative ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-                      >
-                          <div className={`p-2 rounded-2xl transition-all duration-300 ${isActive ? 'bg-blue-100/50 dark:bg-blue-900/30 ring-1 ring-blue-200 dark:ring-blue-800' : 'active:scale-95'}`}>
-                              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'animate-pulse-subtle' : ''}/>
-                              {item.id === 'chat' && unreadChatCount > 0 && (
-                                <span className="absolute top-1.5 right-1/4 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950 shadow-sm"></span>
-                              )}
-                          </div>
-                          <span className={`text-[10px] font-black tracking-tight transition-all duration-300 mt-1 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>{item.label}</span>
-                          {isActive && <motion.div layoutId="bottomNavDot" className="absolute -bottom-1 w-1 h-1 bg-blue-600 rounded-full" />}
-                      </button>
-                  );
-              })}
-              
-              <button 
-                  onClick={() => setShowMobileMenu(true)} 
-                  className={`flex flex-col items-center gap-0.5 p-1 transition-all duration-300 flex-1 relative ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
-              >
-                  <div className={`p-2 rounded-2xl transition-all duration-300 ${menuItems.some(m => m.id === activeTab) ? 'bg-blue-100/50 dark:bg-blue-900/30 ring-1 ring-blue-200 dark:ring-blue-800' : 'active:scale-95'}`}>
-                      <Menu size={22} strokeWidth={menuItems.some(m => m.id === activeTab) ? 2.5 : 2} />
-                      {menuItems.some(m => m.id === 'chat' && unreadChatCount > 0) && (
-                        <span className="absolute top-1.5 right-1/4 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950 shadow-sm"></span>
-                      )}
-                  </div>
-                  <span className={`text-[10px] font-black tracking-tight transition-all duration-300 mt-1 ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600' : 'text-gray-500'}`}>منو</span>
-              </button>
-          </motion.div>
         )}
       </AnimatePresence>
 
-      <main className={`flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 ${activeTab === 'dashboard' ? 'pb-24' : ''}`}>
-      {/* Mobile Header */}
-        <header className="glass-header p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 shadow-lg rounded-b-[2rem]">
-            <div className="flex items-center gap-3">
-                {activeTab === 'dashboard' ? (
-                <button 
-                    onClick={() => setShowMobileMenu(true)} 
-                    className="flex items-center gap-3 transition-all active:scale-95"
-                >
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xl border-2 border-white/50 rotate-3 transition-transform hover:rotate-0">
-                        {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover rounded-2xl"/> : currentUser.fullName.charAt(0)}
-                    </div>
-                </button>
-                ) : (
-                <button 
-                    onClick={onBack} 
-                    className="flex items-center justify-center w-10 h-10 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 active:scale-95 transition-all"
-                >
-                    <ChevronRight size={24} />
-                </button>
-                )}
-                <div>
-                   <h1 className="font-black text-gray-800 dark:text-gray-100 text-sm tracking-tight">{navItems.find(i => i.id === activeTab)?.label || 'داشبورد'}</h1>
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsSearchOpen(true)}
-                  className="p-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border border-gray-200/50 dark:border-white/10 rounded-xl text-gray-700 dark:text-gray-300 shadow-sm"
-                  title="جستجو (Ctrl+K)"
-                >
-                    <Search size={20} />
-                </button>
-                {financialYear && setFinancialYear && (
-                    <select 
-                        value={financialYear} 
-                        onChange={(e) => setFinancialYear(e.target.value)}
-                        className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border border-gray-200/50 dark:border-white/10 text-gray-700 dark:text-gray-200 font-bold rounded-xl text-xs px-2 py-2 mr-2 shadow-sm"
-                        dir="ltr"
-                    >
-                        {settings?.fiscalYears?.map(fy => (
-                            <option key={fy.id} value={fy.label} className="bg-white dark:bg-gray-800">{fy.label}</option>
-                        )) || <>
-                            <option value="1402">1402</option>
-                            <option value="1403">1403</option>
-                            <option value="1404">1404</option>
-                            <option value="1405">1405</option>
-                        </>
-                        }
-                    </select>
-                )}
-                <button 
-                  onClick={toggleTheme}
-                  className="p-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border border-gray-200/50 dark:border-white/10 rounded-xl text-gray-700 dark:text-gray-300 shadow-sm"
-                >
-                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} className="text-yellow-400" />}
-                </button>
-                {canSeeNotifications && (
-                    <div className="relative notification-trigger" ref={mobileNotifRef}>
-                        <button onClick={() => {
-                            const nextState = !showNotifDropdown;
-                            setShowNotifDropdown(nextState);
-                            if (nextState && markAllNotificationsAsRead) {
-                                markAllNotificationsAsRead();
-                            }
-                        }} className="relative p-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border border-gray-200/50 dark:border-white/10 rounded-xl hover:glass-panel transition-colors shadow-sm">
-                            <Bell size={20} className="text-gray-700 dark:text-gray-200" />
-                            {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
-                        </button>
-                        {showNotifDropdown && <NotificationDropdown />}
-                    </div>
-                )}
-            </div>
-        </header>
-        
-        <div className={`flex-1 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-0 min-h-0' : `overflow-y-auto ${activeTab === 'dashboard' ? 'pb-[calc(140px+env(safe-area-inset-bottom))]' : 'pb-[calc(80px+env(safe-area-inset-bottom))]'}`} bg-transparent md:pb-0 min-w-0 ${isUpdateAvailable ? 'pt-12' : ''} custom-scrollbar`} id="main-scroll-container">
-                    <div className={`${activeTab === 'chat' ? 'hidden' : 'hidden md:flex'} justify-end p-4 bg-transparent border-b border-gray-200/50 dark:border-white/10 z-40 shadow-sm no-print items-center glass-header`}>
-                <button 
-                  onClick={() => setIsSearchOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all mr-auto ml-4 group"
-                  title="جستجو (Ctrl+K)"
-                >
-                    <Search size={16} className="group-hover:text-blue-500 transition-colors" />
-                    <span className="text-xs font-bold">جستجو در کل سیستم...</span>
-                    <span className="bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-[9px] font-black">Ctrl K</span>
-                </button>
-                <span className="font-bold text-gray-600 dark:text-gray-300 mr-3 text-sm">سال مالی:</span>
-                {settings?.fiscalYears && (
-                    <select 
-                        value={settings.activeFiscalYearId || ''} 
-                        onChange={async (e) => {
-                            const newYearId = e.target.value;
-                            const newSettings = { ...settings, activeFiscalYearId: newYearId };
-                            await saveSettings(newSettings);
-                            // Force reload to apply new context globally
-                            window.location.reload(); 
-                        }}
-                        className="bg-blue-50 text-blue-800 font-black border-2 border-blue-200 outline-none rounded-xl px-4 py-2 hover:bg-blue-100 transition-colors cursor-pointer"
-                        dir="ltr"
-                    >
-                        {settings.fiscalYears.map(fy => (
-                            <option key={fy.id} value={fy.id}>{fy.label} سال مالی</option>
-                        ))}
-                    </select>
-                )}
-            </div>
-            <div className={`${activeTab === 'chat' ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-4 md:p-8 max-w-7xl w-full min-h-full'} mx-auto min-w-0`}>
-                {children}
-            </div>
-        </div>
+      {/* Mobile Bottom Navigation - Option 2: Pure shadcn/ui elegant flat bar - Persists across all pages */}
+      <div className="md:hidden fixed z-[90] bottom-0 left-0 right-0 bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200/80 dark:border-zinc-800/80 pb-[calc(6px+env(safe-area-inset-bottom))] pt-2 flex justify-around items-center backdrop-blur-lg">
+          {bottomVisibleItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                  <button 
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)} 
+                      className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500'}`}
+                  >
+                      <div className="relative">
+                          <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                          {item.id === 'chat' && unreadChatCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
+                          )}
+                      </div>
+                      <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>{item.label}</span>
+                  </button>
+              );
+          })}
+          
+          <button 
+              onClick={() => setShowMobileMenu(true)} 
+              className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500'}`}
+          >
+              <div className="relative">
+                  <Menu size={18} strokeWidth={menuItems.some(m => m.id === activeTab) ? 2.5 : 2} />
+                  {menuItems.some(m => m.id === 'chat' && unreadChatCount > 0) && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
+                  )}
+              </div>
+              <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>منو</span>
+          </button>
+      </div>
+
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0">
+          {/* Mobile Header - Sleek flat design matching shadcn/ui */}
+          <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/95 dark:bg-zinc-950/95 border-b border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-lg">
+              <div className="flex items-center gap-3">
+                  {activeTab === 'dashboard' ? (
+                  <button 
+                      onClick={() => setShowMobileMenu(true)} 
+                      className="flex items-center gap-3 transition-all active:scale-95"
+                  >
+                      <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300">
+                          {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover"/> : currentUser.fullName.charAt(0)}
+                      </div>
+                  </button>
+                  ) : (
+                  <button 
+                      onClick={onBack} 
+                      className="flex items-center justify-center w-8 h-8 bg-zinc-100 dark:bg-zinc-900 rounded-lg shadow-sm border border-zinc-200/50 dark:border-zinc-800/50 text-zinc-700 dark:text-zinc-200 active:scale-95 transition-all"
+                  >
+                      <ChevronRight size={18} />
+                  </button>
+                  )}
+                  <div>
+                     <h1 className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tracking-tight">{navItems.find(i => i.id === activeTab)?.label || 'داشبورد'}</h1>
+                  </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={() => setIsSearchOpen(true)}
+                    className="p-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95"
+                    title="جستجو (Ctrl+K)"
+                  >
+                      <Search size={16} />
+                  </button>
+                  {financialYear && setFinancialYear && (
+                      <select 
+                          value={financialYear} 
+                          onChange={(e) => setFinancialYear(e.target.value)}
+                          className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 text-zinc-700 dark:text-zinc-200 font-bold rounded-lg text-[10px] px-2 py-1.5 mr-1 shadow-sm focus:outline-none"
+                          dir="ltr"
+                      >
+                          {settings?.fiscalYears?.map(fy => (
+                              <option key={fy.id} value={fy.label} className="bg-white dark:bg-zinc-950">{fy.label}</option>
+                          )) || <>
+                              <option value="1402">1402</option>
+                              <option value="1403">1403</option>
+                              <option value="1404">1404</option>
+                              <option value="1405">1405</option>
+                          </>
+                          }
+                      </select>
+                  )}
+                  <button 
+                    onClick={toggleTheme}
+                    className="p-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95"
+                  >
+                      {theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-yellow-400" />}
+                  </button>
+                  {canSeeNotifications && (
+                      <div className="relative notification-trigger" ref={mobileNotifRef}>
+                          <button onClick={() => {
+                              const nextState = !showNotifDropdown;
+                              setShowNotifDropdown(nextState);
+                              if (nextState && markAllNotificationsAsRead) {
+                                  markAllNotificationsAsRead();
+                              }
+                          }} className="relative p-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-sm active:scale-95">
+                              <Bell size={16} className="text-zinc-700 dark:text-zinc-200" />
+                              {unreadCount > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full"></span>}
+                          </button>
+                          {showNotifDropdown && <NotificationDropdown />}
+                      </div>
+                  )}
+              </div>
+          </header>
+          
+          <div className={`flex-1 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-0 min-h-0' : 'overflow-y-auto pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0'} bg-transparent min-w-0 ${isUpdateAvailable ? 'pt-12' : ''} custom-scrollbar`} id="main-scroll-container">
+              <div className={`${activeTab === 'chat' ? 'hidden' : 'hidden md:flex'} justify-end p-4 bg-transparent border-b border-zinc-200 dark:border-zinc-800 z-40 shadow-sm no-print items-center bg-white dark:bg-zinc-950`}>
+                  <button 
+                    onClick={() => setIsSearchOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all mr-auto ml-4 group"
+                    title="جستجو (Ctrl+K)"
+                  >
+                      <Search size={14} className="group-hover:text-blue-500 transition-colors" />
+                      <span className="text-xs font-bold">جستجو در کل سیستم...</span>
+                      <span className="bg-zinc-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-[9px] font-black">Ctrl K</span>
+                  </button>
+                  <span className="font-bold text-zinc-500 dark:text-zinc-400 mr-3 text-xs">سال مالی:</span>
+                  {settings?.fiscalYears && (
+                      <select 
+                          value={settings.activeFiscalYearId || ''} 
+                          onChange={async (e) => {
+                              const newYearId = e.target.value;
+                              const newSettings = { ...settings, activeFiscalYearId: newYearId };
+                              await saveSettings(newSettings);
+                              window.location.reload(); 
+                          }}
+                          className="bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-900 outline-none rounded-lg px-3 py-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors cursor-pointer text-xs"
+                          dir="ltr"
+                      >
+                          {settings.fiscalYears.map(fy => (
+                              <option key={fy.id} value={fy.id}>{fy.label} سال مالی</option>
+                          ))}
+                      </select>
+                  )}
+              </div>
+              <div className={`${activeTab === 'chat' ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-4 md:p-8 max-w-7xl w-full min-h-full'} mx-auto min-w-0`}>
+                  {children}
+              </div>
+          </div>
       </main>
 
       <AnimatePresence>
