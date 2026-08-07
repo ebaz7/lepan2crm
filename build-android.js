@@ -114,6 +114,33 @@ try {
 
     // 3. Assemble APK via Gradle
     const isRelease = process.argv.includes('--release');
+    
+    // 2.5. Automatic Signing Keystore Generation (if release)
+    if (isRelease) {
+        const keystorePath = join(gradleDir, 'app', 'release-key.keystore');
+        if (!existsSync(keystorePath)) {
+            console.log('🔑 Keystore file not found. Generating automatic release keystore...');
+            try {
+                let keytoolCmd = 'keytool';
+                if (process.env.JAVA_HOME) {
+                    const javaKeytool = join(process.env.JAVA_HOME, 'bin', isWindows ? 'keytool.exe' : 'keytool');
+                    if (existsSync(javaKeytool)) {
+                        keytoolCmd = `"${javaKeytool}"`;
+                    }
+                }
+                const genKeyCmd = `${keytoolCmd} -genkeypair -v -keystore "${keystorePath}" -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=Sayan, OU=Debagaran, O=Debagaran, L=Tehran, S=Tehran, C=IR"`;
+                console.log(`🚀 Generating key with: ${genKeyCmd}`);
+                execSync(genKeyCmd, { stdio: 'inherit' });
+                console.log('✅ Automatically generated release-key.keystore successfully.\n');
+            } catch (err) {
+                console.warn('⚠️ Warning: Automatic key generation failed. Make sure Java JDK is installed and keytool is in your system PATH.');
+                console.warn(err instanceof Error ? err.message : String(err));
+            }
+        } else {
+            console.log('✅ release-key.keystore already exists inside android/app.\n');
+        }
+    }
+
     const buildType = isRelease ? 'Release' : 'Debug';
     const taskName = `assemble${buildType}`;
     

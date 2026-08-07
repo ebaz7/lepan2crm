@@ -15,10 +15,19 @@ android {
              ignoreAssetsPattern "!.svn:!.git:!.ds_store:!*.scc:.*:g*.tbi:f*.tbi"
         }
     }
+    signingConfigs {
+        release {
+            storeFile file("release-key.keystore")
+            storePassword "123456"
+            keyAlias "my-key-alias"
+            keyPassword "123456"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
