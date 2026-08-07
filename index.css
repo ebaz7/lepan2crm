@@ -28,15 +28,15 @@
   }
 
   .theme-light-aurora {
-    --app-bg: #f8fafc; /* Beautiful clean slate-light cosmos base */
-    --glass-bg: rgba(255, 255, 255, 0.45); /* High-transparency crystal glass */
-    --glass-bg-hover: rgba(255, 255, 255, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.75); /* Extra bright white borders to separate the glass clearly */
-    --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    --app-bg: #eaeff5; /* Light, soft canvas base to let vibrant colored clouds and white glass shine */
+    --glass-bg: rgba(255, 255, 255, 0.28); /* Super premium translucent glass */
+    --glass-bg-hover: rgba(255, 255, 255, 0.42);
+    --glass-border: rgba(255, 255, 255, 0.65); /* Bold bright white borders for crystal clarity */
+    --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.08), inset 0 1.5px 2px rgba(255, 255, 255, 0.85);
     --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --border-color: rgba(255, 255, 255, 0.6);
-    --gemini-spark: linear-gradient(135deg, #a855f7 0%, #3b82f6 50%, #ec4899 100%);
+    --text-secondary: #334155;
+    --border-color: rgba(255, 255, 255, 0.55);
+    --gemini-spark: linear-gradient(135deg, #ec4899 0%, #f43f5e 50%, #eab308 100%);
   }
 }
 
@@ -120,80 +120,80 @@
 
 /* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
 .theme-light-aurora .blob {
-  opacity: 0.65 !important;
+  opacity: 0.78 !important;
   filter: blur(120px) !important;
-  mix-blend-mode: multiply !important;
+  mix-blend-mode: normal !important;
 }
 
 .theme-light-aurora .blob-1 {
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.65) 0%, rgba(59, 130, 246, 0.45) 45%, rgba(139, 92, 246, 0.05) 100%) !important;
-  width: min(90vw, 950px) !important;
-  height: min(90vw, 950px) !important;
-  top: -10% !important;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.8) 0%, rgba(236, 72, 153, 0.5) 45%, rgba(251, 113, 133, 0.05) 100%) !important;
+  width: min(100vw, 1000px) !important;
+  height: min(100vw, 1000px) !important;
+  top: -15% !important;
   right: -5% !important;
 }
 
 .theme-light-aurora .blob-2 {
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.6) 0%, rgba(249, 115, 22, 0.45) 50%, rgba(244, 63, 94, 0.05) 100%) !important;
-  width: min(85vw, 850px) !important;
-  height: min(85vw, 850px) !important;
-  bottom: -5% !important;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.8) 0%, rgba(249, 115, 22, 0.55) 50%, rgba(253, 186, 116, 0.05) 100%) !important;
+  width: min(90vw, 900px) !important;
+  height: min(90vw, 900px) !important;
+  bottom: -10% !important;
   left: -5% !important;
 }
 
 .theme-light-aurora .blob-3 {
-  background: radial-gradient(circle, rgba(20, 184, 166, 0.55) 0%, rgba(59, 130, 246, 0.4) 50%, rgba(99, 102, 241, 0.05) 100%) !important;
-  width: min(75vw, 750px) !important;
-  height: min(75vw, 750px) !important;
-  top: 30% !important;
-  left: 15% !important;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.7) 0%, rgba(6, 182, 212, 0.5) 50%, rgba(103, 232, 249, 0.05) 100%) !important;
+  width: min(80vw, 800px) !important;
+  height: min(80vw, 800px) !important;
+  top: 25% !important;
+  left: 10% !important;
 }
 
 /* Perfect liquid glass highlighting for light-aurora theme */
 .theme-light-aurora .apple-glass {
-  background: rgba(255, 255, 255, 0.4) !important;
-  backdrop-filter: blur(36px) saturate(240%) !important;
-  -webkit-backdrop-filter: blur(36px) saturate(240%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(45px) saturate(260%) !important;
+  -webkit-backdrop-filter: blur(45px) saturate(260%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
   box-shadow: 
-    0 24px 64px rgba(15, 23, 42, 0.08),
-    0 2px 8px rgba(15, 23, 42, 0.04),
-    inset 0 1px 2px rgba(255, 255, 255, 0.8),
+    0 32px 80px rgba(15, 23, 42, 0.08),
+    0 8px 24px rgba(15, 23, 42, 0.03),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.85),
     inset 0 -1px 2px rgba(255, 255, 255, 0.2) !important;
 }
 
 .theme-light-aurora .apple-glass-hover:hover {
-  background: rgba(255, 255, 255, 0.6) !important;
-  border-color: rgba(255, 255, 255, 0.85) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
   box-shadow: 
-    0 32px 80px rgba(15, 23, 42, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9) !important;
+    0 40px 96px rgba(15, 23, 42, 0.12),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.9) !important;
 }
 
 /* Highly responsive overrides for Light Aurora Theme */
 .theme-light-aurora .glass-panel {
-  background: rgba(255, 255, 255, 0.45) !important;
-  backdrop-filter: blur(40px) saturate(240%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(240%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(45px) saturate(260%) !important;
+  -webkit-backdrop-filter: blur(45px) saturate(260%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
   box-shadow: 
-    0 32px 80px rgba(15, 23, 42, 0.06),
-    inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+    0 32px 80px rgba(15, 23, 42, 0.08),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.85) !important;
 }
 
 .theme-light-aurora .glass-panel:hover {
-  background: rgba(255, 255, 255, 0.6) !important;
-  border-color: rgba(255, 255, 255, 0.85) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
   box-shadow: 
-    0 40px 96px rgba(15, 23, 42, 0.1),
-    inset 0 1px 2px rgba(255, 255, 255, 0.9) !important;
+    0 40px 96px rgba(15, 23, 42, 0.12),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.9) !important;
 }
 
 .theme-light-aurora .glass-header {
-  background: rgba(255, 255, 255, 0.5) !important;
-  backdrop-filter: blur(40px) saturate(240%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(240%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(45px) saturate(260%) !important;
+  -webkit-backdrop-filter: blur(45px) saturate(260%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
 }
 
 .theme-light-aurora input[type="text"], 
@@ -204,28 +204,28 @@
 .theme-light-aurora input[type="search"], 
 .theme-light-aurora select, 
 .theme-light-aurora textarea {
-  background-color: rgba(255, 255, 255, 0.4) !important;
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
   color: #0f172a !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: blur(20px) saturate(200%) !important;
 }
 
 .theme-light-aurora input:focus, 
 .theme-light-aurora select:focus, 
 .theme-light-aurora textarea:focus {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(255, 255, 255, 0.85) !important;
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
 }
 
 .theme-light-aurora th {
-  background-color: rgba(255, 255, 255, 0.4) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
   color: #1e293b !important;
 }
 
 .theme-light-aurora tr:hover {
-  background-color: rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 .theme-light-aurora .text-zinc-900,
@@ -252,7 +252,7 @@
 .theme-light-aurora .border-zinc-100,
 .theme-light-aurora .border-gray-100,
 .theme-light-aurora .border-slate-100 {
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
 .theme-light-aurora .bg-zinc-50,
@@ -261,7 +261,7 @@
 .theme-light-aurora .bg-zinc-100,
 .theme-light-aurora .bg-gray-100,
 .theme-light-aurora .bg-slate-100 {
-  background-color: rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Premium Apple Liquid Glass Layout and Shadows */
