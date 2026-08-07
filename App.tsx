@@ -162,27 +162,41 @@ function App() {
     try { window.history.replaceState(state, title, url); } catch (e) { window.location.hash = url; }
   };
   const [financialYear, setFinancialYearState] = useState<string>(new Date().toLocaleDateString('fa-IR-u-nu-latn').split('/')[0]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'glass-aurora'>('glass-aurora');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (savedTheme === 'dark') {
         setTheme('dark');
         document.documentElement.classList.add('dark');
-    } else {
+        document.documentElement.classList.remove('theme-glass-aurora');
+    } else if (savedTheme === 'light') {
         setTheme('light');
-        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.remove('dark', 'theme-glass-aurora');
+    } else {
+        setTheme('glass-aurora');
+        document.documentElement.classList.add('dark', 'theme-glass-aurora');
     }
   }, []);
 
   const toggleTheme = () => {
-      const newTheme = theme === 'light' ? 'dark' : 'light';
+      let newTheme: 'light' | 'dark' | 'glass-aurora';
+      if (theme === 'glass-aurora') {
+          newTheme = 'light';
+      } else if (theme === 'light') {
+          newTheme = 'dark';
+      } else {
+          newTheme = 'glass-aurora';
+      }
       setTheme(newTheme);
       localStorage.setItem('theme', newTheme);
+      
+      const root = document.documentElement;
+      root.classList.remove('dark', 'theme-glass-aurora');
       if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-      } else {
-          document.documentElement.classList.remove('dark');
+          root.classList.add('dark');
+      } else if (newTheme === 'glass-aurora') {
+          root.classList.add('dark', 'theme-glass-aurora');
       }
   };
   const [orders, setOrders] = useState<PaymentOrder[]>(() => {
