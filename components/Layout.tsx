@@ -732,7 +732,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="relative w-full max-h-[85vh] bg-white dark:bg-zinc-950 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden z-10"
+                className="relative w-full max-h-[85vh] bg-white dark:bg-zinc-950 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden z-10 mobile-drawer-panel"
               >
                   {/* Drag Handle */}
                   <div className="w-full py-3 flex justify-center cursor-pointer" onClick={() => setShowMobileMenu(false)}>
@@ -781,7 +781,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                                   <button 
                                     key={item.id} 
                                     onClick={() => { setActiveTab(item.id); setShowMobileMenu(false); }}
-                                    className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all border relative ${
+                                    className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all border relative mobile-drawer-btn ${
                                         isActive 
                                         ? 'bg-blue-50/50 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400' 
                                         : 'bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100'
@@ -790,7 +790,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                                       <div className={`p-2 rounded-lg ${isActive ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'}`}>
                                           <Icon size={18} strokeWidth={2} />
                                       </div>
-                                      <span className="text-[10px] font-bold text-center leading-tight truncate w-full">{item.label}</span>
+                                      <span className="text-[10.5px] font-extrabold text-center leading-tight break-words w-full block min-h-[2.2em] flex items-center justify-center">{item.label}</span>
                                       {item.id === 'chat' && unreadChatCount > 0 && (
                                           <span className="absolute top-2 left-2 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full min-w-[14px] text-center font-bold shadow-sm">{unreadChatCount}</span>
                                       )}

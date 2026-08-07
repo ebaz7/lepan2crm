@@ -113,17 +113,19 @@ try {
     }
 
     // 3. Assemble APK via Gradle
-    console.log('⚙️  Step 3/4: Building Android APK using Gradle... (This may take a moment)');
+    const isRelease = process.argv.includes('--release');
+    const gradleTask = isRelease ? 'assembleRelease' : 'assembleDebug';
+    console.log(`⚙️  Step 3/4: Building Android APK in ${isRelease ? 'RELEASE' : 'DEBUG'} mode using Gradle... (This may take a moment)`);
     
     const gradlewName = isWindows ? 'gradlew.bat' : 'gradlew';
     const gradlewPath = join(gradleDir, gradlewName);
 
     let gradleCmd = '';
     if (existsSync(gradlewPath)) {
-        gradleCmd = isWindows ? `gradlew.bat assembleDebug` : `./gradlew assembleDebug`;
+        gradleCmd = isWindows ? `gradlew.bat ${gradleTask}` : `./gradlew ${gradleTask}`;
     } else {
-        console.log('ℹ️  Gradle wrapper not found, trying system gradle...');
-        gradleCmd = 'gradle assembleDebug';
+        console.log(`ℹ️  Gradle wrapper not found, trying system gradle...`);
+        gradleCmd = `gradle ${gradleTask}`;
     }
 
     console.log(`🚀 Executing: ${gradleCmd} inside ./android`);
@@ -135,7 +137,7 @@ try {
         extraEnv.ANDROID_SDK_ROOT = sdkPath;
     }
     
-    // Execute gradle assembleDebug
+    // Execute gradle assembly
     execSync(gradleCmd, { 
         cwd: gradleDir, 
         stdio: 'inherit',
@@ -148,17 +150,26 @@ try {
 
     // 4. Locating and copying APK to root
     console.log('📂 Step 4/4: Locating compiled APK file...');
-    const defaultApkPath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
-    const rootApkPath = join(process.cwd(), 'payment-system-latest.apk');
+    let defaultApkPath = '';
+    if (isRelease) {
+        const signedReleasePath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+        const unsignedReleasePath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release-unsigned.apk');
+        defaultApkPath = existsSync(signedReleasePath) ? signedReleasePath : unsignedReleasePath;
+    } else {
+        defaultApkPath = join(gradleDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+    }
+
+    const outputName = isRelease ? 'payment-system-release.apk' : 'payment-system-latest.apk';
+    const rootApkPath = join(process.cwd(), outputName);
 
     if (existsSync(defaultApkPath)) {
         copyFileSync(defaultApkPath, rootApkPath);
         console.log('====================================================');
-        console.log('🎉 SUCCESS! APK BUILT SUCCESSFULLY! 🎉');
+        console.log(`🎉 SUCCESS! ${isRelease ? 'RELEASE' : 'DEBUG'} APK BUILT SUCCESSFULLY! 🎉`);
         console.log(`📁 Saved to: ${rootApkPath}`);
         console.log('====================================================');
     } else {
-        console.warn('⚠️ Warning: APK build finished, but output file of app-debug.apk was not found in the default build directory.');
+        console.warn(`⚠️ Warning: APK build finished, but output file was not found at expected path: ${defaultApkPath}`);
         console.log('Please check your Android Studio configuration or ./android build files.');
     }
 

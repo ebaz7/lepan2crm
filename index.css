@@ -118,43 +118,65 @@
   background: radial-gradient(circle, rgba(13, 148, 136, 0.35) 0%, rgba(37, 99, 235, 0.15) 60%, rgba(0, 0, 0, 0) 100%);
 }
 
-/* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
+/* Highly vibrant custom Aurora background specifically for the main Liquid Glass experience */
 .theme-light-aurora .bg-blobs {
-  background: 
-    radial-gradient(circle at 10% 20%, rgba(13, 148, 136, 0.2) 0%, transparent 45%),
-    radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 50% 80%, rgba(20, 184, 166, 0.15) 0%, transparent 50%),
-    linear-gradient(to bottom, #eaeff5 0%, #dfe7f0 100%) !important;
+  background-color: #eaeff5 !important;
+  background-image: url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=60&w=1200&auto=format&fit=crop') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  opacity: 0.95 !important;
+}
+
+/* Add a beautiful, lightweight blur overlay over the background image to keep UI elements highly legible */
+.theme-light-aurora .bg-blobs::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(234, 239, 245, 0.45) 0%, rgba(223, 231, 240, 0.55) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  pointer-events: none;
 }
 
 .theme-light-aurora .blob {
-  opacity: 0.65 !important;
-  filter: blur(120px) !important;
+  opacity: 0.55 !important;
+  filter: blur(100px) !important;
   mix-blend-mode: overlay !important;
+  animation: blob-float 45s infinite alternate ease-in-out !important; /* Made very slow and hardware friendly */
 }
 
 .theme-light-aurora .blob-1 {
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.45) 0%, rgba(236, 72, 153, 0.3) 45%, rgba(251, 113, 133, 0.05) 100%) !important;
-  width: min(100vw, 1000px) !important;
-  height: min(100vw, 1000px) !important;
-  top: -15% !important;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.35) 0%, rgba(236, 72, 153, 0.2) 45%, rgba(251, 113, 133, 0.05) 100%) !important;
+  width: min(100vw, 800px) !important;
+  height: min(100vw, 800px) !important;
+  top: -10% !important;
   right: -5% !important;
 }
 
 .theme-light-aurora .blob-2 {
-  background: radial-gradient(circle, rgba(251, 146, 60, 0.45) 0%, rgba(249, 115, 22, 0.3) 50%, rgba(253, 186, 116, 0.05) 100%) !important;
-  width: min(90vw, 900px) !important;
-  height: min(90vw, 900px) !important;
-  bottom: -10% !important;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.35) 0%, rgba(249, 115, 22, 0.2) 50%, rgba(253, 186, 116, 0.05) 100%) !important;
+  width: min(90vw, 700px) !important;
+  height: min(90vw, 700px) !important;
+  bottom: -5% !important;
   left: -5% !important;
 }
 
 .theme-light-aurora .blob-3 {
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.4) 0%, rgba(6, 182, 212, 0.25) 50%, rgba(103, 232, 249, 0.05) 100%) !important;
-  width: min(80vw, 800px) !important;
-  height: min(80vw, 800px) !important;
-  top: 25% !important;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.3) 0%, rgba(6, 182, 212, 0.15) 50%, rgba(103, 232, 249, 0.05) 100%) !important;
+  width: min(80vw, 600px) !important;
+  height: min(80vw, 600px) !important;
+  top: 20% !important;
   left: 10% !important;
+}
+
+/* Absolute zero CPU strain on mobile/tablets by disabling rendering of dynamic blurred layers */
+@media (max-width: 768px) {
+  .blob,
+  .theme-light-aurora .blob {
+    display: none !important;
+    animation: none !important;
+  }
 }
 
 /* Perfect liquid glass highlighting for light-aurora theme */
@@ -1155,5 +1177,162 @@ td {
         box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08) !important;
     }
 }
+
+/* --- OPTIMIZED MOBILE DRAWER AND BUTTON CONTRAST STYLES --- */
+.mobile-drawer-panel {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.theme-light-aurora .mobile-drawer-panel {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Force all solid overrides under aurora so there are no glass leakages inside the drawer */
+.theme-light-aurora .mobile-drawer-panel .bg-zinc-50,
+.theme-light-aurora .mobile-drawer-panel .bg-gray-50,
+.theme-light-aurora .mobile-drawer-panel .bg-slate-50 {
+    background-color: #f8fafc !important;
+}
+
+.theme-light-aurora .mobile-drawer-panel .bg-zinc-100 {
+    background-color: #f1f5f9 !important;
+}
+
+.theme-light-aurora .mobile-drawer-panel .bg-white {
+    background-color: #ffffff !important;
+}
+
+.dark .mobile-drawer-panel {
+    background-color: #09090b !important;
+    background: #09090b !important;
+}
+
+/* Base style for buttons in mobile drawer */
+.mobile-drawer-btn {
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+}
+
+.theme-light-aurora .mobile-drawer-btn {
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+}
+
+.dark .mobile-drawer-btn {
+    background-color: #18181b !important;
+    background: #18181b !important;
+    border: 1.5px solid #27272a !important;
+}
+
+/* Hover and active states */
+.mobile-drawer-btn:active {
+    background-color: #cbd5e1 !important;
+    background: #cbd5e1 !important;
+}
+
+.dark .mobile-drawer-btn:active {
+    background-color: #27272a !important;
+    background: #27272a !important;
+}
+
+/* Active menu item state (the currently active tab inside mobile menu) */
+.mobile-drawer-btn.bg-blue-50\/50,
+.mobile-drawer-btn.text-blue-600,
+.theme-light-aurora .mobile-drawer-btn.bg-blue-50\/50 {
+    background-color: #eff6ff !important;
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    color: #1d4ed8 !important;
+}
+
+.dark .mobile-drawer-btn.text-blue-400 {
+    background-color: rgba(37, 99, 235, 0.15) !important;
+    background: rgba(37, 99, 235, 0.15) !important;
+    border-color: rgba(37, 99, 235, 0.4) !important;
+    color: #60a5fa !important;
+}
+
+/* Force text labels under icons to be high contrast and readable */
+.mobile-drawer-btn span {
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    font-size: 10.5px !important;
+    white-space: normal !important;
+}
+
+.theme-light-aurora .mobile-drawer-btn span {
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    font-size: 10.5px !important;
+    white-space: normal !important;
+}
+
+.dark .mobile-drawer-btn span {
+    color: #e4e4e7 !important;
+}
+
+.mobile-drawer-btn.text-blue-600 span,
+.theme-light-aurora .mobile-drawer-btn.text-blue-600 span {
+    color: #1d4ed8 !important;
+}
+
+.dark .mobile-drawer-btn.text-blue-400 span {
+    color: #60a5fa !important;
+}
+
+/* Icon box styling inside the button */
+.mobile-drawer-btn .p-2 {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-light-aurora .mobile-drawer-btn .p-2 {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark .mobile-drawer-btn .p-2 {
+    background-color: #09090b !important;
+    background: #09090b !important;
+    border-color: #3f3f46 !important;
+}
+
+.mobile-drawer-btn svg {
+    color: #475569 !important;
+    stroke-width: 2.2 !important;
+}
+
+.theme-light-aurora .mobile-drawer-btn svg {
+    color: #475569 !important;
+    stroke-width: 2.2 !important;
+}
+
+.mobile-drawer-btn.text-blue-600 svg,
+.theme-light-aurora .mobile-drawer-btn.text-blue-600 svg {
+    color: #1d4ed8 !important;
+}
+
+.dark .mobile-drawer-btn svg {
+    color: #a1a1aa !important;
+}
+
+.dark .mobile-drawer-btn.text-blue-400 svg {
+    color: #60a5fa !important;
+}
+
 
 
