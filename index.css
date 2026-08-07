@@ -119,14 +119,23 @@
 }
 
 /* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
+.theme-light-aurora .bg-blobs {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+    url('https://images.unsplash.com/photo-1531147632973-4743f9109fd2?q=80&w=2500&auto=format&fit=crop') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
 .theme-light-aurora .blob {
-  opacity: 0.78 !important;
+  opacity: 0.85 !important;
   filter: blur(120px) !important;
-  mix-blend-mode: normal !important;
+  mix-blend-mode: overlay !important;
 }
 
 .theme-light-aurora .blob-1 {
-  background: radial-gradient(circle, rgba(244, 63, 94, 0.8) 0%, rgba(236, 72, 153, 0.5) 45%, rgba(251, 113, 133, 0.05) 100%) !important;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.85) 0%, rgba(236, 72, 153, 0.55) 45%, rgba(251, 113, 133, 0.1) 100%) !important;
   width: min(100vw, 1000px) !important;
   height: min(100vw, 1000px) !important;
   top: -15% !important;
@@ -134,7 +143,7 @@
 }
 
 .theme-light-aurora .blob-2 {
-  background: radial-gradient(circle, rgba(251, 146, 60, 0.8) 0%, rgba(249, 115, 22, 0.55) 50%, rgba(253, 186, 116, 0.05) 100%) !important;
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.85) 0%, rgba(249, 115, 22, 0.6) 50%, rgba(253, 186, 116, 0.1) 100%) !important;
   width: min(90vw, 900px) !important;
   height: min(90vw, 900px) !important;
   bottom: -10% !important;
@@ -142,7 +151,7 @@
 }
 
 .theme-light-aurora .blob-3 {
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.7) 0%, rgba(6, 182, 212, 0.5) 50%, rgba(103, 232, 249, 0.05) 100%) !important;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.75) 0%, rgba(6, 182, 212, 0.55) 50%, rgba(103, 232, 249, 0.1) 100%) !important;
   width: min(80vw, 800px) !important;
   height: min(80vw, 800px) !important;
   top: 25% !important;
