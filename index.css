@@ -16,19 +16,19 @@
   }
   
   .dark {
-    --app-bg: #131314; /* Authentical Gemini dark theme background */
-    --glass-bg: rgba(30, 31, 32, 0.7); /* Frosted translucent panel */
-    --glass-bg-hover: rgba(36, 37, 39, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    --text-primary: #e3e3e3;
-    --text-secondary: #9e9e9e;
-    --border-color: rgba(255, 255, 255, 0.08);
-    --gemini-spark: linear-gradient(135deg, #9bb5ff 0%, #c5a3ff 50%, #ff8da1 100%);
+    --app-bg: #09090b; /* Sophisticated deep dark slate bg */
+    --glass-bg: rgba(20, 20, 22, 0.65); /* High-end translucent deep black */
+    --glass-bg-hover: rgba(28, 28, 30, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    --text-primary: #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --border-color: rgba(255, 255, 255, 0.05);
+    --gemini-spark: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
   }
 }
 
-/* Authentic Gemini Background Auroras - Soft, organic, eye-comfortable glowing ambient background */
+/* Beautiful Animated Background Blobs for Liquid Feel */
 .bg-blobs {
   position: fixed;
   top: 0;
@@ -41,57 +41,155 @@
   transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Subtle background noise layer for textured film look like Gemini */
 .bg-blobs::after {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.015;
+  opacity: 0.025;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.08; /* Perfect elegant sub-opacity for distraction-free reading */
-  mix-blend-mode: plus-lighter;
-  animation: blob-float 25s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+  filter: blur(160px);
+  opacity: 0.15;
+  mix-blend-mode: screen;
+  animation: blob-float 30s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
 }
 
 .dark .blob {
-  opacity: 0.12; /* Slightly more colorful in dark mode to offset deep darks */
+  opacity: 0.22;
 }
 
 .blob-1 {
-  width: min(60vw, 650px);
-  height: min(60vw, 650px);
-  background: conic-gradient(from 180deg at 50% 50%, #4b90ff 0deg, #aa72ff 120deg, #ff6097 240deg, #4b90ff 360deg);
-  top: -15%;
-  right: -10%;
+  width: min(80vw, 850px);
+  height: min(80vw, 850px);
+  background: radial-gradient(circle, rgba(75, 144, 255, 0.6) 0%, rgba(170, 114, 255, 0.4) 50%, rgba(255, 96, 151, 0.1) 100%);
+  top: -20%;
+  right: -15%;
 }
 
 .blob-2 {
-  width: min(50vw, 550px);
-  height: min(50vw, 550px);
-  background: conic-gradient(from 0deg at 50% 50%, #ff6097 0deg, #4b90ff 180deg, #aa72ff 360deg);
-  bottom: -10%;
-  left: -10%;
-  animation-delay: -8s;
-  animation-duration: 35s;
+  width: min(70vw, 750px);
+  height: min(70vw, 750px);
+  background: radial-gradient(circle, rgba(255, 96, 151, 0.5) 0%, rgba(75, 144, 255, 0.4) 60%, rgba(170, 114, 255, 0.1) 100%);
+  bottom: -15%;
+  left: -15%;
+  animation-delay: -10s;
+  animation-duration: 40s;
 }
 
 .blob-3 {
-  width: min(40vw, 450px);
-  height: min(40vw, 450px);
-  background: linear-gradient(135deg, #aa72ff 0%, #4b90ff 100%);
-  top: 40%;
-  left: 35%;
-  animation: blob-float 30s infinite alternate-reverse;
-  opacity: 0.03;
-  animation-delay: -4s;
+  width: min(50vw, 550px);
+  height: min(50vw, 550px);
+  background: radial-gradient(circle, rgba(170, 114, 255, 0.4) 0%, rgba(75, 144, 255, 0.3) 50%, rgba(255, 255, 255, 0) 100%);
+  top: 30%;
+  left: 25%;
+  opacity: 0.08;
+  animation-delay: -5s;
+}
+
+/* Premium Apple Liquid Glass Layout and Shadows */
+.apple-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(28px) saturate(210%);
+  -webkit-backdrop-filter: blur(28px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.01),
+    0 1px 3px rgba(0, 0, 0, 0.02),
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.2);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .apple-glass {
+  background: rgba(18, 18, 22, 0.65);
+  backdrop-filter: blur(28px) saturate(210%);
+  -webkit-backdrop-filter: blur(28px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.4);
+}
+
+.apple-glass-hover:hover {
+  transform: translateY(-2px) scale(1.005);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.04),
+    0 1px 4px rgba(0, 0, 0, 0.02),
+    inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.dark .apple-glass-hover:hover {
+  background: rgba(24, 24, 28, 0.75);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Premium Apple Shadows */
+.apple-shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.015), 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+.dark .apple-shadow-sm {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.apple-shadow-md {
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.03),
+    0 1px 3px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.dark .apple-shadow-md {
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.apple-shadow-lg {
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.dark .apple-shadow-lg {
+  box-shadow: 
+    0 32px 80px rgba(0, 0, 0, 0.45),
+    0 6px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Custom interactive input styling to fit Apple look */
+.apple-input {
+  background: rgba(255, 255, 255, 0.45) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.dark .apple-input {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.apple-input:focus {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
+}
+.dark .apple-input:focus {
+  background: rgba(18, 18, 22, 0.8) !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15) !important;
 }
 
 @keyframes blob-float {

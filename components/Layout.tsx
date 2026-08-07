@@ -83,6 +83,33 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   // Profile/Password Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
   
+  // Dynamic Modal Detection to Hide Bottom Nav
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkModal = () => {
+      // Check for any active modal/dialog backdrops
+      const modals = document.querySelectorAll('.fixed.inset-0:not(.pointer-events-none), [role="dialog"], .modal-active, .absolute.inset-0.bg-black\\/50');
+      let visible = false;
+      modals.forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+          // Ignore background blobs or bottom navbar
+          if (!el.classList.contains('bottom-nav-bar') && !el.classList.contains('bg-blobs')) {
+            visible = true;
+          }
+        }
+      });
+      setIsModalOpen(visible);
+    };
+    
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    
+    return () => observer.disconnect();
+  }, []);
+
   // Local Profile Form State
   const [profileForm, setProfileForm] = useState<{
       password?: string;
@@ -365,6 +392,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const bottomVisibleItems = sortedItems.slice(0, 4);
   const menuItems = sortedItems.slice(4);
 
+  const isBottomBarVisible = !showMobileMenu && !isModalOpen && bottomVisibleItems.some(item => item.id === activeTab);
+
   const NotificationDropdown = () => ( 
     <div role="dialog" aria-label="اعلان‌ها" className="notification-dropdown-container fixed top-16 left-4 right-4 md:absolute md:top-auto md:bottom-16 md:left-2 md:right-auto md:w-80 glass-panel rounded-xl shadow-2xl border border-gray-200/50 dark:border-white/10 text-gray-800 dark:text-gray-200 z-[9999] overflow-hidden origin-top md:origin-bottom-left animate-scale-in max-h-[60vh] flex flex-col">
         <div className="bg-blue-50 p-3 flex justify-between items-center border-b border-blue-100 shrink-0">
@@ -566,7 +595,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
             </div>
         </div>
       )}
-      <aside className={`flex-shrink-0 hidden md:flex flex-col no-print relative h-screen sticky top-0 transition-all duration-300 z-[60] bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 shadow-sm text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
+      <aside className={`flex-shrink-0 hidden md:flex flex-col no-print sticky top-4 transition-all duration-300 z-[60] text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'} h-[calc(100vh-2rem)] my-4 mr-4 ml-2 rounded-[24px] bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border border-white/40 dark:border-zinc-900/30 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden`}>
           <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
               <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'hidden'}`}>
                   <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm"><Sparkles className="w-5 h-5" /></div>
@@ -592,7 +621,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
               )}
           </div>
           
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar relative z-10">
               {navItems.map((item) => { 
                   const Icon = item.icon; 
                   const isActive = activeTab === item.id;
@@ -600,9 +629,16 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                     <button 
                         key={item.id} 
                         onClick={() => setActiveTab(item.id)} 
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/10 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/50'} ${!isSidebarOpen && 'justify-center'}`} 
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-900/30'} ${!isSidebarOpen && 'justify-center'}`} 
                         title={item.label}
                     >
+                        {isActive && (
+                            <motion.div 
+                                layoutId="activeSidebarTab"
+                                className="absolute inset-0 bg-blue-50/70 dark:bg-blue-950/20 rounded-xl border border-blue-100/50 dark:border-blue-900/30 -z-0"
+                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                            />
+                        )}
                         <div className="relative z-10 flex items-center justify-between w-full">
                             <div className="flex items-center gap-3">
                                 <Icon size={18} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-colors'} />
@@ -615,9 +651,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-900"></span>
                             )}
                         </div>
-                        {isActive && (
-                            <div className="absolute right-0 top-1 bottom-1 w-1 bg-blue-600 dark:bg-blue-500 rounded-l" />
-                        )}
                     </button>
                   ); 
               })}
@@ -766,43 +799,67 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
         )}
       </AnimatePresence>
 
-      {/* Mobile Bottom Navigation - Option 2: Pure shadcn/ui elegant flat bar - Persists across all pages */}
-      <div className="md:hidden fixed z-[90] bottom-0 left-0 right-0 bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200/80 dark:border-zinc-800/80 pb-[calc(6px+env(safe-area-inset-bottom))] pt-2 flex justify-around items-center backdrop-blur-lg">
-          {bottomVisibleItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                  <button 
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)} 
-                      className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500'}`}
-                  >
-                      <div className="relative">
-                          <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                          {item.id === 'chat' && unreadChatCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
-                          )}
-                      </div>
-                      <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>{item.label}</span>
-                  </button>
-              );
-          })}
-          
-          <button 
-              onClick={() => setShowMobileMenu(true)} 
-              className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500'}`}
+      {/* Mobile Bottom Navigation - Modern Apple Liquid Floating Dock */}
+      <AnimatePresence>
+        {isBottomBarVisible && (
+          <motion.div 
+            initial={{ y: 80, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 80, opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", damping: 25, stiffness: 280 }}
+            className="md:hidden fixed z-[90] bottom-4 left-4 right-4 bg-white/75 dark:bg-zinc-900/75 border border-white/40 dark:border-zinc-800/30 pb-2 pt-2 rounded-[20px] flex justify-around items-center backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.4)] px-2"
           >
-              <div className="relative">
-                  <Menu size={18} strokeWidth={menuItems.some(m => m.id === activeTab) ? 2.5 : 2} />
-                  {menuItems.some(m => m.id === 'chat' && unreadChatCount > 0) && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
+              {bottomVisibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                      <button 
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id)} 
+                          className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative py-1 ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+                      >
+                          {isActive && (
+                              <motion.div 
+                                  layoutId="activeBottomTab"
+                                  className="absolute inset-x-2 inset-y-0.5 bg-blue-50/80 dark:bg-blue-950/40 rounded-xl -z-10 border border-blue-100/50 dark:border-blue-900/20"
+                                  transition={{ type: "spring", duration: 0.4 }}
+                              />
+                          )}
+                          <div className="relative">
+                              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                              {item.id === 'chat' && unreadChatCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
+                              )}
+                          </div>
+                          <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>{item.label}</span>
+                      </button>
+                  );
+              })}
+              
+              <button 
+                  onClick={() => setShowMobileMenu(true)} 
+                  className={`flex flex-col items-center gap-1 transition-all duration-200 flex-1 relative py-1 ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+              >
+                  {menuItems.some(m => m.id === activeTab) && (
+                      <motion.div 
+                          layoutId="activeBottomTab"
+                          className="absolute inset-x-2 inset-y-0.5 bg-blue-50/80 dark:bg-blue-950/40 rounded-xl -z-10 border border-blue-100/50 dark:border-blue-900/20"
+                          transition={{ type: "spring", duration: 0.4 }}
+                      />
                   )}
-              </div>
-              <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>منو</span>
-          </button>
-      </div>
+                  <div className="relative">
+                      <Menu size={18} strokeWidth={menuItems.some(m => m.id === activeTab) ? 2.5 : 2} />
+                      {menuItems.some(m => m.id === 'chat' && unreadChatCount > 0) && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-950 shadow-sm animate-pulse"></span>
+                      )}
+                  </div>
+                  <span className={`text-[9px] font-bold tracking-tight transition-all duration-200 ${menuItems.some(m => m.id === activeTab) ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500'}`}>منو</span>
+              </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0">
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-[24px] border border-white/45 dark:border-zinc-900/35 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
           {/* Mobile Header - Sleek flat design matching shadcn/ui */}
           <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/95 dark:bg-zinc-950/95 border-b border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-lg">
               <div className="flex items-center gap-3">
