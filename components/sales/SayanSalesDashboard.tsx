@@ -2058,7 +2058,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-right text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
@@ -2158,6 +2159,153 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tfoot>
             </table>
           </div>
+
+          {/* Mobile Card List View (No Horizontal Scrolling) */}
+          <div className="block md:hidden divide-y divide-slate-100 bg-white p-3.5 space-y-4">
+            {processedMetrics.categoryList.length === 0 ? (
+              <div className="text-center py-12 text-slate-400 font-medium">
+                {isLoading ? 'در حال دریافت اطلاعات از سرور سایان ERP...' : 'هیچ رکوردی در این بازه یافت نشد'}
+              </div>
+            ) : (
+              processedMetrics.categoryList.map((cat, idx) => {
+                const isExpanded = !!expandedCategories[cat.name];
+                return (
+                  <div key={idx} className="bg-slate-50/60 rounded-xl border border-slate-100 p-3.5 space-y-3">
+                    {/* Header */}
+                    <div 
+                      onClick={() => toggleCategory(cat.name)}
+                      className="flex justify-between items-center border-b border-slate-200/50 pb-2 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        {cat.items.length > 0 ? (
+                          isExpanded ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-slate-400" />
+                        ) : null}
+                        <span className="font-extrabold text-slate-900 text-xs">{cat.name}</span>
+                        {cat.items.length > 0 && (
+                          <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                            {cat.items.length} کالا
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded font-black font-mono">
+                        {cat.sharePct.toFixed(1)}% سهم
+                      </span>
+                    </div>
+
+                    {/* Weight Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <span className="text-slate-400 block text-[9px]">وزن فروش</span>
+                        <span className="font-mono font-bold text-slate-700">{formatWeight(cat.salesWgt)}</span>
+                      </div>
+                      <div className={`p-2 rounded-lg border ${cat.retWgt > 0 ? 'bg-rose-50/50 border-rose-100 text-rose-700' : 'bg-white border-slate-100 text-slate-500'}`}>
+                        <span className="text-slate-400 block text-[9px]">وزن مرجوعی</span>
+                        <span className="font-mono font-bold">{cat.retWgt > 0 ? formatWeight(cat.retWgt) : '-'}</span>
+                      </div>
+                    </div>
+
+                    {/* Net Weight and Fee Row */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="bg-blue-50/40 border border-blue-100/50 p-2 rounded-lg text-blue-950">
+                        <span className="text-blue-600 block text-[9px] font-bold">وزن خالص</span>
+                        <span className="font-mono font-black">{formatWeight(cat.netWgt)} kg</span>
+                      </div>
+                      <div className="bg-emerald-50/40 border border-emerald-100/50 p-2 rounded-lg text-emerald-950">
+                        <span className="text-emerald-600 block text-[9px] font-bold">فی خالص نهایی</span>
+                        <span className="font-mono font-black">{formatMoney(cat.netFee)}</span>
+                      </div>
+                    </div>
+
+                    {/* Financial Sales Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <span className="text-slate-400 block text-[9px]">مبلغ فروش (ناخالص)</span>
+                        <span className="font-mono font-bold text-slate-700">{formatMoney(cat.salesAmt)}</span>
+                      </div>
+                      <div className={`p-2 rounded-lg border ${cat.retAmt > 0 ? 'bg-rose-50/50 border-rose-100 text-rose-700' : 'bg-white border-slate-100 text-slate-500'}`}>
+                        <span className="text-slate-400 block text-[9px]">مبلغ مرجوعی</span>
+                        <span className="font-mono font-bold">{cat.retAmt > 0 ? formatMoney(cat.retAmt) : '-'}</span>
+                      </div>
+                    </div>
+
+                    {/* Net Financial Highlight */}
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5 flex justify-between items-center text-[11px]">
+                      <span className="font-bold text-indigo-900">فروش خالص نهایی گروه</span>
+                      <span className="font-mono font-black text-indigo-700">{formatMoney(cat.netAmt)} ریال</span>
+                    </div>
+
+                    {/* Nested items list (Drill Down) */}
+                    {isExpanded && cat.items.length > 0 && (
+                      <div className="bg-white rounded-lg border border-slate-200/60 p-2.5 mt-2 space-y-2.5 divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+                        <div className="text-[10px] font-extrabold text-slate-400 pb-1">اقلام زیرمجموعه {cat.name}:</div>
+                        {cat.items.map((sub, sIdx) => (
+                          <div key={sIdx} className="pt-2 space-y-1.5 first:pt-0">
+                            <div className="flex justify-between items-start gap-1">
+                              <span className="font-bold text-slate-800 text-[11px] leading-tight">{sub.itemName}</span>
+                              <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">{sub.sharePct.toFixed(1)}% سهم</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-slate-500">
+                              <div>
+                                <span className="text-slate-400 text-[8px] block font-sans">وزن خالص:</span>
+                                <span className="font-bold text-slate-700">{formatWeight(sub.netWgt)} kg</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[8px] block font-sans">فی خالص:</span>
+                                <span className="font-bold text-slate-700">{formatMoney(sub.netFee)}</span>
+                              </div>
+                              <div className="text-left">
+                                <span className="text-slate-400 text-[8px] block font-sans">مبلغ خالص:</span>
+                                <span className="font-bold text-blue-700">{formatMoney(sub.netAmt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+
+            {/* Mobile Total Row Summary Card */}
+            <div className="bg-slate-900 text-white rounded-xl p-4 space-y-3.5 shadow-md border border-slate-800">
+              <div className="text-xs font-black border-b border-white/15 pb-2">خلاصه کل عملکرد دوره (۱۵ گروه اصلی کالا)</div>
+              
+              <div className="grid grid-cols-2 gap-2.5 text-[11px]">
+                <div className="bg-white/5 p-2.5 rounded-lg border border-white/5">
+                  <span className="text-slate-400 block text-[9px]">وزن ناخالص کل</span>
+                  <span className="font-mono font-bold text-white block mt-0.5">{formatWeight(processedMetrics.rangeSalesAmt ? (processedMetrics.rangeNetWgt + processedMetrics.rangeRetWgt) : 0)} kg</span>
+                </div>
+                <div className="bg-white/5 p-2.5 rounded-lg border border-white/5">
+                  <span className="text-rose-300 block text-[9px]">وزن مرجوعی کل</span>
+                  <span className="font-mono font-bold text-rose-300 block mt-0.5">{formatWeight(processedMetrics.rangeRetWgt)} kg</span>
+                </div>
+                <div className="bg-blue-900/40 p-2.5 rounded-lg border border-blue-500/20 col-span-2 flex justify-between items-center">
+                  <span className="text-blue-300 text-[9px] font-bold">وزن خالص کل دوره:</span>
+                  <span className="font-mono font-black text-blue-200">{formatWeight(processedMetrics.rangeNetWgt)} kg</span>
+                </div>
+              </div>
+
+              <div className="bg-white/5 p-3 rounded-xl space-y-2 border border-white/5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400">مجموع فروش ناخالص</span>
+                  <span className="font-mono font-bold">{formatMoney(processedMetrics.rangeSalesAmt)} ریال</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-rose-300">
+                  <span>مجموع مرجوعی کل</span>
+                  <span className="font-mono font-bold">{formatMoney(processedMetrics.rangeRetAmt)} ریال</span>
+                </div>
+                <div className="flex justify-between items-center text-xs border-t border-white/10 pt-2 text-blue-300">
+                  <span className="font-bold">فروش خالص کل دوره</span>
+                  <span className="font-mono font-black">{formatMoney(processedMetrics.rangeNetAmt)} ریال</span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-emerald-400 border-t border-white/10 pt-2">
+                  <span className="font-bold">میانگین فی خالص نهایی</span>
+                  <span className="font-mono font-black">{formatMoney(processedMetrics.rangeNetFee)} ریال/ک‌گ</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2176,7 +2324,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto max-h-[600px]">
+          {/* Desktop View */}
+          <div className="overflow-x-auto max-h-[600px] hidden md:block">
             <table className="w-full text-right text-xs">
               <thead className="sticky top-0 bg-slate-100 z-10 border-b border-slate-200">
                 <tr className="font-bold text-slate-700">
@@ -2212,6 +2361,56 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Mobile View (No Horizontal Scrolling) */}
+          <div className="block md:hidden max-h-[600px] overflow-y-auto divide-y divide-slate-100 bg-white p-3.5 space-y-3">
+            {filteredItems.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 font-medium">
+                هیچ کالایی یافت نشد.
+              </div>
+            ) : (
+              filteredItems.map((item, idx) => (
+                <div key={idx} className="bg-slate-50/60 rounded-xl border border-slate-100 p-3 space-y-2.5">
+                  <div className="flex justify-between items-start gap-2 border-b border-slate-200/50 pb-2">
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold font-mono">#{idx + 1} | گروه: {item.majorCategory}</span>
+                      <h4 className="font-extrabold text-slate-900 text-xs mt-0.5 leading-tight">{item.itemName}</h4>
+                    </div>
+                    <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded font-black font-mono shrink-0">
+                      {item.sharePct.toFixed(1)}% سهم
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-blue-50/40 border border-blue-100/50 p-2 rounded-lg text-blue-950">
+                      <span className="text-blue-600 block text-[9px] font-bold">وزن خالص</span>
+                      <span className="font-mono font-black">{formatWeight(item.netQty)} kg</span>
+                    </div>
+                    <div className="bg-emerald-50/40 border border-emerald-100/50 p-2 rounded-lg text-emerald-950">
+                      <span className="text-emerald-600 block text-[9px] font-bold">فی خالص نهایی</span>
+                      <span className="font-mono font-black">{formatMoney(item.netFee)}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-600">
+                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                      <span className="text-slate-400 block text-[9px] font-sans">فروش ناخالص:</span>
+                      <span className="font-bold">{formatMoney(item.salesAmt)}</span>
+                    </div>
+                    <div className={`p-2 rounded-lg border ${item.returnAmt > 0 ? 'bg-rose-50/50 border-rose-100 text-rose-700' : 'bg-white border-slate-100 text-slate-500'}`}>
+                      <span className="text-slate-400 block text-[9px] font-sans">برگشت از فروش:</span>
+                      <span className="font-bold">{item.returnAmt > 0 ? formatMoney(item.returnAmt) : '-'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex justify-between items-center text-[11px]">
+                    <span className="font-bold text-indigo-900">فروش خالص کالا</span>
+                    <span className="font-mono font-black text-indigo-700">{formatMoney(item.netAmt)} ریال</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -2230,7 +2429,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto max-h-[600px]">
+          {/* Desktop View */}
+          <div className="overflow-x-auto max-h-[600px] hidden md:block">
             <table className="w-full text-right text-xs">
               <thead className="sticky top-0 bg-slate-100 z-10 border-b border-slate-200 font-bold text-slate-700">
                 <tr>
@@ -2269,6 +2469,57 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View (No Horizontal Scrolling) */}
+          <div className="block md:hidden max-h-[600px] overflow-y-auto divide-y divide-slate-100 bg-white p-3.5 space-y-3">
+            {filteredInvoices.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 font-medium">
+                هیچ فاکتوری یافت نشد.
+              </div>
+            ) : (
+              filteredInvoices.map((inv, idx) => (
+                <div key={idx} className="bg-slate-50/60 rounded-xl border border-slate-100 p-3.5 space-y-2.5">
+                  <div className="flex justify-between items-center border-b border-slate-200/50 pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-black text-blue-700 text-xs">#{inv.invoiceNum}</span>
+                      <span className="text-slate-400 font-mono text-[9px] font-bold">({inv.date})</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                      {inv.paymentStatus}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-slate-900 text-xs">{inv.customerName}</h4>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>استان/شهر: <strong>{inv.city || '---'}</strong></span>
+                      <span>کارشناس: <strong>{inv.salesExpert || '---'}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-600">
+                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                      <span className="text-slate-400 block text-[9px] font-sans">مبلغ ناخالص:</span>
+                      <span className="font-bold">{formatMoney(inv.grossAmt)}</span>
+                    </div>
+                    <div className={`p-2 rounded-lg border ${inv.retAmt > 0 ? 'bg-rose-50/50 border-rose-100 text-rose-700' : 'bg-white border-slate-100 text-slate-500'}`}>
+                      <span className="text-slate-400 block text-[9px] font-sans">برگشت از فروش (مرجوعی):</span>
+                      <span className="font-bold">{inv.retAmt > 0 ? formatMoney(inv.retAmt) : '-'}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex justify-between items-center text-[11px]">
+                    <div className="text-blue-900 font-bold">
+                      وزن خالص: <span className="font-mono text-blue-700">{formatWeight(inv.netWgt)} kg</span>
+                    </div>
+                    <div className="text-blue-900 font-bold">
+                      فروش خالص: <span className="font-mono text-blue-700">{formatMoney(inv.netAmt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -2547,7 +2798,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="overflow-x-auto max-h-[650px]">
+                {/* Desktop and Mobile Views for Comparison */}
+                <div className="overflow-x-auto max-h-[650px] hidden md:block">
                   {compareModeType === 'groups' ? (
                     <table className="w-full text-right text-xs">
                       <thead className="sticky top-0 bg-slate-100 z-10 border-b border-slate-200 text-slate-700 font-bold">
@@ -2646,6 +2898,128 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
                         ))}
                       </tbody>
                     </table>
+                  )}
+                </div>
+
+                {/* Mobile View (No Horizontal Scrolling) */}
+                <div className="block md:hidden divide-y divide-slate-100 bg-white p-3.5 space-y-3.5 max-h-[650px] overflow-y-auto">
+                  {compareModeType === 'groups' ? (
+                    comparisonMetrics?.compareGroupRows.map((row, idx) => (
+                      <div key={idx} className="bg-slate-50/60 rounded-xl border border-slate-100 p-3.5 space-y-2.5">
+                        <div className="flex justify-between items-start gap-2 border-b border-slate-200/50 pb-2">
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold font-mono">#{idx + 1} | گروه اصلی کالا</span>
+                            <h4 className="font-extrabold text-slate-900 text-xs mt-0.5">{row.catName}</h4>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono ${
+                              row.growthPct > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : row.growthPct < 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-600 border border-slate-100'
+                            }`}>
+                              {row.growthPct > 0 ? '+' : ''}{row.growthPct.toFixed(1)}% رشد
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold border ${row.variance.color}`}>
+                              {row.variance.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono leading-tight">
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فروش خالص A:</span>
+                            <span className="font-bold text-blue-900">{formatMoney(row.netAmtA)}</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فروش خالص B:</span>
+                            <span className="font-bold text-purple-900">{formatMoney(row.netAmtB)}</span>
+                          </div>
+
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">وزن خالص A:</span>
+                            <span className="font-bold text-blue-900">{formatWeight(row.netWgtA)} kg</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">وزن خالص B:</span>
+                            <span className="font-bold text-purple-900">{formatWeight(row.netWgtB)} kg</span>
+                          </div>
+
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">میانگین فی A:</span>
+                            <span className="font-bold text-blue-900">{formatMoney(row.netFeeA)}</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">میانگین فی B:</span>
+                            <span className="font-bold text-purple-900">{formatMoney(row.netFeeB)}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex justify-between items-center text-[11px]">
+                          <div className="font-bold text-indigo-900 flex items-center gap-1">
+                            <span>اختلاف فروش:</span>
+                            <span className={`font-mono font-black ${row.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                              {row.diffAmt >= 0 ? '+' : ''}{formatMoney(row.diffAmt)} ریال
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">سهم A: {row.sharePctA.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    comparisonMetrics?.compareItemRows.map((item, idx) => (
+                      <div key={idx} className="bg-slate-50/60 rounded-xl border border-slate-100 p-3.5 space-y-2.5">
+                        <div className="flex justify-between items-start gap-2 border-b border-slate-200/50 pb-2">
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold font-mono">#{idx + 1} | {item.majorCategory}</span>
+                            <h4 className="font-extrabold text-slate-900 text-xs mt-0.5 leading-tight">{item.itemName}</h4>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono ${
+                              item.growthPct > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : item.growthPct < 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-600 border border-slate-100'
+                            }`}>
+                              {item.growthPct > 0 ? '+' : ''}{item.growthPct.toFixed(1)}% تغییر
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold border ${item.variance.color}`}>
+                              {item.variance.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono leading-tight">
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فروش خالص A:</span>
+                            <span className="font-bold text-blue-900">{formatMoney(item.netAmtA)}</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فروش خالص B:</span>
+                            <span className="font-bold text-purple-900">{formatMoney(item.netAmtB)}</span>
+                          </div>
+
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">وزن خالص A:</span>
+                            <span className="font-bold text-blue-900">{formatWeight(item.netWgtA)} kg</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">وزن خالص B:</span>
+                            <span className="font-bold text-purple-900">{formatWeight(item.netWgtB)} kg</span>
+                          </div>
+
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فی A:</span>
+                            <span className="font-bold text-blue-900">{formatMoney(item.netFeeA)}</span>
+                          </div>
+                          <div className="bg-white p-2 rounded border border-slate-100">
+                            <span className="text-slate-400 block text-[8px] font-sans">فی B:</span>
+                            <span className="font-bold text-purple-900">{formatMoney(item.netFeeB)}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex justify-between items-center text-[11px]">
+                          <span className="font-bold text-indigo-900">اختلاف فروش خالص:</span>
+                          <span className={`font-mono font-black ${item.diffAmt >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {item.diffAmt >= 0 ? '+' : ''}{formatMoney(item.diffAmt)} ریال
+                          </span>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>

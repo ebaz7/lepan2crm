@@ -165,27 +165,18 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'light-aurora'>('light-aurora');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        setTheme('dark');
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('theme-light-aurora');
-    } else if (savedTheme === 'light') {
-        setTheme('light');
-        document.documentElement.classList.remove('dark', 'theme-light-aurora');
-    } else {
-        setTheme('light-aurora');
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('theme-light-aurora');
-    }
+    // Automatically default to the premium transparent glass theme (light-aurora) on every page refresh/load
+    setTheme('light-aurora');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('theme-light-aurora');
   }, []);
 
   const toggleTheme = () => {
       let newTheme: 'light' | 'dark' | 'light-aurora';
       if (theme === 'light-aurora') {
-          newTheme = 'light';
-      } else if (theme === 'light') {
           newTheme = 'dark';
+      } else if (theme === 'dark') {
+          newTheme = 'light';
       } else {
           newTheme = 'light-aurora';
       }

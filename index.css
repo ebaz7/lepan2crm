@@ -240,17 +240,30 @@
 .theme-light-aurora .text-gray-900,
 .theme-light-aurora .text-zinc-800,
 .theme-light-aurora .text-slate-800,
-.theme-light-aurora .text-gray-800 {
-  color: #0f172a !important;
+.theme-light-aurora .text-gray-800,
+.theme-light-aurora h1,
+.theme-light-aurora h2,
+.theme-light-aurora h3,
+.theme-light-aurora h4,
+.theme-light-aurora h5,
+.theme-light-aurora h6,
+.theme-light-aurora th {
+  color: #000000 !important;
+  font-weight: 900 !important;
+  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.6);
 }
 
+.theme-light-aurora .text-zinc-700,
+.theme-light-aurora .text-slate-700,
+.theme-light-aurora .text-gray-700,
 .theme-light-aurora .text-zinc-600,
 .theme-light-aurora .text-slate-600,
 .theme-light-aurora .text-gray-600,
 .theme-light-aurora .text-zinc-500,
 .theme-light-aurora .text-slate-500,
 .theme-light-aurora .text-gray-500 {
-  color: #334155 !important;
+  color: #111827 !important;
+  font-weight: 700 !important;
 }
 
 .theme-light-aurora .border-zinc-200,
@@ -902,3 +915,168 @@ td {
 .dark ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2) !important;
 }
+
+/* --- GLASS/AURORA THEME SIDEBAR & MENU COHESION --- */
+.theme-light-aurora aside {
+    border-color: rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Logo container in sidebar */
+.theme-light-aurora aside .bg-blue-600 {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(99, 102, 241, 0.85)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Sidebar navigation buttons */
+.theme-light-aurora aside nav button {
+    color: #1e293b !important; /* Elegant dark slate for text */
+    font-weight: 800 !important;
+}
+
+/* Sidebar inactive icons: make them more visible with an elegant indigo/slate tint */
+.theme-light-aurora aside nav button svg:not(.text-blue-600) {
+    color: #3b82f6 !important; /* Make icons look gorgeous and pop instead of washed out zinc-400 */
+    stroke-width: 2.2 !important;
+    opacity: 0.85;
+}
+
+/* Sidebar active item text and icon */
+.theme-light-aurora aside nav button .text-blue-600,
+.theme-light-aurora aside nav button svg.text-blue-600,
+.theme-light-aurora aside nav button svg.dark\:text-blue-400 {
+    color: #1d4ed8 !important; /* Premium royal blue active color */
+    stroke-width: 2.8 !important;
+    opacity: 1 !important;
+}
+
+/* Sidebar active tab glass highlight */
+.theme-light-aurora aside nav button [layoutId="activeSidebarTab"],
+.theme-light-aurora aside nav button .bg-blue-50\/70 {
+    background: rgba(255, 255, 255, 0.55) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+    box-shadow: 
+        0 8px 24px rgba(15, 23, 42, 0.04), 
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Mobile Top Header glass adjustment */
+.theme-light-aurora header {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.55) !important;
+}
+
+.theme-light-aurora header h1 {
+    color: #0f172a !important;
+    font-weight: 900 !important;
+}
+
+/* Mobile top header buttons (Search, Theme switcher, Back button) */
+.theme-light-aurora header button {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+    color: #1e293b !important;
+}
+
+.theme-light-aurora header button svg {
+    color: #2563eb !important; /* Blue icons on top header buttons for amazing pop! */
+    stroke-width: 2.2 !important;
+}
+
+/* Floating bottom navigation bar matching Apple liquid glass */
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 {
+    background-color: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(24px) saturate(220%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(220%) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 
+        0 12px 32px rgba(15, 23, 42, 0.08),
+        inset 0 1px 2px rgba(255, 255, 255, 0.95) !important;
+}
+
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button {
+    color: #1e293b !important;
+    font-weight: 800 !important;
+}
+
+/* Floating bottom dock inactive icons */
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button svg {
+    color: #3b82f6 !important; /* Soft royal blue instead of dull grey */
+    stroke-width: 2.2 !important;
+    opacity: 0.8;
+}
+
+/* Floating bottom dock active item active text & icon */
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button.text-blue-600 {
+    color: #1d4ed8 !important;
+}
+
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button.text-blue-600 svg {
+    color: #1d4ed8 !important;
+    stroke-width: 2.8 !important;
+    opacity: 1 !important;
+}
+
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button .bg-blue-50\/80,
+.theme-light-aurora .fixed.bottom-4.bg-white\/75 button [layoutId="activeBottomTab"] {
+    background-color: rgba(37, 99, 235, 0.12) !important;
+    border: 1px solid rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Mobile slide-up drawer panel under glass theme */
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(32px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] h4 {
+    color: #334155 !important;
+    font-weight: 900 !important;
+}
+
+/* Mobile slide-up drawer grid buttons */
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button {
+    background: rgba(255, 255, 255, 0.45) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.7) !important;
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01) !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button:hover {
+    background: rgba(255, 255, 255, 0.65) !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button .p-2 {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button svg {
+    color: #2563eb !important; /* Beautiful active blue */
+    stroke-width: 2.2 !important;
+}
+
+/* Mobile slide-up drawer active item */
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button.text-blue-600 {
+    background: rgba(37, 99, 235, 0.12) !important;
+    border-color: rgba(37, 99, 235, 0.35) !important;
+    color: #1d4ed8 !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button.text-blue-600 .p-2 {
+    background: rgba(37, 99, 235, 0.2) !important;
+    border-color: rgba(37, 99, 235, 0.3) !important;
+}
+
+.theme-light-aurora .relative.w-full.max-h-\[85vh\] .grid.grid-cols-3 button.text-blue-600 svg {
+    color: #1d4ed8 !important;
+}
+

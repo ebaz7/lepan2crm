@@ -2545,7 +2545,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </div>
 
             {/* Premium Tab Bar */}
-            <div className="grid grid-cols-3 gap-1.5 sm:flex sm:space-x-reverse sm:space-x-2 border-b border-slate-200 bg-slate-50 p-1.5 rounded-lg">
+            <div className="grid grid-cols-2 gap-1.5 sm:flex sm:space-x-reverse sm:space-x-2 border-b border-slate-200 bg-slate-50 p-1.5 rounded-lg">
                 {isTrazAllowed && (
                     <button 
                         onClick={() => setActiveTab('traz')} 
@@ -4074,7 +4074,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                         {/* Main Production & Waste Table matching user screenshot format */}
                         <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
-                            <div className="overflow-x-auto">
+                            {/* Desktop View */}
+                            <div className="overflow-x-auto hidden md:block">
                                 <table className="w-full text-center text-xs sm:text-sm border-collapse">
                                     <thead>
                                         {/* Row 1: Header Categories */}
@@ -4200,6 +4201,134 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     </tfoot>
                                 </table>
                             </div>
+
+                            {/* Mobile View */}
+                            <div className="block md:hidden divide-y divide-slate-100 bg-white">
+                                {isLoading ? (
+                                    <div className="py-12 text-center text-slate-500">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+                                            <span>در حال دریافت اطلاعات زنده از دیتابیس سایان...</span>
+                                        </div>
+                                    </div>
+                                ) : prodLiveItems.length === 0 ? (
+                                    <div className="py-12 text-center text-slate-400 font-medium">
+                                        هیچ سند تولیدی در تاریخ {dateFrom} یافت نشد. جهت استعلام دکمه دریافت زنده از سایان را بفشارید.
+                                    </div>
+                                ) : (
+                                    <div className="p-3.5 space-y-4">
+                                        {prodLiveItems.map((item: any, idx: number) => (
+                                            <div key={idx} className="bg-slate-50/50 rounded-xl border border-slate-100 p-3 space-y-2.5">
+                                                <div className="flex justify-between items-center border-b border-slate-200/50 pb-1.5">
+                                                    <span className="font-extrabold text-slate-900 text-xs">{item.name}</span>
+                                                    <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">{item.unit || 'کیلوگرم'}</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                                        <span className="text-slate-400 block text-[9px]">کارت POY (61)</span>
+                                                        <span className="font-mono font-bold text-slate-700">{item.qty_61 > 0 ? item.qty_61.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    </div>
+                                                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                                        <span className="text-slate-400 block text-[9px]">کارت DTY (67)</span>
+                                                        <span className="font-mono font-bold text-slate-700">{item.qty_67 > 0 ? item.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    </div>
+                                                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                                        <span className="text-slate-400 block text-[9px]">کارت کش (79)</span>
+                                                        <span className="font-mono font-bold text-slate-700">{item.qty_79 > 0 ? item.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    </div>
+                                                    <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                                        <span className="text-slate-400 block text-[9px]">اسپاندکس (73)</span>
+                                                        <span className="font-mono font-bold text-slate-700">{item.qty_73 > 0 ? item.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 flex justify-between items-center text-[11px]">
+                                                    <span className="font-bold text-blue-900">مجموع تولید کالا</span>
+                                                    <span className="font-mono font-black text-blue-700">{item.total > 0 ? item.total.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        
+                                        {/* Mobile Totals / Manual Inputs */}
+                                        <div className="bg-blue-950 text-white rounded-xl p-4 space-y-3.5 shadow-md">
+                                            <div className="text-xs font-extrabold border-b border-white/20 pb-2">خلاصه کل تولید و ضایعات روزانه</div>
+                                            
+                                            <div className="grid grid-cols-2 gap-2.5 text-[11px]">
+                                                <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت POY</span>
+                                                    <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_61 ? prodLiveTotals.qty_61.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        className="w-full text-center bg-white text-slate-900 rounded p-1 font-mono text-[10px] font-bold mt-1"
+                                                        value={prodWaste.waste_61 || ''}
+                                                        onChange={(e) => handleWasteChange('waste_61', e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_61 ? prodWaste.pct_61.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                                <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت DTY</span>
+                                                    <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_67 ? prodLiveTotals.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        className="w-full text-center bg-white text-slate-900 rounded p-1 font-mono text-[10px] font-bold mt-1"
+                                                        value={prodWaste.waste_67 || ''}
+                                                        onChange={(e) => handleWasteChange('waste_67', e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_67 ? prodWaste.pct_67.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                                <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت کش</span>
+                                                    <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_79 ? prodLiveTotals.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        className="w-full text-center bg-white text-slate-900 rounded p-1 font-mono text-[10px] font-bold mt-1"
+                                                        value={prodWaste.waste_79 || ''}
+                                                        onChange={(e) => handleWasteChange('waste_79', e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_79 ? prodWaste.pct_79.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                                <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+                                                    <span className="text-slate-300 block text-[9px]">جمع اسپاندکس</span>
+                                                    <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_73 ? prodLiveTotals.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        className="w-full text-center bg-white text-slate-900 rounded p-1 font-mono text-[10px] font-bold mt-1"
+                                                        value={prodWaste.waste_73 || ''}
+                                                        onChange={(e) => handleWasteChange('waste_73', e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_73 ? prodWaste.pct_73.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="bg-white/10 p-3 rounded-xl space-y-2 border border-white/10">
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="text-slate-300">مجموع تولید زنده</span>
+                                                    <span className="font-mono font-black">{prodLiveTotals.grandTotal ? prodLiveTotals.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'} kg</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs border-t border-white/10 pt-2 text-rose-300">
+                                                    <span>مجموع ضایعات روزانه</span>
+                                                    <span className="font-mono font-black">{prodWaste.totalWaste ? prodWaste.totalWaste.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'} kg</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs border-t border-white/10 pt-2 text-amber-300">
+                                                    <span>میانگین درصد خطا (ضایعات)</span>
+                                                    <span className="font-mono font-black">{prodWaste.totalPct ? prodWaste.totalPct.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Waste Details Notes */}
@@ -4260,71 +4389,138 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     هیچ رکوردی در بایگانی ضایعات یافت نشد. با پر کردن مقادیر فوق و ذخیره آن، اولین رکورد را ایجاد نمایید.
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                                    <table className="w-full text-center text-xs border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                                                <th className="p-3 text-right">تاریخ گزارش</th>
-                                                <th className="p-3">کل تولید (kg)</th>
-                                                <th className="p-3 text-rose-800">کل ضایعات (kg)</th>
-                                                <th className="p-3 text-amber-800">درصد ضایعات (%)</th>
-                                                <th className="p-3">تفکیک ضایعات ۶۱ / ۶۷ / ۷۹ / ۷۳</th>
-                                                <th className="p-3 text-right max-w-xs truncate">توضیحات / علل ضایعات</th>
-                                                <th className="p-3 w-36">عملیات</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100 text-slate-700">
-                                            {getFilteredArchive().map((entry: any) => {
-                                                const totalProd = entry.totals?.grandTotal || 
-                                                    (parseFloat(entry.totals?.qty_61 || 0) + 
-                                                     parseFloat(entry.totals?.qty_67 || 0) + 
-                                                     parseFloat(entry.totals?.qty_79 || 0) + 
-                                                     parseFloat(entry.totals?.qty_73 || 0)) || 0;
-                                                
-                                                const wastePct = totalProd > 0 ? (entry.totalWaste / totalProd) * 100 : 0;
-                                                
-                                                return (
-                                                    <tr key={entry.id} className="hover:bg-slate-50/50 transition-colors">
-                                                        <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                                <>
+                                    {/* Desktop View */}
+                                    <div className="overflow-x-auto border border-slate-200 rounded-lg hidden md:block">
+                                        <table className="w-full text-center text-xs border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                                    <th className="p-3 text-right">تاریخ گزارش</th>
+                                                    <th className="p-3">کل تولید (kg)</th>
+                                                    <th className="p-3 text-rose-800">کل ضایعات (kg)</th>
+                                                    <th className="p-3 text-amber-800">درصد ضایعات (%)</th>
+                                                    <th className="p-3">تفکیک ضایعات ۶۱ / ۶۷ / ۷۹ / ۷۳</th>
+                                                    <th className="p-3 text-right max-w-xs truncate">توضیحات / علل ضایعات</th>
+                                                    <th className="p-3 w-36">عملیات</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 text-slate-700">
+                                                {getFilteredArchive().map((entry: any) => {
+                                                    const totalProd = entry.totals?.grandTotal || 
+                                                        (parseFloat(entry.totals?.qty_61 || 0) + 
+                                                         parseFloat(entry.totals?.qty_67 || 0) + 
+                                                         parseFloat(entry.totals?.qty_79 || 0) + 
+                                                         parseFloat(entry.totals?.qty_73 || 0)) || 0;
+                                                    
+                                                    const wastePct = totalProd > 0 ? (entry.totalWaste / totalProd) * 100 : 0;
+                                                    
+                                                    return (
+                                                        <tr key={entry.id} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                                                                {entry.dateFrom === entry.dateTo ? entry.dateFrom : `${entry.dateFrom} تا ${entry.dateTo}`}
+                                                            </td>
+                                                            <td className="p-3 font-mono font-bold">
+                                                                {totalProd > 0 ? totalProd.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'}
+                                                            </td>
+                                                            <td className="p-3 font-mono font-bold text-rose-700">
+                                                                {entry.totalWaste > 0 ? entry.totalWaste.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'}
+                                                            </td>
+                                                            <td className="p-3 font-mono font-black text-amber-700">
+                                                                {wastePct > 0 ? `${wastePct.toFixed(2)}%` : '۰.۰۰%'}
+                                                            </td>
+                                                            <td className="p-3 font-mono text-slate-500 text-[11px]">
+                                                                {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')}
+                                                            </td>
+                                                            <td className="p-3 text-right max-w-xs truncate text-[11px] text-slate-600" title={entry.details}>
+                                                                {entry.details || '---'}
+                                                            </td>
+                                                            <td className="p-3 flex items-center justify-center gap-1.5">
+                                                                <button
+                                                                    onClick={() => handleLoadArchiveDate(entry)}
+                                                                    className="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded font-bold text-[10px] transition-colors cursor-pointer"
+                                                                    title="بارگذاری تاریخ این سند تولید و ضایعات"
+                                                                >
+                                                                    بازخوانی روز
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteArchiveEntry(entry.id)}
+                                                                    className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                                                    title="حذف سند"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile View */}
+                                    <div className="block md:hidden space-y-3">
+                                        {getFilteredArchive().map((entry: any) => {
+                                            const totalProd = entry.totals?.grandTotal || 
+                                                (parseFloat(entry.totals?.qty_61 || 0) + 
+                                                 parseFloat(entry.totals?.qty_67 || 0) + 
+                                                 parseFloat(entry.totals?.qty_79 || 0) + 
+                                                 parseFloat(entry.totals?.qty_73 || 0)) || 0;
+                                            
+                                            const wastePct = totalProd > 0 ? (entry.totalWaste / totalProd) * 100 : 0;
+                                            
+                                            return (
+                                                <div key={entry.id} className="bg-white rounded-xl border border-slate-200 p-3.5 space-y-3 shadow-xs">
+                                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                                        <span className="font-extrabold text-slate-900 font-mono text-xs">
                                                             {entry.dateFrom === entry.dateTo ? entry.dateFrom : `${entry.dateFrom} تا ${entry.dateTo}`}
-                                                        </td>
-                                                        <td className="p-3 font-mono font-bold">
-                                                            {totalProd > 0 ? totalProd.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'}
-                                                        </td>
-                                                        <td className="p-3 font-mono font-bold text-rose-700">
-                                                            {entry.totalWaste > 0 ? entry.totalWaste.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'}
-                                                        </td>
-                                                        <td className="p-3 font-mono font-black text-amber-700">
-                                                            {wastePct > 0 ? `${wastePct.toFixed(2)}%` : '۰.۰۰%'}
-                                                        </td>
-                                                        <td className="p-3 font-mono text-slate-500 text-[11px]">
-                                                            {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')}
-                                                        </td>
-                                                        <td className="p-3 text-right max-w-xs truncate text-[11px] text-slate-600" title={entry.details}>
-                                                            {entry.details || '---'}
-                                                        </td>
-                                                        <td className="p-3 flex items-center justify-center gap-1.5">
-                                                            <button
-                                                                onClick={() => handleLoadArchiveDate(entry)}
-                                                                className="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded font-bold text-[10px] transition-colors cursor-pointer"
-                                                                title="بارگذاری تاریخ این سند تولید و ضایعات"
-                                                            >
-                                                                بازخوانی روز
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteArchiveEntry(entry.id)}
-                                                                className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                                                                title="حذف سند"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                        </span>
+                                                        <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-100 px-2 py-0.5 rounded font-black">
+                                                            {wastePct > 0 ? `${wastePct.toFixed(2)}% ضایعات` : '۰.۰۰%'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                        <div className="bg-slate-50 p-2 rounded-lg">
+                                                            <span className="text-slate-400 block text-[9px]">کل تولید</span>
+                                                            <span className="font-mono font-bold text-slate-800">{totalProd > 0 ? totalProd.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'} kg</span>
+                                                        </div>
+                                                        <div className="bg-slate-50 p-2 rounded-lg text-rose-700">
+                                                            <span className="text-slate-400 block text-[9px]">کل ضایعات</span>
+                                                            <span className="font-mono font-bold">{entry.totalWaste > 0 ? entry.totalWaste.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '-'} kg</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="text-[10px] text-slate-500 bg-slate-50/50 p-2 rounded-lg font-mono leading-tight">
+                                                        <span className="text-slate-400 block text-[9px] font-sans mb-0.5">تفکیک ضایعات ۶۱/۶۷/۷۹/۷۳:</span>
+                                                        {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')}
+                                                    </div>
+
+                                                    {entry.details && (
+                                                        <div className="text-[11px] text-slate-600 bg-amber-50/30 border border-amber-100/50 p-2 rounded-lg leading-relaxed">
+                                                            <span className="text-amber-800 font-bold block text-[9px] mb-0.5">توضیحات:</span>
+                                                            {entry.details}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-100 mt-2">
+                                                        <button
+                                                            onClick={() => handleLoadArchiveDate(entry)}
+                                                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+                                                        >
+                                                            بازخوانی روز
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteArchiveEntry(entry.id)}
+                                                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer border border-rose-100"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>
