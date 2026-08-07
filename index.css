@@ -27,15 +27,15 @@
     --gemini-spark: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
   }
 
-  .theme-glass-aurora {
-    --app-bg: #04030d; /* High-contrast dark cosmos base */
-    --glass-bg: rgba(15, 15, 25, 0.35); /* Translucent dark glass */
-    --glass-bg-hover: rgba(22, 22, 36, 0.5);
-    --glass-border: rgba(255, 255, 255, 0.16); /* Bright highlights for perfect glass refraction outline */
-    --glass-shadow: 0 32px 80px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.25);
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --border-color: rgba(255, 255, 255, 0.14);
+  .theme-light-aurora {
+    --app-bg: #f8fafc; /* Beautiful clean slate-light cosmos base */
+    --glass-bg: rgba(255, 255, 255, 0.45); /* High-transparency crystal glass */
+    --glass-bg-hover: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.75); /* Extra bright white borders to separate the glass clearly */
+    --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: rgba(255, 255, 255, 0.6);
     --gemini-spark: linear-gradient(135deg, #a855f7 0%, #3b82f6 50%, #ec4899 100%);
   }
 }
@@ -119,149 +119,149 @@
 }
 
 /* Highly vibrant custom Aurora blobs specifically for the main Liquid Glass experience */
-.theme-glass-aurora .blob {
+.theme-light-aurora .blob {
   opacity: 0.65 !important;
   filter: blur(120px) !important;
-  mix-blend-mode: screen !important;
+  mix-blend-mode: multiply !important;
 }
 
-.theme-glass-aurora .blob-1 {
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.75) 0%, rgba(59, 130, 246, 0.5) 45%, rgba(139, 92, 246, 0.1) 100%) !important;
+.theme-light-aurora .blob-1 {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.65) 0%, rgba(59, 130, 246, 0.45) 45%, rgba(139, 92, 246, 0.05) 100%) !important;
   width: min(90vw, 950px) !important;
   height: min(90vw, 950px) !important;
   top: -10% !important;
   right: -5% !important;
 }
 
-.theme-glass-aurora .blob-2 {
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.7) 0%, rgba(249, 115, 22, 0.45) 50%, rgba(244, 63, 94, 0.1) 100%) !important;
+.theme-light-aurora .blob-2 {
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.6) 0%, rgba(249, 115, 22, 0.45) 50%, rgba(244, 63, 94, 0.05) 100%) !important;
   width: min(85vw, 850px) !important;
   height: min(85vw, 850px) !important;
   bottom: -5% !important;
   left: -5% !important;
 }
 
-.theme-glass-aurora .blob-3 {
-  background: radial-gradient(circle, rgba(20, 184, 166, 0.55) 0%, rgba(59, 130, 246, 0.4) 50%, rgba(99, 102, 241, 0.1) 100%) !important;
+.theme-light-aurora .blob-3 {
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.55) 0%, rgba(59, 130, 246, 0.4) 50%, rgba(99, 102, 241, 0.05) 100%) !important;
   width: min(75vw, 750px) !important;
   height: min(75vw, 750px) !important;
   top: 30% !important;
   left: 15% !important;
 }
 
-/* Perfect liquid glass highlighting for glass-aurora theme */
-.theme-glass-aurora .apple-glass {
-  background: rgba(10, 10, 18, 0.35) !important;
+/* Perfect liquid glass highlighting for light-aurora theme */
+.theme-light-aurora .apple-glass {
+  background: rgba(255, 255, 255, 0.4) !important;
   backdrop-filter: blur(36px) saturate(240%) !important;
   -webkit-backdrop-filter: blur(36px) saturate(240%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
   box-shadow: 
-    0 24px 64px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.4) !important;
+    0 24px 64px rgba(15, 23, 42, 0.08),
+    0 2px 8px rgba(15, 23, 42, 0.04),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.2) !important;
 }
 
-.theme-glass-aurora .apple-glass-hover:hover {
-  background: rgba(15, 15, 26, 0.45) !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
+.theme-light-aurora .apple-glass-hover:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
   box-shadow: 
-    0 32px 80px rgba(0, 0, 0, 0.65),
-    inset 0 1px 2px rgba(255, 255, 255, 0.35) !important;
+    0 32px 80px rgba(15, 23, 42, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.9) !important;
 }
 
-/* Highly responsive overrides for Glass Aurora Theme */
-.theme-glass-aurora .glass-panel {
-  background: rgba(10, 10, 18, 0.3) !important;
+/* Highly responsive overrides for Light Aurora Theme */
+.theme-light-aurora .glass-panel {
+  background: rgba(255, 255, 255, 0.45) !important;
   backdrop-filter: blur(40px) saturate(240%) !important;
   -webkit-backdrop-filter: blur(40px) saturate(240%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
   box-shadow: 
-    0 32px 80px rgba(0, 0, 0, 0.55),
-    inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
+    0 32px 80px rgba(15, 23, 42, 0.06),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
 }
 
-.theme-glass-aurora .glass-panel:hover {
-  background: rgba(18, 18, 30, 0.45) !important;
-  border-color: rgba(255, 255, 255, 0.26) !important;
+.theme-light-aurora .glass-panel:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
   box-shadow: 
-    0 40px 96px rgba(0, 0, 0, 0.75),
-    inset 0 1px 2px rgba(255, 255, 255, 0.35) !important;
+    0 40px 96px rgba(15, 23, 42, 0.1),
+    inset 0 1px 2px rgba(255, 255, 255, 0.9) !important;
 }
 
-.theme-glass-aurora .glass-header {
-  background: rgba(10, 10, 18, 0.4) !important;
+.theme-light-aurora .glass-header {
+  background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(40px) saturate(240%) !important;
   -webkit-backdrop-filter: blur(40px) saturate(240%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
 }
 
-.theme-glass-aurora input[type="text"], 
-.theme-glass-aurora input[type="number"], 
-.theme-glass-aurora input[type="password"], 
-.theme-glass-aurora input[type="email"], 
-.theme-glass-aurora input[type="date"], 
-.theme-glass-aurora input[type="search"], 
-.theme-glass-aurora select, 
-.theme-glass-aurora textarea {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: #f8fafc !important;
+.theme-light-aurora input[type="text"], 
+.theme-light-aurora input[type="number"], 
+.theme-light-aurora input[type="password"], 
+.theme-light-aurora input[type="email"], 
+.theme-light-aurora input[type="date"], 
+.theme-light-aurora input[type="search"], 
+.theme-light-aurora select, 
+.theme-light-aurora textarea {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #0f172a !important;
   backdrop-filter: blur(16px) saturate(180%) !important;
 }
 
-.theme-glass-aurora input:focus, 
-.theme-glass-aurora select:focus, 
-.theme-glass-aurora textarea:focus {
-  background-color: rgba(15, 15, 26, 0.8) !important;
-  border-color: #a855f7 !important;
-  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.25) !important;
+.theme-light-aurora input:focus, 
+.theme-light-aurora select:focus, 
+.theme-light-aurora textarea:focus {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
 }
 
-.theme-glass-aurora th {
-  background-color: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: #e2e8f0 !important;
+.theme-light-aurora th {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #1e293b !important;
 }
 
-.theme-glass-aurora tr:hover {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+.theme-light-aurora tr:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
 }
 
-.theme-glass-aurora .text-zinc-900,
-.theme-glass-aurora .text-slate-900,
-.theme-glass-aurora .text-gray-900,
-.theme-glass-aurora .text-zinc-800,
-.theme-glass-aurora .text-slate-800,
-.theme-glass-aurora .text-gray-800 {
-  color: #f8fafc !important;
+.theme-light-aurora .text-zinc-900,
+.theme-light-aurora .text-slate-900,
+.theme-light-aurora .text-gray-900,
+.theme-light-aurora .text-zinc-800,
+.theme-light-aurora .text-slate-800,
+.theme-light-aurora .text-gray-800 {
+  color: #0f172a !important;
 }
 
-.theme-glass-aurora .text-zinc-600,
-.theme-glass-aurora .text-slate-600,
-.theme-glass-aurora .text-gray-600,
-.theme-glass-aurora .text-zinc-500,
-.theme-glass-aurora .text-slate-500,
-.theme-glass-aurora .text-gray-500 {
-  color: #cbd5e1 !important;
+.theme-light-aurora .text-zinc-600,
+.theme-light-aurora .text-slate-600,
+.theme-light-aurora .text-gray-600,
+.theme-light-aurora .text-zinc-500,
+.theme-light-aurora .text-slate-500,
+.theme-light-aurora .text-gray-500 {
+  color: #334155 !important;
 }
 
-.theme-glass-aurora .border-zinc-200,
-.theme-glass-aurora .border-gray-200,
-.theme-glass-aurora .border-slate-200,
-.theme-glass-aurora .border-zinc-100,
-.theme-glass-aurora .border-gray-100,
-.theme-glass-aurora .border-slate-100 {
-  border-color: rgba(255, 255, 255, 0.12) !important;
+.theme-light-aurora .border-zinc-200,
+.theme-light-aurora .border-gray-200,
+.theme-light-aurora .border-slate-200,
+.theme-light-aurora .border-zinc-100,
+.theme-light-aurora .border-gray-100,
+.theme-light-aurora .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
-.theme-glass-aurora .bg-zinc-50,
-.theme-glass-aurora .bg-gray-50,
-.theme-glass-aurora .bg-slate-50,
-.theme-glass-aurora .bg-zinc-100,
-.theme-glass-aurora .bg-gray-100,
-.theme-glass-aurora .bg-slate-100 {
-  background-color: rgba(255, 255, 255, 0.02) !important;
+.theme-light-aurora .bg-zinc-50,
+.theme-light-aurora .bg-gray-50,
+.theme-light-aurora .bg-slate-50,
+.theme-light-aurora .bg-zinc-100,
+.theme-light-aurora .bg-gray-100,
+.theme-light-aurora .bg-slate-100 {
+  background-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 /* Premium Apple Liquid Glass Layout and Shadows */

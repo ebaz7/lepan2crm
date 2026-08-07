@@ -162,41 +162,42 @@ function App() {
     try { window.history.replaceState(state, title, url); } catch (e) { window.location.hash = url; }
   };
   const [financialYear, setFinancialYearState] = useState<string>(new Date().toLocaleDateString('fa-IR-u-nu-latn').split('/')[0]);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'glass-aurora'>('glass-aurora');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'light-aurora'>('light-aurora');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         setTheme('dark');
         document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('theme-glass-aurora');
+        document.documentElement.classList.remove('theme-light-aurora');
     } else if (savedTheme === 'light') {
         setTheme('light');
-        document.documentElement.classList.remove('dark', 'theme-glass-aurora');
+        document.documentElement.classList.remove('dark', 'theme-light-aurora');
     } else {
-        setTheme('glass-aurora');
-        document.documentElement.classList.add('dark', 'theme-glass-aurora');
+        setTheme('light-aurora');
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('theme-light-aurora');
     }
   }, []);
 
   const toggleTheme = () => {
-      let newTheme: 'light' | 'dark' | 'glass-aurora';
-      if (theme === 'glass-aurora') {
+      let newTheme: 'light' | 'dark' | 'light-aurora';
+      if (theme === 'light-aurora') {
           newTheme = 'light';
       } else if (theme === 'light') {
           newTheme = 'dark';
       } else {
-          newTheme = 'glass-aurora';
+          newTheme = 'light-aurora';
       }
       setTheme(newTheme);
       localStorage.setItem('theme', newTheme);
       
       const root = document.documentElement;
-      root.classList.remove('dark', 'theme-glass-aurora');
+      root.classList.remove('dark', 'theme-light-aurora');
       if (newTheme === 'dark') {
           root.classList.add('dark');
-      } else if (newTheme === 'glass-aurora') {
-          root.classList.add('dark', 'theme-glass-aurora');
+      } else if (newTheme === 'light-aurora') {
+          root.classList.add('theme-light-aurora');
       }
   };
   const [orders, setOrders] = useState<PaymentOrder[]>(() => {

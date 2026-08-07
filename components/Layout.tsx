@@ -26,7 +26,7 @@ interface LayoutProps {
   financialYear?: string;
   setFinancialYear?: (y: string) => void;
   settings?: SystemSettings | null;
-  theme: 'light' | 'dark' | 'glass-aurora';
+  theme: 'light' | 'dark' | 'light-aurora';
   toggleTheme: () => void;
   unreadChatCount?: number;
 }
@@ -694,8 +694,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           
           <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
               <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="تغییر پوسته">
-                  {theme === 'glass-aurora' ? (
-                      <Sparkles size={18} className="text-purple-400 animate-pulse" />
+                  {theme === 'light-aurora' ? (
+                      <Sparkles size={18} className="text-purple-500 animate-pulse" />
                   ) : theme === 'light' ? (
                       <Moon size={18} className="text-zinc-500" />
                   ) : (
@@ -703,7 +703,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                   )}
                   {isSidebarOpen && (
                       <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
-                          {theme === 'glass-aurora' ? 'سیال شیشه‌ای (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
+                          {theme === 'light-aurora' ? 'شیشه‌ای رنگی پویا (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
                       </span>
                   )}
               </button>
@@ -807,7 +807,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                               <Settings size={14} className="text-zinc-500" /> تنظیمات پروفایل
                           </button>
                           <button onClick={toggleTheme} className="flex items-center justify-center gap-2 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50">
-                              {theme === 'glass-aurora' ? <Sparkles size={14} className="text-purple-400 animate-pulse" /> : theme === 'light' ? <Moon size={14} className="text-zinc-500" /> : <Sun size={14} className="text-yellow-400" />} {theme === 'glass-aurora' ? 'سیال شیشه‌ای (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
+                              {theme === 'light-aurora' ? <Sparkles size={14} className="text-purple-500 animate-pulse" /> : theme === 'light' ? <Moon size={14} className="text-zinc-500" /> : <Sun size={14} className="text-yellow-400" />} {theme === 'light-aurora' ? 'شیشه‌ای رنگی پویا (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
                           </button>
                       </div>
                       <button onClick={handleLogout} className="flex items-center justify-center gap-2 p-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/30 border border-red-100 dark:border-red-950/50 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition-colors">
@@ -934,7 +934,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                     onClick={toggleTheme}
                     className="p-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95"
                   >
-                      {theme === 'glass-aurora' ? <Sparkles size={16} className="text-purple-400 animate-pulse" /> : theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-yellow-400" />}
+                      {theme === 'light-aurora' ? <Sparkles size={16} className="text-purple-500 animate-pulse" /> : theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-yellow-400" />}
                   </button>
                   {canSeeNotifications && (
                       <div className="relative notification-trigger" ref={mobileNotifRef}>
