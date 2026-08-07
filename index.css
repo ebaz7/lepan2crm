@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    --app-bg: #f0f4f9; /* Gemini sleek light theme base */
-    --glass-bg: rgba(255, 255, 255, 0.7); /* Frosted premium glass */
-    --glass-bg-hover: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(227, 227, 227, 0.8);
-    --glass-shadow: 0 12px 32px rgba(26, 32, 44, 0.04);
-    --text-primary: #1f1f1f;
-    --text-secondary: #474747;
-    --border-color: rgba(227, 227, 227, 0.8);
+    --app-bg: #f4f6fa; /* Clean modern neutral backdrop */
+    --glass-bg: rgba(255, 255, 255, 0.45); /* Highly translucent Apple Glass */
+    --glass-bg-hover: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 16px 40px rgba(31, 38, 135, 0.05);
+    --text-primary: #1c1c1e;
+    --text-secondary: #4a4a4c;
+    --border-color: rgba(255, 255, 255, 0.4);
     --gemini-spark: linear-gradient(135deg, #4b90ff 0%, #aa72ff 50%, #ff6097 100%);
   }
   
   .dark {
-    --app-bg: #09090b; /* Sophisticated deep dark slate bg */
-    --glass-bg: rgba(20, 20, 22, 0.65); /* High-end translucent deep black */
-    --glass-bg-hover: rgba(28, 28, 30, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.05);
-    --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    --app-bg: #070709; /* Deep luxury obsidian backdrop */
+    --glass-bg: rgba(13, 13, 17, 0.55); /* Translucent obsidian glass */
+    --glass-bg-hover: rgba(20, 20, 26, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
     --text-primary: #f4f4f5;
     --text-secondary: #a1a1aa;
-    --border-color: rgba(255, 255, 255, 0.05);
+    --border-color: rgba(255, 255, 255, 0.08);
     --gemini-spark: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
   }
 }
 
-/* Beautiful Animated Background Blobs for Liquid Feel */
+/* Beautiful Animated Background Blobs for Liquid Feel - Redesigned for Maximum Magic */
 .bg-blobs {
   position: fixed;
   top: 0;
@@ -45,7 +45,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.025;
+  opacity: 0.035;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
@@ -53,51 +53,65 @@
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(160px);
-  opacity: 0.15;
-  mix-blend-mode: screen;
-  animation: blob-float 30s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+  filter: blur(130px);
+  opacity: 0.38; /* Extremely visible liquid colors */
+  mix-blend-mode: multiply; /* Perfect blending of colors on light backgrounds */
+  animation: blob-float 28s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
 }
 
 .dark .blob {
-  opacity: 0.22;
+  opacity: 0.45; /* Neon style glowing blobs for dark mode */
+  mix-blend-mode: screen; /* Perfect illuminating screens for dark backdrop */
+  filter: blur(150px);
 }
 
 .blob-1 {
-  width: min(80vw, 850px);
-  height: min(80vw, 850px);
-  background: radial-gradient(circle, rgba(75, 144, 255, 0.6) 0%, rgba(170, 114, 255, 0.4) 50%, rgba(255, 96, 151, 0.1) 100%);
-  top: -20%;
-  right: -15%;
+  width: min(85vw, 850px);
+  height: min(85vw, 850px);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.6) 0%, rgba(59, 130, 246, 0.4) 50%, rgba(236, 72, 153, 0.1) 100%);
+  top: -15%;
+  right: -10%;
 }
 
 .blob-2 {
-  width: min(70vw, 750px);
-  height: min(70vw, 750px);
-  background: radial-gradient(circle, rgba(255, 96, 151, 0.5) 0%, rgba(75, 144, 255, 0.4) 60%, rgba(170, 114, 255, 0.1) 100%);
-  bottom: -15%;
-  left: -15%;
-  animation-delay: -10s;
-  animation-duration: 40s;
+  width: min(75vw, 750px);
+  height: min(75vw, 750px);
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.5) 0%, rgba(249, 115, 22, 0.45) 50%, rgba(168, 85, 247, 0.1) 100%);
+  bottom: -10%;
+  left: -10%;
+  animation-delay: -8s;
+  animation-duration: 35s;
 }
 
 .blob-3 {
-  width: min(50vw, 550px);
-  height: min(50vw, 550px);
-  background: radial-gradient(circle, rgba(170, 114, 255, 0.4) 0%, rgba(75, 144, 255, 0.3) 50%, rgba(255, 255, 255, 0) 100%);
-  top: 30%;
-  left: 25%;
-  opacity: 0.08;
-  animation-delay: -5s;
+  width: min(55vw, 550px);
+  height: min(55vw, 550px);
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.45) 0%, rgba(59, 130, 246, 0.35) 50%, rgba(255, 255, 255, 0) 100%);
+  top: 35%;
+  left: 20%;
+  opacity: 0.25;
+  animation-delay: -4s;
+}
+
+.dark .blob-1 {
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.55) 0%, rgba(37, 99, 235, 0.3) 60%, rgba(0, 0, 0, 0) 100%);
+}
+
+.dark .blob-2 {
+  background: radial-gradient(circle, rgba(219, 39, 119, 0.45) 0%, rgba(249, 115, 22, 0.2) 60%, rgba(0, 0, 0, 0) 100%);
+}
+
+.dark .blob-3 {
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.35) 0%, rgba(37, 99, 235, 0.15) 60%, rgba(0, 0, 0, 0) 100%);
 }
 
 /* Premium Apple Liquid Glass Layout and Shadows */
 .apple-glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(28px) saturate(210%);
-  -webkit-backdrop-filter: blur(28px) saturate(210%);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(32px) saturate(220%);
+  -webkit-backdrop-filter: blur(32px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.01),
     0 1px 3px rgba(0, 0, 0, 0.02),
@@ -107,32 +121,31 @@
 }
 
 .dark .apple-glass {
-  background: rgba(18, 18, 22, 0.65);
-  backdrop-filter: blur(28px) saturate(210%);
-  -webkit-backdrop-filter: blur(28px) saturate(210%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(13, 13, 17, 0.55);
+  backdrop-filter: blur(32px) saturate(220%);
+  -webkit-backdrop-filter: blur(32px) saturate(220%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.25),
     inset 0 1px 1px rgba(255, 255, 255, 0.08),
     inset 0 -1px 1px rgba(0, 0, 0, 0.4);
 }
 
 .apple-glass-hover:hover {
   transform: translateY(-2px) scale(1.005);
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.7);
   box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.04),
-    0 1px 4px rgba(0, 0, 0, 0.02),
+    0 24px 48px rgba(0, 0, 0, 0.03),
     inset 0 1px 2px rgba(255, 255, 255, 0.9);
 }
 
 .dark .apple-glass-hover:hover {
-  background: rgba(24, 24, 28, 0.75);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 20, 26, 0.7);
+  border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 
-    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 32px 64px rgba(0, 0, 0, 0.5),
     0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
@@ -250,30 +263,183 @@ body {
 /* Glassmorphism Global Restyling for generic util classes */
 .bg-white, .bg-gray-50, .bg-white\/80, .bg-white\/50, .bg-white\/40, .bg-white\/60 {
   background-color: var(--glass-bg) !important;
-  backdrop-filter: blur(32px) saturate(210%);
-  -webkit-backdrop-filter: blur(32px) saturate(210%);
-  border-color: var(--glass-border) !important;
+  backdrop-filter: blur(32px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(220%) !important;
+  border: 1px solid var(--glass-border) !important;
 }
 
 .bg-white:not(body):not(.notification-dropdown-container) {
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow) !important;
 }
 
 .dark .text-gray-800, .dark .text-gray-900, .dark .text-gray-700 {
-  color: #f8fafc !important;
+  color: #f4f4f5 !important;
 }
 .dark .text-gray-600, .dark .text-gray-500 {
-  color: #cbd5e1 !important;
+  color: #a1a1aa !important;
 }
 .dark .border-gray-200, .dark .border-gray-100, .dark .border-blue-100 {
   border-color: var(--glass-border) !important;
 }
 .dark .bg-gray-100, .dark .bg-blue-50, .dark .bg-indigo-50, .dark .bg-rose-50, .dark .bg-green-50, .dark .bg-yellow-50 {
   background-color: rgba(255, 255, 255, 0.03) !important;
-  color: #f8fafc !important;
+  color: #f4f4f5 !important;
 }
 .dark .text-blue-600, .dark .text-indigo-600, .dark .text-blue-800 {
   color: #60a5fa !important;
+}
+
+/* Luxury Soft Shadows and Squircles overrides for Apple appearance */
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.015), 0 1px 2px rgba(0, 0, 0, 0.01) !important;
+}
+.dark .shadow-sm {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+.shadow-md {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
+.dark .shadow-md {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+.shadow-lg, .shadow-xl, .shadow-2xl {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+}
+.dark .shadow-lg, .dark .shadow-xl, .dark .shadow-2xl {
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.rounded-xl {
+  border-radius: 16px !important;
+}
+.rounded-2xl {
+  border-radius: 20px !important;
+}
+.rounded-3xl {
+  border-radius: 28px !important;
+}
+
+/* Translucent Apple Form Controls Overrides */
+input[type="text"], input[type="number"], input[type="password"], input[type="email"], input[type="date"], input[type="search"], select, textarea {
+  background-color: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dark input[type="text"], .dark input[type="number"], .dark input[type="password"], .dark input[type="email"], .dark input[type="date"], .dark input[type="search"], .dark select, .dark textarea {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #f4f4f5 !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
+  outline: none !important;
+}
+
+.dark input:focus, .dark select:focus, .dark textarea:focus {
+  background-color: rgba(18, 18, 22, 0.8) !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.15) !important;
+}
+
+/* Premium Button Gradients */
+.bg-blue-600, .bg-blue-500 {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.2) !important;
+}
+.bg-blue-600:hover, .bg-blue-500:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35) !important;
+  filter: brightness(1.05) !important;
+}
+.bg-blue-600:active, .bg-blue-500:active {
+  transform: translateY(1px) !important;
+}
+
+.dark .bg-blue-600, .dark .bg-blue-500 {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25) !important;
+}
+
+.bg-green-600, .bg-green-500 {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.2) !important;
+}
+.bg-green-600:hover, .bg-green-500:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.3) !important;
+  filter: brightness(1.05) !important;
+}
+
+.bg-red-600, .bg-red-500 {
+  background: linear-gradient(135deg, #f87171 0%, #dc2626 100%) !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.15) !important;
+}
+.bg-red-600:hover, .bg-red-500:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.25) !important;
+  filter: brightness(1.05) !important;
+}
+
+/* Translucent Dark Mode Backgrounds */
+.dark .bg-zinc-900, .dark .bg-gray-900, .dark .bg-zinc-950, .dark .bg-black {
+  background-color: rgba(12, 12, 15, 0.6) !important;
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+}
+.dark .bg-zinc-800, .dark .bg-gray-800 {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+.dark .bg-zinc-100, .dark .bg-gray-100 {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Table Upgrades for Premium Apple Feel */
+th {
+  background-color: rgba(0, 0, 0, 0.015) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.05em !important;
+  border-bottom-width: 1px !important;
+  border-color: var(--glass-border) !important;
+  padding: 0.875rem 1rem !important;
+}
+
+.dark th {
+  background-color: rgba(255, 255, 255, 0.015) !important;
+}
+
+tr {
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+tr:hover {
+  background-color: rgba(0, 0, 0, 0.008) !important;
+}
+
+.dark tr:hover {
+  background-color: rgba(255, 255, 255, 0.008) !important;
+}
+
+td {
+  padding: 0.875rem 1rem !important;
+  border-color: var(--glass-border) !important;
 }
 
 @layer utilities {

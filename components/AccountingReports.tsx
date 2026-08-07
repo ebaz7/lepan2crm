@@ -2447,7 +2447,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const filteredCheques = getFilteredCheques();
 
     return (
-        <div className="p-0 sm:p-4 md:p-8 rtl max-w-7xl mx-auto space-y-4 sm:space-y-6 select-none">
+        <div className="p-4 sm:p-4 md:p-8 rtl max-w-7xl mx-auto space-y-4 sm:space-y-6 select-none">
             {/* Main Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-gray-200 pb-5 gap-4">
                 <div>

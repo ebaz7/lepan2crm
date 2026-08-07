@@ -28,7 +28,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
       </div>
 
       {/* Tab Content body */}
-      <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-gray-900 pb-24 md:pb-6">
         <AccountingReports {...props} currentUser={currentUser} />
       </div>
     </div>

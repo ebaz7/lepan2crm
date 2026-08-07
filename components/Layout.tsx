@@ -85,6 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   
   // Dynamic Modal Detection to Hide Bottom Nav
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [hasBackAction, setHasBackAction] = useState(false);
 
   useEffect(() => {
     const checkModal = () => {
@@ -107,7 +108,16 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     const observer = new MutationObserver(checkModal);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     
-    return () => observer.disconnect();
+    const handleRegister = () => setHasBackAction(true);
+    const handleUnregister = () => setHasBackAction(false);
+    window.addEventListener('REGISTER_BACK_ACTION', handleRegister);
+    window.addEventListener('UNREGISTER_BACK_ACTION', handleUnregister);
+    
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('REGISTER_BACK_ACTION', handleRegister);
+      window.removeEventListener('UNREGISTER_BACK_ACTION', handleUnregister);
+    };
   }, []);
 
   // Local Profile Form State
@@ -392,7 +402,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const bottomVisibleItems = sortedItems.slice(0, 4);
   const menuItems = sortedItems.slice(4);
 
-  const isBottomBarVisible = !showMobileMenu && !isModalOpen && bottomVisibleItems.some(item => item.id === activeTab);
+  const isBottomBarVisible = !showMobileMenu && !isModalOpen && !hasBackAction && bottomVisibleItems.some(item => item.id === activeTab);
 
   const NotificationDropdown = () => ( 
     <div role="dialog" aria-label="اعلان‌ها" className="notification-dropdown-container fixed top-16 left-4 right-4 md:absolute md:top-auto md:bottom-16 md:left-2 md:right-auto md:w-80 glass-panel rounded-xl shadow-2xl border border-gray-200/50 dark:border-white/10 text-gray-800 dark:text-gray-200 z-[9999] overflow-hidden origin-top md:origin-bottom-left animate-scale-in max-h-[60vh] flex flex-col">
