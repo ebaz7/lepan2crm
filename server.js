@@ -1691,6 +1691,11 @@ app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     }
 });
 
+app.get('/api/users', (req, res) => {
+    const db = getDb();
+    res.json(db.users || []);
+});
+
 app.post('/api/users', (req, res) => { 
     const db = getDb(); 
     db.users.push(req.body); 

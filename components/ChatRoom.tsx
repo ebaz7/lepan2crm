@@ -623,6 +623,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
     // --- Helpers ---
     const getUnreadCount = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+        if (!currentUser || !currentUser.username) return 0;
         return messages.filter(m => {
             if (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase()) return false;
             const isRead = m.readBy?.includes(currentUser.username);
@@ -638,6 +639,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     const getLastMessage = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+        if (!currentUser || !currentUser.username) return null;
         const relevant = displayMessages.filter(m => {
             if (type === 'public') return !m.recipient && !m.groupId;
             if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase()) || (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase() && m.recipient?.toLowerCase() === channelId?.toLowerCase());
