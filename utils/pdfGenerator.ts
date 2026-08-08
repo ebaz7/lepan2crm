@@ -99,6 +99,26 @@ export const generatePdf = async ({
         clone.style.transform = 'none'; // Remove any preview scaling
         clone.classList.add('printable-content'); // Ensure print styles apply
 
+        // Force font and direction on all elements inside clone to prevent html2canvas RTL/font bugs
+        clone.style.fontFamily = "'Vazirmatn', sans-serif";
+        clone.style.direction = 'rtl';
+        const allElements = clone.querySelectorAll('*');
+        allElements.forEach((el: any) => {
+            const currentFont = el.style.fontFamily || (window.getComputedStyle && window.getComputedStyle(el).fontFamily) || '';
+            if (!currentFont.includes('monospace') && !el.classList.contains('font-mono') && !el.classList.contains('text-mono')) {
+                el.style.fontFamily = "'Vazirmatn', sans-serif";
+            }
+            el.style.direction = 'rtl';
+            
+            // Fix text alignments inside tables specifically for RTL
+            const style = window.getComputedStyle && window.getComputedStyle(el);
+            if (style) {
+                if (style.textAlign === 'left') {
+                    el.style.textAlign = 'right'; // force alignment
+                }
+            }
+        });
+
         container.appendChild(clone);
         document.body.appendChild(container);
 

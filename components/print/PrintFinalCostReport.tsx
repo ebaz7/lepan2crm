@@ -257,7 +257,7 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
             </div>
         </div>
 
-        <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+        <div className="order-2 w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
             <div style={{ 
               width: '210mm', 
               height: '297mm',

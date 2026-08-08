@@ -1277,22 +1277,11 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
                 {/* Proforma Print Overlay */}
                 {showProformaPrint && selectedRecord && (
-                    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                        <div className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl flex flex-col animate-scale-in">
-                            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
-                                <h3 className="font-black text-gray-700">پیش‌نمایش پروفرما اینویس</h3>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-blue-700 transition-all active:scale-95"><Printer size={14}/> چاپ مستقیم</button>
-                                    <button onClick={() => setShowProformaPrint(false)} className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-colors"><X size={20}/></button>
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-auto bg-gray-200/50 p-8 custom-scrollbar">
-                                <div className="mx-auto w-[210mm] bg-white shadow-xl min-h-[297mm]">
-                                    <PrintProforma record={selectedRecord} settings={settings} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <PrintProforma 
+                        record={selectedRecord} 
+                        settings={settings} 
+                        onClose={() => setShowProformaPrint(false)} 
+                    />
                 )}
 
                 {/* EDIT METADATA MODAL */}

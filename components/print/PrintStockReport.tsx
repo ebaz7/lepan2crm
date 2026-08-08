@@ -213,7 +213,7 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
       </div>
       
       {/* Responsive Wrapper */}
-      <div className="w-full flex justify-center pb-10" ref={containerWrapperRef}>
+      <div className="w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
           <div style={{ 
             width: '290mm', 
             minHeight: '200mm',

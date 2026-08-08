@@ -152,7 +152,7 @@ const PrintGuaranteeReport: React.FC<Props> = ({ data, totalAmount, onClose }) =
       </div>
       
       {/* Responsive Wrapper */}
-      <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+      <div className="order-2 w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
           <div style={{ 
             width: '290mm', 
             minHeight: '200mm',
