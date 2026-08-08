@@ -575,8 +575,13 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                         const mediaData = { data: base64, filename: `Bijak_${tx.number}.png` };
                         
                         if (groupNumber) await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
+                        if (settings?.botBijakGroupIdWhatsApp) await apiCall('/send-whatsapp', 'POST', { number: settings.botBijakGroupIdWhatsApp, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
+                        
                         if (companyConfig?.telegramChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption, mediaData });
+                        if (settings?.botBijakGroupId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: settings.botBijakGroupId, caption, mediaData });
+                        
                         if (companyConfig?.baleChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: companyConfig.baleChannelId, caption, mediaData });
+                        if (settings?.botBijakGroupIdBale) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: settings.botBijakGroupIdBale, caption, mediaData });
                     }
                 }
             } catch (e) {
@@ -910,10 +915,10 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const recentBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT').slice(0, 5), [safeTransactions]);
     
     // Updated Filtering logic using reportSearch
-    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))), [safeTransactions, archiveFilterCompany, reportSearch]);
-    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))).sort((a, b) => b.number - a.number), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))).sort((a, b) => b.number - a.number), [safeTransactions, archiveFilterCompany, reportSearch]);
     
-    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING'), [safeTransactions]);
+    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING').sort((a, b) => b.number - a.number), [safeTransactions]);
 
     const handlePrintStock = () => { setShowPrintStockReport(true); };
 
@@ -2068,6 +2073,12 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     transactions={safeTransactions}
                     onApprove={canApprove && viewBijak.status === 'PENDING' ? () => handleApproveBijak(viewBijak) : undefined}
                     onReject={canApprove && viewBijak.status === 'PENDING' ? () => handleRejectBijak(viewBijak) : undefined} 
+                    onForceSend={viewBijak.status === 'APPROVED' ? () => {
+                        if(confirm('آیا می‌خواهید این بیجک مجددا به گروه‌ها ارسال شود؟')) {
+                            setActiveAutoSends(prev => [...prev, { tx: viewBijak, type: 'APPROVED' }]);
+                            alert('در صف ارسال قرار گرفت. لطفا چند ثانیه صبر کنید.');
+                        }
+                    } : undefined}
                 />
             )}
 

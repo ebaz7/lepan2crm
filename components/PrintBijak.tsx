@@ -16,10 +16,11 @@ interface PrintBijakProps {
   forceHidePrices?: boolean;
   onApprove?: () => void;
   onReject?: () => void;
+  onForceSend?: () => void;
   transactions?: WarehouseTransaction[];
 }
 
-const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, forceHidePrices, onApprove, onReject, transactions }) => {
+const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, forceHidePrices, onApprove, onReject, onForceSend, transactions }) => {
   const [processing, setProcessing] = useState(false);
   const [hidePrices, setHidePrices] = useState(forceHidePrices || false);
   const [sharePlatform, setSharePlatform] = useState<'whatsapp' | 'telegram' | 'bale' | null>(null);
@@ -263,7 +264,7 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                 <span className="font-bold text-[10px] text-gray-600 hidden md:inline">پنل عملیات</span>
             </div>
 
-            {(onApprove || onReject) && (
+            {(onApprove || onReject || onForceSend) && (
                 <div className="flex items-center gap-1.5 border-l px-2">
                     {onApprove && (
                         <button 
@@ -279,6 +280,15 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                             className="px-3 py-1 bg-red-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-red-700"
                         >
                             <XCircle size={12}/> رد
+                        </button>
+                    )}
+                    {onForceSend && (
+                        <button 
+                            onClick={onForceSend} 
+                            className="px-3 py-1 bg-purple-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-purple-700"
+                            title="ارسال مجدد به گروه‌ها"
+                        >
+                            <Send size={12}/> ارسال دستی به گروه
                         </button>
                     )}
                 </div>
