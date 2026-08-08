@@ -1244,13 +1244,19 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   const handleDownloadComparePdf = async () => {
     try {
       toast('در حال تولید و دانلود فایل PDF مقایسه‌ای...', { icon: '⏳' });
-      const groupRows = comparisonMetrics ? comparisonMetrics.compareGroupRows : [];
+      const isItems = compareModeType === 'items';
+      const rows = isItems
+        ? (comparisonMetrics ? comparisonMetrics.compareItemRows : [])
+        : (comparisonMetrics ? comparisonMetrics.compareGroupRows : []);
+
       const response = await fetch('/api/sayan/sales-report/download-compare-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chartData: groupRows.map(r => ({
-            name: r.catName,
+          compareType: compareModeType,
+          chartData: rows.map(r => ({
+            name: isItems ? r.itemName : r.catName,
+            category: isItems ? r.majorCategory : undefined,
             netWeightA: r.netWgtA,
             netAmountA: r.netAmtA,
             retWeightA: r.retWgtA,

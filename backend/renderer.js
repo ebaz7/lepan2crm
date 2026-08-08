@@ -1088,16 +1088,32 @@ export const generateReportPDF = async (
         const totalRow = rows.find(r => r[0] === 'جمع کل' || String(r[1]).includes('جمع کل'));
 
         if (totalRow && totalRow.length >= 6) {
-          totalNetWgtA = parseFormattedNumber(totalRow[2]);
-          totalNetAmtA = parseFormattedNumber(totalRow[3]);
-          totalNetWgtB = parseFormattedNumber(totalRow[4]);
-          totalNetAmtB = parseFormattedNumber(totalRow[5]);
+          if (columns.length === 10) {
+            totalNetWgtA = parseFormattedNumber(totalRow[3]);
+            totalNetAmtA = parseFormattedNumber(totalRow[4]);
+            totalNetWgtB = parseFormattedNumber(totalRow[5]);
+            totalNetAmtB = parseFormattedNumber(totalRow[6]);
+          } else {
+            totalNetWgtA = parseFormattedNumber(totalRow[2]);
+            totalNetAmtA = parseFormattedNumber(totalRow[3]);
+            totalNetWgtB = parseFormattedNumber(totalRow[4]);
+            totalNetAmtB = parseFormattedNumber(totalRow[5]);
+          }
         }
 
         if (totalNetAmtA === 0 && totalNetAmtB === 0) {
           rows.forEach((r) => {
             if (r[0] !== 'جمع کل' && !String(r[1]).includes('جمع کل')) {
-              if (columns.length >= 8 && (columns.includes('تغییر وزن %') || columns[2].includes('وزن A'))) {
+              if (columns.length === 10) {
+                const wgtA = parseFormattedNumber(r[3]);
+                const amtA = parseFormattedNumber(r[4]);
+                const wgtB = parseFormattedNumber(r[5]);
+                const amtB = parseFormattedNumber(r[6]);
+                totalNetWgtA += wgtA;
+                totalNetAmtA += amtA;
+                totalNetWgtB += wgtB;
+                totalNetAmtB += amtB;
+              } else if (columns.length >= 8 && (columns.includes('تغییر وزن %') || columns[2].includes('وزن A'))) {
                 const wgtA = parseFormattedNumber(r[2]);
                 const amtA = parseFormattedNumber(r[3]);
                 const wgtB = parseFormattedNumber(r[4]);

@@ -999,13 +999,19 @@ app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
 
 app.post('/api/sayan/sales-report/download-compare-pdf', async (req, res) => {
     try {
-        const { chartData, dateFromA, dateToA, dateFromB, dateToB } = req.body;
+        const { compareType, chartData, dateFromA, dateToA, dateFromB, dateToB } = req.body;
         if (!chartData || chartData.length === 0) {
             return res.status(400).json({ error: 'داده‌ای برای تولید PDF وجود ندارد' });
         }
 
-        const title = `گزارش تحلیلی و مقایسه‌ای فروش (دوره A: ${dateFromA || '---'} تا ${dateToA || '---'} / دوره B: ${dateFromB || '---'} تا ${dateToB || '---'})`;
-        const columns = ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
+        const isItems = compareType === 'items';
+        const title = isItems
+            ? `گزارش تفکیکی و مقایسه‌ای فروش ریز کالاها (دوره A: ${dateFromA || '---'} تا ${dateToA || '---'} / دوره B: ${dateFromB || '---'} تا ${dateToB || '---'})`
+            : `گزارش تحلیلی و مقایسه‌ای فروش خلاصه گروه‌ها (دوره A: ${dateFromA || '---'} تا ${dateToA || '---'} / دوره B: ${dateFromB || '---'} تا ${dateToB || '---'})`;
+
+        const columns = isItems
+            ? ['ردیف', 'نام کالا', 'گروه اصلی', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %']
+            : ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
         
         let totalNetWgtA = 0;
         let totalNetAmtA = 0;
@@ -1038,17 +1044,32 @@ app.post('/api/sayan/sales-report/download-compare-pdf', async (req, res) => {
             const feePct = feeB > 0 ? ((diffFee / feeB) * 100).toFixed(1) : (feeA > 0 ? '+100' : '0');
             const feePctStr = (Number(feePct) >= 0 ? '+' : '') + feePct + '%';
 
-            return [
-                (idx + 1).toLocaleString('fa-IR'),
-                row.name || row.catName || 'سایر',
-                wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-                Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
-                wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-                Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
-                wgtPctStr,
-                amtPctStr,
-                feePctStr
-            ];
+            if (isItems) {
+                return [
+                    (idx + 1).toLocaleString('fa-IR'),
+                    row.name || 'نامشخص',
+                    row.category || 'سایر',
+                    wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                    Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
+                    wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                    Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
+                    wgtPctStr,
+                    amtPctStr,
+                    feePctStr
+                ];
+            } else {
+                return [
+                    (idx + 1).toLocaleString('fa-IR'),
+                    row.name || row.catName || 'سایر',
+                    wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                    Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
+                    wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                    Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
+                    wgtPctStr,
+                    amtPctStr,
+                    feePctStr
+                ];
+            }
         });
         
         const avgFeeA = totalNetWgtA > 0 ? totalNetAmtA / totalNetWgtA : 0;
@@ -1066,17 +1087,32 @@ app.post('/api/sayan/sales-report/download-compare-pdf', async (req, res) => {
         const totalFeePct = avgFeeB > 0 ? ((totalDiffFee / avgFeeB) * 100).toFixed(1) : (avgFeeA > 0 ? '+100' : '0');
         const totalFeePctStr = (Number(totalFeePct) >= 0 ? '+' : '') + totalFeePct + '%';
 
-        tableRows.push([
-            'جمع کل',
-            'خلاصه کل عملکرد',
-            totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-            Math.round(totalNetAmtA).toLocaleString('fa-IR') + ' ریال',
-            totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-            Math.round(totalNetAmtB).toLocaleString('fa-IR') + ' ریال',
-            totalWgtPctStr,
-            totalAmtPctStr,
-            totalFeePctStr
-        ]);
+        if (isItems) {
+            tableRows.push([
+                'جمع کل',
+                'خلاصه عملکرد ریز کالاها',
+                '-',
+                totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(totalNetAmtA).toLocaleString('fa-IR') + ' ریال',
+                totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(totalNetAmtB).toLocaleString('fa-IR') + ' ریال',
+                totalWgtPctStr,
+                totalAmtPctStr,
+                totalFeePctStr
+            ]);
+        } else {
+            tableRows.push([
+                'جمع کل',
+                'خلاصه کل عملکرد',
+                totalNetWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(totalNetAmtA).toLocaleString('fa-IR') + ' ریال',
+                totalNetWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(totalNetAmtB).toLocaleString('fa-IR') + ' ریال',
+                totalWgtPctStr,
+                totalAmtPctStr,
+                totalFeePctStr
+            ]);
+        }
 
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
         res.setHeader('Content-Type', 'application/pdf');
