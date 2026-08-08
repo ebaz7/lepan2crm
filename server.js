@@ -575,6 +575,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         FROM STR_TBL_010 t10
         INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                    AND t11.Field_003 = t10.Field_004
+                                   AND t11.Field_036 = t10.Field_009
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
             SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
