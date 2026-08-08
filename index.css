@@ -1292,12 +1292,10 @@ td {
    🚀 HIGH-PERFORMANCE MOBILE OPTIMIZATIONS (Max-Width 1024px)
    ========================================================================== */
 @media (max-width: 1024px) {
-  /* Disable massive floating blob animations to save CPU rendering threads on mobile */
+  /* Disable massive floating blob animations to save CPU rendering threads on mobile, but keep them visible as beautiful static backdrops */
   .blob {
     animation: none !important;
-    filter: none !important;
     will-change: auto !important;
-    display: none !important; /* Hide giant GPU-heavy blurred circles on mobile */
   }
   
   /* Keep backdrop-blur enabled but set to a highly performant blur radius (12px) to prevent lag */
@@ -1306,7 +1304,23 @@ td {
   .theme-light-aurora header,
   .theme-light-aurora .glass-panel,
   .theme-light-aurora .apple-glass,
-  .theme-light-aurora .glass-header {
+  .theme-light-aurora .glass-header,
+  html.has-custom-bg main,
+  html.has-custom-bg aside,
+  html.has-custom-bg header,
+  html.has-custom-bg .glass-panel,
+  html.has-preset-bg-aurora-light main,
+  html.has-preset-bg-aurora-light aside,
+  html.has-preset-bg-aurora-light header,
+  html.has-preset-bg-aurora-light .glass-panel,
+  html.has-preset-bg-cosmic-dark main,
+  html.has-preset-bg-cosmic-dark aside,
+  html.has-preset-bg-cosmic-dark header,
+  html.has-preset-bg-cosmic-dark .glass-panel,
+  html.has-preset-bg-cyan-cosmic main,
+  html.has-preset-bg-cyan-cosmic aside,
+  html.has-preset-bg-cyan-cosmic header,
+  html.has-preset-bg-cyan-cosmic .glass-panel {
     backdrop-filter: blur(12px) saturate(140%) !important;
     -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
   }
@@ -1364,4 +1378,101 @@ html.has-preset-bg-aurora-light.dark td {
   color: #cbd5e1 !important;
   font-weight: 500 !important;
 }
+
+/* 
+   ==========================================================================
+   📋 HIGH LEGIBILITY FOR PRINT TEMPLATES & MODAL SHEETS (Opaque, crisp contrast)
+   ========================================================================== 
+*/
+html .printable-content,
+html .printable-content .bg-white,
+html [id*="print-content"],
+html [id*="print-content"] .bg-white,
+html [id*="-print-"],
+html [id*="-print-"] .bg-white,
+html [id*="print-area"],
+html [id*="print-area"] .bg-white,
+html [id*="print-section"],
+html [id*="print-section"] .bg-white {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+/* Force dark, crisp text on solid white templates even in dark mode / glass theme */
+html .printable-content text,
+html .printable-content p,
+html .printable-content h1,
+html .printable-content h2,
+html .printable-content h3,
+html .printable-content h4,
+html .printable-content h5,
+html .printable-content h6,
+html .printable-content span:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html .printable-content div:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html .printable-content td:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html .printable-content th,
+html .printable-content tr,
+html .printable-content table,
+html [id*="print-content"] p,
+html [id*="print-content"] h1,
+html [id*="print-content"] h2,
+html [id*="print-content"] h3,
+html [id*="print-content"] h4,
+html [id*="print-content"] h5,
+html [id*="print-content"] h6,
+html [id*="print-content"] span:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-content"] div:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-content"] td:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-content"] th,
+html [id*="print-area"] p,
+html [id*="print-area"] h1,
+html [id*="print-area"] h2,
+html [id*="print-area"] h3,
+html [id*="print-area"] h4,
+html [id*="print-area"] h5,
+html [id*="print-area"] h6,
+html [id*="print-area"] span:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-area"] div:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-area"] td:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-area"] th,
+html [id*="print-section"] p,
+html [id*="print-section"] h1,
+html [id*="print-section"] h2,
+html [id*="print-section"] h3,
+html [id*="print-section"] h4,
+html [id*="print-section"] h5,
+html [id*="print-section"] h6,
+html [id*="print-section"] span:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-section"] div:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-section"] td:not(.text-emerald-800):not(.text-green-600):not(.text-red-500):not(.text-blue-600),
+html [id*="print-section"] th {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+/* Style table borders inside printable templates explicitly */
+html .printable-content th,
+html .printable-content td,
+html [id*="print-content"] th,
+html [id*="print-content"] td,
+html [id*="print-area"] th,
+html [id*="print-area"] td,
+html [id*="print-section"] th,
+html [id*="print-section"] td {
+  border-color: #94a3b8 !important; /* more visible, high-contrast border */
+}
+
+/* Fix background for table headers inside print areas */
+html .printable-content th,
+html [id*="print-content"] th,
+html [id*="print-area"] th,
+html [id*="print-section"] th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
 

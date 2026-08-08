@@ -41,12 +41,18 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const [bgMode, setBgMode] = useState<string>(() => localStorage.getItem('app_bg_mode') || 'preset');
   const [bgPreset, setBgPreset] = useState<string>(() => localStorage.getItem('app_preset_bg') || 'aurora-light');
   const [customBgImage, setCustomBgImage] = useState<string | null>(() => localStorage.getItem('app_custom_bg_image'));
+  const [customBgBlur, setCustomBgBlur] = useState<number>(() => {
+    const saved = localStorage.getItem('app_custom_bg_blur');
+    return saved ? parseInt(saved, 10) : 0;
+  });
 
   useEffect(() => {
     const handleBgChange = () => {
       setBgMode(localStorage.getItem('app_bg_mode') || 'preset');
       setBgPreset(localStorage.getItem('app_preset_bg') || 'aurora-light');
       setCustomBgImage(localStorage.getItem('app_custom_bg_image'));
+      const savedBlur = localStorage.getItem('app_custom_bg_blur');
+      setCustomBgBlur(savedBlur ? parseInt(savedBlur, 10) : 0);
     };
     window.addEventListener('APP_THEME_BG_CHANGED', handleBgChange);
     return () => window.removeEventListener('APP_THEME_BG_CHANGED', handleBgChange);
@@ -516,7 +522,14 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed'
+          backgroundAttachment: 'fixed',
+          filter: customBgBlur > 0 ? `blur(${customBgBlur}px)` : undefined,
+          transform: customBgBlur > 0 ? 'scale(1.08)' : undefined,
+          width: customBgBlur > 0 ? '108%' : '100%',
+          height: customBgBlur > 0 ? '108%' : '100%',
+          top: customBgBlur > 0 ? '-4%' : '0',
+          left: customBgBlur > 0 ? '-4%' : '0',
+          position: 'fixed'
         } : undefined}
       >
         {bgMode === 'preset' && (
@@ -926,7 +939,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
         )}
       </AnimatePresence>
 
-      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl md:rounded-[24px] rounded-none md:border border-none border-white/45 dark:border-zinc-900/35 shadow-none md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 m-2.5 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-2xl md:rounded-[24px] border border-white/45 dark:border-zinc-900/35 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.3)] md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
           {/* Mobile Header - Sleek flat design matching shadcn/ui */}
           <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl">
               <div className="flex items-center gap-3">

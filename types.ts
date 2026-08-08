@@ -267,6 +267,14 @@ export interface KnowledgeBaseItem {
   updatedAt: string;
 }
 
+export interface UnionExitBotUser {
+  id: string;
+  messengerId: string;
+  name?: string;
+  allowedCompanies: string[]; // List of company names
+  allowedCommodities: string[]; // List of warehouse item IDs or names
+}
+
 export interface SystemSettings {
   appName?: string;
   currentTrackingNumber: number;
@@ -347,6 +355,7 @@ export interface SystemSettings {
   botForceJoinChannels?: { name: string; link: string; id: string; platform?: 'telegram' | 'bale' | 'all' }[];
   botForceJoinEnabled?: boolean;
   botStoreLinks?: { title: string; url: string }[];
+  unionExitBotUsers?: UnionExitBotUser[];
   
   dailyExitReportDedicatedTelegramId?: string;
   dailyExitReportDedicatedBaleId?: string;

@@ -713,6 +713,18 @@ export const generateRecordImage = async (record, type, options = {}) => {
                     </div>
                 </div>
 
+                ${record.isUnionExit && record.unionExitDetails ? `
+                <div style="background-color: #f0fdf4; border: 1.5px solid #16a34a; border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 11px;">
+                    <div style="font-weight: 900; color: #166534; font-size: 11px; margin-bottom: 5px; border-bottom: 1px dashed #16a34a; padding-bottom: 3px;">💎 مشخصات حواله خروج اتحادیه:</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div><span style="color: #4b5563;">نام خریدار:</span> <b>${record.unionExitDetails.buyerName || "-"}</b></div>
+                        <div><span style="color: #4b5563;">کد ملی خریدار:</span> <b>${record.unionExitDetails.nationalCode && record.unionExitDetails.nationalCode !== '0' ? record.unionExitDetails.nationalCode : "-"}</b></div>
+                        <div><span style="color: #4b5563;">شماره همراه خریدار:</span> <b>${record.unionExitDetails.mobile && record.unionExitDetails.mobile !== '0' ? record.unionExitDetails.mobile : "-"}</b></div>
+                        <div><span style="color: #4b5563;">شناسه صنفی:</span> <b>${record.unionExitDetails.guildId && record.unionExitDetails.guildId !== '0' ? record.unionExitDetails.guildId : "-"}</b></div>
+                        <div style="grid-column: span 2;"><span style="color: #4b5563;">آدرس خریدار:</span> <b>${record.unionExitDetails.address && record.unionExitDetails.address !== '0' ? record.unionExitDetails.address : "-"}</b></div>
+                    </div>
+                </div>
+                ` : `
                 <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-bottom: 10px; font-size: 11px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <div><span style="color: #6b7280;">${isBijak ? "تحویل گیرنده" : "فرستنده"}:</span> <b>${isBijak ? record.recipientName : record.supplierName || record.proformaNumber}</b></div>
@@ -721,6 +733,7 @@ export const generateRecordImage = async (record, type, options = {}) => {
                         <div><span style="color: #6b7280;">پلاک:</span> ${renderPlate(record.plateNumber)}</div>
                     </div>
                 </div>
+                `}
 
                 <div style="flex: 1;">
                     <table>
@@ -930,17 +943,76 @@ export const generateBijakPDF = async (tx) => {
     const itemsHtml = tx.items
       .map(
         (i, idx) =>
-          `<tr><td>${idx + 1}</td><td>${i.itemName}</td><td>${i.quantity}</td><td>${i.weight}</td></tr>`,
+          `<tr><td>${idx + 1}</td><td>${i.itemName}</td><td>${i.quantity || 0}</td><td>${i.weight || 0}</td></tr>`,
       )
       .join("");
-    const html = `<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><style>${BASE_STYLE}</style></head><body>
+
+    let dateStr = "";
+    try {
+      const dObj = new Date(tx.date);
+      if (!isNaN(dObj.getTime())) {
+        dateStr = dObj.toLocaleDateString("fa-IR");
+      } else {
+        dateStr = tx.date;
+      }
+    } catch (e) {
+      dateStr = tx.date;
+    }
+
+    let customDetailsHtml = "";
+    let titleText = "حواله خروج (بیجک)";
+    if (tx.isUnionExit) {
+      titleText = "حواله خروج اتحادیه";
+      const u = tx.unionExitDetails || {};
+      customDetailsHtml = `
+        <div class="voucher-row-grid">
+          <div class="voucher-row"><span class="voucher-label">نام خریدار:</span><span class="voucher-val">${u.buyerName || tx.recipientName || "-"}</span></div>
+          <div class="voucher-row"><span class="voucher-label">کد ملی:</span><span class="voucher-val" style="font-family: monospace;">${u.nationalCode || "-"}</span></div>
+        </div>
+        <div class="voucher-row-grid">
+          <div class="voucher-row"><span class="voucher-label">تلفن همراه:</span><span class="voucher-val" style="font-family: monospace;">${u.mobile || "-"}</span></div>
+          <div class="voucher-row"><span class="voucher-label">شناسه صنفی:</span><span class="voucher-val" style="font-family: monospace;">${u.guildId || "-"}</span></div>
+        </div>
+        <div class="voucher-row"><span class="voucher-label">آدرس خریدار:</span><span class="voucher-val">${u.address || "-"}</span></div>
+      `;
+    } else {
+      customDetailsHtml = `
+        <div class="voucher-row"><span class="voucher-label">گیرنده:</span><span class="voucher-val">${tx.recipientName}</span></div>
+        <div class="voucher-row"><span class="voucher-label">راننده:</span><span class="voucher-val">${tx.driverName || "-"} (${tx.plateNumber || "-"})</span></div>
+      `;
+    }
+
+    const html = `<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8">
+            <style>
+              ${BASE_STYLE}
+              .voucher-row-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+              }
+              .voucher-row {
+                margin-bottom: 6px;
+                font-size: 11px;
+              }
+              .voucher-label {
+                font-weight: bold;
+                color: #4b5563;
+                margin-left: 6px;
+              }
+              .voucher-val {
+                color: #111827;
+                font-weight: bold;
+              }
+            </style></head><body>
             <div class="voucher-container">
-                <div class="voucher-header"><div><div class="voucher-title">${tx.company}</div><div>حواله خروج (بیجک)</div></div><div class="voucher-meta"><div>شماره: ${tx.number}</div><div>تاریخ: ${new Date(tx.date).toLocaleDateString("fa-IR")}</div></div></div>
-                <div class="voucher-row"><span class="voucher-label">گیرنده:</span><span class="voucher-val">${tx.recipientName}</span></div>
-                <div class="voucher-row"><span class="voucher-label">راننده:</span><span class="voucher-val">${tx.driverName || "-"} (${tx.plateNumber || "-"})</span></div>
-                <table><thead><tr><th>#</th><th>کالا</th><th>تعداد</th><th>وزن</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-                <div class="voucher-signatures"><div><div class="sig-box"></div><div>انباردار</div></div><div><div class="sig-box"></div><div>مدیریت</div></div><div><div class="sig-box"></div><div>راننده</div></div></div>
+                <div class="voucher-header"><div><div class="voucher-title">${tx.company || "خروج اتحادیه"}</div><div style="font-size: 14px; font-weight: 900; color: #1e3a8a; margin-top: 4px;">${titleText}</div></div><div class="voucher-meta"><div>شماره: ${tx.number}</div><div>تاریخ: ${dateStr}</div></div></div>
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 12px; background-color: #f9fafb;">
+                  ${customDetailsHtml}
+                </div>
+                <table><thead><tr><th>#</th><th>کالا</th><th>تعداد</th><th>وزن (کیلوگرم)</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+                <div class="voucher-signatures"><div><div class="sig-box"></div><div>تحویل دهنده (انبار)</div></div><div><div class="sig-box"></div><div>مدیریت / تایید کننده</div></div><div><div class="sig-box"></div><div>خریدار (تحویل گیرنده)</div></div></div>
             </div></body></html>`;
+
     await page.setContent(html, { waitUntil: "networkidle0" });
     const pdf = await page.pdf({
       format: "A5",

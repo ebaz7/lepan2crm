@@ -179,6 +179,34 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleBgChange = () => {
+      const mode = localStorage.getItem('app_bg_mode');
+      const customBg = localStorage.getItem('app_custom_bg_image');
+      const adapt = localStorage.getItem('app_custom_bg_adapt') !== 'false';
+      const brightness = localStorage.getItem('app_custom_bg_brightness') || 'light';
+      
+      if (mode === 'custom' && customBg && adapt) {
+        const root = document.documentElement;
+        if (brightness === 'dark') {
+          setTheme('dark');
+          localStorage.setItem('theme', 'dark');
+          root.classList.add('dark');
+          root.classList.remove('theme-light-aurora');
+        } else {
+          setTheme('light-aurora');
+          localStorage.setItem('theme', 'light-aurora');
+          root.classList.remove('dark');
+          root.classList.add('theme-light-aurora');
+        }
+      }
+    };
+    
+    handleBgChange();
+    window.addEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+    return () => window.removeEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+  }, []);
+
   const toggleTheme = () => {
       let newTheme: 'light' | 'dark' | 'light-aurora';
       if (theme === 'light-aurora') {

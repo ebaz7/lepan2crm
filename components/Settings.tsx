@@ -229,6 +229,61 @@ const Settings: React.FC<SettingsProps> = ({
   const [sendingManualSalesToday, setSendingManualSalesToday] = useState(false);
   const [sendingManualSalesYesterday, setSendingManualSalesYesterday] = useState(false);
 
+  const [customBgImage, setCustomBgImage] = useState<string | null>(() => localStorage.getItem('app_custom_bg_image'));
+  const [customBgBlur, setCustomBgBlur] = useState<number>(() => {
+    const saved = localStorage.getItem('app_custom_bg_blur');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [bgMode, setBgMode] = useState<string>(() => localStorage.getItem('app_bg_mode') || 'preset');
+  const [customBgAdapt, setCustomBgAdapt] = useState<boolean>(() => localStorage.getItem('app_custom_bg_adapt') !== 'false');
+
+  const analyzeImageBrightness = (imageUrl: string): Promise<"dark" | "light"> => {
+    return new Promise((resolve) => {
+      if (!imageUrl) {
+        resolve("light");
+        return;
+      }
+      const img = new Image();
+      img.src = imageUrl;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = 30;
+          canvas.height = 30;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve("light");
+            return;
+          }
+          ctx.drawImage(img, 0, 0, 30, 30);
+          const imageData = ctx.getImageData(0, 0, 30, 30);
+          const data = imageData.data;
+          let totalLuminance = 0;
+          let count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            if (a > 50) {
+              const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+              totalLuminance += luma;
+              count++;
+            }
+          }
+          const avgLuminance = count > 0 ? totalLuminance / count : 255;
+          resolve(avgLuminance < 140 ? "dark" : "light");
+        } catch (e) {
+          console.error("Error analyzing background image brightness:", e);
+          resolve("light");
+        }
+      };
+      img.onerror = () => {
+        resolve("light");
+      };
+    });
+  };
+
   const handleSendManualSales = async (targetDate: 'today' | 'yesterday') => {
     if (targetDate === 'today') {
       setSendingManualSalesToday(true);
@@ -4286,7 +4341,7 @@ const Settings: React.FC<SettingsProps> = ({
                   </div>
                 </div>
 
-                <BotManager />
+                <BotManager settings={settings} setSettings={setSettings} />
               </div>
             )}
 
@@ -6222,10 +6277,10 @@ const Settings: React.FC<SettingsProps> = ({
               {/* Upload Custom Image */}
               <div className="space-y-6">
                 <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-2">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-2">
                     آپلود تصویر پس‌زمینه اختصاصی (از کامپیوتر یا گوشی)
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 hover:border-pink-500 rounded-2xl p-6 transition-colors flex flex-col items-center justify-center gap-3 bg-white/50 text-center">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-white/10 hover:border-pink-500 rounded-2xl p-6 transition-colors flex flex-col items-center justify-center gap-3 bg-white/50 dark:bg-slate-900/30 text-center">
                     <input
                       type="file"
                       accept="image/*"
@@ -6239,11 +6294,21 @@ const Settings: React.FC<SettingsProps> = ({
                             return;
                           }
                           const reader = new FileReader();
-                          reader.onload = (evt) => {
+                          reader.onload = async (evt) => {
                             const res = evt.target?.result as string;
                             if (res) {
                               localStorage.setItem('app_custom_bg_image', res);
                               localStorage.setItem('app_bg_mode', 'custom');
+                              setCustomBgImage(res);
+                              setBgMode('custom');
+
+                              try {
+                                const brightness = await analyzeImageBrightness(res);
+                                localStorage.setItem('app_custom_bg_brightness', brightness);
+                              } catch (e) {
+                                console.error('Luminance check failed', e);
+                              }
+
                               window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
                               setMessage('تصویر پس‌زمینه اختصاصی با موفقیت اعمال شد ✨');
                               setTimeout(() => setMessage(''), 3000);
@@ -6259,56 +6324,106 @@ const Settings: React.FC<SettingsProps> = ({
                     >
                       <Upload size={16} /> انتخاب و آپلود تصویر جدید
                     </label>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
                       فرمت‌های پشتیبانی شده: JPG, PNG, WEBP (ذخیره داخلی بدون نیاز به اینترنت و وی‌پی‌ان)
                     </p>
                   </div>
                 </div>
 
                 {/* Current Custom Image Preview */}
-                {localStorage.getItem('app_custom_bg_image') && (
-                  <div className="p-4 rounded-xl border bg-gray-50 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={localStorage.getItem('app_custom_bg_image') || ''}
-                        alt="Custom BG"
-                        className="w-16 h-12 object-cover rounded-lg border shadow-sm"
-                      />
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">تصویر اختصاصی فعال است</p>
-                        <p className="text-[11px] text-gray-500">
-                          وضعیت: {localStorage.getItem('app_bg_mode') === 'custom' ? 'در حال استفاده' : 'غیرفعال'}
-                        </p>
+                {customBgImage && (
+                  <div className="p-4 rounded-xl border dark:border-white/10 bg-gray-50 dark:bg-slate-900/50 flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={customBgImage || ''}
+                          alt="Custom BG"
+                          className="w-16 h-12 object-cover rounded-lg border dark:border-white/10 shadow-sm"
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-gray-800 dark:text-gray-200">تصویر اختصاصی فعال است</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                            وضعیت: {bgMode === 'custom' ? 'در حال استفاده' : 'غیرفعال'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {localStorage.getItem('app_bg_mode') !== 'custom' && (
+                      <div className="flex items-center gap-2">
+                        {bgMode !== 'custom' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.setItem('app_bg_mode', 'custom');
+                              setBgMode('custom');
+                              window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                              setMessage('تصویر اختصاصی فعال شد');
+                              setTimeout(() => setMessage(''), 3000);
+                            }}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
+                          >
+                            فعال‌سازی
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
-                            localStorage.setItem('app_bg_mode', 'custom');
+                            localStorage.removeItem('app_custom_bg_image');
+                            localStorage.setItem('app_bg_mode', 'preset');
+                            setCustomBgImage(null);
+                            setBgMode('preset');
                             window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                            setMessage('تصویر اختصاصی فعال شد');
+                            setMessage('تصویر پس‌زمینه اختصاصی حذف شد');
                             setTimeout(() => setMessage(''), 3000);
                           }}
-                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
+                          className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 dark:bg-red-950/20 dark:text-red-400"
                         >
-                          فعال‌سازی
+                          حذف عکس
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          localStorage.removeItem('app_custom_bg_image');
-                          localStorage.setItem('app_bg_mode', 'preset');
-                          window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                          setMessage('تصویر پس‌زمینه اختصاصی حذف شد');
-                          setTimeout(() => setMessage(''), 3000);
-                        }}
-                        className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200"
-                      >
-                        حذف عکس
-                      </button>
+                      </div>
+                    </div>
+
+                    {/* Custom Blur & Color Adaptation Controls */}
+                    <div className="border-t dark:border-white/5 pt-3 space-y-4">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-gray-600 dark:text-gray-400">
+                          <span>میزان ماتی پس‌زمینه (Blur): {customBgBlur} پیکسل</span>
+                          <span dir="ltr">{customBgBlur}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="40"
+                          value={customBgBlur}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setCustomBgBlur(val);
+                            localStorage.setItem('app_custom_bg_blur', val.toString());
+                            window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                          }}
+                          className="w-full accent-pink-600 cursor-pointer"
+                        />
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">ماتی بیشتر باعث افزایش خوانایی متون روی تصاویر پس‌زمینه شلوغ می‌شود.</p>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t dark:border-white/5 pt-3">
+                        <div>
+                          <p className="text-xs font-bold text-gray-800 dark:text-gray-200">انطباق هوشمند پوسته با رنگ بک‌گراند (آفلاین)</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">تغییر اتوماتیک روشنایی متن‌ها بر اساس میزان تیره یا روشن بودن تصویر پس‌زمینه شما</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={customBgAdapt}
+                            onChange={(e) => {
+                              const val = e.target.checked;
+                              setCustomBgAdapt(val);
+                              localStorage.setItem('app_custom_bg_adapt', val ? 'true' : 'false');
+                              window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-pink-600"></div>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}

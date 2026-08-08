@@ -90,6 +90,13 @@ const resolveUser = (db, platform, chatId) => {
     return null;
 };
 
+const isUnionExitBotUser = (db, chatId, senderId) => {
+    const list = db.settings?.unionExitBotUsers || [];
+    const id1 = String(chatId);
+    const id2 = senderId ? String(senderId) : '';
+    return list.find(u => String(u.messengerId) === id1 || (id2 && String(u.messengerId) === id2));
+};
+
 const runSayanQuery = async (db, queryStr) => {
     const settings = db.settings || {};
     const serverSayanBaseUrl = settings.sayanApiUrl;
@@ -1191,6 +1198,24 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
             }
         }
 
+        // --- UNION EXIT BOT USER INTERCEPT ---
+        const unionBotUser = isUnionExitBotUser(db, chatId, senderId || chatId);
+        if (unionBotUser && (text === '/start' || text === 'شروع' || text === 'منو')) {
+            const buttons = [
+                [{ text: '💎 خروج اتحادیه', callback_data: 'ACT_UNION_EXIT_FLOW' }]
+            ];
+            if (user) {
+                // If they are also a regular system user, merge with Main Keyboard
+                buttons.push(...KEYBOARDS.MAIN.inline_keyboard);
+            } else {
+                buttons.push([{ text: '🆔 نمایش شناسه چت من', callback_data: 'GUEST_SHOW_ID' }]);
+            }
+            session.state = 'IDLE'; // Ensure state is reset
+            return sendFn(chatId, `👋 سلام ${unionBotUser.name || 'کاربر گرامی'}\nبه سیستم خوش آمدید.\nبرای ثبت درخواست خروج اتحادیه، لطفاً روی دکمه زیر کلیک کنید:`, {
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
         // --- ONBOARDING FOR GUESTS ---
         if (!user && !isGroup && session.state === 'IDLE') {
             const sub = db.botSubscribers.find(s => (platform === 'telegram' && s.telegramChatId == chatId) || (platform === 'bale' && s.baleChatId == chatId));
@@ -2140,6 +2165,109 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
         return sendFn(chatId, `✅ بیجک خروج #${nextSeq} ثبت و تایید نهایی شد.`);
     }
 
+    // --- UNION EXIT STATE MACHINE ---
+    if (session.state === 'UNION_EXIT_BUYER') {
+        session.data.buyerName = text;
+        session.state = 'UNION_EXIT_NATIONAL_CODE';
+        return sendFn(chatId, "🪪 لطفاً کد ملی خریدار را وارد کنید:\n(در صورت عدم نیاز، عدد 0 را وارد کنید)");
+    }
+
+    if (session.state === 'UNION_EXIT_NATIONAL_CODE') {
+        session.data.nationalCode = text;
+        session.state = 'UNION_EXIT_MOBILE';
+        return sendFn(chatId, "📱 لطفاً شماره تلفن همراه خریدار را وارد کنید:\n(در صورت عدم نیاز، عدد 0 را وارد کنید)");
+    }
+
+    if (session.state === 'UNION_EXIT_MOBILE') {
+        session.data.mobile = text;
+        session.state = 'UNION_EXIT_ADDRESS';
+        return sendFn(chatId, "📍 لطفاً آدرس خریدار را وارد کنید:\n(در صورت عدم نیاز، عدد 0 را وارد کنید)");
+    }
+
+    if (session.state === 'UNION_EXIT_ADDRESS') {
+        session.data.address = text;
+        session.state = 'UNION_EXIT_GUILD_ID';
+        return sendFn(chatId, "🔖 لطفاً شناسه صنفی خریدار را وارد کنید:\n(در صورت عدم نیاز، عدد 0 را وارد کنید)");
+    }
+
+    if (session.state === 'UNION_EXIT_GUILD_ID') {
+        session.data.guildId = text;
+        
+        const unionBotUser = isUnionExitBotUser(db, chatId, senderId || chatId);
+        const items = Array.isArray(db.warehouseItems) ? db.warehouseItems : [];
+        let allowedItems = items;
+        if (unionBotUser && unionBotUser.allowedCommodities && !unionBotUser.allowedCommodities.includes('*')) {
+            allowedItems = items.filter(item => unionBotUser.allowedCommodities.includes(item.name));
+        }
+        
+        if (allowedItems.length === 0) {
+            session.state = 'IDLE';
+            return sendFn(chatId, "⚠️ هیچ کالای مجاز یا تعریف‌شده‌ای برای دسترسی شما یافت نشد. لطفاً با مدیریت تماس بگیرید.");
+        }
+        
+        session.state = 'UNION_EXIT_SEARCH_ITEM';
+        const itemButtons = allowedItems.slice(0, 10).map(item => [{ text: item.name, callback_data: `SEL_UNION_ITEM_${item.id}` }]);
+        return sendFn(chatId, "📦 لطفاً بخشی از نام کالا را برای جستجو بنویسید یا یکی از گزینه‌های زیر را انتخاب کنید:", {
+            reply_markup: { inline_keyboard: itemButtons }
+        });
+    }
+
+    if (session.state === 'UNION_EXIT_SEARCH_ITEM') {
+        const unionBotUser = isUnionExitBotUser(db, chatId, senderId || chatId);
+        const items = Array.isArray(db.warehouseItems) ? db.warehouseItems : [];
+        let allowedItems = items;
+        if (unionBotUser && unionBotUser.allowedCommodities && !unionBotUser.allowedCommodities.includes('*')) {
+            allowedItems = items.filter(item => unionBotUser.allowedCommodities.includes(item.name));
+        }
+        
+        const query = text.toLowerCase();
+        const matched = allowedItems.filter(item => item.name.toLowerCase().includes(query));
+        if (matched.length === 0) {
+            return sendFn(chatId, "❌ کالایی با این عنوان یافت نشد. لطفاً مجدداً جستجو کنید یا نام کالا را بنویسید:");
+        }
+        
+        const itemButtons = matched.slice(0, 10).map(item => [{ text: item.name, callback_data: `SEL_UNION_ITEM_${item.id}` }]);
+        return sendFn(chatId, `🔍 نتایج جستجو برای "${text}":\nلطفاً کالای مورد نظر را انتخاب کنید:`, {
+            reply_markup: { inline_keyboard: itemButtons }
+        });
+    }
+
+    if (session.state === 'UNION_EXIT_QTY') {
+        const qty = parseFloat(text.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        if (isNaN(qty) || qty <= 0) return sendFn(chatId, "❌ تعداد نامعتبر است. لطفاً فقط عدد وارد کنید:");
+        session.data.quantity = qty;
+        session.state = 'UNION_EXIT_WEIGHT';
+        return sendFn(chatId, "⚖️ وزن خالص کالا را به کیلوگرم وارد کنید:\n(مثال: 1250.5 یا در صورت عدم نیاز عدد 0 را وارد کنید)");
+    }
+
+    if (session.state === 'UNION_EXIT_WEIGHT') {
+        const weight = parseFloat(text.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        if (isNaN(weight) || weight < 0) return sendFn(chatId, "❌ وزن نامعتبر است. لطفاً فقط عدد وارد کنید:");
+        session.data.weight = weight;
+        session.state = 'UNION_EXIT_CONFIRM';
+        
+        const summary = `💎 *پیش‌نویس خروج اتحادیه*\n` +
+                        `🏢 *شرکت:* ${session.data.company}\n` +
+                        `👤 *خریدار:* ${session.data.buyerName}\n` +
+                        `🪪 *کد ملی:* ${session.data.nationalCode !== '0' ? session.data.nationalCode : '-'}\n` +
+                        `📱 *تلفن:* ${session.data.mobile !== '0' ? session.data.mobile : '-'}\n` +
+                        `📍 *آدرس:* ${session.data.address !== '0' ? session.data.address : '-'}\n` +
+                        `🔖 *شناسه صنفی:* ${session.data.guildId !== '0' ? session.data.guildId : '-'}\n` +
+                        `📦 *کالا:* ${session.data.itemName}\n` +
+                        `🔢 *تعداد:* ${session.data.quantity}\n` +
+                        `⚖️ *وزن خالص:* ${session.data.weight !== 0 ? `${session.data.weight} KG` : '-'}\n` +
+                        `━━━━━━━━━━━━━━\n` +
+                        `⚠️ لطفاً اطلاعات فوق را بررسی کرده و در صورت صحت، دکمه تایید را بزنید:`;
+                        
+        const buttons = [
+            [
+                { text: '🚀 ثبت و ارسال جهت تایید', callback_data: 'SUBMIT_UNION_EXIT' },
+                { text: '❌ انصراف', callback_data: 'CANCEL_UNION_EXIT' }
+            ]
+        ];
+        return sendFn(chatId, summary, { reply_markup: { inline_keyboard: buttons } });
+    }
+
     if (isGroup) return; // Silent for groups on unrecognized messages
     
     return sendFn(chatId, "دستور نامفهوم. از منو استفاده کنید.", { 
@@ -2531,18 +2659,38 @@ export const notifyWarehouseBijak = async (tx, db, stepName, eventType = 'STEP')
         const imgWithPrice = await Renderer.generateRecordImage(tx, 'BIJAK', { isEdit, isDelete, forceHidePrices: false, stockInfo });
         const imgNoPrice = await Renderer.generateRecordImage(tx, 'BIJAK', { isEdit, isDelete, forceHidePrices: true, stockInfo });
         
-        let header = isDelete ? `❌ *حذف شد: حواله خروج انبار (بیجک)*` : (isEdit ? `✏️ *ویرایش شد: حواله خروج انبار*` : `🚨 *حواله خروج انبار (بیجک)*`);
+        let header = tx.isUnionExit 
+            ? (isDelete ? `❌ *حذف شد: خروج اتحادیه*` : (isEdit ? `✏️ *ویرایش شد: خروج اتحادیه*` : `🚨 *حواله خروج اتحادیه*`))
+            : (isDelete ? `❌ *حذف شد: حواله خروج انبار (بیجک)*` : (isEdit ? `✏️ *ویرایش شد: حواله خروج انبار*` : `🚨 *حواله خروج انبار (بیجک)*`));
+            
         let footerText = stepName === 'ثبت اولیه' ? '⚠️ *لطفا جهت بررسی و تایید به کارتابل انبار مراجعه فرمایید.*' : `✅ *تایید نهایی توسط:* ${tx.approvedBy || '-'}`;
         
         let commonDetails = `🔢 *شماره:* ${tx.number}\n`;
         commonDetails += `🏢 *شرکت:* ${tx.company || '-'}\n`;
         commonDetails += `📅 *تاریخ:* ${dateStr}\n`;
-        commonDetails += `👤 *گیرنده:* ${tx.recipientName || '-'}\n`;
-        commonDetails += `📍 *مقصد:* ${tx.destination || '-'}\n`;
-        commonDetails += `🚚 *راننده:* ${tx.driverName || '-'}\n`;
-        commonDetails += `🆔 *پلاک:* \`${tx.plateNumber || '-'}\`\n`;
+        
+        if (tx.isUnionExit && tx.unionExitDetails) {
+            commonDetails += `👤 *خریدار:* ${tx.unionExitDetails.buyerName || '-'}\n`;
+            if (tx.unionExitDetails.nationalCode && tx.unionExitDetails.nationalCode !== '0') {
+                commonDetails += `🪪 *کد ملی:* \`${tx.unionExitDetails.nationalCode}\`\n`;
+            }
+            if (tx.unionExitDetails.mobile && tx.unionExitDetails.mobile !== '0') {
+                commonDetails += `📱 *تلفن:* \`${tx.unionExitDetails.mobile}\`\n`;
+            }
+            if (tx.unionExitDetails.address && tx.unionExitDetails.address !== '0') {
+                commonDetails += `📍 *آدرس:* ${tx.unionExitDetails.address}\n`;
+            }
+            if (tx.unionExitDetails.guildId && tx.unionExitDetails.guildId !== '0') {
+                commonDetails += `🔖 *شناسه صنفی:* \`${tx.unionExitDetails.guildId}\`\n`;
+            }
+        } else {
+            commonDetails += `👤 *گیرنده:* ${tx.recipientName || '-'}\n`;
+            commonDetails += `📍 *مقصد:* ${tx.destination || '-'}\n`;
+            commonDetails += `🚚 *راننده:* ${tx.driverName || '-'}\n`;
+            commonDetails += `🆔 *پلاک:* \`${tx.plateNumber || '-'}\`\n`;
+        }
         commonDetails += `━━━━━━━━━━━━━━\n`;
-
+        
         const getItemsText = (showPrice) => {
             let text = `📦 *اقلام حواله:* \n`;
             tx.items.forEach((it, idx) => {
@@ -2561,11 +2709,21 @@ export const notifyWarehouseBijak = async (tx, db, stepName, eventType = 'STEP')
         const mediaDataNoPrice = { data: imgNoPrice.toString('base64'), filename: `Bijak_${tx.number}.png`, mimeType: 'image/png' };
         const mediaDataWithPrice = { data: imgWithPrice.toString('base64'), filename: `Bijak_${tx.number}_Price.png`, mimeType: 'image/png' };
 
+        const reply_markup = {
+            inline_keyboard: [
+                [
+                    { text: '✅ تایید نهایی', callback_data: `APP_WH_${tx.id}` },
+                    { text: '❌ رد درخواست', callback_data: `REJ_WH_${tx.id}` }
+                ]
+            ]
+        };
+
         // Helper to send based on target type
         const sendToTarget = async (t, isPrivate) => {
             const img = isPrivate ? imgWithPrice : imgNoPrice;
             const caption = isPrivate ? privateCaption : groupCaption;
             const media = isPrivate ? mediaDataWithPrice : mediaDataNoPrice;
+            const opts = (tx.status === 'PENDING' && isPrivate) ? { reply_markup } : {};
 
             if (t.type === 'wa' && settings.whatsappEnabled) {
                 const mod = await import('./whatsapp.js');
@@ -2573,11 +2731,11 @@ export const notifyWarehouseBijak = async (tx, db, stepName, eventType = 'STEP')
             }
             if (t.type === 'tg' && settings.telegramBotToken) {
                 const mod = await import('./telegram.js');
-                mod.sendBotPhoto(sanitizeGroupId(t.id), img, caption).catch(console.error);
+                mod.sendBotPhoto(sanitizeGroupId(t.id), img, caption, opts).catch(console.error);
             }
             if (t.type === 'bale' && settings.baleBotToken) {
                 const mod = await import('./bale.js');
-                mod.sendBotPhoto(sanitizeGroupId(t.id), img, caption).catch(console.error);
+                mod.sendBotPhoto(sanitizeGroupId(t.id), img, caption, opts).catch(console.error);
             }
         };
 
@@ -4340,6 +4498,150 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             sendFn(chatId, `❌ بیجک #${tx.number} رد شد.`);
         }
         return;
+    }
+
+    // --- UNION EXIT CALLBACK HANDLERS ---
+    if (data === 'ACT_UNION_EXIT_FLOW') {
+        const unionBotUser = isUnionExitBotUser(db, chatId, userId || chatId);
+        if (!unionBotUser) {
+            return sendFn(chatId, "⛔ شما دسترسی ثبت خروج اتحادیه را ندارید.");
+        }
+        
+        session.state = 'UNION_EXIT_COMPANY';
+        session.data = {
+            buyerName: '',
+            nationalCode: '',
+            mobile: '',
+            address: '',
+            guildId: '',
+            itemName: '',
+            itemId: '',
+            quantity: 0,
+            weight: 0
+        };
+
+        const companies = Array.isArray(unionBotUser.allowedCompanies) ? unionBotUser.allowedCompanies : ['*'];
+        let allowedCompanies = [];
+        if (companies.includes('*')) {
+            allowedCompanies = db.settings.companyNames || (db.settings.companies || []).map(c => c.name) || [];
+        } else {
+            allowedCompanies = companies;
+        }
+
+        if (allowedCompanies.length === 0) {
+            session.state = 'IDLE';
+            return sendFn(chatId, "⚠️ هیچ شرکت مجاز یا تعریف‌شده‌ای برای دسترسی شما یافت نشد.");
+        }
+
+        if (allowedCompanies.length === 1) {
+            session.data.company = allowedCompanies[0];
+            session.state = 'UNION_EXIT_BUYER';
+            return sendFn(chatId, `🏢 شرکت: ${allowedCompanies[0]}\n\n👤 لطفاً نام خریدار را وارد کنید:`);
+        }
+
+        const buttons = allowedCompanies.map(c => [{ text: c, callback_data: `SEL_UNION_CO_${c}` }]);
+        buttons.push([{ text: '🔙 بازگشت', callback_data: 'GUEST_MAIN' }]);
+        return sendFn(chatId, "🏢 لطفاً شرکت صادرکننده را انتخاب کنید:", { reply_markup: { inline_keyboard: buttons } });
+    }
+
+    if (data.startsWith('SEL_UNION_CO_')) {
+        const unionBotUser = isUnionExitBotUser(db, chatId, userId || chatId);
+        if (!unionBotUser) return;
+        session.data.company = data.replace('SEL_UNION_CO_', '');
+        session.state = 'UNION_EXIT_BUYER';
+        return sendFn(chatId, `🏢 شرکت انتخاب شده: ${session.data.company}\n\n👤 لطفاً نام خریدار را وارد کنید:`);
+    }
+
+    if (data.startsWith('SEL_UNION_ITEM_')) {
+        const unionBotUser = isUnionExitBotUser(db, chatId, userId || chatId);
+        if (!unionBotUser) return;
+        const itemId = data.replace('SEL_UNION_ITEM_', '');
+        const items = Array.isArray(db.warehouseItems) ? db.warehouseItems : [];
+        const item = items.find(it => it.id === itemId);
+        if (!item) {
+            return sendFn(chatId, "❌ کالای مورد نظر یافت نشد. لطفاً مجدداً جستجو کنید یا نام کالا را بنویسید:");
+        }
+        session.data.itemId = item.id;
+        session.data.itemName = item.name;
+        session.state = 'UNION_EXIT_QTY';
+        return sendFn(chatId, `📦 کالای انتخاب شده: ${item.name}\n\n🔢 تعداد کالا را وارد کنید:`);
+    }
+
+    if (data === 'SUBMIT_UNION_EXIT') {
+        const unionBotUser = isUnionExitBotUser(db, chatId, userId || chatId);
+        if (!unionBotUser) {
+            return sendFn(chatId, "⛔ شما دسترسی لازم برای این کار را ندارید.");
+        }
+        
+        const company = session.data.company;
+        let minStart = 1000;
+        if (db.settings.activeFiscalYearId && company) {
+            const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+            if (year && year.companySequences && year.companySequences[company]) {
+                minStart = year.companySequences[company].startBijakNumber || 1000;
+            }
+        }
+        let nextSeq = utils.findNextGapNumber(db.warehouseTransactions, company, 'number', minStart);
+        while (utils.checkForDuplicate(db.warehouseTransactions, 'number', nextSeq, 'company', company)) {
+            nextSeq++;
+        }
+
+        const tx = {
+            id: generateUUID(),
+            type: 'OUT',
+            date: getTehranDateString(),
+            company: company,
+            number: nextSeq,
+            recipientName: session.data.buyerName,
+            items: [{
+                itemId: session.data.itemId || 'bot_gen',
+                itemName: session.data.itemName,
+                quantity: session.data.quantity,
+                weight: session.data.weight || 0,
+                unitPrice: 0
+            }],
+            isUnionExit: true,
+            unionExitDetails: {
+                buyerName: session.data.buyerName,
+                nationalCode: session.data.nationalCode || '0',
+                mobile: session.data.mobile || '0',
+                address: session.data.address || '0',
+                guildId: session.data.guildId || '0'
+            },
+            createdAt: Date.now(),
+            createdBy: (unionBotUser.name || 'کاربر ربات') + ' (Bot)',
+            status: 'PENDING'
+        };
+
+        if(!db.warehouseTransactions) db.warehouseTransactions = [];
+        db.warehouseTransactions.unshift(tx);
+        saveDb(db);
+        session.state = 'IDLE';
+
+        await sendFn(chatId, `✅ حواله خروج اتحادیه پیش‌نویس #${nextSeq} با موفقیت ثبت شد و در انتظار تایید نهایی انبار قرار گرفت.`);
+        
+        // Notify managers/wh keeper
+        notifyWarehouseBijak(tx, db, 'ثبت اولیه').catch(e => console.error("Bot Bijak Notify Error:", e));
+
+        // Generate and send PDF
+        try {
+            await sendPdf(tx, 'BIJAK', chatId, sendFn, sendDocFn);
+        } catch (e) {
+            console.error("Error generating PDF for new union exit:", e);
+        }
+        return;
+    }
+
+    if (data === 'CANCEL_UNION_EXIT') {
+        session.state = 'IDLE';
+        session.data = {};
+        return sendFn(chatId, "❌ درخواست خروج اتحادیه لغو شد.", {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '💎 خروج اتحادیه جدید', callback_data: 'ACT_UNION_EXIT_FLOW' }]
+                ]
+            }
+        });
     }
 
     // --- WAREHOUSE STOCK REPORT ---
