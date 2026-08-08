@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WarehouseTransaction, SystemSettings, Contact } from '../types';
 import { formatCurrency, formatDate } from '../constants';
-import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, AlertTriangle, Trash2, Bell } from 'lucide-react';
+import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
@@ -16,11 +16,10 @@ interface PrintBijakProps {
   forceHidePrices?: boolean;
   onApprove?: () => void;
   onReject?: () => void;
-  onForceSend?: () => void;
   transactions?: WarehouseTransaction[];
 }
 
-const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, forceHidePrices, onApprove, onReject, onForceSend, transactions }) => {
+const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, forceHidePrices, onApprove, onReject, transactions }) => {
   const [processing, setProcessing] = useState(false);
   const [hidePrices, setHidePrices] = useState(forceHidePrices || false);
   const [sharePlatform, setSharePlatform] = useState<'whatsapp' | 'telegram' | 'bale' | null>(null);
@@ -171,23 +170,19 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
               let caption = `${captionPrefix}\nشماره: ${tx.number}\nگیرنده: ${tx.recipientName}\nتعداد: ${tx.items.length} قلم`;
 
               const p = platform || 'whatsapp';
-              try {
-                  if (p === 'whatsapp') {
-                      await apiCall('/send-whatsapp', 'POST', {
-                          number: target,
-                          message: caption,
-                          mediaData: { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` }
-                      });
-                  } else {
-                      await apiCall('/send-bot-message', 'POST', {
-                          platform: p,
-                          chatId: target,
-                          caption: caption,
-                          mediaData: { data: base64, filename: `Bijak_${tx.number}.png` }
-                      });
-                  }
-              } catch (e) {
-                  console.warn(`Ignore missing endpoint for ${p}:`, e);
+              if (p === 'whatsapp') {
+                  await apiCall('/send-whatsapp', 'POST', {
+                      number: target,
+                      message: caption,
+                      mediaData: { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` }
+                  });
+              } else {
+                  await apiCall('/send-bot-message', 'POST', {
+                      platform: p,
+                      chatId: target,
+                      caption: caption,
+                      mediaData: { data: base64, filename: `Bijak_${tx.number}.png` }
+                  });
               }
               if (!embed) alert('ارسال شد ✅');
           } catch (e) { console.error(e); if (!embed) alert('خطا در ارسال ❌'); } 
@@ -268,7 +263,7 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                 <span className="font-bold text-[10px] text-gray-600 hidden md:inline">پنل عملیات</span>
             </div>
 
-            {(onApprove || onReject || onForceSend) && (
+            {(onApprove || onReject) && (
                 <div className="flex items-center gap-1.5 border-l px-2">
                     {onApprove && (
                         <button 
@@ -284,15 +279,6 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                             className="px-3 py-1 bg-red-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-red-700"
                         >
                             <XCircle size={12}/> رد
-                        </button>
-                    )}
-                    {onForceSend && (
-                        <button 
-                            onClick={onForceSend} 
-                            className="px-3 py-1 bg-purple-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-purple-700"
-                            title="ارسال مجدد به گروه‌ها"
-                        >
-                            <Bell size={12}/> ارسال دستی به گروه
                         </button>
                     )}
                 </div>

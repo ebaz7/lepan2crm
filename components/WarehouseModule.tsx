@@ -514,14 +514,6 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                 const users = await getUsers();
                 const companyConfig = settings?.companyNotifications?.[tx.company];
                 
-                const safeApiCall = async (path: string, method: string, body: any) => {
-                    try {
-                        await apiCall(path, method, body);
-                    } catch (e) {
-                        console.warn(`AutoSend warning for ${path}:`, e);
-                    }
-                };
-
                 if (type === 'CREATED') {
                     const element = document.getElementById(`print-bijak-created-${tx.id}-price`);
                     if (element) {
@@ -539,9 +531,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                             caption += `لطفا جهت تایید بررسی نمایید.`;
 
                             for (const ceo of ceos) {
-                                if (ceo.phoneNumber) await safeApiCall('/send-whatsapp', 'POST', { number: ceo.phoneNumber, message: caption, mediaData });
+                                if (ceo.phoneNumber) await apiCall('/send-whatsapp', 'POST', { number: ceo.phoneNumber, message: caption, mediaData });
                                 const chatId = (ceo as any).telegramId || (ceo as any).telegramChatId;
-                                if (chatId) await safeApiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId, caption, mediaData });
+                                if (chatId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId, caption, mediaData });
                             }
                         }
                     }
@@ -565,15 +557,15 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                         const base64 = canvas.toDataURL('image/png').split(',')[1];
                         const mediaData = { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` };
                         if (managerNumber) {
-                           await safeApiCall('/send-whatsapp', 'POST', { number: managerNumber, message: caption, mediaData });
+                           await apiCall('/send-whatsapp', 'POST', { number: managerNumber, message: caption, mediaData });
                         }
                         
                         const managers = users.filter((u: any) => (u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN) && (u.telegramId || u.baleId));
                         for (const m of managers) {
                             const tgId = (m as any).telegramId || (m as any).telegramChatId;
                             const blId = (m as any).baleId || (m as any).baleChatId;
-                            if (tgId) await safeApiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption, mediaData });
-                            if (blId) await safeApiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption, mediaData });
+                            if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption, mediaData });
+                            if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption, mediaData });
                         }
                     }
 
@@ -582,14 +574,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                         const base64 = canvas.toDataURL('image/png').split(',')[1];
                         const mediaData = { data: base64, filename: `Bijak_${tx.number}.png` };
                         
-                        if (groupNumber) await safeApiCall('/send-whatsapp', 'POST', { number: groupNumber, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
-                        if (settings?.botBijakGroupIdWhatsApp) await safeApiCall('/send-whatsapp', 'POST', { number: settings.botBijakGroupIdWhatsApp, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
-                        
-                        if (companyConfig?.telegramChannelId) await safeApiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption, mediaData });
-                        if (settings?.botBijakGroupId) await safeApiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: settings.botBijakGroupId, caption, mediaData });
-                        
-                        if (companyConfig?.baleChannelId) await safeApiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: companyConfig.baleChannelId, caption, mediaData });
-                        if (settings?.botBijakGroupIdBale) await safeApiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: settings.botBijakGroupIdBale, caption, mediaData });
+                        if (groupNumber) await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
+                        if (companyConfig?.telegramChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption, mediaData });
+                        if (companyConfig?.baleChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: companyConfig.baleChannelId, caption, mediaData });
                     }
                 }
             } catch (e) {
@@ -923,10 +910,10 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const recentBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT').slice(0, 5), [safeTransactions]);
     
     // Updated Filtering logic using reportSearch
-    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))).sort((a, b) => b.createdAt - a.createdAt), [safeTransactions, archiveFilterCompany, reportSearch]);
-    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))).sort((a, b) => b.createdAt - a.createdAt), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))), [safeTransactions, archiveFilterCompany, reportSearch]);
     
-    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING').sort((a, b) => b.createdAt - a.createdAt), [safeTransactions]);
+    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING'), [safeTransactions]);
 
     const handlePrintStock = () => { setShowPrintStockReport(true); };
 
@@ -2081,12 +2068,6 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     transactions={safeTransactions}
                     onApprove={canApprove && viewBijak.status === 'PENDING' ? () => handleApproveBijak(viewBijak) : undefined}
                     onReject={canApprove && viewBijak.status === 'PENDING' ? () => handleRejectBijak(viewBijak) : undefined} 
-                    onForceSend={() => {
-                        if(confirm('آیا می‌خواهید این بیجک به گروه‌ها ارسال شود؟')) {
-                            setActiveAutoSends(prev => [...prev, { tx: viewBijak, type: viewBijak.status === 'APPROVED' ? 'APPROVED' : 'CREATED' }]);
-                            alert('در صف ارسال قرار گرفت. لطفا چند ثانیه صبر کنید.');
-                        }
-                    }}
                 />
             )}
 

@@ -565,11 +565,11 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t10.Field_008 as Date,
             t10.Field_029 as Notes,
             t11.Field_005 as ItemCode,
-            COALESCE(t22.Field_004, t_group.ItemName, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
+            t22.Field_004 as ItemName,
             t11.Field_006 as Quantity,
             t11.Field_031 as ItemNotes,
             t11.Field_007 as Amount,
-            COALESCE(subgrp6_acc.Field_006, subgrp4_acc.Field_006, grp_acc.Field_006, t_group.GroupName, 'سایر موارد') as GroupName,
+            t_group.GroupName,
             t07.Field_006 as CustomerName,
             t10.Field_009 as OpCode
         FROM STR_TBL_010 t10
@@ -577,19 +577,13 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                                    AND t11.Field_003 = t10.Field_004
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
-            SELECT t21_sub.Field_004 as ItemCode, 
-                   MAX(t02_sub.Field_003) as ItemName,
-                   MAX(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+            SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
             LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
             LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
             GROUP BY t21_sub.Field_004
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-        LEFT JOIN ACT_TBL_007 item_acc ON RTRIM(LTRIM(item_acc.Field_003)) = '17' + RTRIM(LTRIM(t11.Field_005))
-        LEFT JOIN ACT_TBL_007 subgrp6_acc ON RTRIM(LTRIM(subgrp6_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 6) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 6
-        LEFT JOIN ACT_TBL_007 subgrp4_acc ON RTRIM(LTRIM(subgrp4_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 4
-        LEFT JOIN ACT_TBL_007 grp_acc ON RTRIM(LTRIM(grp_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 2
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
             (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
@@ -1400,12 +1394,8 @@ app.get('/api/sayan/production-report', async (req, res) => {
             ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
-              AND (
-                  (t10.Field_008 >= '${gregFromDate}T00:00:00.000Z' AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z')
-                  OR (t10.Field_008 >= '${cleanDateFrom}' AND t10.Field_008 <= '${cleanDateTo} 23:59:59')
-                  OR (t10.Field_008 >= '${cleanDateFrom.replace(/\//g, '')}' AND t10.Field_008 <= '${cleanDateTo.replace(/\//g, '')} 23:59:59')
-                  OR (t10.Field_008 >= '${cleanDateFrom.replace(/\//g, '-')}' AND t10.Field_008 <= '${cleanDateTo.replace(/\//g, '-')} 23:59:59')
-              )
+              AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
             ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
         `;
 
