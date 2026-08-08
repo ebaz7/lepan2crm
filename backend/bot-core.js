@@ -303,7 +303,19 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
     await sendFn(chatId, `⏳ در حال محاسبه و استعلام گزارش مقایسه‌ای فروش سایان (دوره A: ${labelA} در برابر دوره B: ${labelB})... لطفا شکیبا باشید.`);
     
     try {
-        const buildSql = (from, to) => `
+        const buildSql = (from, to) => {
+            const fromDateObj = new Date(from);
+            const toDateObj = new Date(to);
+            const shamsiFrom = jalaali.toJalaali(fromDateObj.getFullYear(), fromDateObj.getMonth() + 1, fromDateObj.getDate());
+            const shamsiFromStr = `${shamsiFrom.jy}/${String(shamsiFrom.jm).padStart(2, '0')}/${String(shamsiFrom.jd).padStart(2, '0')}`;
+            const shamsiTo = jalaali.toJalaali(toDateObj.getFullYear(), toDateObj.getMonth() + 1, toDateObj.getDate());
+            const shamsiToStr = `${shamsiTo.jy}/${String(shamsiTo.jm).padStart(2, '0')}/${String(shamsiTo.jd).padStart(2, '0')}`;
+            const shamsiFromClean = shamsiFromStr.replace(/\//g, '');
+            const shamsiToClean = shamsiToStr.replace(/\//g, '');
+            const shamsiFromDash = shamsiFromStr.replace(/\//g, '-');
+            const shamsiToDash = shamsiToStr.replace(/\//g, '-');
+            
+            return `
             SELECT 
                 t10.Field_005 as DocId,
                 t10.Field_006 as InvoiceNum,
@@ -311,11 +323,11 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t10.Field_009 as OpCode,
                 t10.Field_029 as Notes,
                 t11.Field_005 as ItemCode,
-                t22.Field_004 as ItemName,
+                COALESCE(t22.Field_004, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity,
                 t11.Field_031 as ItemNotes,
                 t11.Field_007 as Amount,
-                t_group.GroupName,
+                COALESCE(subgrp6_acc.Field_006, subgrp4_acc.Field_006, grp_acc.Field_006, t_group.GroupName, 'سایر موارد') as GroupName,
                 t07.Field_006 as CustomerName
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
@@ -327,15 +339,27 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+            LEFT JOIN ACT_TBL_007 item_acc ON RTRIM(LTRIM(item_acc.Field_003)) = '17' + RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN ACT_TBL_007 subgrp6_acc ON RTRIM(LTRIM(subgrp6_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 6) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 6
+            LEFT JOIN ACT_TBL_007 subgrp4_acc ON RTRIM(LTRIM(subgrp4_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 4
+            LEFT JOIN ACT_TBL_007 grp_acc ON RTRIM(LTRIM(grp_acc.Field_003)) = '17' + SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2) AND LEN(RTRIM(LTRIM(t11.Field_005))) > 2
             LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             WHERE (
                 (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
                 OR
                 (t10.Field_009 IN ('13'))
             )
-              AND (t10.Field_008 LIKE '${from}%' OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' OR t10.Field_008 BETWEEN '${from}' AND '${to}')
+              AND (
+                  t10.Field_008 LIKE '${from}%' 
+                  OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' 
+                  OR t10.Field_008 BETWEEN '${from}' AND '${to}'
+                  OR t10.Field_008 BETWEEN '${shamsiFromStr}' AND '${shamsiToStr}'
+                  OR t10.Field_008 BETWEEN '${shamsiFromClean}' AND '${shamsiToClean}'
+                  OR t10.Field_008 BETWEEN '${shamsiFromDash}' AND '${shamsiToDash}'
+              )
             ORDER BY t10.Field_008 DESC
         `;
+        };
 
         const [rowsA, rowsB] = await Promise.all([
             runSayanQuery(db, buildSql(dateFromA, dateToA)),

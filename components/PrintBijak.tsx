@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WarehouseTransaction, SystemSettings, Contact } from '../types';
 import { formatCurrency, formatDate } from '../constants';
-import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, AlertTriangle, Trash2, Bell } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
@@ -288,7 +288,7 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                             className="px-3 py-1 bg-purple-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-purple-700"
                             title="ارسال مجدد به گروه‌ها"
                         >
-                            <Send size={12}/> ارسال دستی به گروه
+                            <Bell size={12}/> ارسال دستی به گروه
                         </button>
                     )}
                 </div>

@@ -915,10 +915,10 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const recentBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT').slice(0, 5), [safeTransactions]);
     
     // Updated Filtering logic using reportSearch
-    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))).sort((a, b) => b.number - a.number), [safeTransactions, archiveFilterCompany, reportSearch]);
-    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))).sort((a, b) => b.number - a.number), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))).sort((a, b) => b.createdAt - a.createdAt), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))).sort((a, b) => b.createdAt - a.createdAt), [safeTransactions, archiveFilterCompany, reportSearch]);
     
-    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING').sort((a, b) => b.number - a.number), [safeTransactions]);
+    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING').sort((a, b) => b.createdAt - a.createdAt), [safeTransactions]);
 
     const handlePrintStock = () => { setShowPrintStockReport(true); };
 
