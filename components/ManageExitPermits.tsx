@@ -63,7 +63,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             if (financialYear && financialYear !== 'all') {
                 safeData = safeData.filter(p => isInFinancialYear(p.date, financialYear));
             }
-            setPermits(safeData.sort((a, b) => b.createdAt - a.createdAt));
+            setPermits(safeData.sort((a, b) => ((b.createdAt || 0) - (a.createdAt || 0)) || ((b.permitNumber || 0) - (a.permitNumber || 0)) ));
         } catch (e) {
             console.error("Failed to load permits", e);
             setPermits([]);

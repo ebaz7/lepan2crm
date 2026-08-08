@@ -2118,17 +2118,37 @@ app.get('/api/next-exit-permit-number', (req, res) => {
     const permits = db.exitPermits || [];
     const company = req.query.company || db.settings?.defaultCompany || '';
     let startNum = db.settings?.currentExitPermitNumber || 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startExitPermitNumber || startNum;
+    let activeYear = null;
+    if (db.settings?.activeFiscalYearId) {
+        activeYear = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (activeYear) {
+            if (activeYear.companySequences && company) {
+                const target = company.trim().replace(/\s+/g, ' ');
+                const foundKey = Object.keys(activeYear.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+                if (foundKey && activeYear.companySequences[foundKey]) {
+                    const seqVal = activeYear.companySequences[foundKey].startExitPermitNumber;
+                    if (seqVal) startNum = parseInt(String(seqVal)) || startNum;
+                }
             }
         }
     }
-    const nextNum = findNextMaxNumber(permits, company, 'permitNumber', startNum);
+
+    let filteredPermits = permits;
+    if (activeYear) {
+        filteredPermits = permits.filter(p => {
+            if (p.fiscalYearId) return p.fiscalYearId === activeYear.id;
+            if (activeYear.label) {
+                const shamsiYM = utils.toShamsiYearMonth(p.date);
+                if (shamsiYM && shamsiYM.startsWith(activeYear.label + '/')) return true;
+            }
+            if (activeYear.startDate && activeYear.endDate && p.date) {
+                return p.date >= activeYear.startDate && p.date <= activeYear.endDate;
+            }
+            return true;
+        });
+    }
+
+    const nextNum = findNextMaxNumber(filteredPermits, company, 'permitNumber', startNum);
     res.json({ nextNumber: nextNum });
 });
 
@@ -2386,11 +2406,17 @@ app.post('/api/exit-permits', async (req, res) => {
         const db = getDb();
         if (!db.exitPermits) db.exitPermits = [];
         const item = req.body;
+        if (!item.fiscalYearId && db.settings?.activeFiscalYearId) {
+            item.fiscalYearId = db.settings.activeFiscalYearId;
+        }
+        if (!item.createdAt) {
+            item.createdAt = Date.now();
+        }
         const existingIdx = db.exitPermits.findIndex(x => x.id === item.id);
         const isEdit = existingIdx > -1;
         
         if (isEdit) {
-            db.exitPermits[existingIdx] = item;
+            db.exitPermits[existingIdx] = { ...db.exitPermits[existingIdx], ...item };
         } else {
             db.exitPermits.push(item);
         }

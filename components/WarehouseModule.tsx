@@ -610,12 +610,13 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
             const [i, t] = await Promise.all([getWarehouseItems(), getWarehouseTransactions()]); 
             setItems(Array.isArray(i) ? i : []); 
             let rawTxs = Array.isArray(t) ? t : [];
+            rawTxs.sort((a, b) => ((b.createdAt || 0) - (a.createdAt || 0)) || ((b.number || 0) - (a.number || 0)));
             setAllTransactions(rawTxs);
             let safeTxs = rawTxs;
             if (financialYear && financialYear !== 'all') {
                 safeTxs = safeTxs.filter(tx => isInFinancialYear(tx.date, financialYear));
             }
-            setTransactions(safeTxs); 
+            setTransactions(safeTxs.sort((a, b) => ((b.createdAt || 0) - (a.createdAt || 0)) || ((b.number || 0) - (a.number || 0)) )); 
         } catch (e) { 
             console.error(e); 
             setItems([]);
