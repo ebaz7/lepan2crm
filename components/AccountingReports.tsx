@@ -891,6 +891,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
+                    t11.Field_008 as Discount,
+                    t11.Field_009 as NetAmount,
+                    t11.Field_010 as VAT,
+                    t11.Field_011 as Tax,
+                    t11.Field_012 as FinalAmount,
                     t_group.GroupName,
                     t07.Field_006 as CustomerName
                 FROM STR_TBL_010 t10
@@ -913,9 +918,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                    (t10.Field_009 = '12' AND t11.Field_007 > 0)
                     OR
-                    (t10.Field_009 IN ('13'))
+                    (t10.Field_009 = '13')
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
@@ -935,15 +940,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             };
 
             const processedA = dataA.map((row: any) => {
-                let baseAmt = row.Amount ? parseFloat(row.Amount) : 0;
-                const official = isOfficialSayanInvoice(row);
-                if (official) {
-                    baseAmt = baseAmt * 1.10;
-                }
+                const amt = row.Amount ? parseFloat(row.Amount) : 0;
+                const vat = row.VAT ? parseFloat(row.VAT) : 0;
+                const tax = row.Tax ? parseFloat(row.Tax) : 0;
+                const baseAmt = amt + vat + tax;
                 return {
                     ...row,
                     Amount: baseAmt.toString(),
-                    isOfficial: official
+                    isOfficial: false
                 };
             });
             setSalesData(processedA);
@@ -970,6 +974,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
+                        t11.Field_008 as Discount,
+                        t11.Field_009 as NetAmount,
+                        t11.Field_010 as VAT,
+                        t11.Field_011 as Tax,
+                        t11.Field_012 as FinalAmount,
                         t_group.GroupName,
                         t07.Field_006 as CustomerName
                     FROM STR_TBL_010 t10
@@ -992,24 +1001,23 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
+                        (t10.Field_009 = '12' AND t11.Field_007 > 0)
                         OR
-                        (t10.Field_009 IN ('13'))
+                        (t10.Field_009 = '13')
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
                 `;
                 const dataB = await runSayanQuery(sqlB);
                 const processedB = dataB.map((row: any) => {
-                    let baseAmt = row.Amount ? parseFloat(row.Amount) : 0;
-                    const official = isOfficialSayanInvoice(row);
-                    if (official) {
-                        baseAmt = baseAmt * 1.10;
-                    }
+                    const amt = row.Amount ? parseFloat(row.Amount) : 0;
+                    const vat = row.VAT ? parseFloat(row.VAT) : 0;
+                    const tax = row.Tax ? parseFloat(row.Tax) : 0;
+                    const baseAmt = amt + vat + tax;
                     return {
                         ...row,
                         Amount: baseAmt.toString(),
-                        isOfficial: official
+                        isOfficial: false
                     };
                 });
                 setCompareSalesDataB(processedB);
