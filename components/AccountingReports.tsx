@@ -880,11 +880,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             
             const dateFilter = gregFrom && gregTo 
                 ? `AND (
-                      (t10.Field_008 >= '${gregFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gregTo}T23:59:59.000Z')
-                      OR (t10.Field_008 >= '${gregFrom}' AND t10.Field_008 <= '${gregTo}')
-                      OR (t10.Field_008 >= '${dateFrom}' AND t10.Field_008 <= '${dateTo}')
-                      OR (t10.Field_008 >= '${shamsiFromClean}' AND t10.Field_008 <= '${shamsiToClean}')
-                      OR (t10.Field_008 >= '${shamsiFromDash}' AND t10.Field_008 <= '${shamsiToDash}')
+                      (t10.Field_008 >= '${gregFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gregTo}T23:59:59.999Z')
+                      OR (t10.Field_008 >= '${gregFrom}' AND t10.Field_008 <= '${gregTo} 23:59:59')
+                      OR (t10.Field_008 >= '${dateFrom}' AND t10.Field_008 <= '${dateTo} 23:59:59')
+                      OR (t10.Field_008 >= '${shamsiFromClean}' AND t10.Field_008 <= '${shamsiToClean} 23:59:59')
+                      OR (t10.Field_008 >= '${shamsiFromDash}' AND t10.Field_008 <= '${shamsiToDash} 23:59:59')
                   )`
                 : '';
 
@@ -897,7 +897,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_029 as Notes,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
-                    COALESCE(t22.Field_004, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
+                    COALESCE(t22.Field_004, t_group.ItemName, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -913,7 +913,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                           AND t11.Field_003 = t10.Field_004
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
-                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                    SELECT t21_sub.Field_004 as ItemCode, 
+                           MAX(t02_sub.Field_003) as ItemName,
+                           MAX(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                     FROM IND_TBL_021 t21_sub
                     LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                     LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
@@ -972,11 +974,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 
                 const dateFilterB = gregFromB && gregToB 
                     ? `AND (
-                          (t10.Field_008 >= '${gregFromB}T00:00:00.000Z' AND t10.Field_008 <= '${gregToB}T23:59:59.000Z')
-                          OR (t10.Field_008 >= '${gregFromB}' AND t10.Field_008 <= '${gregToB}')
-                          OR (t10.Field_008 >= '${salesDateFromB}' AND t10.Field_008 <= '${salesDateToB}')
-                          OR (t10.Field_008 >= '${shamsiFromCleanB}' AND t10.Field_008 <= '${shamsiToCleanB}')
-                          OR (t10.Field_008 >= '${shamsiFromDashB}' AND t10.Field_008 <= '${shamsiToDashB}')
+                          (t10.Field_008 >= '${gregFromB}T00:00:00.000Z' AND t10.Field_008 <= '${gregToB}T23:59:59.999Z')
+                          OR (t10.Field_008 >= '${gregFromB}' AND t10.Field_008 <= '${gregToB} 23:59:59')
+                          OR (t10.Field_008 >= '${salesDateFromB}' AND t10.Field_008 <= '${salesDateToB} 23:59:59')
+                          OR (t10.Field_008 >= '${shamsiFromCleanB}' AND t10.Field_008 <= '${shamsiToCleanB} 23:59:59')
+                          OR (t10.Field_008 >= '${shamsiFromDashB}' AND t10.Field_008 <= '${shamsiToDashB} 23:59:59')
                       )`
                     : '';
 
@@ -988,7 +990,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_029 as Notes,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t22.Field_004, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t_group.ItemName, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
@@ -1004,7 +1006,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                               AND t11.Field_003 = t10.Field_004
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
-                        SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                        SELECT t21_sub.Field_004 as ItemCode, 
+                               MAX(t02_sub.Field_003) as ItemName,
+                               MAX(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                         FROM IND_TBL_021 t21_sub
                         LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                         LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))

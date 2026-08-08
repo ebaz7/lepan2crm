@@ -323,7 +323,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t10.Field_009 as OpCode,
                 t10.Field_029 as Notes,
                 t11.Field_005 as ItemCode,
-                COALESCE(t22.Field_004, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
+                COALESCE(t22.Field_004, t_group.ItemName, item_acc.Field_006, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity,
                 t11.Field_031 as ItemNotes,
                 t11.Field_007 as Amount,
@@ -333,10 +333,13 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
-                SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                SELECT t21_sub.Field_004 as ItemCode, 
+                       MAX(t02_sub.Field_003) as ItemName,
+                       MAX(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
                 LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
+                LEFT JOIN IND_TBL_002 t02_grandparent ON t02_parent.Field_009 = t02_grandparent.Field_008
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
             LEFT JOIN ACT_TBL_007 item_acc ON RTRIM(LTRIM(item_acc.Field_003)) = '17' + RTRIM(LTRIM(t11.Field_005))
@@ -352,10 +355,10 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
               AND (
                   t10.Field_008 LIKE '${from}%' 
                   OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' 
-                  OR t10.Field_008 BETWEEN '${from}' AND '${to}'
-                  OR t10.Field_008 BETWEEN '${shamsiFromStr}' AND '${shamsiToStr}'
-                  OR t10.Field_008 BETWEEN '${shamsiFromClean}' AND '${shamsiToClean}'
-                  OR t10.Field_008 BETWEEN '${shamsiFromDash}' AND '${shamsiToDash}'
+                  OR t10.Field_008 BETWEEN '${from}' AND '${to} 23:59:59'
+                  OR t10.Field_008 BETWEEN '${shamsiFromStr}' AND '${shamsiToStr} 23:59:59'
+                  OR t10.Field_008 BETWEEN '${shamsiFromClean}' AND '${shamsiToClean} 23:59:59'
+                  OR t10.Field_008 BETWEEN '${shamsiFromDash}' AND '${shamsiToDash} 23:59:59'
               )
             ORDER BY t10.Field_008 DESC
         `;
@@ -3998,7 +4001,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     t10.Field_009 as OpCode,
                     t10.Field_029 as Notes,
                     t11.Field_005 as ItemCode,
-                    t22.Field_004 as ItemName,
+                    COALESCE(t22.Field_004, t_group.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -4009,10 +4012,13 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                                           AND t11.Field_003 = t10.Field_004
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
-                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                    SELECT t21_sub.Field_004 as ItemCode, 
+                           MAX(t02_sub.Field_003) as ItemName,
+                           MAX(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                     FROM IND_TBL_021 t21_sub
                     LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
                     LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
+                    LEFT JOIN IND_TBL_002 t02_grandparent ON t02_parent.Field_009 = t02_grandparent.Field_008
                     GROUP BY t21_sub.Field_004
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')

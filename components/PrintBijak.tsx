@@ -171,19 +171,23 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
               let caption = `${captionPrefix}\nشماره: ${tx.number}\nگیرنده: ${tx.recipientName}\nتعداد: ${tx.items.length} قلم`;
 
               const p = platform || 'whatsapp';
-              if (p === 'whatsapp') {
-                  await apiCall('/send-whatsapp', 'POST', {
-                      number: target,
-                      message: caption,
-                      mediaData: { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` }
-                  });
-              } else {
-                  await apiCall('/send-bot-message', 'POST', {
-                      platform: p,
-                      chatId: target,
-                      caption: caption,
-                      mediaData: { data: base64, filename: `Bijak_${tx.number}.png` }
-                  });
+              try {
+                  if (p === 'whatsapp') {
+                      await apiCall('/send-whatsapp', 'POST', {
+                          number: target,
+                          message: caption,
+                          mediaData: { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` }
+                      });
+                  } else {
+                      await apiCall('/send-bot-message', 'POST', {
+                          platform: p,
+                          chatId: target,
+                          caption: caption,
+                          mediaData: { data: base64, filename: `Bijak_${tx.number}.png` }
+                      });
+                  }
+              } catch (e) {
+                  console.warn(`Ignore missing endpoint for ${p}:`, e);
               }
               if (!embed) alert('ارسال شد ✅');
           } catch (e) { console.error(e); if (!embed) alert('خطا در ارسال ❌'); } 
