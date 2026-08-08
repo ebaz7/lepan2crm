@@ -102,7 +102,7 @@ export function classifyMajorCategory(groupName: string = '', itemName: string =
   if (text.includes('کش') || text.includes('elastic')) return 'کش';
   if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
 
-  return groupName || 'سایر محصولات';
+  return groupName ? groupName : (itemName ? itemName : 'سایر محصولات');
 }
 
 function formatMoney(amount: number): string {
@@ -386,7 +386,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     const filteredRows = salesData.filter(row => {
       if (invoiceFilter === 'official' && row.isOfficial !== true) return false;
       if (invoiceFilter === 'unofficial' && row.isOfficial === true) return false;
-      if (excludeOther && (row.GroupName === 'سایر محصولات' || !row.GroupName)) return false;
+      if (excludeOther && !row.GroupName && !row.ItemName) return false;
       return true;
     });
 
@@ -693,7 +693,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     const filteredB = compareDataB.filter(row => {
       if (invoiceFilter === 'official' && row.isOfficial !== true) return false;
       if (invoiceFilter === 'unofficial' && row.isOfficial === true) return false;
-      if (excludeOther && (row.GroupName === 'سایر محصولات' || !row.GroupName)) return false;
+      if (excludeOther && !row.GroupName && !row.ItemName) return false;
       return true;
     });
 
