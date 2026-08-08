@@ -928,7 +928,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
       <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl md:rounded-[24px] rounded-none md:border border-none border-white/45 dark:border-zinc-900/35 shadow-none md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
           {/* Mobile Header - Sleek flat design matching shadcn/ui */}
-          <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/95 dark:bg-zinc-950/95 border-b border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-lg">
+          <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl">
               <div className="flex items-center gap-3">
                   {activeTab === 'dashboard' ? (
                   <button 
@@ -1002,7 +1002,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           </header>
           
           <div className={`flex-1 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-0 min-h-0' : 'overflow-y-auto pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0'} bg-transparent min-w-0 ${isUpdateAvailable ? 'pt-12' : ''} custom-scrollbar`} id="main-scroll-container">
-              <div className={`${activeTab === 'chat' ? 'hidden' : 'hidden md:flex'} justify-end p-4 bg-transparent border-b border-zinc-200 dark:border-zinc-800 z-40 shadow-sm no-print items-center bg-white dark:bg-zinc-950`}>
+              <div className={`${activeTab === 'chat' ? 'hidden' : 'hidden md:flex'} justify-end p-4 bg-white/20 dark:bg-zinc-950/15 border-b border-zinc-200/40 dark:border-zinc-800/40 z-40 shadow-sm no-print items-center backdrop-blur-md`}>
                   <button 
                     onClick={() => setIsSearchOpen(true)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all mr-auto ml-4 group"

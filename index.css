@@ -247,66 +247,192 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 
 /* Crisp, High-Legibility Typography Rules (No Blur, No White Halo Shadow) */
 .theme-light-aurora .text-zinc-900,
+html.has-custom-bg:not(.dark) .text-zinc-900,
+html.has-preset-bg-aurora-light:not(.dark) .text-zinc-900,
 .theme-light-aurora .text-slate-900,
+html.has-custom-bg:not(.dark) .text-slate-900,
+html.has-preset-bg-aurora-light:not(.dark) .text-slate-900,
 .theme-light-aurora .text-gray-900,
+html.has-custom-bg:not(.dark) .text-gray-900,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-900,
 .theme-light-aurora .text-zinc-800,
+html.has-custom-bg:not(.dark) .text-zinc-800,
+html.has-preset-bg-aurora-light:not(.dark) .text-zinc-800,
 .theme-light-aurora .text-slate-800,
+html.has-custom-bg:not(.dark) .text-slate-800,
+html.has-preset-bg-aurora-light:not(.dark) .text-slate-800,
 .theme-light-aurora .text-gray-800,
+html.has-custom-bg:not(.dark) .text-gray-800,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-800,
 .theme-light-aurora h1,
+html.has-custom-bg:not(.dark) h1,
+html.has-preset-bg-aurora-light:not(.dark) h1,
 .theme-light-aurora h2,
+html.has-custom-bg:not(.dark) h2,
+html.has-preset-bg-aurora-light:not(.dark) h2,
 .theme-light-aurora h3,
+html.has-custom-bg:not(.dark) h3,
+html.has-preset-bg-aurora-light:not(.dark) h3,
 .theme-light-aurora h4,
+html.has-custom-bg:not(.dark) h4,
+html.has-preset-bg-aurora-light:not(.dark) h4,
 .theme-light-aurora h5,
-.theme-light-aurora h6 {
+html.has-custom-bg:not(.dark) h5,
+html.has-preset-bg-aurora-light:not(.dark) h5,
+.theme-light-aurora h6,
+html.has-custom-bg:not(.dark) h6,
+html.has-preset-bg-aurora-light:not(.dark) h6 {
   color: #0f172a !important;
   font-weight: 700;
   text-shadow: none !important;
 }
 
 .theme-light-aurora .text-zinc-700,
+html.has-custom-bg:not(.dark) .text-zinc-700,
+html.has-preset-bg-aurora-light:not(.dark) .text-zinc-700,
 .theme-light-aurora .text-slate-700,
+html.has-custom-bg:not(.dark) .text-slate-700,
+html.has-preset-bg-aurora-light:not(.dark) .text-slate-700,
 .theme-light-aurora .text-gray-700,
+html.has-custom-bg:not(.dark) .text-gray-700,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-700,
 .theme-light-aurora .text-zinc-600,
+html.has-custom-bg:not(.dark) .text-zinc-600,
+html.has-preset-bg-aurora-light:not(.dark) .text-zinc-600,
 .theme-light-aurora .text-slate-600,
-.theme-light-aurora .text-gray-600 {
+html.has-custom-bg:not(.dark) .text-slate-600,
+html.has-preset-bg-aurora-light:not(.dark) .text-slate-600,
+.theme-light-aurora .text-gray-600,
+html.has-custom-bg:not(.dark) .text-gray-600,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-600 {
   color: #334155 !important;
   font-weight: 500;
   text-shadow: none !important;
 }
 
 .theme-light-aurora .text-zinc-500,
+html.has-custom-bg:not(.dark) .text-zinc-500,
+html.has-preset-bg-aurora-light:not(.dark) .text-zinc-500,
 .theme-light-aurora .text-slate-500,
+html.has-custom-bg:not(.dark) .text-slate-500,
+html.has-preset-bg-aurora-light:not(.dark) .text-slate-500,
 .theme-light-aurora .text-gray-500,
-.theme-light-aurora .text-gray-400 {
+html.has-custom-bg:not(.dark) .text-gray-500,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-500,
+.theme-light-aurora .text-gray-400,
+html.has-custom-bg:not(.dark) .text-gray-400,
+html.has-preset-bg-aurora-light:not(.dark) .text-gray-400 {
   color: #475569 !important;
   font-weight: 400;
   text-shadow: none !important;
 }
 
 .theme-light-aurora .border-zinc-200,
+html.has-custom-bg .border-zinc-200,
 .theme-light-aurora .border-gray-200,
+html.has-custom-bg .border-gray-200,
 .theme-light-aurora .border-slate-200,
+html.has-custom-bg .border-slate-200,
 .theme-light-aurora .border-zinc-100,
+html.has-custom-bg .border-zinc-100,
 .theme-light-aurora .border-gray-100,
-.theme-light-aurora .border-slate-100 {
+html.has-custom-bg .border-gray-100,
+.theme-light-aurora .border-slate-100,
+html.has-custom-bg .border-slate-100 {
   border-color: #cbd5e1 !important;
 }
 
+/* Translucent background containers when any background is active in Light Mode */
+html.has-custom-bg:not(.dark) .bg-white,
+html.has-preset-bg-aurora-light:not(.dark) .bg-white,
 .theme-light-aurora .bg-white,
+html.has-custom-bg:not(.dark) .bg-zinc-50,
+html.has-preset-bg-aurora-light:not(.dark) .bg-zinc-50,
 .theme-light-aurora .bg-zinc-50,
+html.has-custom-bg:not(.dark) .bg-gray-50,
+html.has-preset-bg-aurora-light:not(.dark) .bg-gray-50,
 .theme-light-aurora .bg-gray-50,
+html.has-custom-bg:not(.dark) .bg-slate-50,
+html.has-preset-bg-aurora-light:not(.dark) .bg-slate-50,
 .theme-light-aurora .bg-slate-50,
+html.has-custom-bg:not(.dark) .bg-zinc-100,
+html.has-preset-bg-aurora-light:not(.dark) .bg-zinc-100,
 .theme-light-aurora .bg-zinc-100,
+html.has-custom-bg:not(.dark) .bg-gray-100,
+html.has-preset-bg-aurora-light:not(.dark) .bg-gray-100,
 .theme-light-aurora .bg-gray-100,
+html.has-custom-bg:not(.dark) .bg-slate-100,
+html.has-preset-bg-aurora-light:not(.dark) .bg-slate-100,
 .theme-light-aurora .bg-slate-100,
+html.has-custom-bg:not(.dark) .bg-zinc-50\/50,
+html.has-preset-bg-aurora-light:not(.dark) .bg-zinc-50\/50,
 .theme-light-aurora .bg-zinc-50\/50,
+html.has-custom-bg:not(.dark) .bg-zinc-100\/50,
+html.has-preset-bg-aurora-light:not(.dark) .bg-zinc-100\/50,
 .theme-light-aurora .bg-zinc-100\/50,
-.theme-light-aurora .bg-zinc-50\/30,
+html.has-custom-bg:not(.dark) .bg-white\/45,
+html.has-preset-bg-aurora-light:not(.dark) .bg-white\/45,
 .theme-light-aurora .bg-white\/45,
+html.has-custom-bg:not(.dark) .bg-white\/70,
+html.has-preset-bg-aurora-light:not(.dark) .bg-white\/70,
 .theme-light-aurora .bg-white\/70,
+html.has-custom-bg:not(.dark) .bg-white\/75,
+html.has-preset-bg-aurora-light:not(.dark) .bg-white\/75,
 .theme-light-aurora .bg-white\/75,
+html.has-custom-bg:not(.dark) .bg-white\/95,
+html.has-preset-bg-aurora-light:not(.dark) .bg-white\/95,
 .theme-light-aurora .bg-white\/95 {
-  background-color: rgba(255, 255, 255, 0.4) !important;
+  background-color: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+}
+
+/* Translucent background containers when any background is active in Dark Mode */
+html.has-custom-bg.dark .bg-white,
+html.has-preset-bg-cosmic-dark.dark .bg-white,
+html.has-preset-bg-cyan-cosmic.dark .bg-white,
+html.has-custom-bg.dark .bg-zinc-900,
+html.has-preset-bg-cosmic-dark.dark .bg-zinc-900,
+html.has-preset-bg-cyan-cosmic.dark .bg-zinc-900,
+html.has-custom-bg.dark .bg-gray-900,
+html.has-preset-bg-cosmic-dark.dark .bg-gray-900,
+html.has-preset-bg-cyan-cosmic.dark .bg-gray-900,
+html.has-custom-bg.dark .bg-slate-900,
+html.has-preset-bg-cosmic-dark.dark .bg-slate-900,
+html.has-preset-bg-cyan-cosmic.dark .bg-slate-900,
+html.has-custom-bg.dark .bg-zinc-950,
+html.has-preset-bg-cosmic-dark.dark .bg-zinc-950,
+html.has-preset-bg-cyan-cosmic.dark .bg-zinc-950,
+html.has-custom-bg.dark .bg-black\/20,
+html.has-preset-bg-cosmic-dark.dark .bg-black\/20,
+html.has-preset-bg-cyan-cosmic.dark .bg-black\/20,
+html.has-custom-bg.dark .bg-gray-950,
+html.has-preset-bg-cosmic-dark.dark .bg-gray-950,
+html.has-preset-bg-cyan-cosmic.dark .bg-gray-950 {
+  background-color: rgba(15, 23, 42, 0.35) !important;
+  backdrop-filter: blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+}
+
+/* Dark Mode with Background high contrast text rules */
+html.dark.has-custom-bg .text-zinc-100,
+html.dark.has-preset-bg-cosmic-dark .text-zinc-100,
+html.dark.has-preset-bg-cyan-cosmic .text-zinc-100,
+html.dark.has-custom-bg .text-gray-100,
+html.dark.has-preset-bg-cosmic-dark .text-gray-100,
+html.dark.has-preset-bg-cyan-cosmic .text-gray-100 {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
+}
+
+html.dark.has-custom-bg .text-zinc-400,
+html.dark.has-preset-bg-cosmic-dark .text-zinc-400,
+html.dark.has-preset-bg-cyan-cosmic .text-zinc-400,
+html.dark.has-custom-bg .text-gray-400,
+html.dark.has-preset-bg-cosmic-dark .text-gray-400,
+html.dark.has-preset-bg-cyan-cosmic .text-gray-400 {
+  color: #94a3b8 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4) !important;
 }
 
 /* Removed heavy global main/aside/header overrides to prevent lag and background wash-out */

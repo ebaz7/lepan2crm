@@ -1337,7 +1337,7 @@ function App() {
                 {activeTab === 'products' && <div className="page-transition flex flex-col flex-1 min-h-0"><ProductsModule /></div>}
                 {activeTab === 'tickets' && <div className="page-transition flex flex-col flex-1 min-h-0"><Tickets /></div>}
                 {activeTab === 'ccti' && <div className="page-transition flex flex-col flex-1 min-h-0"><CctiConverter financialYear={financialYear} currentUser={currentUser} canManageArchive={currentUser.role === UserRole.ADMIN || (settings && getRolePermissions(currentUser.role, settings, currentUser).canManageCctiArchive === true)} /></div>}
-                {activeTab === 'sayan' && <div className="page-transition flex flex-col flex-1 min-h-0 bg-gray-50"><SayanReports currentUser={currentUser} settings={settings} /></div>}
+                {activeTab === 'sayan' && <div className="page-transition flex flex-col flex-1 min-h-0 bg-transparent"><SayanReports currentUser={currentUser} settings={settings} /></div>}
                 {activeTab === 'users' && <div className="page-transition flex flex-col flex-1 min-h-0"><ManageUsers /></div>}
                 {activeTab === 'settings' && <div className="page-transition flex flex-col flex-1 min-h-0"><Settings financialYear={financialYear} settings={settings} onUpdateSettings={setSettings} /></div>}
                 {(activeTab === 'knowledge' || activeTab === 'notes') && <div className="page-transition flex flex-col flex-1 min-h-0"><KnowledgeBaseModule currentUser={currentUser} settings={settings} onUpdateSettings={setSettings} /></div>}

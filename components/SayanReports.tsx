@@ -14,7 +14,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 select-text">
       {/* Navigation header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 flex justify-between items-center h-14 flex-shrink-0">
+      <div className="bg-white/30 dark:bg-zinc-950/20 border-b border-zinc-200/40 dark:border-zinc-800/40 px-6 flex justify-between items-center h-14 flex-shrink-0 backdrop-blur-sm">
         <div className="flex items-center gap-6 h-full">
           <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
             <BarChart2 size={16} />
@@ -28,7 +28,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
       </div>
 
       {/* Tab Content body */}
-      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-gray-900 pb-24 md:pb-6">
+      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-transparent pb-24 md:pb-6">
         <AccountingReports {...props} currentUser={currentUser} />
       </div>
     </div>
