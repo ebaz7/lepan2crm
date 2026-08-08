@@ -1,27 +1,106 @@
-
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings } from '../../types';
 import { formatNumberString, formatCurrency } from '../../constants';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { generatePdf } from '../../utils/pdfGenerator';
 
 interface PrintProformaProps {
   record: TradeRecord;
   settings: SystemSettings | null;
+  onClose: () => void;
 }
 
-const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings }) => {
+const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose }) => {
+  const [processing, setProcessing] = useState(false);
   const totalWeight = record.items.reduce((sum, item) => sum + item.weight, 0);
   const totalAmount = record.items.reduce((sum, item) => sum + item.totalPrice, 0);
   const company = settings?.companies?.find(c => c.name === record.company);
 
-  return (
-    <div className="p-8 bg-white text-gray-900 h-full flex flex-col font-sans" dir="rtl">
+  // Scaling & Zoom States
+  const [scale, setScale] = useState(1);
+  const [userZoom, setUserZoom] = useState<number | null>(null);
+  const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const style = document.getElementById('page-size-style');
+    if (style) {
+      style.innerHTML = '@page { size: A4 portrait; margin: 0; }';
+    }
+  }, []);
+
+  // Auto-Scale Logic (A4 Portrait target width is 794px)
+  useEffect(() => {
+    const handleResize = () => {
+        if (userZoom !== null) return;
+        const wrapper = containerWrapperRef.current;
+        if (wrapper) {
+            const wrapperWidth = wrapper.clientWidth;
+            const targetWidth = 794; // A4 Portrait Width in px
+            
+            if (wrapperWidth < targetWidth + 40) {
+                const newScale = (wrapperWidth - 32) / targetWidth;
+                setScale(newScale);
+            } else {
+                setScale(1);
+            }
+        }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [userZoom]);
+
+  const handleZoomIn = () => {
+      const currentScale = userZoom !== null ? userZoom : scale;
+      const nextScale = Math.min(2.5, currentScale + 0.15);
+      setUserZoom(nextScale);
+      setScale(nextScale);
+  };
+
+  const handleZoomOut = () => {
+      const currentScale = userZoom !== null ? userZoom : scale;
+      const nextScale = Math.max(0.3, currentScale - 0.15);
+      setUserZoom(nextScale);
+      setScale(nextScale);
+  };
+
+  const handleResetZoom = () => {
+      setUserZoom(null);
+      setTimeout(() => {
+          const wrapper = containerWrapperRef.current;
+          if (wrapper) {
+              const wrapperWidth = wrapper.clientWidth;
+              const targetWidth = 794;
+              if (wrapperWidth < targetWidth + 40) {
+                  setScale((wrapperWidth - 32) / targetWidth);
+              } else {
+                  setScale(1);
+              }
+          }
+      }, 50);
+  };
+
+  const handleDownloadPDF = async () => {
+      setProcessing(true);
+      await generatePdf({
+          elementId: 'proforma-print-area',
+          filename: `Proforma_${record.fileNumber || 'Invoice'}.pdf`,
+          format: 'A4',
+          orientation: 'portrait',
+          onComplete: () => setProcessing(false),
+          onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
+      });
+  };
+
+  const content = (
+    <div id="proforma-print-area" className="printable-content p-8 bg-white text-gray-900 flex flex-col font-sans" dir="rtl" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }}>
       {/* Header */}
       <div className="flex justify-between items-start border-b-2 border-gray-900 pb-4 mb-6">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-black text-gray-900">پیش‌فاکتور (Proforma Invoice)</h1>
           <p className="text-sm font-bold text-gray-600">شرکت {record.company}</p>
         </div>
-        {company?.logo && <img src={company.logo} alt="Logo" className="h-16 w-auto object-contain" />}
+        {company?.logo && <img src={company.logo} alt="Logo" className="h-16 w-auto object-contain" referrerPolicy="no-referrer" />}
       </div>
 
       {/* Info Grid */}
@@ -93,6 +172,47 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings }) => {
           {company.address} | تلفن: {company.phone}
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-4 animate-fade-in safe-pb">
+      <div className="relative z-50 flex flex-col gap-2 no-print w-full max-w-4xl mb-4">
+         <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4 bg-white dark:bg-zinc-950 flex-wrap">
+             <span className="font-bold text-sm">پیش‌نمایش پروفرما</span>
+
+             {/* Interactive Zoom Toolbar */}
+             <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800">
+                 <button onClick={handleZoomOut} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="کوچک‌نمایی"><ZoomOut size={16}/></button>
+                 <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-400 min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+                 <button onClick={handleZoomIn} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="بزرگ‌نمایی"><ZoomIn size={16}/></button>
+                 {userZoom !== null && (
+                     <button onClick={handleResetZoom} className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-colors" title="بازنشانی"><RotateCcw size={14}/></button>
+                 )}
+             </div>
+
+             <div className="flex gap-2">
+                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
+                <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm"><Printer size={16}/> چاپ</button>
+                <button onClick={onClose} className="bg-gray-100 dark:bg-zinc-900 text-gray-700 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800"><X size={18}/></button>
+             </div>
+         </div>
+      </div>
+      
+      {/* Responsive Wrapper */}
+      <div className="w-full flex justify-center pb-10" ref={containerWrapperRef}>
+          <div style={{ 
+            width: '210mm', 
+            minHeight: '297mm',
+            backgroundColor: 'white', 
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top center',
+            marginBottom: `${(scale - 1) * 1120}px` 
+          }} className="printable-content">
+              {content}
+          </div>
+      </div>
     </div>
   );
 };

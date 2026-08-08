@@ -66,6 +66,8 @@ import {
   Lock,
   Camera,
   Bot,
+  Sparkles,
+  Upload,
 } from "lucide-react";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
@@ -136,6 +138,7 @@ const Settings: React.FC<SettingsProps> = ({
     | "meetings"
     | "secretariat"
     | "camera"
+    | "theme"
   >("system");
 
   // --- Secretariat Settings State ---
@@ -1680,6 +1683,13 @@ const Settings: React.FC<SettingsProps> = ({
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeCategory === "camera" ? "glass-panel shadow text-cyan-700 font-bold" : "text-gray-600 hover:bg-gray-100"}`}
               >
                 <Camera size={18} /> تنظیمات دوربین
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("theme")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeCategory === "theme" ? "glass-panel shadow text-pink-700 font-bold" : "text-gray-600 hover:bg-gray-100"}`}
+              >
+                <Sparkles size={18} /> تصویر و پوسته پس‌زمینه
               </button>
             </>
           )}
@@ -6189,6 +6199,250 @@ const Settings: React.FC<SettingsProps> = ({
               </button>
             </div>
           </form>
+        )}
+
+        {/* --- Theme & Custom Background Settings --- */}
+        {activeCategory === "theme" && (
+          <div className="space-y-6">
+            <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm">
+              <div className="flex items-center gap-3 border-b pb-4 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
+                  <Sparkles size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-base">
+                    مدیریت تصویر و پوسته پس‌زمینه (تنظیمات پوسته)
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    تصویر دلخواه خود را آپلود کنید یا از پوسته‌های شیشه‌ای و کیهانی پیش‌فرض انتخاب نمایید.
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Custom Image */}
+              <div className="space-y-6">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-2">
+                    آپلود تصویر پس‌زمینه اختصاصی (از کامپیوتر یا گوشی)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 hover:border-pink-500 rounded-2xl p-6 transition-colors flex flex-col items-center justify-center gap-3 bg-white/50 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="bg-upload-input"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 8 * 1024 * 1024) {
+                            alert('حجم عکس ترجیحاً باید کمتر از ۸ مگابایت باشد.');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            const res = evt.target?.result as string;
+                            if (res) {
+                              localStorage.setItem('app_custom_bg_image', res);
+                              localStorage.setItem('app_bg_mode', 'custom');
+                              window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                              setMessage('تصویر پس‌زمینه اختصاصی با موفقیت اعمال شد ✨');
+                              setTimeout(() => setMessage(''), 3000);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="bg-upload-input"
+                      className="cursor-pointer bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2"
+                    >
+                      <Upload size={16} /> انتخاب و آپلود تصویر جدید
+                    </label>
+                    <p className="text-[11px] text-gray-400">
+                      فرمت‌های پشتیبانی شده: JPG, PNG, WEBP (ذخیره داخلی بدون نیاز به اینترنت و وی‌پی‌ان)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Current Custom Image Preview */}
+                {localStorage.getItem('app_custom_bg_image') && (
+                  <div className="p-4 rounded-xl border bg-gray-50 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={localStorage.getItem('app_custom_bg_image') || ''}
+                        alt="Custom BG"
+                        className="w-16 h-12 object-cover rounded-lg border shadow-sm"
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">تصویر اختصاصی فعال است</p>
+                        <p className="text-[11px] text-gray-500">
+                          وضعیت: {localStorage.getItem('app_bg_mode') === 'custom' ? 'در حال استفاده' : 'غیرفعال'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {localStorage.getItem('app_bg_mode') !== 'custom' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem('app_bg_mode', 'custom');
+                            window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                            setMessage('تصویر اختصاصی فعال شد');
+                            setTimeout(() => setMessage(''), 3000);
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
+                        >
+                          فعال‌سازی
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.removeItem('app_custom_bg_image');
+                          localStorage.setItem('app_bg_mode', 'preset');
+                          window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                          setMessage('تصویر پس‌زمینه اختصاصی حذف شد');
+                          setTimeout(() => setMessage(''), 3000);
+                        }}
+                        className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200"
+                      >
+                        حذف عکس
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preset Themes List */}
+                <div className="pt-4 border-t">
+                  <h4 className="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2">
+                    <Sparkles size={16} className="text-amber-500" /> پوسته‌ها و تصاویر پیش‌فرض سیستم (دسترس‌پذیری بدون وی‌پی‌ان)
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Preset 1: Cosmic Dark Nebula */}
+                    <div
+                      onClick={() => {
+                        localStorage.setItem('app_bg_mode', 'preset');
+                        localStorage.setItem('app_preset_bg', 'cosmic-dark');
+                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                        setMessage('پوسته تاریک کیهانی با موفقیت تنظیم شد');
+                        setTimeout(() => setMessage(''), 3000);
+                      }}
+                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'cosmic-dark'
+                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="h-24 rounded-xl bg-preset-cosmic-dark flex items-center justify-center text-white font-bold text-xs shadow-inner">
+                        کیهانی و شیشه‌ای (راحت برای چشم)
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">پوسته تاریک کیهانی (Royal Dark Cosmic)</p>
+                        <p className="text-[11px] text-gray-500">پس‌زمینه تاریک با حباب‌های درخشان؛ جلوگیری از خستگی چشم</p>
+                      </div>
+                    </div>
+
+                    {/* Preset 2: Aurora Light */}
+                    <div
+                      onClick={() => {
+                        localStorage.setItem('app_bg_mode', 'preset');
+                        localStorage.setItem('app_preset_bg', 'aurora-light');
+                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                        setMessage('پوسته شفق قطبی با موفقیت تنظیم شد');
+                        setTimeout(() => setMessage(''), 3000);
+                      }}
+                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        localStorage.getItem('app_bg_mode') === 'preset' && (localStorage.getItem('app_preset_bg') === 'aurora-light' || !localStorage.getItem('app_preset_bg'))
+                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="h-24 rounded-xl bg-gradient-to-r from-sky-200 via-pink-200 to-indigo-200 flex items-center justify-center text-gray-800 font-bold text-xs shadow-inner">
+                        شفق قطبی (Aurora)
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">پوسته شیشه‌ای شفق قطبی (Aurora Liquid)</p>
+                        <p className="text-[11px] text-gray-500">ملایم و رنگارنگ همراه با افکت شیشه‌ای مدرن</p>
+                      </div>
+                    </div>
+
+                    {/* Preset 3: Cyan Cosmic */}
+                    <div
+                      onClick={() => {
+                        localStorage.setItem('app_bg_mode', 'preset');
+                        localStorage.setItem('app_preset_bg', 'cyan-cosmic');
+                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                        setMessage('پوسته فیروزه‌ای کیهانی تنظیم شد');
+                        setTimeout(() => setMessage(''), 3000);
+                      }}
+                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'cyan-cosmic'
+                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="h-24 rounded-xl bg-preset-cyan-cosmic flex items-center justify-center text-cyan-300 font-bold text-xs shadow-inner">
+                        کیهانی فیروزه‌ای
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">پوسته فیروزه‌ای ژرف (Cyan Cosmic Nebula)</p>
+                        <p className="text-[11px] text-gray-500">رنگ‌های فیروزه‌ای و نیلی با حس فضایی</p>
+                      </div>
+                    </div>
+
+                    {/* Preset 4: Midnight Dark */}
+                    <div
+                      onClick={() => {
+                        localStorage.setItem('app_bg_mode', 'preset');
+                        localStorage.setItem('app_preset_bg', 'dark-midnight');
+                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                        setMessage('پوسته تاریک ساده تنظیم شد');
+                        setTimeout(() => setMessage(''), 3000);
+                      }}
+                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'dark-midnight'
+                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="h-24 rounded-xl bg-slate-900 flex items-center justify-center text-slate-300 font-bold text-xs shadow-inner">
+                        تاریک ساده (Slate)
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">پوسته تاریک ساده (Dark Midnight)</p>
+                        <p className="text-[11px] text-gray-500">محیط یکدست و تاریک بدون گرادینت</p>
+                      </div>
+                    </div>
+
+                    {/* Preset 5: Light Modern */}
+                    <div
+                      onClick={() => {
+                        localStorage.setItem('app_bg_mode', 'preset');
+                        localStorage.setItem('app_preset_bg', 'light-modern');
+                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                        setMessage('پوسته روشن ساده تنظیم شد');
+                        setTimeout(() => setMessage(''), 3000);
+                      }}
+                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'light-modern'
+                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="h-24 rounded-xl bg-slate-50 border flex items-center justify-center text-slate-700 font-bold text-xs shadow-inner">
+                        روشن ساده
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">پوسته روشن ساده (Light Minimal)</p>
+                        <p className="text-[11px] text-gray-500">ساده و تمیز برای کارهای روزمره</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

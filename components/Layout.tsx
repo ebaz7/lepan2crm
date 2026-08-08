@@ -38,6 +38,19 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [settings, setSettings] = useState<SystemSettings | null>(propSettings || null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [bgMode, setBgMode] = useState<string>(() => localStorage.getItem('app_bg_mode') || 'preset');
+  const [bgPreset, setBgPreset] = useState<string>(() => localStorage.getItem('app_preset_bg') || 'aurora-light');
+  const [customBgImage, setCustomBgImage] = useState<string | null>(() => localStorage.getItem('app_custom_bg_image'));
+
+  useEffect(() => {
+    const handleBgChange = () => {
+      setBgMode(localStorage.getItem('app_bg_mode') || 'preset');
+      setBgPreset(localStorage.getItem('app_preset_bg') || 'aurora-light');
+      setCustomBgImage(localStorage.getItem('app_custom_bg_image'));
+    };
+    window.addEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+    return () => window.removeEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -474,11 +487,24 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   return (
     <div className="flex h-[100dvh] w-full bg-transparent text-[var(--text-primary)] font-sans relative overflow-hidden">
-      {/* Background Blobs for fluid depth */}
-      <div className="bg-blobs">
-          <div className="blob blob-1"></div>
-          <div className="blob blob-2"></div>
-          <div className="blob blob-3"></div>
+      {/* Background Blobs & Custom Background Image */}
+      <div 
+        className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
+        style={bgMode === 'custom' && customBgImage ? {
+          backgroundImage: `url(${customBgImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed'
+        } : undefined}
+      >
+        {bgMode === 'preset' && (
+          <>
+            <div className="blob blob-1"></div>
+            <div className="blob blob-2"></div>
+            <div className="blob blob-3"></div>
+          </>
+        )}
       </div>
       
       {isUpdateAvailable && (<div className="fixed top-0 left-0 right-0 bg-blue-600 text-white z-[9999] p-3 text-center shadow-lg animate-slide-down flex justify-center items-center gap-4"><div className="flex items-center gap-2"><RefreshCw size={20} className="animate-spin"/><span className="font-bold text-sm">نسخه جدید نرم‌افزار در دسترس است!</span></div><button onClick={handleReload} className="glass-panel text-blue-600 px-4 py-1 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">بروزرسانی (رفرش)</button></div>)}
@@ -723,7 +749,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                className={`absolute inset-0 bg-black/60 transition-all ${theme === 'light-aurora' ? 'backdrop-blur-[16px]' : 'backdrop-blur-md'}`} 
                 onClick={() => setShowMobileMenu(false)}
               />
               {/* Slide-Up Panel */}
@@ -984,7 +1010,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                       </select>
                   )}
               </div>
-              <div className={`${activeTab === 'chat' ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-4 md:p-8 max-w-7xl w-full min-h-full'} mx-auto min-w-0`}>
+              <div className={`${activeTab === 'chat' ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-2 md:p-4 w-full min-h-full'} mx-auto min-w-0`}>
                   {children}
               </div>
           </div>

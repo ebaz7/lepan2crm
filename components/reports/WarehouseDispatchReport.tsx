@@ -192,7 +192,7 @@ const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ trans
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse border border-gray-200 dark:border-gray-700">
+                    <table className="w-full text-sm border-collapse border border-gray-200 dark:border-gray-700 hidden md:table">
                         <thead>
                             <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                                 <th className="border border-gray-300 dark:border-gray-600 p-2 text-center w-12">ردیف</th>
@@ -249,6 +249,57 @@ const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ trans
                             </tfoot>
                         )}
                     </table>
+                    
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-4">
+                        {filteredData.flatList.length > 0 ? (
+                            filteredData.flatList.map((row, idx) => (
+                                <div key={`mob-${row.tx.id}-${idx}`} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm space-y-3">
+                                    <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-400 text-xs">#{idx + 1}</span>
+                                            <span className="font-bold text-red-600 text-sm">بیجک {row.tx.number || '-'}</span>
+                                        </div>
+                                        <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{formatDate(row.tx.date)}</span>
+                                    </div>
+                                    
+                                    <div className="font-bold text-gray-800 dark:text-gray-200 text-sm">{row.item.itemName}</div>
+                                    
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                                            <span className="block text-[10px] text-blue-500 mb-1">تعداد</span>
+                                            <span className="font-mono font-bold text-blue-700 dark:text-blue-300">{row.item.quantity || '-'}</span>
+                                        </div>
+                                        <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-lg border border-green-100 dark:border-green-800/30">
+                                            <span className="block text-[10px] text-green-500 mb-1">وزن (kg)</span>
+                                            <span className="font-mono font-bold text-green-700 dark:text-green-300">{row.item.weight || '-'}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="text-xs space-y-1.5 text-gray-600 dark:text-gray-400">
+                                        <div className="flex justify-between"><span className="font-bold">شرکت:</span> <span>{row.tx.company || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="font-bold">گیرنده:</span> <span>{row.tx.recipientName || '-'}</span></div>
+                                        <div className="flex justify-between"><span className="font-bold">راننده / پلاک:</span> <span>{row.tx.driverName || '-'} / {row.tx.plateNumber || '-'}</span></div>
+                                        {row.tx.description && <div className="text-[11px] pt-1 border-t border-gray-100 dark:border-gray-700 mt-2 text-gray-500">{row.tx.description}</div>}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="p-8 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                                هیچ بیجک خروجی برای این بازه یافت نشد.
+                            </div>
+                        )}
+                        {/* Mobile Total */}
+                        {filteredData.flatList.length > 0 && (
+                            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-xl font-bold flex justify-between items-center text-sm border border-gray-200 dark:border-gray-700 mt-4">
+                                <span>مجموع کارکرد:</span>
+                                <div className="text-left font-mono space-y-1">
+                                    <div className="text-blue-600 dark:text-blue-400">تعداد: {filteredData.flatList.reduce((sum, row) => sum + (row.item.quantity || 0), 0)}</div>
+                                    <div className="text-green-600 dark:text-green-400">وزن: {filteredData.flatList.reduce((sum, row) => sum + (row.item.weight || 0), 0)} kg</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

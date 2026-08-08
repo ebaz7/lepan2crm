@@ -624,12 +624,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     // --- Helpers ---
     const getUnreadCount = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
         return messages.filter(m => {
-            if (m.senderUsername === currentUser.username) return false;
+            if (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase()) return false;
             const isRead = m.readBy?.includes(currentUser.username);
             if (isRead) return false;
             
             if (type === 'private') {
-                return (m.senderUsername === channelId && m.recipient === currentUser.username);
+                return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase());
             } else if (type === 'group' || type === 'task_group') {
                 return m.groupId === channelId;
             }
@@ -640,7 +640,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const getLastMessage = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
         const relevant = displayMessages.filter(m => {
             if (type === 'public') return !m.recipient && !m.groupId;
-            if (type === 'private') return (m.senderUsername === channelId && m.recipient === currentUser.username) || (m.senderUsername === currentUser.username && m.recipient === channelId);
+            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase()) || (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase() && m.recipient?.toLowerCase() === channelId?.toLowerCase());
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
             return false;
         });
@@ -649,11 +649,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
     const markAsRead = async (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
         const unreadMsgs = messages.filter(m => {
-            if (m.senderUsername === currentUser.username) return false;
+            if (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase()) return false;
             if (m.readBy?.includes(currentUser.username)) return false;
             
             if (type === 'public') return !m.recipient && !m.groupId;
-            if (type === 'private') return (m.senderUsername === channelId && m.recipient === currentUser.username);
+            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase());
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
             return false;
         });
@@ -748,17 +748,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
             // 4. Private chats
             safeUsers.forEach(u => {
-                if (currentUsername && u.username === currentUsername) return;
+                if (currentUsername && u.username?.toLowerCase() === currentUsername.toLowerCase()) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
-                if (last || term) {
-                    list.push({
-                        type: 'private', id: u.username, name: u.fullName,
-                        avatar: u.avatar || null, isOnline, lastSeen: u.lastSeen,
-                        lastMsg: last, unread: getUnreadCount(u.username, 'private')
-                    });
-                }
+                list.push({
+                    type: 'private', id: u.username, name: u.fullName || u.username,
+                    avatar: resolveImageUrl(u.avatar), isOnline, lastSeen: u.lastSeen,
+                    lastMsg: last, unread: getUnreadCount(u.username, 'private')
+                });
             });
 
             // If empty, add some users for accessibility
@@ -808,20 +806,17 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 }
             });
 
-            // Include users with messages OR all users if looking at CHATS tab and no filters
+            // Include all users for direct messaging in CHATS tab
             safeUsers.forEach(u => {
-                if (currentUsername && u.username === currentUsername) return;
+                if (currentUsername && u.username?.toLowerCase() === currentUsername.toLowerCase()) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
-                // Show users if they have a message OR if searching
-                if (last || term) {
-                    list.push({
-                        type: 'private', id: u.username, name: u.fullName,
-                        avatar: resolveImageUrl(u.avatar), isOnline, lastSeen: u.lastSeen,
-                        lastMsg: last, unread: getUnreadCount(u.username, 'private')
-                    });
-                }
+                list.push({
+                    type: 'private', id: u.username, name: u.fullName || u.username,
+                    avatar: resolveImageUrl(u.avatar), isOnline, lastSeen: u.lastSeen,
+                    lastMsg: last, unread: getUnreadCount(u.username, 'private')
+                });
             });
 
             // If list is still very empty (just Public), add some frequent users or just all users for accessibility
@@ -1469,7 +1464,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         if (!activeChannel) return false;
         let match = false;
         if (activeChannel.type === 'public') match = !msg.recipient && !msg.groupId;
-        else if (activeChannel.type === 'private') match = (msg.senderUsername === activeChannel.id && msg.recipient === currentUser.username) || (msg.senderUsername === currentUser.username && msg.recipient === activeChannel.id);
+        else if (activeChannel.type === 'private') match = (
+            (msg.senderUsername?.toLowerCase() === activeChannel.id?.toLowerCase() && msg.recipient?.toLowerCase() === currentUser.username?.toLowerCase()) || 
+            (msg.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase() && msg.recipient?.toLowerCase() === activeChannel.id?.toLowerCase())
+        );
         else if (activeChannel.type === 'group' || activeChannel.type === 'task_group') match = msg.groupId === activeChannel.id;
         
         if (!match) return false;
@@ -1575,9 +1573,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     let bgColor = 'bg-gradient-to-br from-blue-400 to-blue-600';
                                     
                                     if (activeChannel.type === 'private') {
-                                        const u = users.find(x => x.username === activeChannel.id);
+                                        const u = users.find(x => x.username?.toLowerCase() === activeChannel.id?.toLowerCase());
                                         avatarUrl = u?.avatar || null;
-                                        initial = u?.fullName.charAt(0) || '?';
+                                        initial = (u?.fullName || activeChannel.id).charAt(0);
                                         bgColor = 'bg-gradient-to-br from-blue-400 to-blue-600';
                                     } else if (activeChannel.type === 'group') {
                                         const g = groups.find(x => x.id === activeChannel.id);
@@ -1612,7 +1610,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 })()}
 
                                 <div className="flex flex-col cursor-pointer" onClick={() => {
-                                    if(activeChannel.type === 'private') setShowContactInfo(users.find(u=>u.username===activeChannel.id) || null);
+                                    if(activeChannel.type === 'private') setShowContactInfo(users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase()) || null);
                                     else if(activeChannel.type === 'group') setShowGroupInfo(groups.find(g=>g.id===activeChannel.id) || null);
                                     else if(activeChannel.type === 'task_group') {
                                         const tg = taskGroups.find(g=>g.id===activeChannel.id);
@@ -1620,14 +1618,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     }
                                 }}>
                                     <h3 className="font-bold text-gray-800 text-sm">
-                                        {activeChannel.type === 'private' ? users.find(u=>u.username===activeChannel.id)?.fullName : 
+                                        {activeChannel.type === 'private' ? (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.fullName || activeChannel.id) : 
                                          activeChannel.type === 'group' ? groups.find(g=>g.id===activeChannel.id)?.name :
                                          activeChannel.type === 'task_group' ? taskGroups.find(g=>g.id===activeChannel.id)?.name : 'کانال عمومی'}
                                     </h3>
                                     <span className="text-[10px] text-blue-500">
                                         {activeChannel.type === 'private' ? (
-                                            users.find(u=>u.username===activeChannel.id)?.lastSeen && (Date.now() - (users.find(u=>u.username===activeChannel.id)?.lastSeen || 0) < 300000) ? 'آنلاین' : 
-                                            `آخرین بازدید ${formatLastSeen(users.find(u=>u.username===activeChannel.id)?.lastSeen)}`
+                                            users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen && (Date.now() - (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen || 0) < 300000) ? 'آنلاین' : 
+                                            `آخرین بازدید ${formatLastSeen(users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen)}`
                                         ) : activeChannel.type === 'task_group' ? 'گروه تسک' : 'اطلاعات گروه'}
                                     </span>
                                 </div>

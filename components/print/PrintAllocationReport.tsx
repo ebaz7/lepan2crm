@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Printer, Loader2, FileDown } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '../../constants';
 import { generatePdf } from '../../utils/pdfGenerator';
 
@@ -15,8 +15,9 @@ interface PrintAllocationReportProps {
 const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, companySummary, totalAllocated, totalQueue, onClose }) => {
   const [processing, setProcessing] = useState(false);
 
-  // Scaling State
+  // Scaling & Zoom States
   const [scale, setScale] = useState(1);
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
   // Auto-Scale Logic
   useEffect(() => {
     const handleResize = () => {
+        if (userZoom !== null) return;
         const wrapper = containerWrapperRef.current;
         if (wrapper) {
             const wrapperWidth = wrapper.clientWidth;
@@ -45,7 +47,37 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [userZoom]);
+
+  const handleZoomIn = () => {
+      const currentScale = userZoom !== null ? userZoom : scale;
+      const nextScale = Math.min(2.5, currentScale + 0.15);
+      setUserZoom(nextScale);
+      setScale(nextScale);
+  };
+
+  const handleZoomOut = () => {
+      const currentScale = userZoom !== null ? userZoom : scale;
+      const nextScale = Math.max(0.3, currentScale - 0.15);
+      setUserZoom(nextScale);
+      setScale(nextScale);
+  };
+
+  const handleResetZoom = () => {
+      setUserZoom(null);
+      setTimeout(() => {
+          const wrapper = containerWrapperRef.current;
+          if (wrapper) {
+              const wrapperWidth = wrapper.clientWidth;
+              const targetWidth = 1100;
+              if (wrapperWidth < targetWidth + 40) {
+                  setScale((wrapperWidth - 32) / targetWidth);
+              } else {
+                  setScale(1);
+              }
+          }
+      }, 50);
+  };
 
   const formatUSD = (val: number) => val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -155,20 +187,30 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start md:justify-center p-4 overflow-y-auto animate-fade-in safe-pb">
-      <div className="relative md:absolute md:top-4 md:left-4 z-50 flex flex-col gap-2 no-print w-full md:w-auto mb-4 md:mb-0 order-1">
-         <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4">
-             <span className="font-bold text-sm">پیش‌نمایش چاپ</span>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-4 animate-fade-in safe-pb">
+      <div className="relative z-50 flex flex-col gap-2 no-print w-full max-w-4xl mb-4">
+         <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4 bg-white dark:bg-zinc-950 flex-wrap">
+             <span className="font-bold text-sm">پیش‌نمایش تخصیص ارز</span>
+
+             {/* Interactive Zoom Toolbar */}
+             <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800">
+                 <button onClick={handleZoomOut} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="کوچک‌نمایی"><ZoomOut size={16}/></button>
+                 <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-400 min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+                 <button onClick={handleZoomIn} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="بزرگ‌نمایی"><ZoomIn size={16}/></button>
+                 {userZoom !== null && (
+                     <button onClick={handleResetZoom} className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-colors" title="بازنشانی"><RotateCcw size={14}/></button>
+                 )}
+             </div>
              <div className="flex gap-2">
-                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 text-white p-2 rounded text-xs flex items-center gap-1">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
-                <button onClick={() => window.print()} className="bg-blue-600 text-white p-2 rounded text-xs flex items-center gap-1"><Printer size={16}/> چاپ مجدد</button>
-                <button onClick={onClose} className="bg-gray-100 text-gray-700 p-2 rounded hover:bg-gray-200"><X size={18}/></button>
+                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
+                <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm"><Printer size={16}/> چاپ</button>
+                <button onClick={onClose} className="bg-gray-100 dark:bg-zinc-900 text-gray-700 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800"><X size={18}/></button>
              </div>
          </div>
       </div>
       
       {/* Responsive Wrapper */}
-      <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+      <div className="w-full flex justify-center pb-10" ref={containerWrapperRef}>
           <div style={{ 
             width: '296mm', 
             minHeight: '209mm',
@@ -176,8 +218,8 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
             transform: `scale(${scale})`,
             transformOrigin: 'top center',
-            marginBottom: `${(1 - scale) * -100}px` 
-          }}>
+            marginBottom: `${(scale - 1) * 1120}px` 
+          }} className="printable-content">
               {content}
           </div>
       </div>

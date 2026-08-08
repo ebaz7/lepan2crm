@@ -1085,7 +1085,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                 ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 custom-scrollbar flex flex-col">
                 
                 {activeTab === 'approvals' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
@@ -1826,7 +1826,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                         </div>
 
                                         <div className="overflow-x-auto flex-1 max-h-[500px] overflow-y-auto">
-                                            <table className="w-full text-xs text-center">
+                                            <table className="w-full text-xs text-center hidden md:table">
                                                 <thead className="bg-gray-100 dark:bg-black/30 text-gray-600 dark:text-gray-400 sticky top-0 z-10">
                                                     <tr>
                                                         <th className="p-3 text-right">کد / نام کالا</th>
@@ -1882,6 +1882,61 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                                         })}
                                                 </tbody>
                                             </table>
+                                            
+                                            {/* Mobile View */}
+                                            <div className="md:hidden space-y-3 mt-4">
+                                                {items
+                                                    .filter(i => !stocktakeSearch || i.name.includes(stocktakeSearch) || (i.code && i.code.includes(stocktakeSearch)))
+                                                    .map(i => {
+                                                        const systemQty = getSystemStockForCompany(stocktakeCompany, i.id);
+                                                        const countedQty = stocktakeCounted[i.id] || 0;
+                                                        const diff = countedQty - systemQty;
+                                                        return (
+                                                            <div key={`mob-st-${i.id}`} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm">
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div>
+                                                                        <div className="font-bold text-gray-800 dark:text-gray-200 text-sm">{i.name}</div>
+                                                                        <div className="text-[10px] text-gray-400 mt-0.5 font-mono">{i.code || 'فاقد کد'} • {i.unit}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        {diff === 0 ? (
+                                                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-md font-bold text-[10px]">تراز</span>
+                                                                        ) : diff > 0 ? (
+                                                                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md font-bold text-[10px]">سرک ({formatNumberString(diff)})</span>
+                                                                        ) : (
+                                                                            <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded-md font-bold text-[10px]">کسری ({formatNumberString(Math.abs(diff))})</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                                                    <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded-lg text-center">
+                                                                        <div className="text-gray-400 mb-1 text-[10px]">سیستم</div>
+                                                                        <div className="font-mono font-bold text-blue-600">{formatNumberString(systemQty)}</div>
+                                                                    </div>
+                                                                    <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded-lg text-center">
+                                                                        <div className="text-gray-400 mb-1 text-[10px]">مغایرت</div>
+                                                                        <div className={`font-mono font-bold ${diff === 0 ? 'text-gray-500' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                            {diff > 0 ? `+${formatNumberString(diff)}` : formatNumberString(diff)}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-3">
+                                                                    <div className="font-bold text-xs text-gray-500">شمارش دستی:</div>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        value={countedQty || ''}
+                                                                        placeholder="0"
+                                                                        onChange={e => {
+                                                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                                            setStocktakeCounted(prev => ({ ...prev, [i.id]: val }));
+                                                                        }}
+                                                                        className="w-24 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg p-1.5 text-center font-mono font-bold outline-none focus:border-blue-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
