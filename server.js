@@ -564,6 +564,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t10.Field_006 as InvoiceNum,
             t10.Field_008 as Date,
             t10.Field_029 as Notes,
+            t10.Field_037 as HeaderPayable,
             t11.Field_005 as ItemCode,
             t22.Field_004 as ItemName,
             t11.Field_006 as Quantity,
@@ -587,9 +588,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
-            (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
+            t10.Field_009 IN ('3', '12', '23')
             OR 
-            (t10.Field_009 IN ('13'))
+            t10.Field_009 IN ('13')
           )
           AND (
             t10.Field_008 LIKE '${gregDate}%'
@@ -603,17 +604,18 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         ORDER BY t10.Field_008 DESC
     `;
 
-    let salesRows = [];
+    let rawSalesRows = [];
     try {
-        salesRows = await executeSayanQuery(db, sql);
+        rawSalesRows = await executeSayanQuery(db, sql);
     } catch (e) {
         console.warn("Sayan ERP query failed, attempting local invoices fallback:", e.message);
         const localInvs = Array.isArray(db.invoices) ? db.invoices : (Array.isArray(db.exitPermits) ? db.exitPermits : []);
-        salesRows = localInvs.map(inv => ({
+        rawSalesRows = localInvs.map(inv => ({
             DocId: inv.id || inv.number,
             InvoiceNum: inv.number || inv.id,
             Date: inv.date || gregDate,
             Notes: inv.description || '',
+            HeaderPayable: inv.amount || inv.totalPrice || 0,
             ItemCode: inv.itemCode || '',
             ItemName: inv.itemName || inv.productName || 'کالا',
             Quantity: inv.quantity || inv.weight || 0,
@@ -623,6 +625,42 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             OpCode: inv.opCode || '3'
         }));
     }
+
+    // Allocate HeaderPayable proportionally across item rows per invoice
+    const invMap = new Map();
+    rawSalesRows.forEach(row => {
+        const docId = row.DocId || 'unknown';
+        if (!invMap.has(docId)) invMap.set(docId, []);
+        invMap.get(docId).push(row);
+    });
+
+    const salesRows = [];
+    invMap.forEach((rows) => {
+        const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
+        const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
+        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+
+        rows.forEach(r => {
+            const itemAmt = parseFloat(r.Amount || 0);
+            const itemQty = parseFloat(r.Quantity || 0);
+            let allocatedAmt = 0;
+            if (headerPayable > 0) {
+                if (sumItemAmt > 0) {
+                    allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
+                } else if (sumItemQty > 0) {
+                    allocatedAmt = headerPayable * (itemQty / sumItemQty);
+                } else {
+                    allocatedAmt = headerPayable / rows.length;
+                }
+            } else {
+                allocatedAmt = itemAmt;
+            }
+            salesRows.push({
+                ...r,
+                Amount: allocatedAmt
+            });
+        });
+    });
     
     if (salesRows.length > 0) {
         const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${shamsiDate} (${labelSuffix})`;
@@ -638,14 +676,6 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
             let amt = parseFloat(inv.Amount || 0);
-            
-            const h = inv.Notes || '';
-            const i = inv.ItemNotes || '';
-            const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
-            if (isOfficial) {
-                amt = amt * 1.10;
-            }
-
             const isReturn = inv.OpCode === '13';
             
             if (isReturn) {

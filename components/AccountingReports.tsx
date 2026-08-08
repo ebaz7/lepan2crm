@@ -885,6 +885,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_006 as InvoiceNum,
                     t10.Field_008 as Date,
                     t10.Field_029 as Notes,
+                    t10.Field_037 as HeaderPayable,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
                     COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
@@ -919,42 +920,55 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                    t10.Field_009 = '12'
                     OR
-                    (t10.Field_009 = '13')
+                    t10.Field_009 = '13'
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
             `;
             const dataA = await runSayanQuery(sqlA);
-            const isOfficialSayanInvoice = (row: any) => {
-                const h = row.Notes || '';
-                const i = row.ItemNotes || '';
-                if (h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی')) {
-                    return true;
-                }
-                if (i.includes('ارزش افزوده:')) {
-                    const match = i.match(/ارزش افزوده:\s*([0-9]+)/);
-                    if (match && parseInt(match[1], 10) > 0) return true;
-                }
-                return false;
+
+            const allocateSalesRows = (rawRows: any[]) => {
+                const invMap = new Map<string, any[]>();
+                rawRows.forEach(row => {
+                    const docId = row.DocId || 'unknown';
+                    if (!invMap.has(docId)) invMap.set(docId, []);
+                    invMap.get(docId)!.push(row);
+                });
+
+                const processed: any[] = [];
+                invMap.forEach((rows) => {
+                    const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
+                    const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
+                    const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+
+                    rows.forEach(r => {
+                        const itemAmt = parseFloat(r.Amount || 0);
+                        const itemQty = parseFloat(r.Quantity || 0);
+                        let allocatedAmt = 0;
+                        if (headerPayable > 0) {
+                            if (sumItemAmt > 0) {
+                                allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
+                            } else if (sumItemQty > 0) {
+                                allocatedAmt = headerPayable * (itemQty / sumItemQty);
+                            } else {
+                                allocatedAmt = headerPayable / rows.length;
+                            }
+                        } else {
+                            allocatedAmt = itemAmt;
+                        }
+                        processed.push({
+                            ...r,
+                            Amount: allocatedAmt.toString(),
+                            isOfficial: headerPayable > sumItemAmt || headerPayable > 0
+                        });
+                    });
+                });
+                return processed;
             };
 
-            const processedA = dataA.map((row: any) => {
-                const amt = row.Amount ? parseFloat(row.Amount) : 0;
-                const vat = row.VAT ? parseFloat(row.VAT) : 0;
-                const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                let baseAmt = amt + vat + tax;
-                const isOfficial = isOfficialSayanInvoice(row);
-                if (isOfficial) {
-                    baseAmt = baseAmt * 1.10;
-                }
-                return {
-                    ...row,
-                    Amount: baseAmt.toString(),
-                    isOfficial
-                };
-            });
+            const processedA = allocateSalesRows(dataA);
             setSalesData(processedA);
             setCompareSalesDataA(processedA);
 
@@ -973,6 +987,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_006 as InvoiceNum,
                         t10.Field_008 as Date,
                         t10.Field_029 as Notes,
+                        t10.Field_037 as HeaderPayable,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
                         COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
@@ -1007,29 +1022,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                        t10.Field_009 = '12'
                         OR
-                        (t10.Field_009 = '13')
+                        t10.Field_009 = '13'
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
                 `;
                 const dataB = await runSayanQuery(sqlB);
-                const processedB = dataB.map((row: any) => {
-                    const amt = row.Amount ? parseFloat(row.Amount) : 0;
-                    const vat = row.VAT ? parseFloat(row.VAT) : 0;
-                    const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                    let baseAmt = amt + vat + tax;
-                    const isOfficial = isOfficialSayanInvoice(row);
-                    if (isOfficial) {
-                        baseAmt = baseAmt * 1.10;
-                    }
-                    return {
-                        ...row,
-                        Amount: baseAmt.toString(),
-                        isOfficial
-                    };
-                });
+                const processedB = allocateSalesRows(dataB);
                 setCompareSalesDataB(processedB);
             }
         } catch (err: any) {
