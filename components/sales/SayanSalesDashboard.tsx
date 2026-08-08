@@ -35,6 +35,7 @@ export interface SayanSalesRow {
   City?: string;
   SalesExpert?: string;
   PaymentStatus?: string;
+  isOfficial?: boolean;
 }
 
 interface SayanSalesDashboardProps {
@@ -167,6 +168,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+  const [invoiceFilter, setInvoiceFilter] = useState<'all' | 'official' | 'unofficial'>('all');
+  const [excludeOther, setExcludeOther] = useState<boolean>(true);
 
   // Dashboard Image Export Handler (html2canvas)
   const handleExportImage = async () => {
@@ -380,7 +383,14 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       paymentStatus: string;
     }>();
 
-    salesData.forEach(row => {
+    const filteredRows = salesData.filter(row => {
+      if (invoiceFilter === 'official' && row.isOfficial !== true) return false;
+      if (invoiceFilter === 'unofficial' && row.isOfficial === true) return false;
+      if (excludeOther && (row.GroupName === 'سایر محصولات' || !row.GroupName)) return false;
+      return true;
+    });
+
+    filteredRows.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
@@ -657,6 +667,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       categoryList,
       itemList,
       invoicesList,
+      filteredRowsCount: filteredRows.length,
       insights: {
         topProductByAmt,
         topProductByWgt,
@@ -667,7 +678,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         returnRatePct
       }
     };
-  }, [salesData]);
+  }, [salesData, invoiceFilter]);
 
   // ----------------------------------------------------------------------
   // COMPARISON COMPUTATIONS (Period A vs Period B)
@@ -679,7 +690,14 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     const catMapB = new Map<string, { salesWgt: number; salesAmt: number; retWgt: number; retAmt: number; }>();
     const itemMapB = new Map<string, { itemCode: string; itemName: string; groupName: string; majorCategory: string; salesQty: number; salesAmt: number; returnQty: number; returnAmt: number; }>();
 
-    compareDataB.forEach(row => {
+    const filteredB = compareDataB.filter(row => {
+      if (invoiceFilter === 'official' && row.isOfficial !== true) return false;
+      if (invoiceFilter === 'unofficial' && row.isOfficial === true) return false;
+      if (excludeOther && (row.GroupName === 'سایر محصولات' || !row.GroupName)) return false;
+      return true;
+    });
+
+    filteredB.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
@@ -859,7 +877,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       compareGroupRows,
       compareItemRows
     };
-  }, [compareMode, compareDataB, processedMetrics]);
+  }, [compareMode, compareDataB, processedMetrics, invoiceFilter]);
 
   // ----------------------------------------------------------------------
   // QUICK PRESET SELECTION
@@ -1752,6 +1770,60 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Invoice Type Filter (All / Official / Unofficial) */}
+          <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-bold text-blue-300">نوع فاکتورها (پالایش نوع):</span>
+                <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/10">
+                  {[
+                    { id: 'all', label: 'همه فاکتورها' },
+                    { id: 'official', label: 'رسمی (ارزش افزوده/کدال)' },
+                    { id: 'unofficial', label: 'غیررسمی (عادی)' }
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setInvoiceFilter(item.id as any)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        invoiceFilter === item.id
+                          ? 'bg-blue-500 text-white shadow-md font-extrabold'
+                          : 'text-slate-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {item.id === 'official' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                      {item.id === 'unofficial' && <AlertCircle className="w-3.5 h-3.5 text-amber-400" />}
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-bold text-amber-300">مواد اولیه / بدون گروه:</span>
+                <button
+                  type="button"
+                  onClick={() => setExcludeOther(!excludeOther)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 h-[34px] ${
+                    excludeOther 
+                      ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  {excludeOther ? 'حذف شده‌اند (عدم نمایش)' : 'شامل شده‌اند (نمایش)'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Show Quick Stats of Current View */}
+            <div className="text-xs text-blue-200/90 font-semibold flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 self-end sm:self-auto">
+              <span>تعداد کل اقلام فیلترشده: <strong className="text-white font-mono font-black">{processedMetrics.filteredRowsCount.toLocaleString('fa-IR')}</strong></span>
+              <span className="text-white/30">|</span>
+              <span>مجموع وزن خالص: <strong className="text-white font-mono font-black">{formatWeight(processedMetrics.rangeNetWgt)}</strong> ک‌گ</span>
+            </div>
+          </div>
         </div>
       </div>
 

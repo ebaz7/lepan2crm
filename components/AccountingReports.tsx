@@ -947,7 +947,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 return {
                     ...row,
                     Amount: baseAmt.toString(),
-                    isOfficial: false
+                    isOfficial: isOfficialSayanInvoice(row)
                 };
             });
             setSalesData(processedA);
@@ -1017,7 +1017,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     return {
                         ...row,
                         Amount: baseAmt.toString(),
-                        isOfficial: false
+                        isOfficial: isOfficialSayanInvoice(row)
                     };
                 });
                 setCompareSalesDataB(processedB);
