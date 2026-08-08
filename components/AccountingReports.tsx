@@ -225,13 +225,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const today = new Date();
         const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
         
-        const activeYear = getActiveFiscalYearLabel();
+        const currentYear = jToday.jy; // 1405
         
         const savedFrom = localStorage.getItem('sayan_default_date_from');
         const savedTo = localStorage.getItem('sayan_default_date_to');
         
-        const initialFrom = savedFrom || `${activeYear}/01/01`;
-        const initialTo = savedTo || getDefaultEndDate(activeYear, jToday);
+        // Default to current year 1405 start if savedFrom is missing or from an old year
+        const initialFrom = (savedFrom && !savedFrom.startsWith('1403') && !savedFrom.startsWith('1404')) ? savedFrom : `${currentYear}/01/01`;
+        const initialTo = savedTo || `${currentYear}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
         
         setDateFrom(initialFrom);
         setDateTo(initialTo);
@@ -344,8 +345,23 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
-    // Helper to extract net weight from row details
+    // Helper to extract net weight from row details (excluding packaging items like cartons, bobbins, pallets)
     const parseNetWeight = (row: any) => {
+        const name = (row.ItemName || '').toLowerCase();
+        const group = (row.GroupName || '').toLowerCase();
+        if (
+            name.includes('کارتن') || 
+            name.includes('بوبین') || 
+            name.includes('بسته بندی') || 
+            name.includes('پالت') ||
+            group.includes('کارتن') || 
+            group.includes('بوبین') || 
+            group.includes('بسته بندی') ||
+            group.includes('پالت')
+        ) {
+            return 0;
+        }
+
         const notes = row.ItemNotes || '';
         const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
         if (match) return parseFloat(match[1]);
@@ -1058,7 +1074,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const qty = parseFloat(row.Quantity || 0);
+            const qty = parseNetWeight(row);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -1297,7 +1313,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         todayInvs.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = parseFloat(inv.Quantity || 0);
+            const qty = parseNetWeight(inv);
             const amt = parseFloat(inv.Amount || 0);
             const isReturn = inv.OpCode === '13';
 
@@ -1503,7 +1519,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         salesData.forEach(row => {
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
-            const qty = parseFloat(row.Quantity || 0);
+            const qty = parseNetWeight(row);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
