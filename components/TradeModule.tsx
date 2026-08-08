@@ -1040,7 +1040,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             <div className="flex flex-col h-[calc(100dvh-140px)] md:h-[calc(100vh-100px)] bg-gray-50 md:rounded-2xl overflow-hidden md:border">
                 
                 {/* --- RESPONSIVE HEADER NAV FOR MOBILE --- */}
-                <div className="md:hidden glass-panel border-b p-3 flex gap-2 overflow-x-auto whitespace-nowrap shadow-sm z-20">
+                <div className="md:hidden glass-panel border-b p-3 flex flex-wrap gap-2 justify-center shadow-sm z-20">
                     <button onClick={() => setViewMode('dashboard')} className="p-2 bg-gray-100 rounded-lg"><ChevronRight size={20}/></button>
                     <button onClick={() => setActiveReport('general')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'general' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>لیست کلی</button>
                     <button onClick={() => setActiveReport('allocation_queue')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'allocation_queue' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>صف تخصیص</button>

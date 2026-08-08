@@ -863,7 +863,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                     <button onClick={loadData} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><RefreshCw size={18} className={loading ? 'animate-spin' : ''}/></button>
                 </div>
                 
-                <div className="flex p-1 bg-gray-200 rounded-xl overflow-x-auto no-scrollbar">
+                <div className="flex flex-wrap md:flex-nowrap p-1 bg-gray-200 rounded-xl gap-1 md:gap-0">
                     <button 
                         onClick={() => setActiveTab('CARTABLE')} 
                         className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'CARTABLE' ? 'glass-panel text-blue-700 shadow-md' : 'text-gray-500'}`}

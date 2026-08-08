@@ -1486,7 +1486,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 {/* Header */}
                 <div className="sticky top-0 z-10 shrink-0 p-3 border-b bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200">
                     <div className="flex justify-between items-center mb-3">
-                        <div className="flex gap-1.5 bg-gray-200 dark:bg-white/10 p-1 rounded-lg text-[11px] font-bold w-full overflow-x-auto custom-scrollbar">
+                        <div className="flex flex-wrap md:flex-nowrap gap-1 bg-gray-200 dark:bg-white/10 p-1 rounded-lg text-[11px] font-bold w-full">
                             <button onClick={() => setActiveTab('ALL')} className={`flex-1 py-1.5 px-2 rounded-md transition-all whitespace-nowrap ${activeTab === 'ALL' ? 'glass-panel shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>همه</button>
                             <button onClick={() => setActiveTab('CHATS')} className={`flex-1 py-1.5 px-2 rounded-md transition-all whitespace-nowrap ${activeTab === 'CHATS' ? 'glass-panel shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>گفتگوها</button>
                             <button onClick={() => setActiveTab('GROUPS')} className={`flex-1 py-1.5 px-2 rounded-md transition-all whitespace-nowrap ${activeTab === 'GROUPS' ? 'glass-panel shadow text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>گروه‌ها</button>

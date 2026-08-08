@@ -1046,15 +1046,15 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                 <PrintStockReport data={allWarehousesStock} onClose={() => setShowPrintStockReport(false)} />
             )}
 
-            <div className={`bg-white dark:bg-gray-900 p-2 flex gap-1.5 border-b overflow-x-auto no-print scrollbar-hide shrink-0 sticky top-0 z-[35] backdrop-blur-md bg-opacity-90 ${isMobile ? 'px-4 py-3' : 'p-2'}`}>
+            <div className={`bg-white dark:bg-gray-900 p-2 flex flex-wrap md:flex-nowrap gap-1.5 border-b no-print shrink-0 sticky top-0 z-[35] backdrop-blur-md bg-opacity-90 ${isMobile ? 'px-3 py-2.5 justify-center' : 'p-2'}`}>
                 {activeTab !== 'dashboard' && (
                     <button 
                         onClick={() => setActiveTab('dashboard')}
                         data-subtab-back="true"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-200 shrink-0 transition-all hover:scale-105 active:scale-95 border border-transparent hover:border-gray-300"
+                        className="flex items-center gap-1 px-2 py-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-200 shrink-0 transition-all hover:scale-105 active:scale-95 border border-transparent hover:border-gray-300"
                         title="بازگشت به پیشخوان انبار"
                     >
-                        <ArrowLeftRight size={18} className="rotate-180" />
+                        <ArrowLeftRight size={16} className="rotate-180" />
                         {!isMobile && <span className="text-xs">بازگشت</span>}
                     </button>
                 )}
@@ -1074,7 +1074,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     <button 
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)} 
-                        className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all duration-200 ${
+                        className={`px-2.5 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black whitespace-nowrap transition-all duration-200 ${
                             activeTab === tab.id 
                             ? `bg-${tab.color}-600 text-white shadow-lg shadow-${tab.color}-600/20 scale-105 active-tab-pulse` 
                             : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-white/5'

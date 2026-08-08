@@ -472,7 +472,7 @@ ${xmlTxLines.join('\\n')}
                 </div>
             </div>
             
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl shrink-0">
+            <div className="flex flex-wrap md:flex-nowrap bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl shrink-0 gap-1 md:gap-0">
                 <button 
                     onClick={() => setActiveTab('convert')}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'convert' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}

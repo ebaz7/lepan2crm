@@ -289,7 +289,7 @@ export default function SalesCRMModule() {
             <h2 className="text-2xl font-black text-gray-800">مدیریت مخاطبین فروش</h2>
             
             {/* Tabs for Navigation */}
-            <div className="flex border-b border-gray-200/50 dark:border-white/10">
+            <div className="flex flex-wrap border-b border-gray-200/50 dark:border-white/10">
                 <button 
                     onClick={() => setActiveTab('contacts')}
                     className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${activeTab === 'contacts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}

@@ -121,7 +121,7 @@ const PurchaseModule: React.FC<{ currentUser: User, settings?: SystemSettings, i
                     </h1>
                 </div>
                 
-                <div className="flex p-1 bg-gray-200 rounded-xl overflow-x-auto no-scrollbar">
+                <div className="flex flex-wrap md:flex-nowrap p-1 bg-gray-200 rounded-xl gap-1 md:gap-0">
                     <button 
                         onClick={() => setActiveTab('DASHBOARD')} 
                         className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'DASHBOARD' ? 'glass-panel text-indigo-700 shadow-md' : 'text-gray-500'}`}

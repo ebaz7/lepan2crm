@@ -1679,7 +1679,7 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
             </div>
 
             {/* Letter Type Filters */}
-            <div className="flex items-center gap-1 bg-slate-50 border p-1 rounded-xl self-start w-full md:w-auto overflow-x-auto">
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-1 bg-slate-50 border p-1 rounded-xl self-start w-full md:w-auto">
               {[
                 { id: "all", label: "همه نامه‌ها" },
                 { id: "internal", label: "داخلی" },

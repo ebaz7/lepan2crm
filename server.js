@@ -2139,17 +2139,39 @@ app.get('/api/next-bijak-number', (req, res) => {
     const company = req.query.company || db.settings?.defaultCompany || '';
     const txs = db.warehouseTransactions || [];
     let startNum = 1000;
-    if (db.settings?.activeFiscalYearId && company) {
-        const year = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
-        if (year && year.companySequences) {
-            const target = company.trim().replace(/\s+/g, ' ');
-            const foundKey = Object.keys(year.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
-            if (foundKey && year.companySequences[foundKey]) {
-                startNum = year.companySequences[foundKey].startBijakNumber || startNum;
+    let activeYear = null;
+    if (db.settings?.activeFiscalYearId) {
+        activeYear = (db.settings.fiscalYears || []).find(y => y.id === db.settings.activeFiscalYearId);
+        if (activeYear && company) {
+            if (activeYear.companySequences) {
+                const target = company.trim().replace(/\s+/g, ' ');
+                const foundKey = Object.keys(activeYear.companySequences).find(k => k.trim().replace(/\s+/g, ' ') === target);
+                if (foundKey && activeYear.companySequences[foundKey]) {
+                    const seqVal = activeYear.companySequences[foundKey].startBijakNumber;
+                    if (seqVal) startNum = parseInt(String(seqVal)) || startNum;
+                }
             }
         }
     }
-    const nextNum = findNextMaxNumber(txs, company, 'bijakNumber', startNum);
+
+    // Filter transactions to only include OUT (Bijaks) that fall within the active fiscal year
+    let filteredTxs = txs.filter(tx => tx.type === 'OUT');
+    if (activeYear) {
+        filteredTxs = filteredTxs.filter(tx => {
+            if (activeYear.label) {
+                const shamsiYM = utils.toShamsiYearMonth(tx.date);
+                if (shamsiYM && shamsiYM.startsWith(activeYear.label + '/')) {
+                    return true;
+                }
+            }
+            if (activeYear.startDate && activeYear.endDate && tx.date) {
+                return tx.date >= activeYear.startDate && tx.date <= activeYear.endDate;
+            }
+            return false;
+        });
+    }
+
+    const nextNum = findNextMaxNumber(filteredTxs, company, 'number', startNum);
     res.json({ nextNumber: nextNum });
 });
 

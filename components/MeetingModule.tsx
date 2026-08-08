@@ -609,7 +609,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
 
             {/* List and Tabs */}
             <div className="bg-white/50 dark:bg-gray-900/30 rounded-[2.5rem] border border-white dark:border-white/5 backdrop-blur-2xl overflow-hidden p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-6 bg-gray-100/50 dark:bg-black/20 p-1 rounded-2xl w-full overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="flex flex-wrap md:flex-nowrap items-center justify-center md:justify-start gap-2 mb-6 bg-gray-100/50 dark:bg-black/20 p-1 rounded-2xl w-full">
                     <button onClick={() => setActiveTab('all')} className={`px-4 md:px-5 py-2.5 rounded-xl text-[10px] md:text-xs font-black transition-all whitespace-nowrap ${activeTab === 'all' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-xl' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}>همه جلسات</button>
                     <button onClick={() => setActiveTab('kartable')} className={`px-4 md:px-5 py-2.5 rounded-xl text-[10px] md:text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'kartable' ? 'bg-white dark:bg-gray-800 text-orange-600 shadow-xl' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}>
                         <span>کارتابل امضا</span>

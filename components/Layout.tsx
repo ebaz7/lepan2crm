@@ -53,6 +53,27 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+    
+    // Remove old background-related classes
+    root.classList.remove(
+      'has-custom-bg', 
+      'has-preset-bg-cosmic-dark', 
+      'has-preset-bg-aurora-light', 
+      'has-preset-bg-cyan-cosmic', 
+      'has-preset-bg-dark-midnight', 
+      'has-preset-bg-light-modern'
+    );
+    
+    // Add current background classes
+    if (bgMode === 'custom' && customBgImage) {
+      root.classList.add('has-custom-bg');
+    } else if (bgMode === 'preset') {
+      root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
+    }
+  }, [bgMode, bgPreset, customBgImage]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
@@ -905,7 +926,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
         )}
       </AnimatePresence>
 
-      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-[24px] border border-white/45 dark:border-zinc-900/35 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl md:rounded-[24px] rounded-none md:border border-none border-white/45 dark:border-zinc-900/35 shadow-none md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
           {/* Mobile Header - Sleek flat design matching shadcn/ui */}
           <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/95 dark:bg-zinc-950/95 border-b border-zinc-200/80 dark:border-zinc-800/80 backdrop-blur-lg">
               <div className="flex items-center gap-3">
