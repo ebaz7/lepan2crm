@@ -941,13 +941,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const processedA = dataA.map((row: any) => {
                 const amt = row.Amount ? parseFloat(row.Amount) : 0;
-                const discount = row.Discount ? parseFloat(row.Discount) : 0;
-                const netAmt = row.NetAmount ? parseFloat(row.NetAmount) : (amt - discount);
                 const vat = row.VAT ? parseFloat(row.VAT) : 0;
                 const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                const finalAmt = row.FinalAmount ? parseFloat(row.FinalAmount) : (netAmt + vat + tax);
-                let baseAmt = finalAmt > 0 ? finalAmt : (netAmt + vat + tax);
+                let baseAmt = amt + vat + tax;
                 const isOfficial = isOfficialSayanInvoice(row);
+                if (isOfficial) {
+                    baseAmt = baseAmt * 1.10;
+                }
                 return {
                     ...row,
                     Amount: baseAmt.toString(),
@@ -1015,13 +1015,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 const dataB = await runSayanQuery(sqlB);
                 const processedB = dataB.map((row: any) => {
                     const amt = row.Amount ? parseFloat(row.Amount) : 0;
-                    const discount = row.Discount ? parseFloat(row.Discount) : 0;
-                    const netAmt = row.NetAmount ? parseFloat(row.NetAmount) : (amt - discount);
                     const vat = row.VAT ? parseFloat(row.VAT) : 0;
                     const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                    const finalAmt = row.FinalAmount ? parseFloat(row.FinalAmount) : (netAmt + vat + tax);
-                    let baseAmt = finalAmt > 0 ? finalAmt : (netAmt + vat + tax);
+                    let baseAmt = amt + vat + tax;
                     const isOfficial = isOfficialSayanInvoice(row);
+                    if (isOfficial) {
+                        baseAmt = baseAmt * 1.10;
+                    }
                     return {
                         ...row,
                         Amount: baseAmt.toString(),

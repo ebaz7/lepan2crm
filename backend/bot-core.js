@@ -315,16 +315,6 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t11.Field_006 as Quantity,
                 t11.Field_031 as ItemNotes,
                 t11.Field_007 as Amount,
-                t11.Field_008 as Discount,
-                t11.Field_009 as NetAmount,
-                t11.Field_010 as VAT,
-                t11.Field_011 as Tax,
-                t11.Field_012 as FinalAmount,
-                t11.Field_008 as Discount,
-                t11.Field_009 as NetAmount,
-                t11.Field_010 as VAT,
-                t11.Field_011 as Tax,
-                t11.Field_012 as FinalAmount,
                 t_group.GroupName,
                 t07.Field_006 as CustomerName
             FROM STR_TBL_010 t10
@@ -358,17 +348,14 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
             rows.forEach(r => {
                 const grp = r.GroupName || 'سایر موارد';
                 const qty = parseFloat(r.Quantity || 0);
-                const rawAmt = parseFloat(r.Amount || 0);
-                const discount = parseFloat(r.Discount || 0);
-                const netAmt = parseFloat(r.NetAmount || 0) || (rawAmt - discount);
-                const vat = parseFloat(r.VAT || 0);
-                const tax = parseFloat(r.Tax || 0);
-                const finalAmt = parseFloat(r.FinalAmount || 0);
-                let amt = finalAmt > 0 ? finalAmt : (netAmt + vat + tax);
+                let amt = parseFloat(r.Amount || 0);
                 
                 const h = r.Notes || '';
                 const i = r.ItemNotes || '';
                 const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
+                if (isOfficial) {
+                    amt = amt * 1.10;
+                }
 
                 const isReturn = r.OpCode === '13';
 
@@ -3982,11 +3969,6 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
-                    t11.Field_008 as Discount,
-                    t11.Field_009 as NetAmount,
-                    t11.Field_010 as VAT,
-                    t11.Field_011 as Tax,
-                    t11.Field_012 as FinalAmount,
                     t_group.GroupName,
                     t07.Field_006 as CustomerName
                 FROM STR_TBL_010 t10
@@ -4026,17 +4008,14 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             salesRows.forEach(inv => {
                 const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
                 const qty = parseFloat(inv.Quantity || 0);
-                const rawAmt = parseFloat(inv.Amount || 0);
-                const discount = parseFloat(inv.Discount || 0);
-                const netAmt = parseFloat(inv.NetAmount || 0) || (rawAmt - discount);
-                const vat = parseFloat(inv.VAT || 0);
-                const tax = parseFloat(inv.Tax || 0);
-                const finalAmt = parseFloat(inv.FinalAmount || 0);
-                let amt = finalAmt > 0 ? finalAmt : (netAmt + vat + tax);
+                let amt = parseFloat(inv.Amount || 0);
 
                 const h = inv.Notes || '';
                 const i = inv.ItemNotes || '';
                 const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
+                if (isOfficial) {
+                    amt = amt * 1.10;
+                }
 
                 const isReturn = inv.OpCode === '13';
 
