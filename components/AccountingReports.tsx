@@ -943,11 +943,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 const amt = row.Amount ? parseFloat(row.Amount) : 0;
                 const vat = row.VAT ? parseFloat(row.VAT) : 0;
                 const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                const baseAmt = amt + vat + tax;
+                let baseAmt = amt + vat + tax;
+                const isOfficial = isOfficialSayanInvoice(row);
+                if (isOfficial) {
+                    baseAmt = baseAmt * 1.10;
+                }
                 return {
                     ...row,
                     Amount: baseAmt.toString(),
-                    isOfficial: isOfficialSayanInvoice(row)
+                    isOfficial
                 };
             });
             setSalesData(processedA);
@@ -1013,11 +1017,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     const amt = row.Amount ? parseFloat(row.Amount) : 0;
                     const vat = row.VAT ? parseFloat(row.VAT) : 0;
                     const tax = row.Tax ? parseFloat(row.Tax) : 0;
-                    const baseAmt = amt + vat + tax;
+                    let baseAmt = amt + vat + tax;
+                    const isOfficial = isOfficialSayanInvoice(row);
+                    if (isOfficial) {
+                        baseAmt = baseAmt * 1.10;
+                    }
                     return {
                         ...row,
                         Amount: baseAmt.toString(),
-                        isOfficial: isOfficialSayanInvoice(row)
+                        isOfficial
                     };
                 });
                 setCompareSalesDataB(processedB);
