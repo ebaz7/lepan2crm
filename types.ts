@@ -283,6 +283,14 @@ export interface SystemSettings {
   chequeArchiveCutoffDate?: string; // تاریخ قطع نمایش چک‌های اقدام شده قدیمی
   companyNames: string[];
   companies?: Company[];
+  
+  // Background settings (global)
+  bgMode?: string;
+  bgPreset?: string;
+  customBgImage?: string | null;
+  customBgBlur?: number;
+  customBgAdapt?: boolean;
+  
   defaultCompany?: string;
   bankNames?: string[];
   operatingBankNames?: string[];
