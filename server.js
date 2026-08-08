@@ -569,6 +569,11 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t11.Field_006 as Quantity,
             t11.Field_031 as ItemNotes,
             t11.Field_007 as Amount,
+            t11.Field_008 as Discount,
+            t11.Field_009 as NetAmount,
+            t11.Field_010 as VAT,
+            t11.Field_011 as Tax,
+            t11.Field_012 as FinalAmount,
             t_group.GroupName,
             t07.Field_006 as CustomerName,
             t10.Field_009 as OpCode
@@ -636,14 +641,17 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         salesRows.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
             const qty = parseFloat(inv.Quantity || 0);
-            let amt = parseFloat(inv.Amount || 0);
+            const rawAmt = parseFloat(inv.Amount || 0);
+            const discount = parseFloat(inv.Discount || 0);
+            const netAmt = parseFloat(inv.NetAmount || 0) || (rawAmt - discount);
+            const vat = parseFloat(inv.VAT || 0);
+            const tax = parseFloat(inv.Tax || 0);
+            const finalAmt = parseFloat(inv.FinalAmount || 0);
+            let amt = finalAmt > 0 ? finalAmt : (netAmt + vat + tax);
             
             const h = inv.Notes || '';
             const i = inv.ItemNotes || '';
             const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
-            if (isOfficial) {
-                amt = amt * 1.10;
-            }
 
             const isReturn = inv.OpCode === '13';
             
