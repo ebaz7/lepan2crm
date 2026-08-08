@@ -33,10 +33,10 @@
   .dark.has-preset-bg-cyan-cosmic,
   .dark.has-preset-bg-aurora-light {
     --app-bg: transparent;
-    --glass-bg: rgba(15, 23, 42, 0.65);
-    --glass-bg-hover: rgba(15, 23, 42, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.15);
-    --border-color: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.16);
+    --glass-bg-hover: rgba(15, 23, 42, 0.28);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --border-color: rgba(255, 255, 255, 0.12);
   }
 
   /* Enhance light glassmorphism transparency when rich background is active in light mode */
@@ -45,21 +45,21 @@
   html:not(.dark).has-preset-bg-cosmic-dark,
   html:not(.dark).has-preset-bg-cyan-cosmic {
     --app-bg: transparent;
-    --glass-bg: rgba(255, 255, 255, 0.72);
-    --glass-bg-hover: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.6);
-    --border-color: rgba(255, 255, 255, 0.6);
+    --glass-bg: rgba(255, 255, 255, 0.16);
+    --glass-bg-hover: rgba(255, 255, 255, 0.28);
+    --glass-border: rgba(255, 255, 255, 0.35);
+    --border-color: rgba(255, 255, 255, 0.35);
   }
 
   .theme-light-aurora {
     --app-bg: transparent; /* Let the blobs show through */
-    --glass-bg: rgba(255, 255, 255, 0.45); /* Premium translucent glass */
-    --glass-bg-hover: rgba(255, 255, 255, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.6); 
+    --glass-bg: rgba(255, 255, 255, 0.16); /* Premium translucent liquid glass */
+    --glass-bg-hover: rgba(255, 255, 255, 0.28);
+    --glass-border: rgba(255, 255, 255, 0.35); 
     --glass-shadow: 0 16px 40px -4px rgba(15, 23, 42, 0.08), inset 0 1.5px 2px rgba(255, 255, 255, 0.85);
     --text-primary: #0f172a;
     --text-secondary: #334155;
-    --border-color: rgba(255, 255, 255, 0.6);
+    --border-color: rgba(255, 255, 255, 0.35);
     --gemini-spark: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
   }
 }
@@ -190,30 +190,30 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 /* Clear, Defined Card Containers for Light Aurora Theme - Restoring Glass Effect */
 .theme-light-aurora .apple-glass,
 .theme-light-aurora .glass-panel {
-  background: rgba(255, 255, 255, 0.65) !important;
-  backdrop-filter: blur(16px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
   box-shadow: 
     0 10px 25px -5px rgba(15, 23, 42, 0.08),
     0 4px 6px -2px rgba(15, 23, 42, 0.04),
-    inset 0 1.5px 2px rgba(255, 255, 255, 0.9) !important;
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.5) !important;
 }
 
 .theme-light-aurora .apple-glass-hover:hover,
 .theme-light-aurora .glass-panel:hover {
-  background: rgba(255, 255, 255, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
   box-shadow: 
     0 14px 32px -4px rgba(15, 23, 42, 0.12),
-    inset 0 1.5px 2px rgba(255, 255, 255, 1) !important;
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.6) !important;
 }
 
 .theme-light-aurora .glass-header {
-  background: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(16px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.3) !important;
 }
 
 .theme-light-aurora input[type="text"], 
@@ -431,9 +431,10 @@ html.has-preset-bg-aurora-light:not(.dark) .bg-white\/95,
 html.has-preset-bg-cosmic-dark:not(.dark) .bg-white\/95,
 html.has-preset-bg-cyan-cosmic:not(.dark) .bg-white\/95,
 .theme-light-aurora .bg-white\/95 {
-  background-color: rgba(255, 255, 255, 0.8) !important;
-  backdrop-filter: blur(20px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
 }
 
 /* Translucent background containers when any background is active in Dark Mode */
@@ -465,9 +466,10 @@ html.has-custom-bg.dark .bg-gray-950,
 html.has-preset-bg-cosmic-dark.dark .bg-gray-950,
 html.has-preset-bg-cyan-cosmic.dark .bg-gray-950,
 html.has-preset-bg-aurora-light.dark .bg-gray-950 {
-  background-color: rgba(15, 23, 42, 0.65) !important;
-  backdrop-filter: blur(20px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  background-color: rgba(15, 23, 42, 0.16) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Dark Mode with Background high contrast text rules */
@@ -1110,8 +1112,8 @@ td {
 
 /* --- GLASS/AURORA THEME SIDEBAR & MENU COHESION --- */
 .theme-light-aurora aside {
-    border-color: rgba(255, 255, 255, 0.45) !important;
-    background: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    background: rgba(255, 255, 255, 0.16) !important;
 }
 
 /* Logo container in sidebar */
@@ -1146,19 +1148,19 @@ td {
 /* Sidebar active tab glass highlight */
 .theme-light-aurora aside nav button [layoutId="activeSidebarTab"],
 .theme-light-aurora aside nav button .bg-blue-50\/70 {
-    background: rgba(255, 255, 255, 0.55) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+    background: rgba(255, 255, 255, 0.28) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
     box-shadow: 
         0 8px 24px rgba(15, 23, 42, 0.04), 
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.9) !important;
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Mobile Top Header glass adjustment */
 .theme-light-aurora header {
-    background: rgba(255, 255, 255, 0.55) !important;
+    background: rgba(255, 255, 255, 0.16) !important;
     backdrop-filter: blur(24px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
-    border-bottom: 1.5px solid rgba(255, 255, 255, 0.55) !important;
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.3) !important;
 }
 
 .theme-light-aurora header h1 {
@@ -1168,8 +1170,8 @@ td {
 
 /* Mobile top header buttons (Search, Theme switcher, Back button) */
 .theme-light-aurora header button {
-    background-color: rgba(255, 255, 255, 0.6) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
     color: #1e293b !important;
 }
@@ -1181,13 +1183,13 @@ td {
 
 /* Floating bottom navigation bar matching Apple liquid glass */
 .theme-light-aurora .fixed.bottom-4.bg-white\/75 {
-    background-color: rgba(255, 255, 255, 0.65) !important;
+    background-color: rgba(255, 255, 255, 0.18) !important;
     backdrop-filter: blur(24px) saturate(220%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(220%) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
     box-shadow: 
         0 12px 32px rgba(15, 23, 42, 0.08),
-        inset 0 1px 2px rgba(255, 255, 255, 0.95) !important;
+        inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
 }
 
 .theme-light-aurora .fixed.bottom-4.bg-white\/75 button {
@@ -1221,10 +1223,10 @@ td {
 
 /* Mobile slide-up drawer panel under glass theme */
 .theme-light-aurora .relative.w-full.max-h-\[85vh\] {
-    background: rgba(255, 255, 255, 0.8) !important;
+    background: rgba(255, 255, 255, 0.25) !important;
     backdrop-filter: blur(32px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
-    border-top: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.45) !important;
 }
 
 .theme-light-aurora .relative.w-full.max-h-\[85vh\] h4 {
@@ -1329,20 +1331,20 @@ html.has-preset-bg-aurora-light aside,
 html.has-preset-bg-cosmic-dark aside,
 html.has-preset-bg-cyan-cosmic aside,
 html.theme-light-aurora aside {
-  background: rgba(255, 255, 255, 0.45) !important;
-  backdrop-filter: blur(24px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 html.has-custom-bg.dark aside,
 html.has-preset-bg-cosmic-dark.dark aside,
 html.has-preset-bg-cyan-cosmic.dark aside,
 html.has-preset-bg-aurora-light.dark aside {
-  background: rgba(15, 23, 42, 0.45) !important;
-  backdrop-filter: blur(24px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(15, 23, 42, 0.16) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Ensure that table cells in report panels have pristine text clarity and weight */
