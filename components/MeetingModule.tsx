@@ -1296,107 +1296,107 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
             )}
             {/* View/Approval Modal */}
             {viewMeeting && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-md animate-fade-in overflow-hidden">
-                    <div className="bg-white dark:bg-gray-900 w-full h-full md:h-auto md:max-h-[92vh] max-w-full md:max-w-5xl xl:max-w-7xl rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border-0 md:border border-white dark:border-white/10">
-                        <div className="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-gray-50/50 dark:bg-black/20 shrink-0">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-hidden">
+                    <div className="bg-white text-gray-900 w-full h-full md:h-auto md:max-h-[95vh] max-w-full md:max-w-5xl xl:max-w-7xl rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
+                        <div className="p-4 px-6 border-b border-gray-200 flex justify-between items-center bg-gray-100 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl">
+                                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
                                     <Eye size={20}/>
                                 </div>
-                                <h3 className="font-black text-gray-900 dark:text-gray-100 italic tracking-tight uppercase text-sm md:text-base">صورتجلسه شماره {viewMeeting.meetingNumber}</h3>
+                                <h3 className="font-black text-gray-900 italic tracking-tight uppercase text-sm md:text-base">صورتجلسه شماره {viewMeeting.meetingNumber}</h3>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition-colors text-blue-600">
-                                    <Printer size={20} />
+                                <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-blue-600 font-bold flex items-center gap-1.5 text-xs">
+                                    <Printer size={18} /> چاپ
                                 </button>
-                                <button onClick={() => setViewMeeting(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition-colors">
-                                    <X size={20} className="text-gray-400" />
+                                <button onClick={() => setViewMeeting(null)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-600">
+                                    <X size={20} />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="p-4 md:p-10 overflow-y-auto flex-1 bg-white dark:bg-gray-950 font-sans print:p-0">
-                            {/* Meeting Header Block */}
-                            <div className="border-4 border-gray-900 dark:border-gray-100 p-6 relative">
+                        <div className="p-4 md:p-8 overflow-y-auto flex-1 bg-gray-200 font-sans print:p-0">
+                            {/* Meeting Header Block - Solid White Paper */}
+                            <div className="bg-white text-gray-900 border-4 border-gray-900 p-6 md:p-8 relative shadow-lg rounded-xl max-w-5xl mx-auto">
                                 <div className="text-center space-y-2 mb-8">
-                                    <h1 className="text-2xl font-black">صورتجلسه</h1>
-                                    <div className="text-sm font-bold text-gray-600 dark:text-gray-400 italic">گروه تولیدی احمدی</div>
+                                    <h1 className="text-2xl md:text-3xl font-black text-gray-900">صورتجلسه</h1>
+                                    <div className="text-sm font-bold text-gray-700 italic">گروه تولیدی احمدی</div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-8">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
                                     <div className="space-y-1">
-                                        <div className="text-gray-400 font-bold text-[10px]">شماره جلسه:</div>
-                                        <div className="font-black underline decoration-2 underline-offset-4">{viewMeeting.meetingNumber}</div>
+                                        <div className="text-gray-500 font-bold text-[10px]">شماره جلسه:</div>
+                                        <div className="font-black underline decoration-2 underline-offset-4 text-gray-900">{viewMeeting.meetingNumber}</div>
                                     </div>
                                     <div className="space-y-1 text-center">
-                                        <div className="text-gray-400 font-bold text-[10px]">تاریخ برگزاری:</div>
-                                        <div className="font-black underline decoration-2 underline-offset-4 font-mono">{viewMeeting.date}</div>
+                                        <div className="text-gray-500 font-bold text-[10px]">تاریخ برگزاری:</div>
+                                        <div className="font-black underline decoration-2 underline-offset-4 font-mono text-gray-900">{viewMeeting.date}</div>
                                     </div>
                                     <div className="space-y-1 text-center">
-                                        <div className="text-gray-400 font-bold text-[10px]">ساعت برگزاری:</div>
-                                        <div className="font-black underline decoration-2 underline-offset-4 font-mono">{viewMeeting.time}</div>
+                                        <div className="text-gray-500 font-bold text-[10px]">ساعت برگزاری:</div>
+                                        <div className="font-black underline decoration-2 underline-offset-4 font-mono text-gray-900">{viewMeeting.time}</div>
                                     </div>
                                     <div className="space-y-1 text-left">
-                                        <div className="text-gray-400 font-bold text-[10px]">محل برگزاری:</div>
-                                        <div className="font-black underline decoration-2 underline-offset-4">{viewMeeting.location}</div>
+                                        <div className="text-gray-500 font-bold text-[10px]">محل برگزاری:</div>
+                                        <div className="font-black underline decoration-2 underline-offset-4 text-gray-900">{viewMeeting.location}</div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-gray-200 dark:border-white/10">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-gray-300">
                                     <div className="flex gap-2">
-                                        <span className="font-black whitespace-nowrap">رئیس جلسه:</span>
-                                        <span className="text-gray-700 dark:text-gray-300 font-bold">{viewMeeting.chairman}</span>
+                                        <span className="font-black whitespace-nowrap text-gray-900">رئیس جلسه:</span>
+                                        <span className="text-gray-800 font-bold">{viewMeeting.chairman}</span>
                                     </div>
                                     <div className="flex gap-2">
-                                        <span className="font-black whitespace-nowrap">دبیر جلسه:</span>
-                                        <span className="text-gray-700 dark:text-gray-300 font-bold">{viewMeeting.secretary}</span>
+                                        <span className="font-black whitespace-nowrap text-gray-900">دبیر جلسه:</span>
+                                        <span className="text-gray-800 font-bold">{viewMeeting.secretary}</span>
                                     </div>
                                 </div>
 
                                 {/* Attendees Tableish */}
                                 <div className="mb-10">
-                                    <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 font-black text-sm mb-4">اعضای حاضر در جلسه</div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">اعضای حاضر در جلسه</div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-2">
                                         {viewMeeting.attendees.filter(a => a.isPresent).map((a, i) => (
-                                            <div key={i} className="flex flex-col border-b border-gray-100 dark:border-white/5 pb-2">
-                                                <span className="font-black text-xs">{a.fullName}</span>
-                                                <span className="text-[10px] text-gray-500 font-bold">{a.role}</span>
+                                            <div key={i} className="flex flex-col border-b border-gray-200 pb-2">
+                                                <span className="font-black text-xs text-gray-900">{a.fullName}</span>
+                                                <span className="text-[10px] text-gray-600 font-bold">{a.role}</span>
                                             </div>
                                         ))}
                                     </div>
                                     {viewMeeting.guestAttendees && viewMeeting.guestAttendees.length > 0 && (
-                                        <div className="mt-4">
-                                            <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">مدعوین: </span>
-                                            <span className="text-[11px] font-black">{viewMeeting.guestAttendees.join('، ')}</span>
+                                        <div className="mt-4 px-2">
+                                            <span className="text-[11px] font-bold text-gray-700">مدعوین: </span>
+                                            <span className="text-[11px] font-black text-gray-900">{viewMeeting.guestAttendees.join('، ')}</span>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Items Table */}
                                 <div className="mb-10">
-                                    <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 font-black text-sm mb-4">شرح مصوبات و پیگیری‌ها</div>
+                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">شرح مصوبات و پیگیری‌ها</div>
                                     <div className="w-full overflow-x-auto">
-                                        <table className="w-full border-collapse border border-gray-300 dark:border-gray-700">
+                                        <table className="w-full border-collapse border border-gray-400 bg-white text-gray-900">
                                             <thead>
-                                                <tr className="bg-gray-50 dark:bg-black/20 text-xs font-black">
-                                                    <th className="border border-gray-300 dark:border-gray-700 p-3 w-12 text-center">ردیف</th>
-                                                    <th className="border border-gray-300 dark:border-gray-700 p-3 text-right">شرح موضوع / مصوبه</th>
-                                                    <th className="border border-gray-300 dark:border-gray-700 p-3 w-32 text-center">مسئول اجرا</th>
-                                                    <th className="border border-gray-300 dark:border-gray-700 p-3 w-24 text-center">مهلت (روز)</th>
+                                                <tr className="bg-gray-100 text-xs font-black text-gray-900">
+                                                    <th className="border border-gray-400 p-3 w-12 text-center">ردیف</th>
+                                                    <th className="border border-gray-400 p-3 text-right">شرح موضوع / مصوبه</th>
+                                                    <th className="border border-gray-400 p-3 w-32 text-center">مسئول اجرا</th>
+                                                    <th className="border border-gray-400 p-3 w-24 text-center">مهلت (روز)</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="text-[11px] font-bold">
+                                            <tbody className="text-xs font-bold text-gray-900">
                                                 {viewMeeting.items.map((item, idx) => (
-                                                    <tr key={item.id}>
-                                                        <td className="border border-gray-300 dark:border-gray-700 p-4 text-center">{idx + 1}</td>
-                                                        <td className="border border-gray-300 dark:border-gray-700 p-4 leading-relaxed">{item.description}</td>
-                                                        <td className="border border-gray-300 dark:border-gray-700 p-4 text-center">{item.responsiblePerson}</td>
-                                                        <td className="border border-gray-300 dark:border-gray-700 p-4 text-center">{item.duration}</td>
+                                                    <tr key={item.id} className="hover:bg-gray-50">
+                                                        <td className="border border-gray-400 p-4 text-center">{idx + 1}</td>
+                                                        <td className="border border-gray-400 p-4 leading-relaxed">{item.description}</td>
+                                                        <td className="border border-gray-400 p-4 text-center">{item.responsiblePerson}</td>
+                                                        <td className="border border-gray-400 p-4 text-center">{item.duration}</td>
                                                     </tr>
                                                 ))}
                                                 {viewMeeting.items.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={4} className="border border-gray-300 dark:border-gray-700 p-8 text-center text-gray-400 italic">موردی ثبت نشده است</td>
+                                                        <td colSpan={4} className="border border-gray-400 p-8 text-center text-gray-500 italic">موردی ثبت نشده است</td>
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -1406,30 +1406,30 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
 
                                 {/* Approval/Signatures Section */}
                                 <div>
-                                    <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 font-black text-sm mb-6 uppercase tracking-wider">تایید نهایی و امضاء الکترونیک اعضا</div>
+                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-6 rounded-t-lg">تایید نهایی و امضاء الکترونیک اعضا</div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                                         {viewMeeting.attendees.filter(a => a.isPresent).map((a, i) => {
                                             const approvalKey = a.username || a.fullName;
                                             const isApproved = viewMeeting.approvals?.[approvalKey]?.approved;
                                             return (
-                                                <div key={i} className="flex flex-col items-center gap-3 p-4 border border-dashed border-gray-200 dark:border-white/10 rounded-2xl bg-gray-50/30 dark:bg-black/5 relative overflow-hidden group">
-                                                    <span className="font-black text-[9px] text-gray-400 group-hover:text-gray-600 transition-colors uppercase tracking-tight">{a.role}</span>
-                                                    <div className="h-16 flex items-center justify-center italic font-black text-blue-900 dark:text-blue-200 opacity-80 scale-110">
+                                                <div key={i} className="flex flex-col items-center gap-3 p-4 border border-dashed border-gray-300 rounded-2xl bg-gray-50 text-gray-900 relative overflow-hidden group">
+                                                    <span className="font-black text-[9px] text-gray-500 transition-colors uppercase tracking-tight">{a.role}</span>
+                                                    <div className="h-16 flex items-center justify-center italic font-black text-blue-900 opacity-90 scale-110">
                                                         {isApproved ? (
                                                             <div className="flex flex-col items-center animate-bounce-subtle">
-                                                                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-1 border border-emerald-500">
+                                                                <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shadow-md mb-1 border border-emerald-600">
                                                                     <CheckCircle size={28} />
                                                                 </div>
-                                                                <div className="text-[8px] text-emerald-600 font-black">تایید شده</div>
+                                                                <div className="text-[8px] text-emerald-700 font-black">تایید شده</div>
                                                             </div>
                                                         ) : (
-                                                            <div className="text-gray-300 dark:text-gray-700 flex flex-col items-center opacity-40">
-                                                                <Loader2 size={32} className="animate-spin mb-1 opacity-20" />
+                                                            <div className="text-gray-400 flex flex-col items-center opacity-60">
+                                                                <Loader2 size={28} className="animate-spin mb-1 opacity-40" />
                                                                 <span className="text-[8px] font-black">در انتظار تایید</span>
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <span className="font-black text-xs z-10 text-center">{a.fullName}</span>
+                                                    <span className="font-black text-xs z-10 text-center text-gray-900">{a.fullName}</span>
                                                     
                                                     {/* Approval Overlay for current user if they are the attendee */}
                                                     {(a.username === currentUser.username || a.fullName === currentUser.fullName) && !isApproved && canApprove && (

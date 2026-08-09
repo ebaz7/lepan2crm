@@ -46,8 +46,8 @@ const SecurityFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4 bg-black/70 backdrop-blur-md">
-      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-300">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4 bg-black/70 backdrop-blur-md overflow-hidden animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-300">
         <div className="p-6 border-b flex justify-between items-center bg-gradient-to-r from-blue-700 to-indigo-800 text-white">
           <div className="flex items-center gap-3">
              <ShieldCheck size={28} className="text-blue-200" />

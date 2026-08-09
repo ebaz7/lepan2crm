@@ -25,18 +25,17 @@ const ScaledContainer: React.FC<{ children: React.ReactNode, isLandscape?: boole
             const wrapper = wrapperRef.current;
             if (wrapper) {
                 const wrapperWidth = wrapper.clientWidth;
-                // Measure viewport height minus top header controls (~100px)
-                const availHeight = Math.max(300, window.innerHeight - 110);
+                const wrapperHeight = wrapper.clientHeight || (window.innerHeight - 80);
                 
                 // A4 Landscape = 297mm (~1123px width, ~794px height), Portrait = 210mm (~794px width, ~1123px height)
                 const targetWidth = isLandscape ? 1123 : 794; 
                 const targetHeight = isLandscape ? 794 : 1123;
 
-                const scaleX = (wrapperWidth - 24) / targetWidth;
-                const scaleY = availHeight / targetHeight;
+                const scaleX = (wrapperWidth - 16) / targetWidth;
+                const scaleY = (wrapperHeight - 16) / targetHeight;
                 
                 const calculatedScale = Math.min(scaleX, scaleY, 1.0);
-                setScale(Math.max(calculatedScale, 0.35));
+                setScale(Math.max(calculatedScale, 0.25));
             }
         };
         handleResize();
@@ -949,8 +948,8 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
             
             {/* Shift Meta Modal */}
             {showShiftModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                    <div className="glass-panel rounded-xl shadow-xl w-full max-w-lg p-5">
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-fade-in">
+                    <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">اطلاعات شیفت ({formatDate(getIsoSelectedDate())})</h3><button onClick={()=>setShowShiftModal(false)}><X/></button></div>
                         <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold text-gray-600"><div>شیفت</div><div>نگهبان</div><div>ورود / خروج</div></div>
@@ -966,17 +965,20 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
 
             {/* Print Preview Modal */}
             {showPrintModal && printTarget && (
-                <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                    <div className="glass-panel p-4 rounded-xl shadow-lg mb-4 flex gap-4 no-print">
-                        <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"><Printer size={16}/> چاپ</button>
-                        <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
-                        <button onClick={() => setShowPrintModal(false)} className="bg-gray-200 text-gray-800 px-4 py-2 rounded">بستن</button>
+                <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-between p-2 md:p-4 overflow-hidden animate-fade-in">
+                    <div className="w-full max-w-7xl flex items-center justify-between bg-gray-900/90 text-white p-3 rounded-2xl shadow-xl mb-2 no-print shrink-0 border border-white/10">
+                        <span className="font-black text-sm md:text-base px-2">پیش‌نمایش گزارش انتظامات</span>
+                        <div className="flex gap-2">
+                            <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow transition-all active:scale-95"><Printer size={16}/> چاپ</button>
+                            <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow transition-all active:scale-95">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
+                            <button onClick={() => setShowPrintModal(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95">بستن</button>
+                        </div>
                     </div>
                     
-                    {/* SCALED CONTAINER WRAPPER */}
-                    <div className="overflow-auto bg-gray-200 p-4 rounded shadow-inner max-h-[80vh] w-full flex justify-center">
+                    {/* SCALED CONTAINER WRAPPER - NO BLACK GAP ABOVE/BELOW */}
+                    <div className="flex-1 w-full max-w-7xl bg-gray-300 dark:bg-gray-800 rounded-2xl shadow-inner overflow-hidden flex items-center justify-center p-2 border border-white/10">
                          <ScaledContainer isLandscape={printTarget.type === 'daily_log'}>
-                            <div id="printable-area-view" className="glass-panel shadow-lg">
+                            <div id="printable-area-view" className="bg-white text-black shadow-2xl rounded">
                                 {printTarget.type === 'daily_log' && <PrintSecurityDailyLog date={printTarget.date} logs={printTarget.logs} meta={printTarget.meta} />}
                                 {printTarget.type === 'daily_delay' && <PrintPersonnelDelay delays={printTarget.delays} meta={printTarget.meta} />}
                                 {printTarget.type === 'incident' && <PrintIncidentReport incident={printTarget.incident} />}
@@ -988,27 +990,27 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
 
             {/* Cartable Action Modal */}
             {viewCartableItem && (
-                <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                    <div className="glass-panel p-4 rounded-xl shadow-lg mb-4 flex gap-4 no-print w-full max-w-2xl justify-between items-center">
-                        <div className="font-bold text-lg text-gray-800">{viewCartableItem.type === 'daily_approval' || viewCartableItem.type === 'daily_archive' ? `گزارش روزانه - ${formatDate(viewCartableItem.date)}` : 'بررسی'}</div>
-                        <div className="flex gap-2">
-                             <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"><Printer size={18}/></button>
-                             <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 text-white px-4 py-2 rounded font-bold shadow">{isGeneratingPdf ? <Loader2 size={18} className="animate-spin"/> : <FileDown size={18}/>}</button>
+                <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-between p-2 md:p-4 overflow-hidden animate-fade-in">
+                    <div className="w-full max-w-7xl flex items-center justify-between bg-gray-900/90 text-white p-3 rounded-2xl shadow-xl mb-2 no-print shrink-0 border border-white/10">
+                        <div className="font-black text-sm md:text-base px-2">{viewCartableItem.type === 'daily_approval' || viewCartableItem.type === 'daily_archive' ? `گزارش روزانه - ${formatDate(viewCartableItem.date)}` : 'بررسی'}</div>
+                        <div className="flex gap-2 items-center">
+                             <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition-all active:scale-95"><Printer size={16}/> چاپ</button>
+                             <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition-all active:scale-95">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
                              {/* Only show Approve/Reject if it's an actionable item */}
                              {viewCartableItem.type !== 'daily_archive' && (
                                  <>
-                                    <button onClick={() => handleApprove(viewCartableItem)} className="bg-green-600 text-white px-4 py-2 rounded font-bold shadow">تایید</button>
-                                    <button onClick={() => handleReject(viewCartableItem)} className="bg-amber-500 text-white px-4 py-2 rounded font-bold shadow">رد / اصلاح</button>
+                                    <button onClick={() => handleApprove(viewCartableItem)} className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow transition-all active:scale-95">تایید</button>
+                                    <button onClick={() => handleReject(viewCartableItem)} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow transition-all active:scale-95">رد / اصلاح</button>
                                  </>
                              )}
-                             <button onClick={() => setViewCartableItem(null)} className="bg-gray-200 text-gray-800 px-4 py-2 rounded font-bold">بستن</button>
+                             <button onClick={() => setViewCartableItem(null)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95">بستن</button>
                         </div>
                     </div>
                     
-                    {/* SCALED CONTAINER WRAPPER */}
-                    <div className="overflow-auto bg-gray-200 p-4 rounded shadow-inner max-h-[80vh] w-full flex justify-center">
+                    {/* SCALED CONTAINER WRAPPER - NO BLACK GAP ABOVE/BELOW */}
+                    <div className="flex-1 w-full max-w-7xl bg-gray-300 dark:bg-gray-800 rounded-2xl shadow-inner overflow-hidden flex items-center justify-center p-2 border border-white/10">
                         <ScaledContainer isLandscape={isLandscapeMode}>
-                            <div className="glass-panel shadow-lg" id="printable-area-view">
+                            <div className="bg-white text-black shadow-2xl rounded" id="printable-area-view">
                                 {(viewCartableItem.type === 'daily_approval' || viewCartableItem.type === 'daily_archive') && viewCartableItem.category === 'log' && (
                                     <PrintSecurityDailyLog 
                                         date={viewCartableItem.date} 
@@ -1083,8 +1085,8 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
 
             {/* Input Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                    <div className="glass-panel rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-fade-in">
+                    <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">{activeTab === 'logs' ? 'ثبت ورود و خروج' : activeTab === 'delays' ? 'ثبت تاخیر پرسنل' : 'ثبت وقایع'}</h3><button onClick={resetForms}><X size={20}/></button></div>
                         {activeTab === 'logs' && (
                             <div className="space-y-3" onKeyDown={handleFormKeyDown}>
