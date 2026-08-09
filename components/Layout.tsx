@@ -60,6 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   useEffect(() => {
     const root = document.documentElement;
+    const isDark = theme === 'dark' || root.classList.contains('dark');
     
     // Remove old background-related classes
     root.classList.remove(
@@ -71,13 +72,15 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       'has-preset-bg-light-modern'
     );
     
-    // Add current background classes
-    if (bgMode === 'custom' && customBgImage) {
-      root.classList.add('has-custom-bg');
-    } else if (bgMode === 'preset') {
-      root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
+    // Add current background classes ONLY when dark theme is active
+    if (isDark) {
+      if (bgMode === 'custom' && customBgImage) {
+        root.classList.add('has-custom-bg');
+      } else if (bgMode === 'preset') {
+        root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
+      }
     }
-  }, [bgMode, bgPreset, customBgImage]);
+  }, [bgMode, bgPreset, customBgImage, theme]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,6 +107,26 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   useEffect(() => {
     if (propSettings) {
         setSettings(propSettings);
+        if (propSettings.customBgImage !== undefined) {
+            setCustomBgImage(propSettings.customBgImage || null);
+            if (propSettings.customBgImage) {
+                localStorage.setItem('app_custom_bg_image', propSettings.customBgImage);
+            } else {
+                localStorage.removeItem('app_custom_bg_image');
+            }
+        }
+        if (propSettings.bgMode) {
+            setBgMode(propSettings.bgMode);
+            localStorage.setItem('app_bg_mode', propSettings.bgMode);
+        }
+        if (propSettings.bgPreset) {
+            setBgPreset(propSettings.bgPreset);
+            localStorage.setItem('app_preset_bg', propSettings.bgPreset);
+        }
+        if (propSettings.customBgBlur !== undefined) {
+            setCustomBgBlur(propSettings.customBgBlur);
+            localStorage.setItem('app_custom_bg_blur', propSettings.customBgBlur.toString());
+        }
     }
   }, [propSettings]);
   const isSecure = window.isSecureContext;
@@ -512,34 +535,39 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     </div> 
   );
 
+  const isDarkMode = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+  const showCustomBg = isDarkMode && bgMode === 'custom' && !!customBgImage;
+
   return (
-    <div className="flex h-[100dvh] w-full bg-transparent text-[var(--text-primary)] font-sans relative overflow-hidden">
-      {/* Background Blobs & Custom Background Image */}
-      <div 
-        className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
-        style={bgMode === 'custom' && customBgImage ? {
-          backgroundImage: `url(${customBgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-          filter: customBgBlur > 0 ? `blur(${customBgBlur}px)` : undefined,
-          transform: customBgBlur > 0 ? 'scale(1.08)' : undefined,
-          width: customBgBlur > 0 ? '108%' : '100%',
-          height: customBgBlur > 0 ? '108%' : '100%',
-          top: customBgBlur > 0 ? '-4%' : '0',
-          left: customBgBlur > 0 ? '-4%' : '0',
-          position: 'fixed'
-        } : undefined}
-      >
-        {bgMode === 'preset' && (
-          <>
-            <div className="blob blob-1"></div>
-            <div className="blob blob-2"></div>
-            <div className="blob blob-3"></div>
-          </>
-        )}
-      </div>
+    <div className={`flex h-[100dvh] w-full text-[var(--text-primary)] font-sans relative overflow-hidden ${isDarkMode ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
+      {/* Background Blobs & Custom Background Image - Only active in dark mode */}
+      {isDarkMode && (
+        <div 
+          className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
+          style={showCustomBg ? {
+            backgroundImage: `url(${customBgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundAttachment: 'fixed',
+            filter: customBgBlur > 0 ? `blur(${customBgBlur}px)` : undefined,
+            transform: customBgBlur > 0 ? 'scale(1.08)' : undefined,
+            width: customBgBlur > 0 ? '108%' : '100%',
+            height: customBgBlur > 0 ? '108%' : '100%',
+            top: customBgBlur > 0 ? '-4%' : '0',
+            left: customBgBlur > 0 ? '-4%' : '0',
+            position: 'fixed'
+          } : undefined}
+        >
+          {bgMode === 'preset' && (
+            <>
+              <div className="blob blob-1"></div>
+              <div className="blob blob-2"></div>
+              <div className="blob blob-3"></div>
+            </>
+          )}
+        </div>
+      )}
       
       {isUpdateAvailable && (<div className="fixed top-0 left-0 right-0 bg-blue-600 text-white z-[9999] p-3 text-center shadow-lg animate-slide-down flex justify-center items-center gap-4"><div className="flex items-center gap-2"><RefreshCw size={20} className="animate-spin"/><span className="font-bold text-sm">نسخه جدید نرم‌افزار در دسترس است!</span></div><button onClick={handleReload} className="glass-panel text-blue-600 px-4 py-1 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">بروزرسانی (رفرش)</button></div>)}
       

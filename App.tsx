@@ -181,25 +181,7 @@ function App() {
 
   useEffect(() => {
     const handleBgChange = () => {
-      const mode = localStorage.getItem('app_bg_mode');
-      const customBg = localStorage.getItem('app_custom_bg_image');
-      const adapt = localStorage.getItem('app_custom_bg_adapt') !== 'false';
-      const brightness = localStorage.getItem('app_custom_bg_brightness') || 'light';
-      
-      if (mode === 'custom' && customBg && adapt) {
-        const root = document.documentElement;
-        if (brightness === 'dark') {
-          setTheme('dark');
-          localStorage.setItem('theme', 'dark');
-          root.classList.add('dark');
-          root.classList.remove('theme-light-aurora');
-        } else {
-          setTheme('light-aurora');
-          localStorage.setItem('theme', 'light-aurora');
-          root.classList.remove('dark');
-          root.classList.add('theme-light-aurora');
-        }
-      }
+      // Just notify components of background change without forcing light theme override
     };
     
     handleBgChange();
@@ -823,6 +805,26 @@ function App() {
 
                 setSettings(settingsData);
                 
+                // Sync global background image & theme settings across all clients (desktop, mobile web, Android)
+                if (settingsData.customBgImage) {
+                    localStorage.setItem('app_custom_bg_image', settingsData.customBgImage);
+                } else if (settingsData.customBgImage === null) {
+                    localStorage.removeItem('app_custom_bg_image');
+                }
+                if (settingsData.bgMode) {
+                    localStorage.setItem('app_bg_mode', settingsData.bgMode);
+                }
+                if (settingsData.bgPreset) {
+                    localStorage.setItem('app_preset_bg', settingsData.bgPreset);
+                }
+                if (settingsData.customBgBlur !== undefined) {
+                    localStorage.setItem('app_custom_bg_blur', settingsData.customBgBlur.toString());
+                }
+                if (settingsData.customBgAdapt !== undefined) {
+                    localStorage.setItem('app_custom_bg_adapt', settingsData.customBgAdapt ? 'true' : 'false');
+                }
+                window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+
                 // Sync financial year state from server settings
                 if (settingsData.activeFiscalYearId && settingsData.fiscalYears) {
                     const activeYear = settingsData.fiscalYears.find(y => y.id === settingsData.activeFiscalYearId);

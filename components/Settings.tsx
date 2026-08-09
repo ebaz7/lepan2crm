@@ -6303,6 +6303,21 @@ const Settings: React.FC<SettingsProps> = ({
                               setBgMode('custom');
 
                               try {
+                                const currentSys = await getSettings();
+                                const updatedSys: SystemSettings = {
+                                  ...currentSys,
+                                  customBgImage: res,
+                                  bgMode: 'custom',
+                                  customBgBlur,
+                                  customBgAdapt
+                                };
+                                await saveSettings(updatedSys);
+                                if (onUpdateSettings) onUpdateSettings(updatedSys);
+                              } catch (err) {
+                                console.error('Failed to save custom bg globally:', err);
+                              }
+
+                              try {
                                 const brightness = await analyzeImageBrightness(res);
                                 localStorage.setItem('app_custom_bg_brightness', brightness);
                               } catch (e) {
@@ -6310,7 +6325,7 @@ const Settings: React.FC<SettingsProps> = ({
                               }
 
                               window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                              setMessage('تصویر پس‌زمینه اختصاصی با موفقیت اعمال شد ✨');
+                              setMessage('تصویر پس‌زمینه اختصاصی برای تمام کاربران و نسخه گوشی اعمال شد ✨');
                               setTimeout(() => setMessage(''), 3000);
                             }
                           };
@@ -6351,9 +6366,15 @@ const Settings: React.FC<SettingsProps> = ({
                         {bgMode !== 'custom' && (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               localStorage.setItem('app_bg_mode', 'custom');
                               setBgMode('custom');
+                              try {
+                                const currentSys = await getSettings();
+                                const updatedSys: SystemSettings = { ...currentSys, bgMode: 'custom' };
+                                await saveSettings(updatedSys);
+                                if (onUpdateSettings) onUpdateSettings(updatedSys);
+                              } catch (e) {}
                               window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
                               setMessage('تصویر اختصاصی فعال شد');
                               setTimeout(() => setMessage(''), 3000);
@@ -6365,11 +6386,17 @@ const Settings: React.FC<SettingsProps> = ({
                         )}
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             localStorage.removeItem('app_custom_bg_image');
                             localStorage.setItem('app_bg_mode', 'preset');
                             setCustomBgImage(null);
                             setBgMode('preset');
+                            try {
+                              const currentSys = await getSettings();
+                              const updatedSys: SystemSettings = { ...currentSys, customBgImage: null, bgMode: 'preset' };
+                              await saveSettings(updatedSys);
+                              if (onUpdateSettings) onUpdateSettings(updatedSys);
+                            } catch (e) {}
                             window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
                             setMessage('تصویر پس‌زمینه اختصاصی حذف شد');
                             setTimeout(() => setMessage(''), 3000);
@@ -6393,10 +6420,16 @@ const Settings: React.FC<SettingsProps> = ({
                           min="0"
                           max="40"
                           value={customBgBlur}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const val = parseInt(e.target.value, 10);
                             setCustomBgBlur(val);
                             localStorage.setItem('app_custom_bg_blur', val.toString());
+                            try {
+                              const currentSys = await getSettings();
+                              const updatedSys: SystemSettings = { ...currentSys, customBgBlur: val };
+                              await saveSettings(updatedSys);
+                              if (onUpdateSettings) onUpdateSettings(updatedSys);
+                            } catch (err) {}
                             window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
                           }}
                           className="w-full accent-pink-600 cursor-pointer"
@@ -6413,10 +6446,16 @@ const Settings: React.FC<SettingsProps> = ({
                           <input
                             type="checkbox"
                             checked={customBgAdapt}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const val = e.target.checked;
                               setCustomBgAdapt(val);
                               localStorage.setItem('app_custom_bg_adapt', val ? 'true' : 'false');
+                              try {
+                                const currentSys = await getSettings();
+                                const updatedSys: SystemSettings = { ...currentSys, customBgAdapt: val };
+                                await saveSettings(updatedSys);
+                                if (onUpdateSettings) onUpdateSettings(updatedSys);
+                              } catch (err) {}
                               window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
                             }}
                             className="sr-only peer"

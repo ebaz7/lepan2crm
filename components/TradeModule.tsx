@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { User, TradeRecord, TradeStage, TradeItem, SystemSettings, InsuranceEndorsement, CurrencyPurchaseData, TradeTransaction, CurrencyTranche, CurrencyDelivery, TradeStageData, ShippingDocument, ShippingDocType, DocStatus, InvoiceItem, InspectionData, InspectionPayment, InspectionCertificate, ClearanceData, WarehouseReceipt, ClearancePayment, GreenLeafData, GreenLeafCustomsDuty, GreenLeafGuarantee, GreenLeafTax, GreenLeafRoadToll, InternalShippingData, ShippingPayment, AgentData, AgentPayment, PackingItem, UserRole, GuaranteeCheque } from '../types';
 import { getTradeRecords, saveTradeRecord, updateTradeRecord, deleteTradeRecord, getSettings, uploadFile } from '../services/storageService';
 import { generateUUID, formatCurrency, formatNumberString, deformatNumberString, parsePersianDate, formatDate, calculateDaysDiff, getStatusLabel } from '../constants';
-import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ExternalLink, CalendarDays, Info, ArrowLeftRight, Edit2, Edit, Undo2 } from 'lucide-react';
+import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2 } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
 import AllocationReport from './AllocationReport';
@@ -931,18 +932,23 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             return;
         }
 
-        const transferNote = `انتقال از پروفرم ${selectedRecord.fileNumber} (${selectedRecord.goodsName}) به این پروفرم جدید: ${transferForm.newGoodsName}`;
+        const newGoodsNameClean = transferForm.newGoodsName.trim();
         
         const newRecord: TradeRecord = {
             ...selectedRecord,
             id: generateUUID(),
-            fileNumber: transferForm.newFileNumber,
-            goodsName: transferNote,
-            sellerName: transferForm.newSellerName || selectedRecord.sellerName,
-            commodityGroup: transferForm.targetCommodityGroup,
+            fileNumber: transferForm.newFileNumber.trim(),
+            goodsName: newGoodsNameClean,
+            sellerName: transferForm.newSellerName?.trim() || selectedRecord.sellerName,
+            commodityGroup: transferForm.targetCommodityGroup.trim(),
             startDate: new Date().toLocaleDateString('fa-IR'),
             createdAt: Date.now(),
             createdBy: currentUser.fullName,
+            transferredFrom: {
+                fileNumber: selectedRecord.fileNumber,
+                goodsName: selectedRecord.goodsName,
+                commodityGroup: selectedRecord.commodityGroup
+            },
             proformaHistory: [
                 {
                     id: generateUUID(),
@@ -950,20 +956,25 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     freightCost: selectedRecord.freightCost || 0,
                     updatedAt: Date.now(),
                     updatedBy: currentUser.fullName,
-                    description: `پروفرم منتقل شده از پرونده قبلی (${selectedRecord.fileNumber})`
+                    description: `انتقال از پروفرم ${selectedRecord.fileNumber} (${selectedRecord.goodsName} - گروه ${selectedRecord.commodityGroup}) به این پروفرم جدید (${newGoodsNameClean} - گروه ${transferForm.targetCommodityGroup})`
                 },
                 ...(selectedRecord.proformaHistory || [])
             ]
         };
 
-        const updatedOldRecord = {
+        const updatedOldRecord: TradeRecord = {
             ...selectedRecord,
             status: 'Completed' as const,
-            isArchived: true
+            isArchived: true,
+            transferredTo: {
+                fileNumber: transferForm.newFileNumber.trim(),
+                goodsName: newGoodsNameClean,
+                commodityGroup: transferForm.targetCommodityGroup.trim()
+            }
         };
 
         await updateTradeRecord(updatedOldRecord);
-        await createTradeRecord(newRecord);
+        await saveTradeRecord(newRecord);
 
         setShowTransferModal(false);
         alert('پرونده با موفقیت به گروه جدید منتقل شد و پروفرم جدید ثبت گردید.');
@@ -1370,44 +1381,46 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 )}
 
                 {/* EDIT METADATA MODAL */}
-                {showEditMetadataModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                        <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-fade-in max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-xl text-gray-800">ویرایش مشخصات پرونده</h3>
-                                <button onClick={() => setShowEditMetadataModal(false)}><X size={24} className="text-gray-400 hover:text-red-500"/></button>
+                {showEditMetadataModal && createPortal(
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                            <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-100 dark:border-gray-800">
+                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">ویرایش مشخصات پرونده</h3>
+                                <button onClick={() => setShowEditMetadataModal(false)}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors"/></button>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-4 text-gray-800 dark:text-gray-200">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">شماره پرونده</label>
-                                    <input className="w-full border rounded-xl p-3 bg-gray-50 font-mono text-left dir-ltr" value={editMetadataForm.fileNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, fileNumber: e.target.value})} />
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره پرونده</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.fileNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, fileNumber: e.target.value})} />
                                 </div>
-                                <div><label className="block text-sm font-bold text-gray-700 mb-1">نام کالا (شرح کلی)</label><input className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.goodsName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, goodsName: e.target.value})} /></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-gray-700 mb-1">فروشنده</label><input className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.sellerName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, sellerName: e.target.value})} /></div><div><label className="block text-sm font-bold text-gray-700 mb-1">ارز پایه</label><select className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.mainCurrency || ''} onChange={e => setEditMetadataForm({...editMetadataForm, mainCurrency: e.target.value})}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-gray-700 mb-1">گروه کالایی</label><select className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.commodityGroup || ''} onChange={e => setEditMetadataForm({...editMetadataForm, commodityGroup: e.target.value})}><option value="">انتخاب...</option>{commodityGroups.map(g => <option key={g} value={g}>{g}</option>)}</select></div><div><label className="block text-sm font-bold text-gray-700 mb-1">شرکت</label><select className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.company || ''} onChange={e => setEditMetadataForm({...editMetadataForm, company: e.target.value})}><option value="">انتخاب...</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-gray-700 mb-1">شماره ثبت سفارش</label><input className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.registrationNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, registrationNumber: e.target.value})} /></div><div><label className="block text-sm font-bold text-gray-700 mb-1">بانک عامل</label><select className="w-full border rounded-xl p-3 glass-panel" value={editMetadataForm.operatingBank || ''} onChange={e => setEditMetadataForm({...editMetadataForm, operatingBank: e.target.value})}><option value="">انتخاب...</option>{operatingBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div>
-                                <button onClick={saveMetadata} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4">ذخیره تغییرات</button>
+                                <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام کالا (شرح کلی)</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.goodsName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, goodsName: e.target.value})} /></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">فروشنده</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.sellerName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, sellerName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ارز پایه</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.mainCurrency || ''} onChange={e => setEditMetadataForm({...editMetadataForm, mainCurrency: e.target.value})}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">گروه کالایی</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.commodityGroup || ''} onChange={e => setEditMetadataForm({...editMetadataForm, commodityGroup: e.target.value})}><option value="">انتخاب...</option>{commodityGroups.map(g => <option key={g} value={g}>{g}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شرکت</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.company || ''} onChange={e => setEditMetadataForm({...editMetadataForm, company: e.target.value})}><option value="">انتخاب...</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره ثبت سفارش</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.registrationNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, registrationNumber: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">بانک عامل</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.operatingBank || ''} onChange={e => setEditMetadataForm({...editMetadataForm, operatingBank: e.target.value})}><option value="">انتخاب...</option>{operatingBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div>
+                                <button onClick={saveMetadata} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4 transition-all">ذخیره تغییرات</button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 {/* Stage Edit Modal */}
-                {editingStage && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                        <div className="glass-panel rounded-xl shadow-xl w-full max-w-lg p-6">
-                            <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">ویرایش مرحله: {editingStage}</h3><button onClick={() => setEditingStage(null)}><X size={20}/></button></div>
-                            <div className="space-y-4">
-                                <label className="flex items-center gap-2"><input type="checkbox" checked={stageFormData.isCompleted} onChange={e => setStageFormData({...stageFormData, isCompleted: e.target.checked})} className="w-5 h-5"/> <span className="font-bold">مرحله تکمیل شده است</span></label>
-                                {editingStage === TradeStage.ALLOCATION_QUEUE && (<div className="bg-amber-50 p-3 rounded border border-amber-200 space-y-2"><div><label className="text-xs font-bold block">تاریخ ورود به صف</label><input type="text" className="w-full border rounded p-2 text-sm" placeholder="1403/01/01" value={stageFormData.queueDate || ''} onChange={e => setStageFormData({...stageFormData, queueDate: e.target.value})} /></div>{stageFormData.queueDate && <div className="text-xs text-amber-700 font-bold">مدت انتظار: {calculateDaysDiff(stageFormData.queueDate)} روز</div>}</div>)}
-                                {editingStage === TradeStage.ALLOCATION_APPROVED && (<div className="bg-green-50 p-3 rounded border border-green-200 space-y-2"><div><label className="text-xs font-bold block">شماره فیش/تخصیص</label><input type="text" className="w-full border rounded p-2 text-sm" value={stageFormData.allocationCode || ''} onChange={e => setStageFormData({...stageFormData, allocationCode: e.target.value})} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2"><div><label className="text-xs font-bold block">تاریخ تخصیص</label><input type="text" className="w-full border rounded p-2 text-sm" placeholder="1403/01/01" value={stageFormData.allocationDate || ''} onChange={e => setStageFormData({...stageFormData, allocationDate: e.target.value})} /></div><div><label className="text-xs font-bold block">مهلت انقضا</label><input type="text" className="w-full border rounded p-2 text-sm" placeholder="1403/02/01" value={stageFormData.allocationExpiry || ''} onChange={e => setStageFormData({...stageFormData, allocationExpiry: e.target.value})} /></div></div></div>)}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-xs font-bold block">هزینه ریالی</label><input type="text" className="w-full border rounded p-2 text-sm" value={formatNumberString(stageFormData.costRial)} onChange={e => setStageFormData({...stageFormData, costRial: deformatNumberString(e.target.value)})} /></div><div><label className="text-xs font-bold block">هزینه ارزی</label><input type="text" className="w-full border rounded p-2 text-sm" value={formatNumberString(stageFormData.costCurrency)} onChange={e => setStageFormData({...stageFormData, costCurrency: deformatNumberString(e.target.value)})} /></div></div>
-                                <div><label className="text-xs font-bold block">توضیحات</label><textarea className="w-full border rounded p-2 text-sm h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-blue-600 hover:text-blue-800 text-right truncate max-w-[200px]">{att.fileName}</button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div>))}</div></div>
-                                <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700">ذخیره تغییرات</button>
+                {editingStage && createPortal(
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800"><h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">ویرایش مرحله: {editingStage}</h3><button onClick={() => setEditingStage(null)}><X size={20} className="text-gray-400 hover:text-red-500"/></button></div>
+                            <div className="space-y-4 text-gray-800 dark:text-gray-200">
+                                <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={stageFormData.isCompleted} onChange={e => setStageFormData({...stageFormData, isCompleted: e.target.checked})} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"/> <span className="font-bold text-sm">مرحله تکمیل شده است</span></label>
+                                {editingStage === TradeStage.ALLOCATION_QUEUE && (<div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2"><div><label className="text-xs font-bold block mb-1">تاریخ ورود به صف</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.queueDate || ''} onChange={e => setStageFormData({...stageFormData, queueDate: e.target.value})} /></div>{stageFormData.queueDate && <div className="text-xs text-amber-700 dark:text-amber-400 font-bold">مدت انتظار: {calculateDaysDiff(stageFormData.queueDate)} روز</div>}</div>)}
+                                {editingStage === TradeStage.ALLOCATION_APPROVED && (<div className="bg-green-50 dark:bg-green-950/40 p-3 rounded-xl border border-green-200 dark:border-green-800 space-y-2"><div><label className="text-xs font-bold block mb-1">شماره فیش/تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={stageFormData.allocationCode || ''} onChange={e => setStageFormData({...stageFormData, allocationCode: e.target.value})} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2"><div><label className="text-xs font-bold block mb-1">تاریخ تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.allocationDate || ''} onChange={e => setStageFormData({...stageFormData, allocationDate: e.target.value})} /></div><div><label className="text-xs font-bold block mb-1">مهلت انقضا</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/02/01" value={stageFormData.allocationExpiry || ''} onChange={e => setStageFormData({...stageFormData, allocationExpiry: e.target.value})} /></div></div></div>)}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-xs font-bold block mb-1">هزینه ریالی</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={formatNumberString(stageFormData.costRial)} onChange={e => setStageFormData({...stageFormData, costRial: deformatNumberString(e.target.value)})} /></div><div><label className="text-xs font-bold block mb-1">هزینه ارزی</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={formatNumberString(stageFormData.costCurrency)} onChange={e => setStageFormData({...stageFormData, costCurrency: deformatNumberString(e.target.value)})} /></div></div>
+                                <div><label className="text-xs font-bold block mb-1">توضیحات</label><textarea className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px]">{att.fileName}</button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div>))}</div></div>
+                                <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 {/* Header */}
@@ -1417,10 +1430,22 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <div>
                             <h1 className="text-xl font-bold flex items-center gap-2">
                                 {selectedRecord.goodsName}
-                                <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{selectedRecord.fileNumber}</span>
+                                <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{selectedRecord.fileNumber}</span>
                                 <button onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
                             </h1>
                             <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
+                            {selectedRecord.transferredFrom && (
+                                <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-xl w-fit font-medium">
+                                    <ArrowRightLeft size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <span>انتقال یافته از پروفرم {selectedRecord.transferredFrom.fileNumber} ({selectedRecord.transferredFrom.goodsName} - گروه {selectedRecord.transferredFrom.commodityGroup}) به این پروفرم</span>
+                                </div>
+                            )}
+                            {selectedRecord.transferredTo && (
+                                <div className="mt-1 flex items-center gap-1.5 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 rounded-xl w-fit font-medium">
+                                    <ArrowRightLeft size={13} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                                    <span>منتقل شده به پروفرم {selectedRecord.transferredTo.fileNumber} ({selectedRecord.transferredTo.goodsName} - گروه {selectedRecord.transferredTo.commodityGroup})</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2568,18 +2593,30 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <span className={`text-[10px] px-2 py-1 rounded-lg ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>{record.status === 'Completed' ? 'تکمیل شده' : 'جاری'}</span>
                                 </div>
                                 <div className="space-y-1.5 text-xs text-gray-500">
-                                    <div className="flex items-center gap-1"><FolderOpen size={12} /> پرونده: <span className="font-mono text-gray-700 font-bold">{record.fileNumber}</span></div>
-                                    <div className="flex items-center gap-1"><Building2 size={12} /> فروشنده: <span className="text-gray-700">{record.sellerName}</span></div>
+                                    <div className="flex items-center gap-1"><FolderOpen size={12} /> پرونده: <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.fileNumber}</span></div>
+                                    <div className="flex items-center gap-1"><Building2 size={12} /> فروشنده: <span className="text-gray-700 dark:text-gray-300">{record.sellerName}</span></div>
                                     <div className="flex items-center gap-1"><History size={12} /> شروع: <span>{new Date(record.startDate).toLocaleDateString('fa-IR')}</span></div>
                                 </div>
+                                {record.transferredFrom && (
+                                    <div className="mt-3 pt-2.5 border-t border-amber-200/80 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50/90 dark:bg-amber-950/40 p-2 rounded-xl flex items-center gap-1.5 font-medium">
+                                        <ArrowRightLeft size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span className="line-clamp-2">انتقال از پروفرم {record.transferredFrom.fileNumber} (گروه {record.transferredFrom.commodityGroup}) به این پروفرم</span>
+                                    </div>
+                                )}
+                                {record.transferredTo && (
+                                    <div className="mt-3 pt-2.5 border-t border-blue-200/80 dark:border-blue-900/50 text-[11px] text-blue-800 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-950/40 p-2 rounded-xl flex items-center gap-1.5 font-medium">
+                                        <ArrowRightLeft size={14} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                                        <span className="line-clamp-2">منتقل شده به پروفرم {record.transferredTo.fileNumber} (گروه {record.transferredTo.commodityGroup})</span>
+                                    </div>
+                                )}
                             </div>
                         ))
                 )}
             </div>
             
             {/* New Record Modal */}
-            {showNewModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 overflow-y-auto">
+            {showNewModal && createPortal(
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
                         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                             <div>
@@ -2627,12 +2664,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Transfer Proforma Modal */}
-            {showTransferModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 overflow-y-auto">
+            {showTransferModal && createPortal(
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
                     <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
                         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                             <div>
@@ -2665,7 +2703,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             {/* Tranche Deliveries Modal */}
             {selectedTrancheForDeliveries && (() => {
@@ -2673,60 +2712,60 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                            currencyForm.tranches?.find(t => t.id === selectedTrancheForDeliveries);
                 if (!tr) return null;
                 const deliveries = tr.deliveries || [];
-                return (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                        <div className="glass-panel rounded-2xl shadow-xl w-full max-w-2xl bg-white p-6 animate-scale-in max-h-[90vh] overflow-y-auto text-right" dir="rtl">
-                            <div className="flex justify-between items-center mb-6 border-b pb-3">
-                                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                return createPortal(
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-2xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                            <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100 dark:border-gray-800">
+                                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
                                     <Coins size={22} className="text-green-600"/>
                                     ثبت و مدیریت تحویل‌های پارت
                                 </h3>
-                                <button onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
+                                <button onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
                             </div>
 
                             {/* Tranche Specs Card */}
-                            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                                <div><span className="text-gray-500 block">مبلغ کل پارت:</span><span className="font-bold font-mono text-amber-800 text-sm">{formatNumberString(tr.amount)} {tr.currencyType}</span></div>
-                                <div><span className="text-gray-500 block">کل هزینه ریالی:</span><span className="font-bold font-mono text-gray-800">{formatNumberString(tr.rialAmount || 0)} ریال</span></div>
-                                <div><span className="text-gray-500 block">صرافی/کارگزار:</span><span className="font-bold">{tr.exchangeName || '-'} {tr.brokerName ? `(${tr.brokerName})` : ''}</span></div>
-                                <div><span className="text-gray-500 block">تاریخ خرید:</span><span className="font-bold">{tr.date || '-'}</span></div>
+                            <div className="bg-amber-50 dark:bg-amber-950/40 p-4 rounded-xl border border-amber-200 dark:border-amber-800 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                <div><span className="text-gray-500 dark:text-gray-400 block">مبلغ کل پارت:</span><span className="font-bold font-mono text-amber-800 dark:text-amber-300 text-sm">{formatNumberString(tr.amount)} {tr.currencyType}</span></div>
+                                <div><span className="text-gray-500 dark:text-gray-400 block">کل هزینه ریالی:</span><span className="font-bold font-mono text-gray-800 dark:text-gray-200">{formatNumberString(tr.rialAmount || 0)} ریال</span></div>
+                                <div><span className="text-gray-500 dark:text-gray-400 block">صرافی/کارگزار:</span><span className="font-bold text-gray-800 dark:text-gray-200">{tr.exchangeName || '-'} {tr.brokerName ? `(${tr.brokerName})` : ''}</span></div>
+                                <div><span className="text-gray-500 dark:text-gray-400 block">تاریخ خرید:</span><span className="font-bold text-gray-800 dark:text-gray-200">{tr.date || '-'}</span></div>
                             </div>
 
                             {/* Add Delivery Form */}
-                            <div className="border p-4 rounded-xl mb-6 bg-gray-50 text-right">
-                                <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-1">افزودن تحویل جدید</h4>
+                            <div className="border border-gray-200 dark:border-gray-800 p-4 rounded-xl mb-6 bg-gray-50 dark:bg-gray-800/50 text-right">
+                                <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-1">افزودن تحویل جدید</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600">مقدار تحویلی *</label>
+                                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">مقدار تحویلی *</label>
                                         <input 
-                                            className="w-full border rounded-lg p-2 text-sm dir-ltr font-bold text-green-700 bg-white" 
+                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm dir-ltr font-bold text-green-700 dark:text-green-400 bg-white dark:bg-gray-900" 
                                             value={newDeliveryForm.amount} 
                                             onChange={e => setNewDeliveryForm({...newDeliveryForm, amount: formatNumberString(e.target.value)})} 
                                             placeholder="مقدار ارز..." 
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600">تاریخ تحویل</label>
+                                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">تاریخ تحویل</label>
                                         <input 
-                                            className="w-full border rounded-lg p-2 text-sm dir-ltr bg-white" 
+                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm dir-ltr bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" 
                                             value={newDeliveryForm.date} 
                                             onChange={e => setNewDeliveryForm({...newDeliveryForm, date: e.target.value})} 
                                             placeholder="۱۴۰۳/۰۱/۰۱" 
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600 font-sans">تحویل‌گیرنده</label>
+                                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300 font-sans">تحویل‌گیرنده</label>
                                         <input 
-                                            className="w-full border rounded-lg p-2 text-sm bg-white" 
+                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" 
                                             value={newDeliveryForm.recipientName} 
                                             onChange={e => setNewDeliveryForm({...newDeliveryForm, recipientName: e.target.value})} 
                                             placeholder="نام شخص..." 
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600 font-sans">توضیحات</label>
+                                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300 font-sans">توضیحات</label>
                                         <input 
-                                            className="w-full border rounded-lg p-2 text-sm bg-white" 
+                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" 
                                             value={newDeliveryForm.description} 
                                             onChange={e => setNewDeliveryForm({...newDeliveryForm, description: e.target.value})} 
                                             placeholder="توضیحات..." 
@@ -2735,20 +2774,20 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 </div>
                                 <button 
                                     onClick={handleAddTrancheDelivery} 
-                                    className="mt-4 w-full bg-green-600 text-white rounded-lg p-2 font-bold hover:bg-green-700 text-sm transition-all flex items-center justify-center gap-1"
+                                    className="mt-4 w-full bg-green-600 text-white rounded-lg p-2 font-bold hover:bg-green-700 text-sm transition-all flex items-center justify-center gap-1 shadow-md"
                                 >
                                     <Plus size={16}/> ثبت تحویل
                                 </button>
                             </div>
 
                             {/* Deliveries List */}
-                            <h4 className="font-bold text-sm text-gray-700 mb-3">تحویل‌های ثبت شده</h4>
+                            <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3">تحویل‌های ثبت شده</h4>
                             {deliveries.length === 0 ? (
-                                <div className="text-center py-6 text-xs text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">تحویلی برای این پارت ثبت نشده است.</div>
+                                <div className="text-center py-6 text-xs text-gray-400 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">تحویلی برای این پارت ثبت نشده است.</div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-xs text-right mt-1">
-                                        <thead className="bg-gray-100 text-gray-700">
+                                        <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                                             <tr>
                                                 <th className="p-3">تاریخ</th>
                                                 <th className="p-3">مقدار تحویلی</th>
@@ -2757,13 +2796,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 <th className="p-3">حذف</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody className="text-gray-800 dark:text-gray-200">
                                             {deliveries.map((delivery) => (
-                                                <tr key={delivery.id} className="border-b hover:bg-gray-50">
+                                                <tr key={delivery.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                                     <td className="p-3 font-mono">{delivery.date || '-'}</td>
-                                                    <td className="p-3 font-mono font-bold text-green-705">{formatNumberString(delivery.amount)} {tr.currencyType}</td>
+                                                    <td className="p-3 font-mono font-bold text-green-700 dark:text-green-400">{formatNumberString(delivery.amount)} {tr.currencyType}</td>
                                                     <td className="p-3">{delivery.recipientName || '-'}</td>
-                                                    <td className="p-3 text-gray-500">{delivery.description || '-'}</td>
+                                                    <td className="p-3 text-gray-500 dark:text-gray-400">{delivery.description || '-'}</td>
                                                     <td className="p-3">
                                                         <button 
                                                             onClick={() => handleRemoveTrancheDelivery(tr.id, delivery.id)} 
@@ -2775,10 +2814,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 </tr>
                                             ))}
                                         </tbody>
-                                        <tfoot className="bg-green-50 font-bold">
+                                        <tfoot className="bg-green-50 dark:bg-green-950/40 font-bold text-gray-900 dark:text-gray-100">
                                             <tr>
                                                 <td className="p-3">مجموع تحویل‌ها</td>
-                                                <td className="p-3 font-mono text-green-800">{formatNumberString(deliveries.reduce((sum: number, d) => sum + d.amount, 0))} {tr.currencyType}</td>
+                                                <td className="p-3 font-mono text-green-800 dark:text-green-300">{formatNumberString(deliveries.reduce((sum: number, d) => sum + d.amount, 0))} {tr.currencyType}</td>
                                                 <td colSpan={3}></td>
                                             </tr>
                                         </tfoot>
@@ -2786,7 +2825,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 );
             })()}
 

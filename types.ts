@@ -1070,6 +1070,16 @@ export interface TradeRecord {
     agentData?: AgentData;
     isCommitmentFulfilled?: boolean;
     exchangeRate?: number;
+    transferredFrom?: {
+        fileNumber: string;
+        goodsName: string;
+        commodityGroup: string;
+    };
+    transferredTo?: {
+        fileNumber: string;
+        goodsName: string;
+        commodityGroup: string;
+    };
     proformaHistory?: Array<{
         id: string;
         items: TradeItem[];
