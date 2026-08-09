@@ -345,22 +345,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
-    // Helper to extract net weight from row details (excluding packaging items like cartons, bobbins, pallets, using invoice quantity)
+    // Helper to extract net weight from row details (extracting net weight from item notes or quantity)
     const parseNetWeight = (row: any) => {
-        const name = (row.ItemName || '').toLowerCase();
-        const group = (row.GroupName || '').toLowerCase();
-        if (
-            name.includes('کارتن') || 
-            name.includes('بوبین') || 
-            name.includes('بسته بندی') || 
-            name.includes('پالت') ||
-            group.includes('کارتن') || 
-            group.includes('بوبین') || 
-            group.includes('بسته بندی') ||
-            group.includes('پالت')
-        ) {
-            return 0;
-        }
+        const notes = row.ItemNotes || '';
+        const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+        if (match) return parseFloat(match[1]);
+        
+        const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
+        if (seriesMatch) return parseFloat(seriesMatch[1]);
 
         return parseFloat(row.Quantity || 0);
     };

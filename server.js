@@ -557,6 +557,15 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const shamsiClean = shamsiDate.replace(/\//g, '');
     const shamsiDash = shamsiDate.replace(/\//g, '-');
     const gregSlash = gregDate.replace(/-/g, '/');
+
+    const parseNetWeight = (row) => {
+        const notes = row.ItemNotes || '';
+        const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+        if (match) return parseFloat(match[1]);
+        const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
+        if (seriesMatch) return parseFloat(seriesMatch[1]);
+        return parseFloat(row.Quantity || 0);
+    };
     
     const sql = `
         SELECT 
@@ -588,9 +597,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
-            t10.Field_009 IN ('3', '12', '23')
+            t10.Field_009 = '12'
             OR 
-            t10.Field_009 IN ('13')
+            t10.Field_009 = '13'
           )
           AND (
             t10.Field_008 LIKE '${gregDate}%'
@@ -674,7 +683,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         
         salesRows.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = parseFloat(inv.Quantity || 0);
+            const qty = parseNetWeight(inv);
             let amt = parseFloat(inv.Amount || 0);
             const isReturn = inv.OpCode === '13';
             
