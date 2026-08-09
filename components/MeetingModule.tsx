@@ -1296,8 +1296,8 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
             )}
             {/* View/Approval Modal */}
             {viewMeeting && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-hidden">
-                    <div className="bg-white text-gray-900 w-full h-full md:h-auto md:max-h-[95vh] max-w-full md:max-w-5xl xl:max-w-7xl rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
+                <div className="fixed inset-0 z-[100] flex items-start justify-center p-2 md:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
+                    <div className="bg-white text-gray-900 w-full my-2 md:my-6 max-w-full md:max-w-5xl xl:max-w-7xl rounded-xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
                         <div className="p-4 px-6 border-b border-gray-200 flex justify-between items-center bg-gray-100 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
@@ -1323,7 +1323,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                     <div className="text-sm font-bold text-gray-700 italic">گروه تولیدی احمدی</div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-8 bg-gray-50 p-4 rounded-xl border-2 border-gray-900">
                                     <div className="space-y-1">
                                         <div className="text-gray-500 font-bold text-[10px]">شماره جلسه:</div>
                                         <div className="font-black underline decoration-2 underline-offset-4 text-gray-900">{viewMeeting.meetingNumber}</div>
@@ -1342,7 +1342,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-gray-300">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b-2 border-gray-900">
                                     <div className="flex gap-2">
                                         <span className="font-black whitespace-nowrap text-gray-900">رئیس جلسه:</span>
                                         <span className="text-gray-800 font-bold">{viewMeeting.chairman}</span>
@@ -1356,9 +1356,9 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                 {/* Attendees Tableish */}
                                 <div className="mb-10">
                                     <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">اعضای حاضر در جلسه</div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-1">
                                         {viewMeeting.attendees.filter(a => a.isPresent).map((a, i) => (
-                                            <div key={i} className="flex flex-col border-b border-gray-200 pb-2">
+                                            <div key={i} className="flex flex-col p-2.5 border-2 border-gray-900 rounded-lg bg-gray-50">
                                                 <span className="font-black text-xs text-gray-900">{a.fullName}</span>
                                                 <span className="text-[10px] text-gray-600 font-bold">{a.role}</span>
                                             </div>
@@ -1376,27 +1376,27 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                 <div className="mb-10">
                                     <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">شرح مصوبات و پیگیری‌ها</div>
                                     <div className="w-full overflow-x-auto">
-                                        <table className="w-full border-collapse border border-gray-400 bg-white text-gray-900">
+                                        <table className="w-full border-collapse border-2 border-gray-900 bg-white text-gray-900">
                                             <thead>
                                                 <tr className="bg-gray-100 text-xs font-black text-gray-900">
-                                                    <th className="border border-gray-400 p-3 w-12 text-center">ردیف</th>
-                                                    <th className="border border-gray-400 p-3 text-right">شرح موضوع / مصوبه</th>
-                                                    <th className="border border-gray-400 p-3 w-32 text-center">مسئول اجرا</th>
-                                                    <th className="border border-gray-400 p-3 w-24 text-center">مهلت (روز)</th>
+                                                    <th className="border-2 border-gray-900 p-3 w-12 text-center">ردیف</th>
+                                                    <th className="border-2 border-gray-900 p-3 text-right">شرح موضوع / مصوبه</th>
+                                                    <th className="border-2 border-gray-900 p-3 w-32 text-center">مسئول اجرا</th>
+                                                    <th className="border-2 border-gray-900 p-3 w-24 text-center">مهلت (روز)</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="text-xs font-bold text-gray-900">
                                                 {viewMeeting.items.map((item, idx) => (
                                                     <tr key={item.id} className="hover:bg-gray-50">
-                                                        <td className="border border-gray-400 p-4 text-center">{idx + 1}</td>
-                                                        <td className="border border-gray-400 p-4 leading-relaxed">{item.description}</td>
-                                                        <td className="border border-gray-400 p-4 text-center">{item.responsiblePerson}</td>
-                                                        <td className="border border-gray-400 p-4 text-center">{item.duration}</td>
+                                                        <td className="border-2 border-gray-900 p-3 text-center">{idx + 1}</td>
+                                                        <td className="border-2 border-gray-900 p-3 leading-relaxed">{item.description}</td>
+                                                        <td className="border-2 border-gray-900 p-3 text-center">{item.responsiblePerson}</td>
+                                                        <td className="border-2 border-gray-900 p-3 text-center">{item.duration}</td>
                                                     </tr>
                                                 ))}
                                                 {viewMeeting.items.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={4} className="border border-gray-400 p-8 text-center text-gray-500 italic">موردی ثبت نشده است</td>
+                                                        <td colSpan={4} className="border-2 border-gray-900 p-8 text-center text-gray-500 italic">موردی ثبت نشده است</td>
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -1412,7 +1412,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                             const approvalKey = a.username || a.fullName;
                                             const isApproved = viewMeeting.approvals?.[approvalKey]?.approved;
                                             return (
-                                                <div key={i} className="flex flex-col items-center gap-3 p-4 border border-dashed border-gray-300 rounded-2xl bg-gray-50 text-gray-900 relative overflow-hidden group">
+                                                <div key={i} className="flex flex-col items-center gap-3 p-4 border-2 border-gray-900 rounded-2xl bg-gray-50 text-gray-900 relative overflow-hidden group shadow-xs">
                                                     <span className="font-black text-[9px] text-gray-500 transition-colors uppercase tracking-tight">{a.role}</span>
                                                     <div className="h-16 flex items-center justify-center italic font-black text-blue-900 opacity-90 scale-110">
                                                         {isApproved ? (

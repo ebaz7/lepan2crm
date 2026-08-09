@@ -944,7 +944,7 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
     const isLandscapeMode = (printTarget && (printTarget.type === 'daily_log')) || (viewCartableItem && (viewCartableItem.category === 'log' || viewCartableItem.type === 'log'));
 
     return (
-        <div className="p-4 md:p-6 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200 h-[calc(100dvh-140px)] md:h-[calc(100vh-100px)] overflow-y-auto animate-fade-in relative">
+        <div className="p-2 sm:p-4 md:p-6 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200 h-[calc(100dvh-130px)] md:h-[calc(100vh-100px)] overflow-y-auto animate-fade-in relative">
             
             {/* Shift Meta Modal */}
             {showShiftModal && (
@@ -1468,31 +1468,86 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                 </div>
             )}
 
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Shield className="text-blue-600"/> واحد انتظامات</h1>
-                <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
-                    {(activeTab === 'logs' || activeTab === 'delays') && (<div className="flex gap-2"><button onClick={() => setShowShiftModal(true)} className="glass-panel border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1"><FileText size={16}/> شیفت</button><DateFilter /></div>)}
-                    <div className="flex flex-wrap justify-center md:flex-nowrap md:justify-start glass-panel p-1 rounded-xl shadow-sm border gap-1"><button onClick={() => setActiveTab('logs')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}>نگهبانی</button><button onClick={() => setActiveTab('delays')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'delays' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}>تاخیر</button><button onClick={() => setActiveTab('incidents')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'incidents' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}>وقایع</button><div className="hidden md:block w-px bg-gray-300 mx-1"></div><button onClick={() => setActiveTab('cartable')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'cartable' ? 'bg-orange-600 text-white' : 'text-gray-600'}`}>کارتابل</button><button onClick={() => setActiveTab('in_progress')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'in_progress' ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}>در جریان</button><button onClick={() => setActiveTab('archive')} className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'archive' ? 'bg-green-600 text-white' : 'text-gray-600'}`}>بایگانی</button></div>
+            <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <h1 className="text-xl md:text-2xl font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                        <Shield className="text-blue-600"/> واحد انتظامات
+                    </h1>
+                    {(activeTab === 'logs' || activeTab === 'delays') && (
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                            <button onClick={() => setShowShiftModal(true)} className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs hover:bg-gray-50">
+                                <FileText size={16}/> شیفت
+                            </button>
+                            <DateFilter />
+                        </div>
+                    )}
+                </div>
+
+                {/* Mobile & Desktop Horizontal Scrollable Tab Bar */}
+                <div className="w-full overflow-x-auto no-scrollbar py-1">
+                    <div className="inline-flex items-center gap-1.5 bg-gray-200/80 dark:bg-gray-800/80 p-1.5 rounded-2xl border border-gray-300/50 dark:border-white/10 text-xs font-bold whitespace-nowrap min-w-max">
+                        <button onClick={() => setActiveTab('logs')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'logs' ? 'bg-blue-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            <Shield size={14} className="inline ml-1" /> نگهبانی
+                        </button>
+                        <button onClick={() => setActiveTab('delays')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'delays' ? 'bg-blue-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            <Clock size={14} className="inline ml-1" /> تاخیر پرسنل
+                        </button>
+                        <button onClick={() => setActiveTab('incidents')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'incidents' ? 'bg-blue-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            <AlertTriangle size={14} className="inline ml-1" /> وقایع
+                        </button>
+                        <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-0.5"></div>
+                        <button onClick={() => setActiveTab('cartable')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'cartable' ? 'bg-orange-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            کارتابل
+                        </button>
+                        <button onClick={() => setActiveTab('in_progress')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'in_progress' ? 'bg-indigo-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            در جریان
+                        </button>
+                        <button onClick={() => setActiveTab('archive')} className={`px-3.5 py-2 rounded-xl transition-all ${activeTab === 'archive' ? 'bg-green-600 text-white font-black shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-black/5'}`}>
+                            بایگانی
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="glass-panel rounded-2xl shadow-sm border border-gray-200 min-h-[500px]">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 min-h-[500px] overflow-hidden">
                 {activeTab === 'logs' && (
                     <>
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                            <h2 className="font-bold text-gray-700">دفتر ثبت ورود و خروج کالا و خودرو</h2>
-                            <div className="flex gap-2">
-                                <button onClick={() => { setPrintTarget({ type: 'daily_log', date: getIsoSelectedDate(), logs: displayLogs, meta: metaForm }); setShowPrintModal(true); }} className="glass-panel border text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-100"><Printer size={14}/> چاپ روزانه</button>
-                                {canEdit(SecurityStatus.PENDING_FACTORY) && <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-700"><Plus size={14}/> ثبت مورد جدید</button>}
+                        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-800 flex flex-wrap sm:flex-nowrap justify-between items-center bg-gray-50/80 dark:bg-gray-800/40 gap-2">
+                            <h2 className="font-black text-sm sm:text-base text-gray-800 dark:text-gray-200">دفتر ثبت ورود و خروج کالا و خودرو</h2>
+                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                <button onClick={() => { setPrintTarget({ type: 'daily_log', date: getIsoSelectedDate(), logs: displayLogs, meta: metaForm }); setShowPrintModal(true); }} className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-gray-100 shadow-xs">
+                                    <Printer size={14}/> چاپ روزانه
+                                </button>
+                                {canEdit(SecurityStatus.PENDING_FACTORY) && (
+                                    <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-blue-700 shadow-xs">
+                                        <Plus size={14}/> ثبت مورد جدید
+                                    </button>
+                                )}
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-xs text-center border-collapse">
-                                <thead className="bg-gray-100 text-gray-600"><tr><th className="p-3 border-b">ردیف</th><th className="p-3 border-b">مبدا</th><th className="p-3 border-b">ورود</th><th className="p-3 border-b">خروج</th><th className="p-3 border-b">راننده / پلاک</th><th className="p-3 border-b">کالا / تعداد</th><th className="p-3 border-b">مقصد / گیرنده</th><th className="p-3 border-b">وضعیت</th><th className="p-3 border-b">عملیات</th></tr></thead>
-                                <tbody className="divide-y">
-                                    {displayLogs.length === 0 ? <tr><td colSpan={9} className="p-8 text-gray-400">موردی برای این تاریخ ثبت نشده است.</td></tr> : displayLogs.map((log, idx) => (
-                                        <tr key={log.id} className="hover:bg-gray-50">
-                                            <td className="p-3">{log.rowNumber}</td>
+                                <thead className="bg-gray-100/70 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 font-black">
+                                    <tr>
+                                        <th className="p-3 border-b">ردیف</th>
+                                        <th className="p-3 border-b">مبدا</th>
+                                        <th className="p-3 border-b">ورود</th>
+                                        <th className="p-3 border-b">خروج</th>
+                                        <th className="p-3 border-b">راننده / پلاک</th>
+                                        <th className="p-3 border-b">کالا / تعداد</th>
+                                        <th className="p-3 border-b">مقصد / گیرنده</th>
+                                        <th className="p-3 border-b">وضعیت</th>
+                                        <th className="p-3 border-b">عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {displayLogs.length === 0 ? (
+                                        <tr><td colSpan={9} className="p-8 text-gray-400">موردی برای این تاریخ ثبت نشده است.</td></tr>
+                                    ) : displayLogs.map((log, idx) => (
+                                        <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                            <td className="p-3 font-bold">{log.rowNumber || idx + 1}</td>
                                             <td className="p-3 font-bold">{log.origin}</td>
                                             <td className="p-3 font-mono dir-ltr">{log.entryTime}</td>
                                             <td className="p-3 font-mono dir-ltr">{log.exitTime}</td>
@@ -1515,7 +1570,7 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                             </td>
                                             <td className="p-3"><div>{log.goodsName}</div><div className="text-gray-500">{log.quantity}</div></td>
                                             <td className="p-3"><div>{log.destination}</div><div className="text-gray-500">{log.receiver}</div></td>
-                                            <td className="p-3"><span className={`px-2 py-0.5 rounded text-[10px] ${log.status === SecurityStatus.ARCHIVED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{log.status}</span></td>
+                                            <td className="p-3"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status === SecurityStatus.ARCHIVED ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{log.status}</span></td>
                                             <td className="p-3 flex justify-center gap-1">
                                                 {canEdit(log.status) && <button onClick={(e) => handleJumpToEdit(e, 'log', log)} className="text-amber-500 hover:bg-amber-50 p-1 rounded"><Edit size={14}/></button>}
                                                 {canDelete() && <button onClick={() => handleDeleteItem(log.id, 'log')} className="text-red-400 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>}
@@ -1525,24 +1580,119 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+                            {displayLogs.length === 0 ? (
+                                <div className="p-8 text-center text-gray-400 text-xs">موردی برای این تاریخ ثبت نشده است.</div>
+                            ) : displayLogs.map((log, idx) => (
+                                <div key={log.id} className="p-3.5 space-y-2.5 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-black text-[11px] flex items-center justify-center">
+                                                {log.rowNumber || idx + 1}
+                                            </span>
+                                            <span className="font-mono text-gray-700 dark:text-gray-300 font-bold dir-ltr text-[11px]">
+                                                ⏱️ {log.entryTime || '--:--'} تا {log.exitTime || '--:--'}
+                                            </span>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${log.status === SecurityStatus.ARCHIVED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
+                                            {log.status}
+                                        </span>
+                                    </div>
+
+                                    <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 text-xs space-y-1">
+                                        <div className="flex items-center justify-between font-bold text-gray-800 dark:text-gray-200">
+                                            <span>از: {log.origin || '—'}</span>
+                                            <span className="text-gray-400">➔</span>
+                                            <span>به: {log.destination || '—'}</span>
+                                        </div>
+                                        {(log.receiver || log.driverName) && (
+                                            <div className="text-[11px] text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-between">
+                                                <span>👤 راننده: {log.driverName || '—'} {log.driverPhone ? `(${log.driverPhone})` : ''}</span>
+                                                {log.receiver && <span>تحویل: {log.receiver}</span>}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                        <div className="flex-1">
+                                            <span className="text-gray-500 dark:text-gray-400 text-[11px]">کالا: </span>
+                                            <span className="font-bold text-gray-800 dark:text-gray-200">{log.goodsName || '—'}</span>
+                                            {log.quantity && <span className="text-gray-500 text-[11px] mr-1">({log.quantity})</span>}
+                                        </div>
+                                        {log.plateNumber && (
+                                            <div className="shrink-0">
+                                                <IranianPlateDisplay value={log.plateNumber} size="xs" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-1 text-xs">
+                                        <div>
+                                            {log.attachment && (
+                                                <button 
+                                                    onClick={() => setViewAttachmentUrl(log.attachment)} 
+                                                    className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-lg flex items-center gap-1 font-bold"
+                                                >
+                                                    <Camera size={12} /> عکس خودرو
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {canEdit(log.status) && (
+                                                <button onClick={(e) => handleJumpToEdit(e, 'log', log)} className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                                    <Edit size={14}/> ویرایش
+                                                </button>
+                                            )}
+                                            {canDelete() && (
+                                                <button onClick={() => handleDeleteItem(log.id, 'log')} className="text-red-500 bg-red-50 dark:bg-red-950/30 p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                                    <Trash2 size={14}/> حذف
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </>
                 )}
 
                 {activeTab === 'delays' && (
                      <>
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                            <h2 className="font-bold text-gray-700">لیست تاخیر پرسنل</h2>
-                            <div className="flex gap-2">
-                                <button onClick={() => { setPrintTarget({ type: 'daily_delay', date: getIsoSelectedDate(), delays: displayDelays, meta: metaForm }); setShowPrintModal(true); }} className="glass-panel border text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-100"><Printer size={14}/> چاپ فرم تاخیر</button>
-                                {canEdit(SecurityStatus.PENDING_FACTORY) && <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-700"><Plus size={14}/> ثبت تاخیر</button>}
+                        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-800 flex flex-wrap sm:flex-nowrap justify-between items-center bg-gray-50/80 dark:bg-gray-800/40 gap-2">
+                            <h2 className="font-black text-sm sm:text-base text-gray-800 dark:text-gray-200">لیست تاخیر پرسنل</h2>
+                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                <button onClick={() => { setPrintTarget({ type: 'daily_delay', date: getIsoSelectedDate(), delays: displayDelays, meta: metaForm }); setShowPrintModal(true); }} className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-gray-100 shadow-xs">
+                                    <Printer size={14}/> چاپ فرم تاخیر
+                                </button>
+                                {canEdit(SecurityStatus.PENDING_FACTORY) && (
+                                    <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-blue-700 shadow-xs">
+                                        <Plus size={14}/> ثبت تاخیر
+                                    </button>
+                                )}
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-xs text-center">
-                                <thead className="bg-gray-100 text-gray-600"><tr><th className="p-3 border-b">نام پرسنل</th><th className="p-3 border-b">واحد</th><th className="p-3 border-b">ساعت ورود</th><th className="p-3 border-b">میزان تاخیر</th><th className="p-3 border-b">تکرار</th><th className="p-3 border-b">توضیحات</th><th className="p-3 border-b">عملیات</th></tr></thead>
-                                <tbody className="divide-y">
-                                    {displayDelays.length === 0 ? <tr><td colSpan={7} className="p-8 text-gray-400">موردی ثبت نشده است.</td></tr> : displayDelays.map(d => (
-                                        <tr key={d.id} className="hover:bg-gray-50">
+                                <thead className="bg-gray-100/70 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 font-black">
+                                    <tr>
+                                        <th className="p-3 border-b">نام پرسنل</th>
+                                        <th className="p-3 border-b">واحد</th>
+                                        <th className="p-3 border-b">ساعت ورود</th>
+                                        <th className="p-3 border-b">میزان تاخیر</th>
+                                        <th className="p-3 border-b">تکرار</th>
+                                        <th className="p-3 border-b">توضیحات</th>
+                                        <th className="p-3 border-b">عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {displayDelays.length === 0 ? (
+                                        <tr><td colSpan={7} className="p-8 text-gray-400">موردی ثبت نشده است.</td></tr>
+                                    ) : displayDelays.map(d => (
+                                        <tr key={d.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                             <td className="p-3 font-bold">{d.personnelName}</td>
                                             <td className="p-3">{d.unit}</td>
                                             <td className="p-3 font-mono">{d.arrivalTime}</td>
@@ -1558,26 +1708,68 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800 md:hidden">
+                            {displayDelays.length === 0 ? (
+                                <div className="p-8 text-center text-gray-400 text-xs">موردی ثبت نشده است.</div>
+                            ) : displayDelays.map(d => (
+                                <div key={d.id} className="p-3.5 space-y-2 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <span className="font-black text-sm text-gray-900 dark:text-gray-100">{d.personnelName}</span>
+                                            <span className="text-xs text-gray-500 mr-2">({d.unit || 'نامشخص'})</span>
+                                        </div>
+                                        <span className="text-xs font-black text-red-600 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800">
+                                            تاخیر: {d.delayAmount} دقیقه
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                                        <span>ساعت ورود: <strong className="font-mono text-gray-800 dark:text-gray-200">{d.arrivalTime || '--:--'}</strong></span>
+                                        <span>تکرار در ماه: <strong className="text-gray-800 dark:text-gray-200">{d.repeatCount || 1}</strong></span>
+                                    </div>
+                                    {d.instruction && (
+                                        <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                            توضیحات: {d.instruction}
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end gap-2 pt-1">
+                                        {canEdit(d.status) && (
+                                            <button onClick={(e) => handleJumpToEdit(e, 'delay', d)} className="text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                                <Edit size={14}/> ویرایش
+                                            </button>
+                                        )}
+                                        {canDelete() && (
+                                            <button onClick={() => handleDeleteItem(d.id, 'delay')} className="text-red-500 bg-red-50 dark:bg-red-950/30 p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-bold">
+                                                <Trash2 size={14}/> حذف
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                      </>
                 )}
 
                 {activeTab === 'incidents' && (
                     <>
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                            <h2 className="font-bold text-gray-700">لیست وقایع و گزارشات</h2>
-                            <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-700"><Plus size={14}/> ثبت واقعه جدید</button>
+                        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/40">
+                            <h2 className="font-black text-sm sm:text-base text-gray-800 dark:text-gray-200">لیست وقایع و گزارشات</h2>
+                            <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-blue-700 shadow-xs">
+                                <Plus size={14}/> ثبت واقعه جدید
+                            </button>
                         </div>
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {allDailyIncidents.map(inc => (
-                                <div key={inc.id} className="border rounded-xl p-4 hover:shadow-md transition-shadow glass-panel relative">
+                                <div key={inc.id} className="border border-gray-200 dark:border-gray-800 rounded-xl p-3.5 hover:shadow-md transition-shadow bg-gray-50/50 dark:bg-gray-800/30 relative">
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded font-bold">گزارش #{inc.reportNumber}</span>
+                                        <span className="bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300 text-[10px] px-2 py-0.5 rounded font-black">گزارش #{inc.reportNumber}</span>
                                         <span className="text-[10px] text-gray-400">{new Date(inc.createdAt).toLocaleTimeString('fa-IR')}</span>
                                     </div>
-                                    <h3 className="font-bold text-sm mb-1">{inc.subject}</h3>
-                                    <p className="text-xs text-gray-500 line-clamp-2 mb-3">{inc.description}</p>
-                                    <div className="flex justify-between items-center mt-2 border-t pt-2">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded ${inc.status === SecurityStatus.ARCHIVED ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>{inc.status}</span>
+                                    <h3 className="font-bold text-sm mb-1 text-gray-900 dark:text-gray-100">{inc.subject}</h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">{inc.description}</p>
+                                    <div className="flex justify-between items-center mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+                                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${inc.status === SecurityStatus.ARCHIVED ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>{inc.status}</span>
                                         <div className="flex gap-1">
                                             <button onClick={() => { setPrintTarget({ type: 'incident', incident: inc }); setShowPrintModal(true); }} className="text-gray-500 hover:text-blue-600 p-1"><Printer size={14}/></button>
                                             {canEdit(inc.status) && <button onClick={(e) => handleJumpToEdit(e, 'incident', inc)} className="text-amber-500 hover:text-amber-700 p-1"><Edit size={14}/></button>}
@@ -1591,22 +1783,22 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                 )}
 
                 {activeTab === 'cartable' && (
-                    <div className="p-6">
-                        {getCartableItems().length === 0 ? <div className="text-center text-gray-400 py-10">کارتابل شما خالی است.</div> : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-4 sm:p-6">
+                        {getCartableItems().length === 0 ? <div className="text-center text-gray-400 py-10 text-xs sm:text-sm">کارتابل شما خالی است.</div> : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {getCartableItems().map((item, idx) => (
-                                    <div key={idx} onClick={() => setViewCartableItem(item)} className="glass-panel border rounded-xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all border-l-4 border-l-orange-500">
+                                    <div key={idx} onClick={() => setViewCartableItem(item)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-xs hover:shadow-md cursor-pointer transition-all border-r-4 border-r-orange-500">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="font-bold text-sm text-gray-800">{item.type === 'daily_approval' ? 'تایید گزارش روزانه' : item.type === 'incident' ? 'تایید واقعه' : 'تایید تاخیر'}</span>
-                                            <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded animate-pulse">اقدام فوری</span>
+                                            <span className="font-black text-sm text-gray-800 dark:text-gray-200">{item.type === 'daily_approval' ? 'تایید گزارش روزانه' : item.type === 'incident' ? 'تایید واقعه' : 'تایید تاخیر'}</span>
+                                            <span className="bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">اقدام فوری</span>
                                         </div>
-                                        <div className="text-xs text-gray-600 space-y-1">
+                                        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                                             {item.date && <div>📅 تاریخ: {formatDate(item.date)}</div>}
                                             {item.count && <div>🔢 تعداد موارد: {item.count}</div>}
                                             {item.subject && <div>📝 موضوع: {item.subject}</div>}
                                             {item.personnelName && <div>👤 پرسنل: {item.personnelName}</div>}
                                         </div>
-                                        <button className="mt-3 w-full bg-blue-50 text-blue-600 text-xs py-2 rounded font-bold hover:bg-blue-100">بررسی و اقدام</button>
+                                        <button className="mt-3 w-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 text-xs py-2 rounded-xl font-bold hover:bg-blue-100">بررسی و اقدام</button>
                                     </div>
                                 ))}
                             </div>
@@ -1615,25 +1807,25 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                 )}
                 
                 {activeTab === 'archive' && (
-                    <div className="p-4">
-                        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Archive size={18}/> آرشیو گزارشات</h3>
+                    <div className="p-3 sm:p-4">
+                        <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2"><Archive size={18}/> آرشیو گزارشات</h3>
                         <div className="space-y-2">
                             {getArchivedItems().map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center glass-panel p-3 rounded-lg border hover:bg-gray-50">
+                                <div key={idx} className="flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-200/80 dark:border-gray-700/80 hover:bg-gray-100/80">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-full ${item.category === 'log' ? 'bg-blue-100 text-blue-600' : item.category === 'delay' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-600'}`}>
                                             {item.category === 'log' ? <ListChecks size={16}/> : item.category === 'delay' ? <Clock size={16}/> : <AlertTriangle size={16}/>}
                                         </div>
                                         <div>
-                                            <div className="font-bold text-sm text-gray-800">
+                                            <div className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200">
                                                 {item.type === 'daily_archive' ? (item.category === 'log' ? 'گزارش روزانه نگهبانی' : 'گزارش تاخیرات روزانه') : item.subject}
                                             </div>
-                                            <div className="text-xs text-gray-500">{formatDate(item.date)}</div>
+                                            <div className="text-[11px] text-gray-500">{formatDate(item.date)}</div>
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setViewCartableItem(item)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Eye size={16}/></button>
-                                        {canDelete() && <button onClick={() => handleDeleteDailyArchive(item.date, item.category)} className="text-red-400 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16}/></button>}
+                                        <button onClick={() => setViewCartableItem(item)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg"><Eye size={16}/></button>
+                                        {canDelete() && <button onClick={() => handleDeleteDailyArchive(item.date, item.category)} className="text-red-400 hover:bg-red-50 p-1.5 rounded-lg"><Trash2 size={16}/></button>}
                                     </div>
                                 </div>
                             ))}
