@@ -220,12 +220,20 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     }, [selectedRecord, settings, availableBanks]);
 
     useEffect(() => {
-        const hasActiveModal = showNewModal || showEditMetadataModal || !!editingStage || !!selectedTrancheForDeliveries;
+        const hasActiveModal = showNewModal || showEditMetadataModal || !!editingStage || !!selectedTrancheForDeliveries || showTransferModal || showProformaPrint || showFinalReportPrint || showClearancePrint;
         const needsCustomBack = hasActiveModal || viewMode !== 'dashboard' || navLevel !== 'ROOT';
 
         if (needsCustomBack) {
             const handleBack = () => {
-                if (selectedTrancheForDeliveries) {
+                if (showTransferModal) {
+                    setShowTransferModal(false);
+                } else if (showProformaPrint) {
+                    setShowProformaPrint(false);
+                } else if (showFinalReportPrint) {
+                    setShowFinalReportPrint(false);
+                } else if (showClearancePrint) {
+                    setShowClearancePrint(false);
+                } else if (selectedTrancheForDeliveries) {
                     setSelectedTrancheForDeliveries(null);
                 } else if (showNewModal) {
                     setShowNewModal(false);
@@ -251,7 +259,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         return () => {
             window.dispatchEvent(new CustomEvent('UNREGISTER_BACK_ACTION'));
         };
-    }, [showNewModal, showEditMetadataModal, editingStage, viewMode, navLevel, selectedCompany, selectedTrancheForDeliveries]);
+    }, [showNewModal, showEditMetadataModal, editingStage, viewMode, navLevel, selectedCompany, selectedTrancheForDeliveries, showTransferModal, showProformaPrint, showFinalReportPrint, showClearancePrint]);
 
     useEffect(() => {
         loadRecords();
@@ -1319,6 +1327,47 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         );
     };
 
+    const renderTransferModal = () => {
+        if (!showTransferModal) return null;
+        return createPortal(
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
+                        <div>
+                            <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">انتقال پروفرم به گروه کالایی دیگر</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
+                        </div>
+                        <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                    </div>
+                    <div className="space-y-4 text-gray-800 dark:text-gray-200">
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">گروه کالایی مقصد *</label>
+                            <input list="commodity-groups-transfer" className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none" value={transferForm.targetCommodityGroup} onChange={e => setTransferForm({...transferForm, targetCommodityGroup: e.target.value})} placeholder="مثلا: چیپس..." />
+                            <datalist id="commodity-groups-transfer">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده / پروفرم جدید *</label>
+                            <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm outline-none" value={transferForm.newFileNumber} onChange={e => setTransferForm({...transferForm, newFileNumber: e.target.value})} placeholder="File No..." />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">نام و مشخصات کالای جدید *</label>
+                            <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newGoodsName} onChange={e => setTransferForm({...transferForm, newGoodsName: e.target.value})} placeholder="نام مشخصات پروفرم جدید..." />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">فروشنده جدید (اختیاری)</label>
+                            <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
+                        </div>
+                        <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
+                            <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
+                            <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
+                        </div>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
+    };
+
     if (selectedRecord && viewMode === 'details') {
         const totalItemsCurrency = selectedRecord.items.reduce((a, b) => a + b.totalPrice, 0);
         const totalFreightCurrency = selectedRecord.freightCost || 0;
@@ -1379,6 +1428,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         onClose={() => setShowProformaPrint(false)} 
                     />
                 )}
+
+                {/* Transfer Modal Overlay */}
+                {renderTransferModal()}
 
                 {/* EDIT METADATA MODAL */}
                 {showEditMetadataModal && createPortal(
@@ -2669,43 +2721,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             )}
 
             {/* Transfer Proforma Modal */}
-            {showTransferModal && createPortal(
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
-                            <div>
-                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">انتقال پروفرم به گروه کالایی دیگر</h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
-                            </div>
-                            <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
-                        </div>
-                        <div className="space-y-4 text-gray-800 dark:text-gray-200">
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">گروه کالایی مقصد *</label>
-                                <input list="commodity-groups-transfer" className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none" value={transferForm.targetCommodityGroup} onChange={e => setTransferForm({...transferForm, targetCommodityGroup: e.target.value})} placeholder="مثلا: چیپس..." />
-                                <datalist id="commodity-groups-transfer">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده / پروفرم جدید *</label>
-                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm outline-none" value={transferForm.newFileNumber} onChange={e => setTransferForm({...transferForm, newFileNumber: e.target.value})} placeholder="File No..." />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">نام و مشخصات کالای جدید *</label>
-                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newGoodsName} onChange={e => setTransferForm({...transferForm, newGoodsName: e.target.value})} placeholder="نام مشخصات پروفرم جدید..." />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">فروشنده جدید (اختیاری)</label>
-                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
-                            </div>
-                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
-                                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
-                                <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {renderTransferModal()}
             {/* Tranche Deliveries Modal */}
             {selectedTrancheForDeliveries && (() => {
                 const tr = (selectedRecord?.currencyPurchaseData?.tranches || []).find((t: any) => t.id === selectedTrancheForDeliveries) || 

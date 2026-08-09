@@ -132,20 +132,35 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
                 <h2 className="text-base font-bold text-gray-600">{record.company}</h2>
             </div>
             <div className="text-left text-sm space-y-1 font-mono">
-                <div><span className="font-bold font-sans">شماره پرونده:</span> {record.fileNumber}</div>
+                <div><span className="font-bold font-sans">شماره پرونده / پروفرم جدید:</span> <span className="font-bold text-blue-900">{record.fileNumber}</span></div>
+                {record.transferredFrom && (
+                    <div className="text-xs text-amber-800 font-sans"><span className="font-bold">انتقال یافته از پروفرم:</span> {record.transferredFrom.fileNumber}</div>
+                )}
                 <div><span className="font-bold font-sans">تاریخ:</span> {new Date().toLocaleDateString('fa-IR')}</div>
             </div>
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-3 gap-y-2 gap-x-8 mb-6 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200 p-4 rounded border border-gray-300 text-xs">
+        <div className="grid grid-cols-3 gap-y-2 gap-x-8 mb-4 bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200 p-4 rounded border border-gray-300 text-xs">
+            <div><span className="font-bold text-gray-600">شماره پرونده / پروفرم جدید:</span> <span className="font-mono font-bold text-blue-800">{record.fileNumber}</span></div>
             <div><span className="font-bold text-gray-600">شرح کالا:</span> {record.goodsName}</div>
+            <div><span className="font-bold text-gray-600">گروه کالایی:</span> {record.commodityGroup}</div>
             <div><span className="font-bold text-gray-600">فروشنده:</span> {record.sellerName}</div>
             <div><span className="font-bold text-gray-600">ارز پایه:</span> {record.mainCurrency}</div>
             <div><span className="font-bold text-gray-600">نرخ ریالی هر واحد ارز:</span> {formatCurrency(exchangeRate)}</div>
             <div><span className="font-bold text-gray-600">کل وزن:</span> {formatNumberString(totalWeight)} KG</div>
-            <div><span className="font-bold text-gray-600">شماره سفارش:</span> {record.orderNumber || '-'}</div>
+            <div><span className="font-bold text-gray-600">شماره سفارش / ثبت:</span> {record.registrationNumber || record.orderNumber || '-'}</div>
+            <div><span className="font-bold text-gray-600">شرکت:</span> {record.company}</div>
         </div>
+
+        {record.transferredFrom && (
+            <div className="mb-4 bg-amber-50 p-2.5 rounded border border-amber-300 text-amber-900 text-xs flex items-center justify-between">
+                <div>
+                    <span className="font-bold">اطلاعات انتقال پروفرما:</span>
+                    <span className="mr-2">این پرونده با شماره پروفرم جدید <strong className="font-mono">{record.fileNumber}</strong>، از پروفرم/پرونده قبلی <strong className="font-mono">{record.transferredFrom.fileNumber}</strong> (شرح: {record.transferredFrom.goodsName} - گروه: {record.transferredFrom.commodityGroup}) منتقل شده است.</span>
+                </div>
+            </div>
+        )}
 
         {/* 1. BILL OF EXPENSES */}
         <h3 className="font-black text-sm mb-2 border-b border-black pb-1 mt-4">الف) ریز هزینه‌های انجام شده</h3>

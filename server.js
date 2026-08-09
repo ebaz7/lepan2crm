@@ -1894,6 +1894,155 @@ app.post('/api/bot/broadcast', async (req, res) => {
     }
 });
 
+// --- IN-APP & WEBPUSH NOTIFICATION ENGINE ---
+export async function broadcastNotification(title, body, url = null, targetRoles = null, targetUsernames = null, excludeUsernames = null) {
+    try {
+        const db = getDb();
+        if (!db.notifications) db.notifications = [];
+
+        const notif = {
+            id: utils.generateUUID ? utils.generateUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+            title,
+            body,
+            url,
+            targetRoles: targetRoles ? (Array.isArray(targetRoles) ? targetRoles : [targetRoles]) : null,
+            targetUsernames: targetUsernames ? (Array.isArray(targetUsernames) ? targetUsernames : [targetUsernames]) : null,
+            excludeUsernames: excludeUsernames ? (Array.isArray(excludeUsernames) ? excludeUsernames : [excludeUsernames]) : null,
+            createdAt: Date.now(),
+            readBy: []
+        };
+
+        db.notifications.push(notif);
+        if (db.notifications.length > 1000) {
+            db.notifications = db.notifications.slice(-500);
+        }
+        saveDb(db);
+
+        if (db.subscriptions && Array.isArray(db.subscriptions) && db.subscriptions.length > 0) {
+            const payload = JSON.stringify({ title, body, url, id: notif.id });
+            db.subscriptions.forEach(sub => {
+                if (targetUsernames && sub.username && !targetUsernames.includes(sub.username)) return;
+                if (excludeUsernames && sub.username && excludeUsernames.includes(sub.username)) return;
+                if (sub.subscription) {
+                    webpush.sendNotification(sub.subscription, payload).catch(err => {
+                        if (err.statusCode === 404 || err.statusCode === 410) {
+                            db.subscriptions = db.subscriptions.filter(s => s.endpoint !== sub.endpoint);
+                            saveDb(db);
+                        }
+                    });
+                }
+            });
+        }
+        return notif;
+    } catch (e) {
+        console.error("broadcastNotification error:", e);
+    }
+}
+
+app.get('/api/notifications', (req, res) => {
+    try {
+        const db = getDb();
+        const username = req.query.username;
+        const role = req.query.role;
+        const list = db.notifications || [];
+
+        if (!username && !role) {
+            return res.json(list.slice(-100));
+        }
+
+        const filtered = list.filter(n => {
+            if (n.deletedForUsernames && Array.isArray(n.deletedForUsernames) && n.deletedForUsernames.includes(username)) {
+                return false;
+            }
+            if (n.excludeUsernames && Array.isArray(n.excludeUsernames) && n.excludeUsernames.includes(username)) {
+                return false;
+            }
+            let matchRole = true;
+            if (n.targetRoles && Array.isArray(n.targetRoles) && n.targetRoles.length > 0) {
+                matchRole = role ? n.targetRoles.includes(role) : true;
+            }
+            let matchUser = true;
+            if (n.targetUsernames && Array.isArray(n.targetUsernames) && n.targetUsernames.length > 0) {
+                matchUser = username ? n.targetUsernames.includes(username) : true;
+            }
+            return matchRole && matchUser;
+        });
+
+        const result = filtered.slice(-100).map(n => ({
+            ...n,
+            read: Array.isArray(n.readBy) ? n.readBy.includes(username) : false
+        }));
+
+        res.json(result);
+    } catch (e) {
+        console.error("GET /api/notifications error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/notifications/read', (req, res) => {
+    try {
+        const db = getDb();
+        const { username, id } = req.body;
+        if (!db.notifications) db.notifications = [];
+
+        if (id === 'all') {
+            db.notifications.forEach(n => {
+                if (!n.readBy) n.readBy = [];
+                if (username && !n.readBy.includes(username)) n.readBy.push(username);
+            });
+        } else if (id) {
+            const notif = db.notifications.find(n => n.id === id);
+            if (notif) {
+                if (!notif.readBy) notif.readBy = [];
+                if (username && !notif.readBy.includes(username)) notif.readBy.push(username);
+            }
+        }
+        saveDb(db);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("POST /api/notifications/read error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/notifications/delete', (req, res) => {
+    try {
+        const db = getDb();
+        const { username, id } = req.body;
+        if (!db.notifications) db.notifications = [];
+
+        if (id === 'all') {
+            db.notifications.forEach(n => {
+                if (!n.deletedForUsernames) n.deletedForUsernames = [];
+                if (username && !n.deletedForUsernames.includes(username)) n.deletedForUsernames.push(username);
+            });
+        } else if (id) {
+            const notif = db.notifications.find(n => n.id === id);
+            if (notif) {
+                if (!notif.deletedForUsernames) n.deletedForUsernames = [];
+                if (username && !notif.deletedForUsernames.includes(username)) n.deletedForUsernames.push(username);
+            }
+        }
+        saveDb(db);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("POST /api/notifications/delete error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/notifications/add', async (req, res) => {
+    try {
+        const { title, body, url, targetRoles, targetUsernames, excludeUsernames } = req.body;
+        const notif = await broadcastNotification(title, body, url, targetRoles, targetUsernames, excludeUsernames);
+        res.json({ success: true, notification: notif });
+    } catch (e) {
+        console.error("POST /api/notifications/add error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // 8. CHAT & COMMUNICATION
 app.get('/api/chat', (req, res) => {
     res.json(getDb().messages || []);
@@ -2357,18 +2506,14 @@ app.post('/api/meetings/:id/send-minutes', async (req, res) => {
 
 // --- FULL-STACK DATA SYNCHRONIZATION ENDPOINTS ---
 const CRUD_COLLECTIONS = [
-    { route: 'orders', dbKey: 'orders' },
     { route: 'security/logs', dbKey: 'securityLogs' },
     { route: 'security/delays', dbKey: 'personnelDelays' },
     { route: 'security/incidents', dbKey: 'securityIncidents' },
     { route: 'warehouse/items', dbKey: 'warehouseItems' },
-    { route: 'warehouse/transactions', dbKey: 'warehouseTransactions' },
     { route: 'trade', dbKey: 'tradeRecords' },
     { route: 'notes', dbKey: 'notes' },
     { route: 'meetings', dbKey: 'meetings' },
-    { route: 'purchase-requests', dbKey: 'purchaseRequests' },
     { route: 'part-master-data', dbKey: 'partMasterData' },
-    { route: 'secretariat-letters', dbKey: 'secretariatLetters' },
     { route: 'secretariat-settings', dbKey: 'secretariatSettings' },
     { route: 'secretariat-templates', dbKey: 'secretariatTemplates' },
     { route: 'cheque-receipts', dbKey: 'chequeReceipts' },
@@ -2425,6 +2570,505 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
     });
 });
 
+// Dedicated Payment Orders Endpoints with Automated Notifications
+app.get('/api/orders', (req, res) => {
+    const db = getDb();
+    res.json(db.orders || []);
+});
+
+app.post('/api/orders', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.orders) db.orders = [];
+        const item = req.body;
+        if (!item.fiscalYearId && db.settings?.activeFiscalYearId) {
+            item.fiscalYearId = db.settings.activeFiscalYearId;
+        }
+        if (!item.createdAt) item.createdAt = Date.now();
+
+        const existingIdx = db.orders.findIndex(x => x.id === item.id);
+        const isEdit = existingIdx > -1;
+
+        if (isEdit) {
+            db.orders[existingIdx] = { ...db.orders[existingIdx], ...item };
+        } else {
+            db.orders.push(item);
+        }
+        saveDb(db);
+        res.json(db.orders);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const order = (freshDb.orders || []).find(x => x.id === item.id) || item;
+                const eventType = isEdit ? 'EDIT' : 'CREATE';
+                const stepName = isEdit ? 'ویرایش دستور پرداخت' : 'ثبت اولیه';
+                
+                await notifyPaymentOrderStep(order, freshDb, stepName, false, eventType);
+
+                const totalFormatted = Number(order.totalAmount || 0).toLocaleString();
+                await broadcastNotification(
+                    isEdit ? `✏️ ویرایش دستور پرداخت #${order.trackingNumber || order.id}` : `💸 دستور پرداخت جدید #${order.trackingNumber || order.id}`,
+                    `شرکت: ${order.payingCompany || '-'} | درخواست‌کننده: ${order.requester || '-'} | مبلغ: ${totalFormatted} ریال | ذینفع: ${order.payee || '-'}`,
+                    '/manage',
+                    ['admin', 'financial', 'manager', 'ceo'],
+                    null,
+                    order.requester ? [order.requester] : null
+                );
+            } catch (err) {
+                console.error("Background notifyPaymentOrderStep error on POST /api/orders:", err);
+            }
+        });
+    } catch (e) {
+        console.error("POST /api/orders error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/orders/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.orders) db.orders = [];
+        const idx = db.orders.findIndex(x => x.id === req.params.id);
+        const isEdit = req.body.isEdit || false;
+        let updatedItem;
+
+        if (idx > -1) {
+            db.orders[idx] = { ...db.orders[idx], ...req.body };
+            updatedItem = db.orders[idx];
+        } else {
+            updatedItem = { id: req.params.id, ...req.body };
+            db.orders.push(updatedItem);
+        }
+        saveDb(db);
+        res.json(db.orders);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const order = (freshDb.orders || []).find(x => x.id === req.params.id) || updatedItem;
+                const eventType = isEdit ? 'EDIT' : 'STEP';
+                const stepName = isEdit ? 'ویرایش دستور پرداخت' : (order.status || 'بروزرسانی وضعیت');
+                const isFinal = order.status === 'پرداخت شده' || order.status === 'تایید مدیرعامل';
+
+                await notifyPaymentOrderStep(order, freshDb, stepName, isFinal, eventType);
+
+                const totalFormatted = Number(order.totalAmount || 0).toLocaleString();
+                await broadcastNotification(
+                    `🔄 بروزرسانی دستور پرداخت #${order.trackingNumber || order.id}`,
+                    `مرحله: ${stepName} | شرکت: ${order.payingCompany || '-'} | مبلغ: ${totalFormatted} ریال | ذینفع: ${order.payee || '-'}`,
+                    '/manage',
+                    ['admin', 'financial', 'manager', 'ceo'],
+                    null,
+                    null
+                );
+            } catch (err) {
+                console.error("Background notifyPaymentOrderStep error on PUT /api/orders:", err);
+            }
+        });
+    } catch (e) {
+        console.error("PUT /api/orders error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/orders/:id', (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.orders) db.orders = [];
+        const orderToDelete = db.orders.find(x => x.id === req.params.id);
+        db.orders = db.orders.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.orders);
+
+        if (orderToDelete) {
+            setImmediate(async () => {
+                try {
+                    const freshDb = getDb();
+                    await notifyPaymentOrderStep(orderToDelete, freshDb, 'حذف دستور پرداخت', false, 'DELETE');
+                    await broadcastNotification(
+                        `❌ حذف دستور پرداخت #${orderToDelete.trackingNumber || orderToDelete.id}`,
+                        `دستور پرداخت مربوط به ${orderToDelete.payee || '-'} حذف گردید.`,
+                        '/manage',
+                        ['admin', 'financial', 'manager', 'ceo']
+                    );
+                } catch (err) {
+                    console.error("Background notifyPaymentOrderStep error on DELETE /api/orders:", err);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("DELETE /api/orders error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Dedicated Warehouse Transactions / Bijak Endpoints with Automated Notifications
+app.get('/api/warehouse/transactions', (req, res) => {
+    const db = getDb();
+    res.json(db.warehouseTransactions || []);
+});
+
+app.post('/api/warehouse/transactions', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.warehouseTransactions) db.warehouseTransactions = [];
+        const item = req.body;
+        if (!item.createdAt) item.createdAt = Date.now();
+
+        const existingIdx = db.warehouseTransactions.findIndex(x => x.id === item.id);
+        const isEdit = existingIdx > -1;
+
+        if (isEdit) {
+            db.warehouseTransactions[existingIdx] = { ...db.warehouseTransactions[existingIdx], ...item };
+        } else {
+            db.warehouseTransactions.push(item);
+        }
+        saveDb(db);
+        res.json(db.warehouseTransactions);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const tx = (freshDb.warehouseTransactions || []).find(x => x.id === item.id) || item;
+                const eventType = isEdit ? 'EDIT' : 'CREATE';
+                const stepName = isEdit ? 'ویرایش حواله انبار' : 'ثبت اولیه';
+
+                await notifyWarehouseBijak(tx, freshDb, stepName, eventType);
+
+                const isOut = tx.type === 'OUT';
+                const title = isOut ? `🚨 حواله خروج انبار (بیجک) #${tx.number}` : `📥 حواله ورود انبار #${tx.number}`;
+                await broadcastNotification(
+                    title,
+                    `شرکت: ${tx.company || '-'} | تحویل‌گیرنده/دهنده: ${tx.delivererOrReceiver || '-'} | وضعیت: ${tx.status || 'در انتظار'}`,
+                    '/warehouse',
+                    ['admin', 'warehouse', 'factory_manager', 'ceo', 'manager'],
+                    null,
+                    tx.createdBy ? [tx.createdBy] : null
+                );
+            } catch (err) {
+                console.error("Background notifyWarehouseBijak error on POST /api/warehouse/transactions:", err);
+            }
+        });
+    } catch (e) {
+        console.error("POST /api/warehouse/transactions error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/warehouse/transactions/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.warehouseTransactions) db.warehouseTransactions = [];
+        const idx = db.warehouseTransactions.findIndex(x => x.id === req.params.id);
+        const isEdit = req.body.isEdit || false;
+        let updatedItem;
+
+        if (idx > -1) {
+            db.warehouseTransactions[idx] = { ...db.warehouseTransactions[idx], ...req.body };
+            updatedItem = db.warehouseTransactions[idx];
+        } else {
+            updatedItem = { id: req.params.id, ...req.body };
+            db.warehouseTransactions.push(updatedItem);
+        }
+        saveDb(db);
+        res.json(db.warehouseTransactions);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const tx = (freshDb.warehouseTransactions || []).find(x => x.id === req.params.id) || updatedItem;
+                const eventType = isEdit ? 'EDIT' : 'STEP';
+                const stepName = isEdit ? 'ویرایش حواله انبار' : (tx.status || 'بروزرسانی وضعیت');
+
+                await notifyWarehouseBijak(tx, freshDb, stepName, eventType);
+
+                const isOut = tx.type === 'OUT';
+                const title = isOut ? `🔄 بروزرسانی حواله خروج (بیجک) #${tx.number}` : `🔄 بروزرسانی ورود انبار #${tx.number}`;
+                await broadcastNotification(
+                    title,
+                    `مرحله: ${stepName} | شرکت: ${tx.company || '-'} | تحویل‌گیرنده/دهنده: ${tx.delivererOrReceiver || '-'}`,
+                    '/warehouse',
+                    ['admin', 'warehouse', 'factory_manager', 'ceo', 'manager'],
+                    null,
+                    null
+                );
+            } catch (err) {
+                console.error("Background notifyWarehouseBijak error on PUT /api/warehouse/transactions:", err);
+            }
+        });
+    } catch (e) {
+        console.error("PUT /api/warehouse/transactions error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/warehouse/transactions/:id', (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.warehouseTransactions) db.warehouseTransactions = [];
+        const txToDelete = db.warehouseTransactions.find(x => x.id === req.params.id);
+        db.warehouseTransactions = db.warehouseTransactions.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.warehouseTransactions);
+
+        if (txToDelete) {
+            setImmediate(async () => {
+                try {
+                    const freshDb = getDb();
+                    await notifyWarehouseBijak(txToDelete, freshDb, 'حذف بیجک/حواله', 'DELETE');
+                    await broadcastNotification(
+                        `❌ حذف حواله/بیجک انبار #${txToDelete.number}`,
+                        `سند انبار شماره ${txToDelete.number} مربوط به شرکت ${txToDelete.company || '-'} حذف گردید.`,
+                        '/warehouse',
+                        ['admin', 'warehouse', 'factory_manager', 'ceo', 'manager']
+                    );
+                } catch (err) {
+                    console.error("Background notifyWarehouseBijak error on DELETE /api/warehouse/transactions:", err);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("DELETE /api/warehouse/transactions error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Dedicated Purchase Requests Endpoints with Automated Notifications
+app.get('/api/purchase-requests', (req, res) => {
+    const db = getDb();
+    res.json(db.purchaseRequests || []);
+});
+
+app.post('/api/purchase-requests', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.purchaseRequests) db.purchaseRequests = [];
+        const item = req.body;
+        if (!item.createdAt) item.createdAt = Date.now();
+
+        const existingIdx = db.purchaseRequests.findIndex(x => x.id === item.id);
+        const isEdit = existingIdx > -1;
+
+        if (isEdit) {
+            db.purchaseRequests[existingIdx] = { ...db.purchaseRequests[existingIdx], ...item };
+        } else {
+            db.purchaseRequests.push(item);
+        }
+        saveDb(db);
+        res.json(db.purchaseRequests);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const reqItem = (freshDb.purchaseRequests || []).find(x => x.id === item.id) || item;
+                const eventType = isEdit ? 'EDIT' : 'CREATE';
+                const stepName = isEdit ? 'ویرایش درخواست خرید' : 'ثبت اولیه';
+
+                await notifyPurchaseRequestStep(reqItem, null, null, null, freshDb, stepName, eventType);
+                await broadcastNotification(
+                    isEdit ? `✏️ ویرایش درخواست خرید #${reqItem.requestNumber || reqItem.id}` : `🛒 درخواست خرید جدید #${reqItem.requestNumber || reqItem.id}`,
+                    `عنوان: ${reqItem.title || '-'} | درخواست‌کننده: ${reqItem.requester || '-'} | شرکت: ${reqItem.company || '-'}`,
+                    '/purchase',
+                    ['admin', 'ceo', 'manager', 'commercial', 'financial'],
+                    null,
+                    reqItem.requester ? [reqItem.requester] : null
+                );
+            } catch (err) {
+                console.error("Background notifyPurchaseRequestStep error:", err);
+            }
+        });
+    } catch (e) {
+        console.error("POST /api/purchase-requests error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/purchase-requests/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.purchaseRequests) db.purchaseRequests = [];
+        const idx = db.purchaseRequests.findIndex(x => x.id === req.params.id);
+        const isEdit = req.body.isEdit || false;
+        let updatedItem;
+
+        if (idx > -1) {
+            db.purchaseRequests[idx] = { ...db.purchaseRequests[idx], ...req.body };
+            updatedItem = db.purchaseRequests[idx];
+        } else {
+            updatedItem = { id: req.params.id, ...req.body };
+            db.purchaseRequests.push(updatedItem);
+        }
+        saveDb(db);
+        res.json(db.purchaseRequests);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const reqItem = (freshDb.purchaseRequests || []).find(x => x.id === req.params.id) || updatedItem;
+                const eventType = isEdit ? 'EDIT' : 'STEP';
+                const stepName = isEdit ? 'ویرایش درخواست خرید' : (reqItem.status || 'بروزرسانی وضعیت');
+
+                await notifyPurchaseRequestStep(reqItem, null, null, null, freshDb, stepName, eventType);
+                await broadcastNotification(
+                    `🔄 بروزرسانی درخواست خرید #${reqItem.requestNumber || reqItem.id}`,
+                    `وضعیت/مرحله: ${stepName} | عنوان: ${reqItem.title || '-'}`,
+                    '/purchase',
+                    ['admin', 'ceo', 'manager', 'commercial', 'financial']
+                );
+            } catch (err) {
+                console.error("Background notifyPurchaseRequestStep error:", err);
+            }
+        });
+    } catch (e) {
+        console.error("PUT /api/purchase-requests error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/purchase-requests/:id', (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.purchaseRequests) db.purchaseRequests = [];
+        const itemToDelete = db.purchaseRequests.find(x => x.id === req.params.id);
+        db.purchaseRequests = db.purchaseRequests.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.purchaseRequests);
+
+        if (itemToDelete) {
+            setImmediate(async () => {
+                try {
+                    const freshDb = getDb();
+                    await notifyPurchaseRequestStep(itemToDelete, null, null, null, freshDb, 'حذف درخواست خرید', 'DELETE');
+                    await broadcastNotification(
+                        `❌ حذف درخواست خرید #${itemToDelete.requestNumber || itemToDelete.id}`,
+                        `درخواست خرید با عنوان "${itemToDelete.title || '-'}" حذف شد.`,
+                        '/purchase',
+                        ['admin', 'ceo', 'manager', 'commercial', 'financial']
+                    );
+                } catch (err) {
+                    console.error("Background notifyPurchaseRequestStep delete error:", err);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("DELETE /api/purchase-requests error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Dedicated Secretariat Letters Endpoints with Automated Notifications
+app.get('/api/secretariat-letters', (req, res) => {
+    const db = getDb();
+    res.json(db.secretariatLetters || []);
+});
+
+app.post('/api/secretariat-letters', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.secretariatLetters) db.secretariatLetters = [];
+        const item = req.body;
+        if (!item.createdAt) item.createdAt = Date.now();
+
+        const existingIdx = db.secretariatLetters.findIndex(x => x.id === item.id);
+        const isEdit = existingIdx > -1;
+
+        if (isEdit) {
+            db.secretariatLetters[existingIdx] = { ...db.secretariatLetters[existingIdx], ...item };
+        } else {
+            db.secretariatLetters.push(item);
+        }
+        saveDb(db);
+        res.json(db.secretariatLetters);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const letter = (freshDb.secretariatLetters || []).find(x => x.id === item.id) || item;
+                await notifySecretariatLetter(letter, freshDb);
+                await broadcastNotification(
+                    `✉️ نامه اداری جدید #${letter.letterNumber}`,
+                    `موضوع: ${letter.subject || '-'} | فرستنده: ${letter.sender || '-'} | گیرنده: ${letter.receiver || '-'}`,
+                    '/secretariat',
+                    ['admin', 'ceo', 'manager', 'office']
+                );
+            } catch (err) {
+                console.error("Background notifySecretariatLetter error:", err);
+            }
+        });
+    } catch (e) {
+        console.error("POST /api/secretariat-letters error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/secretariat-letters/:id', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.secretariatLetters) db.secretariatLetters = [];
+        const idx = db.secretariatLetters.findIndex(x => x.id === req.params.id);
+        let updatedItem;
+
+        if (idx > -1) {
+            db.secretariatLetters[idx] = { ...db.secretariatLetters[idx], ...req.body };
+            updatedItem = db.secretariatLetters[idx];
+        } else {
+            updatedItem = { id: req.params.id, ...req.body };
+            db.secretariatLetters.push(updatedItem);
+        }
+        saveDb(db);
+        res.json(db.secretariatLetters);
+
+        setImmediate(async () => {
+            try {
+                const freshDb = getDb();
+                const letter = (freshDb.secretariatLetters || []).find(x => x.id === req.params.id) || updatedItem;
+                await notifySecretariatLetter(letter, freshDb);
+                await broadcastNotification(
+                    `🔄 بروزرسانی نامه اداری #${letter.letterNumber}`,
+                    `موضوع: ${letter.subject || '-'} | وضعیت/تاییدها بروزرسانی شد.`,
+                    '/secretariat',
+                    ['admin', 'ceo', 'manager', 'office']
+                );
+            } catch (err) {
+                console.error("Background notifySecretariatLetter error:", err);
+            }
+        });
+    } catch (e) {
+        console.error("PUT /api/secretariat-letters error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/secretariat-letters/:id', (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.secretariatLetters) db.secretariatLetters = [];
+        const letterToDelete = db.secretariatLetters.find(x => x.id === req.params.id);
+        db.secretariatLetters = db.secretariatLetters.filter(x => x.id !== req.params.id);
+        saveDb(db);
+        res.json(db.secretariatLetters);
+
+        if (letterToDelete) {
+            setImmediate(async () => {
+                try {
+                    await broadcastNotification(
+                        `❌ حذف نامه اداری #${letterToDelete.letterNumber}`,
+                        `نامه اداری با موضوع "${letterToDelete.subject || '-'}" حذف گردید.`,
+                        '/secretariat',
+                        ['admin', 'ceo', 'manager', 'office']
+                    );
+                } catch (err) {
+                    console.error("Background notifySecretariatLetter delete error:", err);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("DELETE /api/secretariat-letters error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Dedicated Exit Permits Endpoints with Automated Notifications
 app.get('/api/exit-permits', (req, res) => {
     const db = getDb();
@@ -2452,17 +3096,25 @@ app.post('/api/exit-permits', async (req, res) => {
         }
         saveDb(db);
         
-        // Return response immediately
         res.json(db.exitPermits);
 
-        // Asynchronously trigger bot notifications based on settings & ticks
         setImmediate(async () => {
             try {
                 const freshDb = getDb();
                 const permit = (freshDb.exitPermits || []).find(x => x.id === item.id) || item;
                 const eventType = isEdit ? 'EDIT' : 'CREATE';
                 const stepName = isEdit ? 'ویرایش سند' : 'ثبت اولیه';
+
                 await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
+
+                await broadcastNotification(
+                    isEdit ? `✏️ ویرایش برگه خروج کالا #${permit.permitNumber}` : `🚛 برگه خروج کالا از کارخانه #${permit.permitNumber}`,
+                    `شرکت: ${permit.company || '-'} | گیرنده: ${permit.recipientName || '-'} | راننده: ${permit.driverName || '-'} (پلاک: ${permit.plateNumber || '-'})`,
+                    '/manage-exit',
+                    ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager'],
+                    null,
+                    permit.requester ? [permit.requester] : null
+                );
             } catch (err) {
                 console.error("Background notifyExitPermitStep error on POST /api/exit-permits:", err);
             }
@@ -2498,7 +3150,15 @@ app.put('/api/exit-permits/:id', async (req, res) => {
                 const permit = (freshDb.exitPermits || []).find(x => x.id === req.params.id) || updatedItem;
                 const eventType = isEdit ? 'EDIT' : 'STEP';
                 const stepName = isEdit ? 'ویرایش سند' : (permit.status || 'بروزرسانی وضعیت');
+
                 await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
+
+                await broadcastNotification(
+                    `🔄 بروزرسانی برگه خروج کالا #${permit.permitNumber}`,
+                    `مرحله: ${stepName} | وضعیت: ${permit.status || '-'} | گیرنده: ${permit.recipientName || '-'}`,
+                    '/manage-exit',
+                    ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager']
+                );
             } catch (err) {
                 console.error("Background notifyExitPermitStep error on PUT /api/exit-permits:", err);
             }
@@ -2523,6 +3183,13 @@ app.delete('/api/exit-permits/:id', (req, res) => {
                 try {
                     const freshDb = getDb();
                     await notifyExitPermitStep(permitToDelete, null, null, null, freshDb, 'حذف برگه خروج', 'DELETE');
+
+                    await broadcastNotification(
+                        `❌ حذف برگه خروج کالا #${permitToDelete.permitNumber}`,
+                        `برگه خروج شماره ${permitToDelete.permitNumber} مربوط به شرکت ${permitToDelete.company || '-'} حذف گردید.`,
+                        '/manage-exit',
+                        ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager']
+                    );
                 } catch (err) {
                     console.error("Background notifyExitPermitStep error on DELETE /api/exit-permits:", err);
                 }

@@ -104,10 +104,10 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
       </div>
 
       {/* Info Grid */}
-      <div className="grid grid-cols-2 gap-8 mb-8 text-sm">
+      <div className="grid grid-cols-2 gap-8 mb-4 text-sm">
         <div className="space-y-2 border p-4 rounded-lg bg-gray-50">
           <div className="flex justify-between"><span className="font-bold">فروشنده:</span> <span>{record.sellerName}</span></div>
-          <div className="flex justify-between"><span className="font-bold">شماره پرونده:</span> <span className="font-mono">{record.fileNumber}</span></div>
+          <div className="flex justify-between"><span className="font-bold">شماره پرونده / پروفرم جدید:</span> <span className="font-mono font-bold text-blue-900">{record.fileNumber}</span></div>
           <div className="flex justify-between"><span className="font-bold">تاریخ:</span> <span>{new Date(record.createdAt).toLocaleDateString('fa-IR')}</span></div>
         </div>
         <div className="space-y-2 border p-4 rounded-lg bg-gray-50">
@@ -116,6 +116,12 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
           <div className="flex justify-between"><span className="font-bold">بانک عامل:</span> <span>{record.operatingBank || '-'}</span></div>
         </div>
       </div>
+
+      {record.transferredFrom && (
+        <div className="mb-6 bg-amber-50 p-3 rounded-lg border border-amber-300 text-amber-900 text-xs">
+          <span className="font-bold">سابقه‌ پرونده و انتقال پروفرما:</span> انتقال یافته از پرونده قبلی با شماره <strong className="font-mono">{record.transferredFrom.fileNumber}</strong> (گروه: {record.transferredFrom.commodityGroup} - شرح: {record.transferredFrom.goodsName}).
+        </div>
+      )}
 
       {/* Items Table */}
       <div className="flex-1 overflow-hidden border rounded-xl mb-6">

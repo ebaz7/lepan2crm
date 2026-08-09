@@ -60,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   useEffect(() => {
     const root = document.documentElement;
-    const isDark = theme === 'dark' || root.classList.contains('dark');
+    const isPlainLight = theme === 'light';
     
     // Remove old background-related classes
     root.classList.remove(
@@ -72,8 +72,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       'has-preset-bg-light-modern'
     );
     
-    // Add current background classes ONLY when dark theme is active
-    if (isDark) {
+    // Add current background classes for light-aurora and dark themes (not plain light)
+    if (!isPlainLight) {
       if (bgMode === 'custom' && customBgImage) {
         root.classList.add('has-custom-bg');
       } else if (bgMode === 'preset') {
@@ -535,13 +535,13 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     </div> 
   );
 
-  const isDarkMode = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
-  const showCustomBg = isDarkMode && bgMode === 'custom' && !!customBgImage;
+  const isPlainLight = theme === 'light';
+  const showCustomBg = !isPlainLight && bgMode === 'custom' && !!customBgImage;
 
   return (
-    <div className={`flex h-[100dvh] w-full text-[var(--text-primary)] font-sans relative overflow-hidden ${isDarkMode ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-900'}`}>
-      {/* Background Blobs & Custom Background Image - Only active in dark mode */}
-      {isDarkMode && (
+    <div className={`flex h-[100dvh] w-full text-[var(--text-primary)] font-sans relative overflow-hidden ${isPlainLight ? 'bg-gray-100 dark:bg-gray-900' : 'bg-transparent'}`}>
+      {/* Background Blobs & Custom Background Image - Active in light-aurora and dark modes */}
+      {!isPlainLight && (
         <div 
           className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
           style={showCustomBg ? {
