@@ -52,9 +52,9 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
   const totalWeight = record.items.reduce((sum, item) => sum + item.weight, 0);
   const tranches = record.currencyPurchaseData?.tranches || [];
   const netCurrencyRialCost = tranches.reduce((acc, t) => {
-      const cost = t.amount * (t.rate || 0);
+      const paid = t.rialAmount || ((t.amount || 0) * (t.rate || 0));
       const ret = t.returnAmount || 0; 
-      return acc + (cost - ret);
+      return acc + (paid - ret);
   }, 0);
 
   const expenses: { name: string; amount: number }[] = [
@@ -245,28 +245,30 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex flex-col items-center pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-4 animate-fade-in safe-pb">
-        <div className="relative md:absolute md:top-4 md:left-4 z-50 flex flex-col gap-2 no-print w-full md:w-auto mb-4 md:mb-0 order-1">
-            <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4">
-                <span className="font-bold text-sm">پیش‌نمایش چاپ</span>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[120] flex flex-col items-center overflow-y-auto overflow-x-hidden justify-start p-4 md:p-6 animate-fade-in safe-pb">
+        <div className="sticky top-2 z-50 flex justify-center w-full max-w-4xl no-print mb-4">
+            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex justify-between items-center gap-6 w-full md:w-auto">
+                <span className="font-black text-sm text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <Printer size={18} className="text-blue-600"/> پیش‌نمایش صورتحساب نهایی هزینه‌ها
+                </span>
                 <div className="flex gap-2">
-                    <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 text-white p-2 rounded text-xs flex items-center gap-1">{processing ? <Loader2 size={16} className="animate-spin"/> : 'PDF'}</button>
-                    <button onClick={() => window.print()} className="bg-blue-600 text-white p-2 rounded text-xs flex items-center gap-1"><Printer size={16}/></button>
-                    <button onClick={onClose} className="bg-gray-100 text-gray-700 p-2 rounded hover:bg-gray-200"><X size={18}/></button>
+                    <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
+                    <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95"><Printer size={16}/> چاپ</button>
+                    <button onClick={onClose} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><X size={18}/></button>
                 </div>
             </div>
         </div>
 
-        <div className="order-2 w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
+        <div className="w-full flex justify-center pb-12" ref={containerWrapperRef}>
             <div style={{ 
               width: '210mm', 
               minHeight: '297mm',
               backgroundColor: 'white', 
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
               transform: `scale(${scale})`,
               transformOrigin: 'top center',
-              marginBottom: `${(scale - 1) * 1122.5}px` 
-            }}>
+              marginBottom: scale < 1 ? `${(scale - 1) * 1122.5}px` : '24px' 
+            }} className="printable-content rounded-sm">
                 {content}
             </div>
         </div>

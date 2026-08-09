@@ -2579,51 +2579,51 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             
             {/* New Record Modal */}
             {showNewModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-                    <div className="glass-panel bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 animate-scale-in border border-gray-100 text-right" dir="rtl">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                             <div>
-                                <h3 className="font-bold text-xl text-gray-800">ثبت پرونده جدید</h3>
-                                <p className="text-xs text-gray-500 mt-1">مشخصات اولیه پرونده تجاری یا پروفرم را وارد کنید</p>
+                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">ثبت پرونده جدید</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">مشخصات اولیه پرونده تجاری یا پروفرم را وارد کنید</p>
                             </div>
-                            <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                            <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
                         </div>
-                        <div className="space-y-5">
+                        <div className="space-y-4 text-gray-800 dark:text-gray-200">
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">شماره پرونده *</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50/50 font-mono text-left dir-ltr text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newFileNumber} onChange={e => setNewFileNumber(e.target.value)} placeholder="مثال: File-1403-01..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده *</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newFileNumber} onChange={e => setNewFileNumber(e.target.value)} placeholder="مثال: File-1403-01..." />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">نام کالا (شرح کلی) *</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: مواد اولیه پلیمر / قطعات یدکی..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">نام کالا (شرح کلی) *</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: مواد اولیه پلیمر / قطعات یدکی..." />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">فروشنده</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newSellerName} onChange={e => setNewSellerName(e.target.value)} placeholder="نام شرکت فروشنده..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">فروشنده</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newSellerName} onChange={e => setNewSellerName(e.target.value)} placeholder="نام شرکت فروشنده..." />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700">گروه کالایی</label>
-                                    <input list="commodity-groups" className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newCommodityGroup} onChange={e => setNewCommodityGroup(e.target.value)} placeholder="انتخاب یا ورود گروه..." />
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">گروه کالایی</label>
+                                    <input list="commodity-groups" className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newCommodityGroup} onChange={e => setNewCommodityGroup(e.target.value)} placeholder="انتخاب یا ورود گروه..." />
                                     <datalist id="commodity-groups">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700">ارز پایه</label>
-                                    <select className="w-full border border-gray-200 rounded-xl p-3.5 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newMainCurrency} onChange={e => setNewMainCurrency(e.target.value)}>
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">ارز پایه</label>
+                                    <select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newMainCurrency} onChange={e => setNewMainCurrency(e.target.value)}>
                                         {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                                     </select>
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">شرکت *</label>
-                                <select className="w-full border border-gray-200 rounded-xl p-3.5 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newRecordCompany} onChange={e => setNewRecordCompany(e.target.value)}>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شرکت *</label>
+                                <select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newRecordCompany} onChange={e => setNewRecordCompany(e.target.value)}>
                                     <option value="">انتخاب شرکت مربوطه...</option>
                                     {availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
-                            <div className="pt-4 border-t border-gray-100 flex gap-3">
-                                <button onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-200 transition-all">انصراف</button>
-                                <button onClick={handleCreateRecord} disabled={!newFileNumber || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
+                                <button onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
+                                <button onClick={handleCreateRecord} disabled={!newFileNumber || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
                             </div>
                         </div>
                     </div>
@@ -2632,36 +2632,36 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
             {/* Transfer Proforma Modal */}
             {showTransferModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-                    <div className="glass-panel bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 animate-scale-in border border-gray-100 text-right" dir="rtl">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                             <div>
-                                <h3 className="font-bold text-xl text-gray-800">انتقال پروفرم به گروه کالایی دیگر</h3>
-                                <p className="text-xs text-gray-500 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
+                                <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">انتقال پروفرم به گروه کالایی دیگر</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
                             </div>
-                            <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                            <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
                         </div>
-                        <div className="space-y-5">
+                        <div className="space-y-4 text-gray-800 dark:text-gray-200">
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">گروه کالایی مقصد *</label>
-                                <input list="commodity-groups-transfer" className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" value={transferForm.targetCommodityGroup} onChange={e => setTransferForm({...transferForm, targetCommodityGroup: e.target.value})} placeholder="مثلا: چیپس..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">گروه کالایی مقصد *</label>
+                                <input list="commodity-groups-transfer" className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none" value={transferForm.targetCommodityGroup} onChange={e => setTransferForm({...transferForm, targetCommodityGroup: e.target.value})} placeholder="مثلا: چیپس..." />
                                 <datalist id="commodity-groups-transfer">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">شماره پرونده / پروفرم جدید *</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50/50 font-mono text-left dir-ltr text-sm outline-none" value={transferForm.newFileNumber} onChange={e => setTransferForm({...transferForm, newFileNumber: e.target.value})} placeholder="File No..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده / پروفرم جدید *</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm outline-none" value={transferForm.newFileNumber} onChange={e => setTransferForm({...transferForm, newFileNumber: e.target.value})} placeholder="File No..." />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">نام و مشخصات کالای جدید *</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm outline-none" value={transferForm.newGoodsName} onChange={e => setTransferForm({...transferForm, newGoodsName: e.target.value})} placeholder="نام مشخصات پروفرم جدید..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">نام و مشخصات کالای جدید *</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newGoodsName} onChange={e => setTransferForm({...transferForm, newGoodsName: e.target.value})} placeholder="نام مشخصات پروفرم جدید..." />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700">فروشنده جدید (اختیاری)</label>
-                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">فروشنده جدید (اختیاری)</label>
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
                             </div>
-                            <div className="pt-4 border-t border-gray-100 flex gap-3">
-                                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-200 transition-all">انصراف</button>
-                                <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3.5 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
+                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
+                                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
+                                <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
                             </div>
                         </div>
                     </div>

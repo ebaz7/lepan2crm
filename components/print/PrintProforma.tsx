@@ -176,40 +176,40 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-4 animate-fade-in safe-pb">
-      <div className="relative z-50 flex flex-col gap-2 no-print w-full max-w-4xl mb-4">
-         <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4 bg-white dark:bg-zinc-950 flex-wrap">
-             <span className="font-bold text-sm">پیش‌نمایش پروفرما</span>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[120] flex flex-col items-center overflow-y-auto overflow-x-hidden justify-start p-4 md:p-6 animate-fade-in safe-pb">
+      <div className="sticky top-2 z-50 flex justify-center w-full max-w-4xl no-print mb-4">
+         <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-gray-200 dark:border-zinc-800 flex justify-between items-center gap-4 w-full flex-wrap">
+             <span className="font-bold text-sm text-gray-800 dark:text-gray-100">پیش‌نمایش پروفرما</span>
 
              {/* Interactive Zoom Toolbar */}
-             <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800">
-                 <button onClick={handleZoomOut} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="کوچک‌نمایی"><ZoomOut size={16}/></button>
-                 <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-400 min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
-                 <button onClick={handleZoomIn} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded transition-colors" title="بزرگ‌نمایی"><ZoomIn size={16}/></button>
+             <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700">
+                 <button onClick={handleZoomOut} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors" title="کوچک‌نمایی"><ZoomOut size={16}/></button>
+                 <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-300 min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+                 <button onClick={handleZoomIn} className="p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors" title="بزرگ‌نمایی"><ZoomIn size={16}/></button>
                  {userZoom !== null && (
                      <button onClick={handleResetZoom} className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded transition-colors" title="بازنشانی"><RotateCcw size={14}/></button>
                  )}
              </div>
 
              <div className="flex gap-2">
-                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
-                <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white p-2 px-3 rounded-lg text-xs flex items-center gap-1 font-bold shadow-sm"><Printer size={16}/> چاپ</button>
-                <button onClick={onClose} className="bg-gray-100 dark:bg-zinc-900 text-gray-700 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800"><X size={18}/></button>
+                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white p-2 px-3 rounded-xl text-xs flex items-center gap-1 font-bold shadow-sm">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
+                <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white p-2 px-3 rounded-xl text-xs flex items-center gap-1 font-bold shadow-sm"><Printer size={16}/> چاپ</button>
+                <button onClick={onClose} className="bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700"><X size={18}/></button>
              </div>
          </div>
       </div>
       
       {/* Responsive Wrapper */}
-      <div className="w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
+      <div className="w-full flex justify-center pb-12" ref={containerWrapperRef}>
           <div style={{ 
             width: '210mm', 
             minHeight: '297mm',
             backgroundColor: 'white', 
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
             transform: `scale(${scale})`,
             transformOrigin: 'top center',
-            marginBottom: `${(scale - 1) * 1120}px` 
-          }} className="printable-content">
+            marginBottom: scale < 1 ? `${(scale - 1) * 1120}px` : '24px'
+          }} className="printable-content rounded-sm">
               {content}
           </div>
       </div>
