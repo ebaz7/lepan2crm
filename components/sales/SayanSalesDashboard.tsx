@@ -105,6 +105,19 @@ export function classifyMajorCategory(groupName: string = '', itemName: string =
   return groupName ? groupName : (itemName ? itemName : 'سایر محصولات');
 }
 
+export function isActualProduct(row: any): boolean {
+  if (!row) return false;
+  const code = String(row.ItemCode || '').trim();
+  const name = String(row.ItemName || '').trim();
+  const group = String(row.GroupName || '').trim();
+  
+  // If the group is empty, and name is empty or name is equal to the code, or it's a digit-only string, it's not an actual product
+  if (!group && (!name || name === code || /^\d+$/.test(name))) {
+    return false;
+  }
+  return true;
+}
+
 function formatMoney(amount: number): string {
   if (isNaN(amount)) return '۰';
   return Math.round(amount).toLocaleString('fa-IR');
@@ -392,7 +405,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
     filteredRows.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseFloat(row.Quantity || '0') || 0;
+      const qty = isActualProduct(row) ? (parseFloat(row.Quantity || '0') || 0) : 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
@@ -699,7 +712,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
     filteredB.forEach(row => {
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseFloat(row.Quantity || '0') || 0;
+      const qty = isActualProduct(row) ? (parseFloat(row.Quantity || '0') || 0) : 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);

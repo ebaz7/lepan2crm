@@ -345,8 +345,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
+    // Helper to identify actual products (yarns/goods) and filter out non-product lines (services/freight)
+    const isActualProduct = (row: any): boolean => {
+        if (!row) return false;
+        const code = String(row.ItemCode || '').trim();
+        const name = String(row.ItemName || '').trim();
+        const group = String(row.GroupName || '').trim();
+        if (!group && (!name || name === code || /^\d+$/.test(name))) {
+            return false;
+        }
+        return true;
+    };
+
     // Helper to extract net weight from row details
     const parseNetWeight = (row: any) => {
+        if (!isActualProduct(row)) return 0;
         const notes = row.ItemNotes || '';
         const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
         if (match) return parseFloat(match[1]);
@@ -921,7 +934,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    t10.Field_009 = '12'
+                    (t10.Field_009 = '12' AND t11.Field_007 > 0)
                     OR
                     t10.Field_009 = '13'
                   )
@@ -942,11 +955,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 invMap.forEach((rows) => {
                     const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
                     const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-                    const sumItemQty = rows.reduce((s, r) => s + parseNetWeight(r), 0);
+                    const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
 
                     rows.forEach(r => {
                         const itemAmt = parseFloat(r.Amount || 0);
-                        const itemQty = parseNetWeight(r);
+                        const itemQty = parseFloat(r.Quantity || 0);
                         let allocatedAmt = 0;
                         if (headerPayable > 0) {
                             if (sumItemAmt > 0) {
@@ -961,9 +974,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         }
                         processed.push({
                             ...r,
-                            Quantity: itemQty.toString(),
                             Amount: allocatedAmt.toString(),
-                            isOfficial: headerPayable > sumItemAmt || headerPayable > 0
+                            isOfficial: (() => {
+                                const h = String(r.Notes || '');
+                                const i = String(r.ItemNotes || '');
+                                return h.includes('رسمی') || i.includes('رسمی') || h.includes('ارزش افزوده') || i.includes('ارزش افزوده');
+                            })()
                         });
                     });
                 });
@@ -1024,7 +1040,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        t10.Field_009 = '12'
+                        (t10.Field_009 = '12' AND t11.Field_007 > 0)
                         OR
                         t10.Field_009 = '13'
                       )
@@ -1060,7 +1076,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const qty = parseFloat(row.Quantity || 0);
+            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -1505,7 +1521,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         salesData.forEach(row => {
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
-            const qty = parseFloat(row.Quantity || 0);
+            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -3333,7 +3349,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             displayedInvoices.forEach(row => {
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
-                                const qty = parseFloat(row.Quantity || 0);
+                                const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
                                 const amt = parseFloat(row.Amount || 0);
                                 const isReturn = row.OpCode === '13';
 

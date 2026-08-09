@@ -526,18 +526,6 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     return uniqueSalesTargets;
 };
 
-// Helper to extract net weight from row details
-const parseNetWeight = (row) => {
-    const notes = row.ItemNotes || '';
-    const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
-    if (match) return parseFloat(match[1]);
-    
-    const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
-    if (seriesMatch) return parseFloat(seriesMatch[1]);
-
-    return parseFloat(row.Quantity || 0);
-};
-
 // Helper to generate and send daily sales report for a specific Date
 const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', targetsOverride = null, selectedPlatforms = null) => {
     const settings = db.settings || {};
@@ -600,9 +588,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
-            t10.Field_009 = '12'
+            t10.Field_009 IN ('3', '12', '23')
             OR 
-            t10.Field_009 = '13'
+            t10.Field_009 IN ('13')
           )
           AND (
             t10.Field_008 LIKE '${gregDate}%'
@@ -634,7 +622,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             Amount: inv.amount || inv.totalPrice || 0,
             GroupName: inv.groupName || inv.category || 'سایر گروه‌ها',
             CustomerName: inv.customerName || inv.recipientName || 'مشتری',
-            OpCode: inv.opCode || '12'
+            OpCode: inv.opCode || '3'
         }));
     }
 
@@ -650,11 +638,11 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     invMap.forEach((rows) => {
         const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
         const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-        const sumItemQty = rows.reduce((s, r) => s + parseNetWeight(r), 0);
+        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
 
         rows.forEach(r => {
             const itemAmt = parseFloat(r.Amount || 0);
-            const itemQty = parseNetWeight(r);
+            const itemQty = parseFloat(r.Quantity || 0);
             let allocatedAmt = 0;
             if (headerPayable > 0) {
                 if (sumItemAmt > 0) {
@@ -669,7 +657,6 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             }
             salesRows.push({
                 ...r,
-                Quantity: itemQty,
                 Amount: allocatedAmt
             });
         });
