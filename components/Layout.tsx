@@ -60,7 +60,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   useEffect(() => {
     const root = document.documentElement;
-    const isPlainLight = theme === 'light';
     
     // Remove old background-related classes
     root.classList.remove(
@@ -72,13 +71,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       'has-preset-bg-light-modern'
     );
     
-    // Add current background classes for light-aurora and dark themes (not plain light)
-    if (!isPlainLight) {
-      if (bgMode === 'custom' && customBgImage) {
-        root.classList.add('has-custom-bg');
-      } else if (bgMode === 'preset') {
-        root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
-      }
+    if (bgMode === 'custom' && customBgImage) {
+      root.classList.add('has-custom-bg');
+    } else if (bgMode === 'preset') {
+      root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
     }
   }, [bgMode, bgPreset, customBgImage, theme]);
 
@@ -535,17 +531,18 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     </div> 
   );
 
-  const isPlainLight = theme === 'light';
-  const showCustomBg = !isPlainLight && bgMode === 'custom' && !!customBgImage;
+  const showCustomBg = bgMode === 'custom' && !!customBgImage;
+  const resolvedBgImage = customBgImage ? resolveImageUrl(customBgImage) : null;
+  const isPlainLight = theme === 'light' && !showCustomBg && bgMode !== 'preset';
 
   return (
     <div className={`flex h-[100dvh] w-full text-[var(--text-primary)] font-sans relative overflow-hidden ${isPlainLight ? 'bg-gray-100 dark:bg-gray-900' : 'bg-transparent'}`}>
-      {/* Background Blobs & Custom Background Image - Active in light-aurora and dark modes */}
-      {!isPlainLight && (
+      {/* Background Blobs & Custom Background Image */}
+      {(!isPlainLight || showCustomBg || bgMode === 'preset') && (
         <div 
           className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
-          style={showCustomBg ? {
-            backgroundImage: `url(${customBgImage})`,
+          style={showCustomBg && resolvedBgImage ? {
+            backgroundImage: `url(${resolvedBgImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',

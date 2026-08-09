@@ -3,6 +3,7 @@ import {
   getSettings,
   saveSettings,
   uploadFile,
+  uploadFileChunked,
   getSecretariatSettings,
   saveSecretariatSettings,
   getSecretariatTemplates,
@@ -10,6 +11,7 @@ import {
   deleteSecretariatTemplate,
   importDocx,
 } from "../services/storageService";
+import { resolveImageUrl } from "../services/apiService";
 import {
   SystemSettings,
   Company,
@@ -235,7 +237,9 @@ const Settings: React.FC<SettingsProps> = ({
     return saved ? parseInt(saved, 10) : 0;
   });
   const [bgMode, setBgMode] = useState<string>(() => localStorage.getItem('app_bg_mode') || 'preset');
+  const [bgPreset, setBgPreset] = useState<string>(() => localStorage.getItem('app_preset_bg') || 'aurora-light');
   const [customBgAdapt, setCustomBgAdapt] = useState<boolean>(() => localStorage.getItem('app_custom_bg_adapt') !== 'false');
+  const [isUploadingBg, setIsUploadingBg] = useState<boolean>(false);
 
   const analyzeImageBrightness = (imageUrl: string): Promise<"dark" | "light"> => {
     return new Promise((resolve) => {
@@ -693,6 +697,19 @@ const Settings: React.FC<SettingsProps> = ({
     loadSystemUsers();
   }, [propSettings]);
 
+  useEffect(() => {
+    const handleBgChange = () => {
+      setCustomBgImage(localStorage.getItem('app_custom_bg_image'));
+      setBgMode(localStorage.getItem('app_bg_mode') || 'preset');
+      setBgPreset(localStorage.getItem('app_preset_bg') || 'aurora-light');
+      const savedBlur = localStorage.getItem('app_custom_bg_blur');
+      setCustomBgBlur(savedBlur ? parseInt(savedBlur, 10) : 0);
+      setCustomBgAdapt(localStorage.getItem('app_custom_bg_adapt') !== 'false');
+    };
+    window.addEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+    return () => window.removeEventListener('APP_THEME_BG_CHANGED', handleBgChange);
+  }, []);
+
   const loadSettings = async () => {
     try {
       const data = await getSettings();
@@ -775,6 +792,31 @@ const Settings: React.FC<SettingsProps> = ({
         safeData.activeFiscalYearId = "fy_1404";
       }
       if (!safeData.rolePermissions) safeData.rolePermissions = {}; // Ensure defined
+
+      if (safeData.customBgImage !== undefined) {
+        setCustomBgImage(safeData.customBgImage || null);
+        if (safeData.customBgImage) {
+          localStorage.setItem('app_custom_bg_image', safeData.customBgImage);
+        } else {
+          localStorage.removeItem('app_custom_bg_image');
+        }
+      }
+      if (safeData.bgMode) {
+        setBgMode(safeData.bgMode);
+        localStorage.setItem('app_bg_mode', safeData.bgMode);
+      }
+      if (safeData.bgPreset) {
+        setBgPreset(safeData.bgPreset);
+        localStorage.setItem('app_preset_bg', safeData.bgPreset);
+      }
+      if (safeData.customBgBlur !== undefined) {
+        setCustomBgBlur(safeData.customBgBlur);
+        localStorage.setItem('app_custom_bg_blur', safeData.customBgBlur.toString());
+      }
+      if (safeData.customBgAdapt !== undefined) {
+        setCustomBgAdapt(safeData.customBgAdapt);
+        localStorage.setItem('app_custom_bg_adapt', safeData.customBgAdapt ? 'true' : 'false');
+      }
 
       setSettings(safeData);
     } catch (e) {
@@ -6286,61 +6328,79 @@ const Settings: React.FC<SettingsProps> = ({
                       accept="image/*"
                       id="bg-upload-input"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 8 * 1024 * 1024) {
-                            alert('حجم عکس ترجیحاً باید کمتر از ۸ مگابایت باشد.');
-                            return;
+                        if (!file) return;
+                        if (file.size > 20 * 1024 * 1024) {
+                          alert('حجم عکس ترجیحاً باید کمتر از ۲۰ مگابایت باشد.');
+                          return;
+                        }
+                        setIsUploadingBg(true);
+                        try {
+                          let imgUrl = '';
+                          try {
+                            const uploadRes = await uploadFileChunked(file, () => {});
+                            imgUrl = uploadRes.url;
+                          } catch (uploadErr) {
+                            console.warn('Chunk upload failed, falling back to FileReader base64', uploadErr);
+                            imgUrl = await new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => resolve(evt.target?.result as string);
+                              reader.onerror = (err) => reject(err);
+                              reader.readAsDataURL(file);
+                            });
                           }
-                          const reader = new FileReader();
-                          reader.onload = async (evt) => {
-                            const res = evt.target?.result as string;
-                            if (res) {
-                              localStorage.setItem('app_custom_bg_image', res);
-                              localStorage.setItem('app_bg_mode', 'custom');
-                              setCustomBgImage(res);
-                              setBgMode('custom');
 
-                              try {
-                                const currentSys = await getSettings();
-                                const updatedSys: SystemSettings = {
-                                  ...currentSys,
-                                  customBgImage: res,
-                                  bgMode: 'custom',
-                                  customBgBlur,
-                                  customBgAdapt
-                                };
-                                await saveSettings(updatedSys);
-                                if (onUpdateSettings) onUpdateSettings(updatedSys);
-                              } catch (err) {
-                                console.error('Failed to save custom bg globally:', err);
-                              }
+                          if (imgUrl) {
+                            localStorage.setItem('app_custom_bg_image', imgUrl);
+                            localStorage.setItem('app_bg_mode', 'custom');
+                            setCustomBgImage(imgUrl);
+                            setBgMode('custom');
 
-                              try {
-                                const brightness = await analyzeImageBrightness(res);
-                                localStorage.setItem('app_custom_bg_brightness', brightness);
-                              } catch (e) {
-                                console.error('Luminance check failed', e);
-                              }
-
-                              window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                              setMessage('تصویر پس‌زمینه اختصاصی برای تمام کاربران و نسخه گوشی اعمال شد ✨');
-                              setTimeout(() => setMessage(''), 3000);
+                            try {
+                              const currentSys = await getSettings();
+                              const updatedSys: SystemSettings = {
+                                ...currentSys,
+                                customBgImage: imgUrl,
+                                bgMode: 'custom',
+                                bgPreset,
+                                customBgBlur,
+                                customBgAdapt
+                              };
+                              await saveSettings(updatedSys);
+                              if (onUpdateSettings) onUpdateSettings(updatedSys);
+                            } catch (err) {
+                              console.error('Failed to save custom bg globally:', err);
                             }
-                          };
-                          reader.readAsDataURL(file);
+
+                            try {
+                              const brightness = await analyzeImageBrightness(imgUrl);
+                              localStorage.setItem('app_custom_bg_brightness', brightness);
+                            } catch (e) {
+                              console.error('Luminance check failed', e);
+                            }
+
+                            window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
+                            setMessage('تصویر پس‌زمینه اختصاصی برای تمام کاربران و نسخه گوشی اعمال شد ✨');
+                            setTimeout(() => setMessage(''), 3000);
+                          }
+                        } catch (err: any) {
+                          alert('خطا در بارگذاری تصویر: ' + (err?.message || 'مشکل در برقراری ارتباط'));
+                        } finally {
+                          setIsUploadingBg(false);
+                          if (e.target) e.target.value = '';
                         }
                       }}
                     />
                     <label
                       htmlFor="bg-upload-input"
-                      className="cursor-pointer bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2"
+                      className={`cursor-pointer bg-pink-600 hover:bg-pink-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 ${isUploadingBg ? 'opacity-50 pointer-events-none' : ''}`}
                     >
-                      <Upload size={16} /> انتخاب و آپلود تصویر جدید
+                      {isUploadingBg ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />} 
+                      {isUploadingBg ? 'در حال آپلود و ثبت...' : 'انتخاب و آپلود تصویر جدید'}
                     </label>
                     <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                      فرمت‌های پشتیبانی شده: JPG, PNG, WEBP (ذخیره داخلی بدون نیاز به اینترنت و وی‌پی‌ان)
+                      فرمت‌های پشتیبانی شده: JPG, PNG, WEBP (ذخیره همگام‌سازی شده برای تمام کاربران و نسخه گوشی)
                     </p>
                   </div>
                 </div>
@@ -6351,7 +6411,7 @@ const Settings: React.FC<SettingsProps> = ({
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={customBgImage || ''}
+                          src={resolveImageUrl(customBgImage)}
                           alt="Custom BG"
                           className="w-16 h-12 object-cover rounded-lg border dark:border-white/10 shadow-sm"
                         />

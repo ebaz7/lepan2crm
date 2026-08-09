@@ -1296,53 +1296,53 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
             )}
             {/* View/Approval Modal */}
             {viewMeeting && (
-                <div className="fixed inset-0 z-[100] flex items-start justify-center p-2 md:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
-                    <div className="bg-white text-gray-900 w-full my-2 md:my-6 max-w-full md:max-w-5xl xl:max-w-7xl rounded-xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
-                        <div className="p-4 px-6 border-b border-gray-200 flex justify-between items-center bg-gray-100 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
-                                    <Eye size={20}/>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
+                    <div className="bg-white text-gray-900 w-full my-1 sm:my-6 max-w-full md:max-w-5xl xl:max-w-7xl rounded-xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
+                        <div className="p-3 sm:p-4 px-4 sm:px-6 border-b border-gray-200 flex justify-between items-center bg-gray-100 shrink-0">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-1.5 sm:p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                                    <Eye size={18} className="sm:w-5 sm:h-5"/>
                                 </div>
-                                <h3 className="font-black text-gray-900 italic tracking-tight uppercase text-sm md:text-base">صورتجلسه شماره {viewMeeting.meetingNumber}</h3>
+                                <h3 className="font-black text-gray-900 italic tracking-tight uppercase text-xs sm:text-sm md:text-base">صورتجلسه شماره {viewMeeting.meetingNumber}</h3>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-blue-600 font-bold flex items-center gap-1.5 text-xs">
-                                    <Printer size={18} /> چاپ
+                                <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-xl transition-colors text-blue-600 font-bold flex items-center gap-1.5 text-xs">
+                                    <Printer size={16} className="sm:w-[18px] sm:h-[18px]" /> <span className="hidden sm:inline">چاپ</span>
                                 </button>
-                                <button onClick={() => setViewMeeting(null)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-600">
-                                    <X size={20} />
+                                <button onClick={() => setViewMeeting(null)} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-600">
+                                    <X size={18} className="sm:w-5 sm:h-5" />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="p-4 md:p-8 overflow-y-auto flex-1 bg-gray-200 font-sans print:p-0">
+                        <div className="p-2 sm:p-4 md:p-8 overflow-y-auto flex-1 bg-gray-200 font-sans print:p-0">
                             {/* Meeting Header Block - Solid White Paper */}
-                            <div className="bg-white text-gray-900 border-4 border-gray-900 p-6 md:p-8 relative shadow-lg rounded-xl max-w-5xl mx-auto">
-                                <div className="text-center space-y-2 mb-8">
-                                    <h1 className="text-2xl md:text-3xl font-black text-gray-900">صورتجلسه</h1>
-                                    <div className="text-sm font-bold text-gray-700 italic">گروه تولیدی احمدی</div>
+                            <div className="bg-white text-gray-900 border-2 sm:border-4 border-gray-900 p-3 sm:p-6 md:p-8 relative shadow-lg rounded-xl max-w-5xl mx-auto overflow-hidden">
+                                <div className="text-center space-y-1 sm:space-y-2 mb-4 sm:mb-8">
+                                    <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900">صورتجلسه</h1>
+                                    <div className="text-xs sm:text-sm font-bold text-gray-700 italic">گروه تولیدی احمدی</div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm mb-8 bg-gray-50 p-4 rounded-xl border-2 border-gray-900">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 md:gap-6 text-xs sm:text-sm mb-4 sm:mb-8 bg-gray-50 p-2.5 sm:p-4 rounded-xl border-2 border-gray-900">
                                     <div className="space-y-1">
-                                        <div className="text-gray-500 font-bold text-[10px]">شماره جلسه:</div>
+                                        <div className="text-gray-500 font-bold text-[9px] sm:text-[10px]">شماره جلسه:</div>
                                         <div className="font-black underline decoration-2 underline-offset-4 text-gray-900">{viewMeeting.meetingNumber}</div>
                                     </div>
                                     <div className="space-y-1 text-center">
-                                        <div className="text-gray-500 font-bold text-[10px]">تاریخ برگزاری:</div>
+                                        <div className="text-gray-500 font-bold text-[9px] sm:text-[10px]">تاریخ برگزاری:</div>
                                         <div className="font-black underline decoration-2 underline-offset-4 font-mono text-gray-900">{viewMeeting.date}</div>
                                     </div>
                                     <div className="space-y-1 text-center">
-                                        <div className="text-gray-500 font-bold text-[10px]">ساعت برگزاری:</div>
+                                        <div className="text-gray-500 font-bold text-[9px] sm:text-[10px]">ساعت برگزاری:</div>
                                         <div className="font-black underline decoration-2 underline-offset-4 font-mono text-gray-900">{viewMeeting.time}</div>
                                     </div>
                                     <div className="space-y-1 text-left">
-                                        <div className="text-gray-500 font-bold text-[10px]">محل برگزاری:</div>
+                                        <div className="text-gray-500 font-bold text-[9px] sm:text-[10px]">محل برگزاری:</div>
                                         <div className="font-black underline decoration-2 underline-offset-4 text-gray-900">{viewMeeting.location}</div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b-2 border-gray-900">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-8 mb-4 sm:mb-8 pb-4 sm:pb-8 border-b-2 border-gray-900 text-xs sm:text-sm">
                                     <div className="flex gap-2">
                                         <span className="font-black whitespace-nowrap text-gray-900">رئیس جلسه:</span>
                                         <span className="text-gray-800 font-bold">{viewMeeting.chairman}</span>
@@ -1353,29 +1353,31 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                     </div>
                                 </div>
 
-                                {/* Attendees Tableish */}
-                                <div className="mb-10">
-                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">اعضای حاضر در جلسه</div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-1">
+                                {/* Attendees Section */}
+                                <div className="mb-6 sm:mb-10">
+                                    <div className="bg-gray-900 text-white px-3 sm:px-4 py-1.5 sm:py-2 font-black text-xs sm:text-sm mb-3 sm:mb-4 rounded-t-lg">اعضای حاضر در جلسه</div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 p-1">
                                         {viewMeeting.attendees.filter(a => a.isPresent).map((a, i) => (
-                                            <div key={i} className="flex flex-col p-2.5 border-2 border-gray-900 rounded-lg bg-gray-50">
+                                            <div key={i} className="flex flex-col p-2 sm:p-2.5 border-2 border-gray-900 rounded-lg bg-gray-50">
                                                 <span className="font-black text-xs text-gray-900">{a.fullName}</span>
                                                 <span className="text-[10px] text-gray-600 font-bold">{a.role}</span>
                                             </div>
                                         ))}
                                     </div>
                                     {viewMeeting.guestAttendees && viewMeeting.guestAttendees.length > 0 && (
-                                        <div className="mt-4 px-2">
-                                            <span className="text-[11px] font-bold text-gray-700">مدعوین: </span>
-                                            <span className="text-[11px] font-black text-gray-900">{viewMeeting.guestAttendees.join('، ')}</span>
+                                        <div className="mt-3 px-2">
+                                            <span className="text-[10px] sm:text-[11px] font-bold text-gray-700">مدعوین: </span>
+                                            <span className="text-[10px] sm:text-[11px] font-black text-gray-900">{viewMeeting.guestAttendees.join('، ')}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Items Table */}
-                                <div className="mb-10">
-                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-4 rounded-t-lg">شرح مصوبات و پیگیری‌ها</div>
-                                    <div className="w-full overflow-x-auto">
+                                {/* Items / Resolutions Section */}
+                                <div className="mb-6 sm:mb-10">
+                                    <div className="bg-gray-900 text-white px-3 sm:px-4 py-1.5 sm:py-2 font-black text-xs sm:text-sm mb-3 sm:mb-4 rounded-t-lg">شرح مصوبات و پیگیری‌ها</div>
+                                    
+                                    {/* Desktop Table View */}
+                                    <div className="hidden sm:block w-full">
                                         <table className="w-full border-collapse border-2 border-gray-900 bg-white text-gray-900">
                                             <thead>
                                                 <tr className="bg-gray-100 text-xs font-black text-gray-900">
@@ -1402,83 +1404,154 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    {/* Mobile Cards View - No Horizontal Scroll */}
+                                    <div className="block sm:hidden space-y-3">
+                                        {viewMeeting.items.map((item, idx) => (
+                                            <div key={item.id} className="border-2 border-gray-900 rounded-xl overflow-hidden bg-white text-gray-900 shadow-xs">
+                                                <div className="bg-gray-100 p-2.5 border-b-2 border-gray-900 flex justify-between items-center text-xs font-black">
+                                                    <span className="bg-gray-900 text-white px-2 py-0.5 rounded text-[10px]">ردیف {idx + 1}</span>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-700">
+                                                        <span>مسئول: <strong className="text-gray-900">{item.responsiblePerson || '—'}</strong></span>
+                                                        <span>|</span>
+                                                        <span>مهلت: <strong className="text-gray-900">{item.duration ? `${item.duration} روز` : '—'}</strong></span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-3 text-xs font-bold leading-relaxed text-gray-900 whitespace-pre-wrap break-words">
+                                                    {item.description}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {viewMeeting.items.length === 0 && (
+                                            <div className="border-2 border-gray-900 p-6 text-center text-gray-500 text-xs italic rounded-xl bg-white">
+                                                موردی ثبت نشده است
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Approval/Signatures Section */}
                                 <div>
-                                    <div className="bg-gray-900 text-white px-4 py-2 font-black text-sm mb-6 rounded-t-lg">تایید نهایی و امضاء الکترونیک اعضا</div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    <div className="bg-gray-900 text-white px-3 sm:px-4 py-1.5 sm:py-2 font-black text-xs sm:text-sm mb-4 sm:mb-6 rounded-t-lg">تایید نهایی و امضاء الکترونیک اعضا</div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4">
                                         {viewMeeting.attendees.filter(a => a.isPresent).map((a, i) => {
                                             const approvalKey = a.username || a.fullName;
                                             const isApproved = viewMeeting.approvals?.[approvalKey]?.approved;
+                                            const isMe = (a.username === currentUser.username || a.fullName === currentUser.fullName);
                                             return (
-                                                <div key={i} className="flex flex-col items-center gap-3 p-4 border-2 border-gray-900 rounded-2xl bg-gray-50 text-gray-900 relative overflow-hidden group shadow-xs">
+                                                <div key={i} className="flex flex-col items-center gap-2 p-3 sm:p-4 border-2 border-gray-900 rounded-2xl bg-gray-50 text-gray-900 relative overflow-hidden group shadow-xs">
                                                     <span className="font-black text-[9px] text-gray-500 transition-colors uppercase tracking-tight">{a.role}</span>
-                                                    <div className="h-16 flex items-center justify-center italic font-black text-blue-900 opacity-90 scale-110">
+                                                    <div className="h-14 sm:h-16 flex items-center justify-center italic font-black text-blue-900 opacity-90 scale-100 sm:scale-110">
                                                         {isApproved ? (
-                                                            <div className="flex flex-col items-center animate-bounce-subtle">
-                                                                <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shadow-md mb-1 border border-emerald-600">
-                                                                    <CheckCircle size={28} />
+                                                            <div className="flex flex-col items-center">
+                                                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shadow-md mb-1 border border-emerald-600">
+                                                                    <CheckCircle size={24} className="sm:w-7 sm:h-7" />
                                                                 </div>
                                                                 <div className="text-[8px] text-emerald-700 font-black">تایید شده</div>
                                                             </div>
                                                         ) : (
                                                             <div className="text-gray-400 flex flex-col items-center opacity-60">
-                                                                <Loader2 size={28} className="animate-spin mb-1 opacity-40" />
+                                                                <Loader2 size={24} className="animate-spin mb-1 opacity-40 sm:w-7 sm:h-7" />
                                                                 <span className="text-[8px] font-black">در انتظار تایید</span>
                                                             </div>
                                                         )}
                                                     </div>
                                                     <span className="font-black text-xs z-10 text-center text-gray-900">{a.fullName}</span>
                                                     
-                                                    {/* Approval Overlay for current user if they are the attendee */}
-                                                    {(a.username === currentUser.username || a.fullName === currentUser.fullName) && !isApproved && canApprove && (
-                                                        <button 
-                                                            onClick={async () => {
-                                                                const updated = {
-                                                                    ...viewMeeting,
-                                                                    approvals: {
-                                                                        ...(viewMeeting.approvals || {}),
-                                                                        [approvalKey]: { approved: true, date: Date.now() }
-                                                                    }
-                                                                };
-                                                                // If all attendees have approved, set status to PENDING_CEO
-                                                                const attendeesToApprove = viewMeeting.attendees.filter(at => at.isPresent && (at.username || at.fullName)).length;
-                                                                const currentApprovalsCount = Object.keys(updated.approvals || {}).length;
-                                                                
-                                                                if (currentApprovalsCount >= attendeesToApprove) {
-                                                                    updated.status = MeetingStatus.PENDING_CEO;
-                                                                    // Notify CEO users
-                                                                    const ceoUsers = users.filter(u => u.role === UserRole.CEO || u.role === 'ceo');
-                                                                    for (const ceo of ceoUsers) {
-                                                                        try {
-                                                                            await apiCall('/notifications/add', 'POST', {
-                                                                                username: ceo.username,
-                                                                                title: `درخواست تایید نهایی صورتجلسه ${updated.meetingNumber}`,
-                                                                                body: `تمامی اعضا صورتجلسه شماره ${updated.meetingNumber} را امضاء کرده‌اند. این صورتجلسه هم‌اکنون منتظر تایید نهایی و بایگانی توسط شماست.`,
-                                                                                url: 'meetings'
-                                                                            });
-                                                                        } catch (err) {
-                                                                            console.warn('Failed to add CEO notification', err);
+                                                    {/* Desktop Hover Overlay */}
+                                                    {isMe && !isApproved && canApprove && (
+                                                        <>
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    const updated = {
+                                                                        ...viewMeeting,
+                                                                        approvals: {
+                                                                            ...(viewMeeting.approvals || {}),
+                                                                            [approvalKey]: { approved: true, date: Date.now() }
                                                                         }
+                                                                    };
+                                                                    const attendeesToApprove = viewMeeting.attendees.filter(at => at.isPresent && (at.username || at.fullName)).length;
+                                                                    const currentApprovalsCount = Object.keys(updated.approvals || {}).length;
+                                                                    
+                                                                    if (currentApprovalsCount >= attendeesToApprove) {
+                                                                        updated.status = MeetingStatus.PENDING_CEO;
+                                                                        const ceoUsers = users.filter(u => u.role === UserRole.CEO || u.role === 'ceo');
+                                                                        for (const ceo of ceoUsers) {
+                                                                            try {
+                                                                                await apiCall('/notifications/add', 'POST', {
+                                                                                    username: ceo.username,
+                                                                                    title: `درخواست تایید نهایی صورتجلسه ${updated.meetingNumber}`,
+                                                                                    body: `تمامی اعضا صورتجلسه شماره ${updated.meetingNumber} را امضاء کرده‌اند. این صورتجلسه هم‌اکنون منتظر تایید نهایی و بایگانی توسط شماست.`,
+                                                                                    url: 'meetings'
+                                                                                });
+                                                                            } catch (err) {
+                                                                                console.warn('Failed to add CEO notification', err);
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        updated.status = MeetingStatus.PENDING_APPROVAL;
                                                                     }
-                                                                } else {
-                                                                    updated.status = MeetingStatus.PENDING_APPROVAL;
-                                                                }
-                                                                
-                                                                try {
-                                                                    await updateMeeting(updated);
-                                                                    setViewMeeting(updated);
-                                                                    loadData();
-                                                                } catch (error) {
-                                                                    alert('خطا در تایید صورتجلسه');
-                                                                }
-                                                            }}
-                                                            className="absolute inset-0 bg-blue-600/90 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all font-black cursor-pointer"
-                                                        >
-                                                            <CheckCircle size={32} className="mb-2" />
-                                                            <span className="text-[10px]">تایید صورتجلسه</span>
-                                                        </button>
+                                                                    
+                                                                    try {
+                                                                        await updateMeeting(updated);
+                                                                        setViewMeeting(updated);
+                                                                        loadData();
+                                                                    } catch (error) {
+                                                                        alert('خطا در تایید صورتجلسه');
+                                                                    }
+                                                                }}
+                                                                className="hidden sm:flex absolute inset-0 bg-blue-600/90 text-white flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all font-black cursor-pointer"
+                                                            >
+                                                                <CheckCircle size={32} className="mb-2" />
+                                                                <span className="text-[10px]">تایید صورتجلسه</span>
+                                                            </button>
+
+                                                            {/* Mobile Direct Button */}
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    const updated = {
+                                                                        ...viewMeeting,
+                                                                        approvals: {
+                                                                            ...(viewMeeting.approvals || {}),
+                                                                            [approvalKey]: { approved: true, date: Date.now() }
+                                                                        }
+                                                                    };
+                                                                    const attendeesToApprove = viewMeeting.attendees.filter(at => at.isPresent && (at.username || at.fullName)).length;
+                                                                    const currentApprovalsCount = Object.keys(updated.approvals || {}).length;
+                                                                    
+                                                                    if (currentApprovalsCount >= attendeesToApprove) {
+                                                                        updated.status = MeetingStatus.PENDING_CEO;
+                                                                        const ceoUsers = users.filter(u => u.role === UserRole.CEO || u.role === 'ceo');
+                                                                        for (const ceo of ceoUsers) {
+                                                                            try {
+                                                                                await apiCall('/notifications/add', 'POST', {
+                                                                                    username: ceo.username,
+                                                                                    title: `درخواست تایید نهایی صورتجلسه ${updated.meetingNumber}`,
+                                                                                    body: `تمامی اعضا صورتجلسه شماره ${updated.meetingNumber} را امضاء کرده‌اند. این صورتجلسه هم‌اکنون منتظر تایید نهایی و بایگانی توسط شماست.`,
+                                                                                    url: 'meetings'
+                                                                                });
+                                                                            } catch (err) {
+                                                                                console.warn('Failed to add CEO notification', err);
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        updated.status = MeetingStatus.PENDING_APPROVAL;
+                                                                    }
+                                                                    
+                                                                    try {
+                                                                        await updateMeeting(updated);
+                                                                        setViewMeeting(updated);
+                                                                        loadData();
+                                                                    } catch (error) {
+                                                                        alert('خطا در تایید صورتجلسه');
+                                                                    }
+                                                                }}
+                                                                className="flex sm:hidden w-full py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black items-center justify-center gap-1 active:scale-95 transition-all shadow-sm"
+                                                            >
+                                                                <CheckCircle size={14} />
+                                                                <span>امضا کنید</span>
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </div>
                                             );
