@@ -115,6 +115,30 @@ export function isActualProduct(row: any): boolean {
   if (!group && (!name || name === code || /^\d+$/.test(name))) {
     return false;
   }
+
+  const lowerName = name.toLowerCase();
+  const lowerGroup = group.toLowerCase();
+
+  const keywordsToExclude = [
+    'کارتن',
+    'پالت',
+    'جعبه',
+    'حمل',
+    'کرایه',
+    'خدمات',
+    'هزینه',
+    'دوک خالی',
+    'کیسه خالی',
+    'بسته بندی',
+    'پلاستیک'
+  ];
+
+  for (const keyword of keywordsToExclude) {
+    if (lowerName.includes(keyword) || lowerGroup.includes(keyword)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -404,8 +428,9 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     });
 
     filteredRows.forEach(row => {
+      if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = isActualProduct(row) ? (parseFloat(row.Quantity || '0') || 0) : 0;
+      const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
@@ -655,9 +680,16 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       todayNetWgt: todayNetCalculatedWgt,
       todayNetFee,
       todayRetAmt,
+      todayRetWgt: todayRetWgt,
+      todayGrossAmt: todayNetAmt,
+      todayGrossWgt: todayNetWgt,
       yesterdayNetAmt: yesterdayNetCalculatedAmt,
       yesterdayNetWgt: yesterdayNetCalculatedWgt,
       yesterdayNetFee,
+      yesterdayRetAmt: yesterdayRetAmt,
+      yesterdayRetWgt: yesterdayRetWgt,
+      yesterdayGrossAmt: yesterdayNetAmt,
+      yesterdayGrossWgt: yesterdayNetWgt,
       monthNetAmt,
       monthNetWgt,
       monthNetFee,
@@ -671,6 +703,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       rangeNetWgt,
       rangeNetFee,
       rangeSalesAmt,
+      rangeSalesWgt,
       rangeRetAmt,
       rangeRetWgt,
       invoiceCount,
@@ -711,8 +744,9 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     });
 
     filteredB.forEach(row => {
+      if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = isActualProduct(row) ? (parseFloat(row.Quantity || '0') || 0) : 0;
+      const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);
@@ -1843,37 +1877,85 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       {/* 2. TOP EXECUTIVE KPI CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         
-        {/* Card 1: Today Net Sales */}
-        <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-[11px] font-bold text-slate-600">فروش خالص امروز</span>
-            <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <DollarSign className="w-3.5 h-3.5" />
-            </span>
+        {/* Card 1: Today Performance */}
+        <div className="bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs hover:shadow-md transition-all group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-1.5">
+              <span className="text-[11px] font-extrabold text-slate-700">عملکرد فروش امروز</span>
+              <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <DollarSign className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            
+            {/* Breakdown */}
+            <div className="space-y-1 text-[10px] border-b border-slate-100 pb-1.5 mb-1.5">
+              <div className="flex justify-between items-center text-slate-500">
+                <span>فروش ناخالص:</span>
+                <span className="font-mono font-bold text-slate-700">
+                  {formatMoney(processedMetrics.todayGrossAmt)}
+                  <span className="text-[8.5px] text-slate-400 mr-1">({formatWeight(processedMetrics.todayGrossWgt)} ک‌گ)</span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-rose-500">
+                <span>مرجوعی:</span>
+                <span className="font-mono font-bold">
+                  {formatMoney(processedMetrics.todayRetAmt)}
+                  <span className="text-[8.5px] text-rose-400 mr-1">({formatWeight(processedMetrics.todayRetWgt)} ک‌گ)</span>
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="text-base font-black text-slate-900 font-mono">
-            {formatMoney(processedMetrics.todayNetAmt)} <span className="text-[10px] text-slate-500">ریال</span>
-          </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-1 flex items-center justify-between">
-            <span>وزن: {formatWeight(processedMetrics.todayNetWgt)} ک‌گ</span>
-            <span className="font-mono text-blue-700 font-bold">فی: {formatMoney(processedMetrics.todayNetFee)}</span>
+          
+          <div>
+            <div className="text-[9px] text-slate-400 font-bold mb-0.5">خالص نهایی امروز:</div>
+            <div className="text-sm font-black text-blue-900 font-mono">
+              {formatMoney(processedMetrics.todayNetAmt)} <span className="text-[9px] text-slate-500 font-normal">ریال</span>
+            </div>
+            <div className="text-[9.5px] text-slate-500 font-medium mt-1 flex items-center justify-between">
+              <span>وزن: {formatWeight(processedMetrics.todayNetWgt)} ک‌گ</span>
+              <span className="font-mono text-blue-700 font-bold">فی: {formatMoney(processedMetrics.todayNetFee)}</span>
+            </div>
           </div>
         </div>
 
-        {/* Card 1.5: Yesterday Net Sales */}
-        <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-[11px] font-bold text-slate-600">فروش خالص دیروز</span>
-            <span className="p-1.5 bg-cyan-50 text-cyan-600 rounded-lg group-hover:bg-cyan-600 group-hover:text-white transition-colors">
-              <Calendar className="w-3.5 h-3.5" />
-            </span>
+        {/* Card 1.5: Yesterday Performance */}
+        <div className="bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs hover:shadow-md transition-all group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 mb-1.5">
+              <span className="text-[11px] font-extrabold text-slate-700">عملکرد فروش دیروز</span>
+              <span className="p-1.5 bg-cyan-50 text-cyan-600 rounded-lg group-hover:bg-cyan-600 group-hover:text-white transition-colors">
+                <Calendar className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            
+            {/* Breakdown */}
+            <div className="space-y-1 text-[10px] border-b border-slate-100 pb-1.5 mb-1.5">
+              <div className="flex justify-between items-center text-slate-500">
+                <span>فروش ناخالص:</span>
+                <span className="font-mono font-bold text-slate-700">
+                  {formatMoney(processedMetrics.yesterdayGrossAmt)}
+                  <span className="text-[8.5px] text-slate-400 mr-1">({formatWeight(processedMetrics.yesterdayGrossWgt)} ک‌گ)</span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-rose-500">
+                <span>مرجوعی:</span>
+                <span className="font-mono font-bold">
+                  {formatMoney(processedMetrics.yesterdayRetAmt)}
+                  <span className="text-[8.5px] text-rose-400 mr-1">({formatWeight(processedMetrics.yesterdayRetWgt)} ک‌گ)</span>
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="text-base font-black text-slate-900 font-mono">
-            {formatMoney(processedMetrics.yesterdayNetAmt)} <span className="text-[10px] text-slate-500">ریال</span>
-          </div>
-          <div className="text-[10px] text-slate-500 font-medium mt-1 flex items-center justify-between">
-            <span>وزن: {formatWeight(processedMetrics.yesterdayNetWgt)} ک‌گ</span>
-            <span className="font-mono text-cyan-700 font-bold">فی: {formatMoney(processedMetrics.yesterdayNetFee)}</span>
+          
+          <div>
+            <div className="text-[9px] text-slate-400 font-bold mb-0.5">خالص نهایی دیروز:</div>
+            <div className="text-sm font-black text-slate-900 font-mono">
+              {formatMoney(processedMetrics.yesterdayNetAmt)} <span className="text-[9px] text-slate-500 font-normal">ریال</span>
+            </div>
+            <div className="text-[9.5px] text-slate-500 font-medium mt-1 flex items-center justify-between">
+              <span>وزن: {formatWeight(processedMetrics.yesterdayNetWgt)} ک‌گ</span>
+              <span className="font-mono text-cyan-700 font-bold">فی: {formatMoney(processedMetrics.yesterdayNetFee)}</span>
+            </div>
           </div>
         </div>
 
@@ -1928,18 +2010,42 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           </div>
         </div>
 
-        {/* Card 5: Selected Range Net Sales */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-3.5 shadow-md">
-          <div className="flex items-center justify-between mb-1 opacity-90">
-            <span className="text-[11px] font-bold">فروش خالص بازه</span>
-            <span className="p-1 bg-white/20 rounded-lg"><DollarSign className="w-3.5 h-3.5" /></span>
+        {/* Card 5: Selected Range Performance */}
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-3 shadow-md flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1.5 opacity-95">
+              <span className="text-[11px] font-extrabold">عملکرد فروش بازه</span>
+              <span className="p-1 bg-white/20 rounded-lg"><DollarSign className="w-3.5 h-3.5" /></span>
+            </div>
+            
+            {/* Breakdown */}
+            <div className="space-y-1 text-[10px] border-b border-white/10 pb-1.5 mb-1.5 opacity-90">
+              <div className="flex justify-between items-center text-blue-100">
+                <span>فروش ناخالص:</span>
+                <span className="font-mono font-bold text-white">
+                  {formatMoney(processedMetrics.rangeSalesAmt)}
+                  <span className="text-[8.5px] text-blue-200 mr-1">({formatWeight(processedMetrics.rangeSalesWgt)} ک‌گ)</span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-rose-200">
+                <span>مرجوعی:</span>
+                <span className="font-mono font-bold">
+                  {formatMoney(processedMetrics.rangeRetAmt)}
+                  <span className="text-[8.5px] text-rose-300 mr-1">({formatWeight(processedMetrics.rangeRetWgt)} ک‌گ)</span>
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="text-base font-black font-mono">
-            {formatMoney(processedMetrics.rangeNetAmt)} <span className="text-[10px]">ریال</span>
-          </div>
-          <div className="text-[10px] font-medium mt-1 text-blue-100 flex items-center justify-between">
-            <span>وزن: {formatWeight(processedMetrics.rangeNetWgt)} ک‌گ</span>
-            <span className="font-mono font-bold bg-white/20 px-1.5 py-0.5 rounded">فی: {formatMoney(processedMetrics.rangeNetFee)}</span>
+          
+          <div>
+            <div className="text-[9px] text-blue-200 font-bold mb-0.5">خالص نهایی بازه:</div>
+            <div className="text-sm font-black font-mono">
+              {formatMoney(processedMetrics.rangeNetAmt)} <span className="text-[9px] text-blue-100 font-normal">ریال</span>
+            </div>
+            <div className="text-[9.5px] text-blue-100 font-medium mt-1 flex items-center justify-between">
+              <span>وزن: {formatWeight(processedMetrics.rangeNetWgt)} ک‌گ</span>
+              <span className="font-mono font-bold bg-white/20 px-1.5 py-0.5 rounded">فی: {formatMoney(processedMetrics.rangeNetFee)}</span>
+            </div>
           </div>
         </div>
 

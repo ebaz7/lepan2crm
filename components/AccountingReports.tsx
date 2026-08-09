@@ -354,6 +354,30 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         if (!group && (!name || name === code || /^\d+$/.test(name))) {
             return false;
         }
+
+        const lowerName = name.toLowerCase();
+        const lowerGroup = group.toLowerCase();
+
+        const keywordsToExclude = [
+            'کارتن',
+            'پالت',
+            'جعبه',
+            'حمل',
+            'کرایه',
+            'خدمات',
+            'هزینه',
+            'دوک خالی',
+            'کیسه خالی',
+            'بسته بندی',
+            'پلاستیک'
+        ];
+
+        for (const keyword of keywordsToExclude) {
+            if (lowerName.includes(keyword) || lowerGroup.includes(keyword)) {
+                return false;
+            }
+        }
+
         return true;
     };
 
@@ -916,7 +940,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
-                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1022,7 +1045,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
-                                              AND t11.Field_036 = t10.Field_009
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
