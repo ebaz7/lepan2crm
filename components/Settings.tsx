@@ -6473,125 +6473,124 @@ const Settings: React.FC<SettingsProps> = ({
                     <Sparkles size={16} className="text-amber-500" /> پوسته‌ها و تصاویر پیش‌فرض سیستم (دسترس‌پذیری بدون وی‌پی‌ان)
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Preset 1: Cosmic Dark Nebula */}
-                    <div
-                      onClick={() => {
+                    {/* Helper function to save preset globally */}
+                    {(() => {
+                      const handleApplyPreset = async (presetKey: string, presetName: string) => {
                         localStorage.setItem('app_bg_mode', 'preset');
-                        localStorage.setItem('app_preset_bg', 'cosmic-dark');
+                        localStorage.setItem('app_preset_bg', presetKey);
+                        setBgMode('preset');
+                        setBgPreset(presetKey);
+                        try {
+                          const currentSys = await getSettings();
+                          const updatedSys: SystemSettings = {
+                            ...currentSys,
+                            bgMode: 'preset',
+                            bgPreset: presetKey
+                          };
+                          await saveSettings(updatedSys);
+                          if (onUpdateSettings) onUpdateSettings(updatedSys);
+                        } catch (err) {
+                          console.error('Failed to save preset setting globally:', err);
+                        }
                         window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                        setMessage('پوسته تاریک کیهانی با موفقیت تنظیم شد');
+                        setMessage(`پوسته ${presetName} با موفقیت برای تمام کاربران و دستگاه‌ها اعمال شد ✨`);
                         setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
-                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'cosmic-dark'
-                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="h-24 rounded-xl bg-preset-cosmic-dark flex items-center justify-center text-white font-bold text-xs shadow-inner">
-                        کیهانی و شیشه‌ای (راحت برای چشم)
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">پوسته تاریک کیهانی (Royal Dark Cosmic)</p>
-                        <p className="text-[11px] text-gray-500">پس‌زمینه تاریک با حباب‌های درخشان؛ جلوگیری از خستگی چشم</p>
-                      </div>
-                    </div>
+                      };
 
-                    {/* Preset 2: Aurora Light */}
-                    <div
-                      onClick={() => {
-                        localStorage.setItem('app_bg_mode', 'preset');
-                        localStorage.setItem('app_preset_bg', 'aurora-light');
-                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                        setMessage('پوسته شفق قطبی با موفقیت تنظیم شد');
-                        setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
-                        localStorage.getItem('app_bg_mode') === 'preset' && (localStorage.getItem('app_preset_bg') === 'aurora-light' || !localStorage.getItem('app_preset_bg'))
-                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="h-24 rounded-xl bg-gradient-to-r from-sky-200 via-pink-200 to-indigo-200 flex items-center justify-center text-gray-800 font-bold text-xs shadow-inner">
-                        شفق قطبی (Aurora)
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">پوسته شیشه‌ای شفق قطبی (Aurora Liquid)</p>
-                        <p className="text-[11px] text-gray-500">ملایم و رنگارنگ همراه با افکت شیشه‌ای مدرن</p>
-                      </div>
-                    </div>
+                      return (
+                        <>
+                          {/* Preset 1: Cosmic Dark Nebula */}
+                          <div
+                            onClick={() => handleApplyPreset('cosmic-dark', 'تاریک کیهانی')}
+                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                              bgMode === 'preset' && bgPreset === 'cosmic-dark'
+                                ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-white/10'
+                            }`}
+                          >
+                            <div className="h-24 rounded-xl bg-preset-cosmic-dark flex items-center justify-center text-white font-bold text-xs shadow-inner">
+                              کیهانی و شیشه‌ای (راحت برای چشم)
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">پوسته تاریک کیهانی (Royal Dark Cosmic)</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">پس‌زمینه تاریک با حباب‌های درخشان؛ جلوگیری از خستگی چشم</p>
+                            </div>
+                          </div>
 
-                    {/* Preset 3: Cyan Cosmic */}
-                    <div
-                      onClick={() => {
-                        localStorage.setItem('app_bg_mode', 'preset');
-                        localStorage.setItem('app_preset_bg', 'cyan-cosmic');
-                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                        setMessage('پوسته فیروزه‌ای کیهانی تنظیم شد');
-                        setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
-                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'cyan-cosmic'
-                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="h-24 rounded-xl bg-preset-cyan-cosmic flex items-center justify-center text-cyan-300 font-bold text-xs shadow-inner">
-                        کیهانی فیروزه‌ای
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">پوسته فیروزه‌ای ژرف (Cyan Cosmic Nebula)</p>
-                        <p className="text-[11px] text-gray-500">رنگ‌های فیروزه‌ای و نیلی با حس فضایی</p>
-                      </div>
-                    </div>
+                          {/* Preset 2: Aurora Light */}
+                          <div
+                            onClick={() => handleApplyPreset('aurora-light', 'شفق قطبی')}
+                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                              bgMode === 'preset' && (bgPreset === 'aurora-light' || !bgPreset)
+                                ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-white/10'
+                            }`}
+                          >
+                            <div className="h-24 rounded-xl bg-gradient-to-r from-sky-200 via-pink-200 to-indigo-200 flex items-center justify-center text-gray-800 font-bold text-xs shadow-inner">
+                              شفق قطبی (Aurora)
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">پوسته شیشه‌ای شفق قطبی (Aurora Liquid)</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">ملایم و رنگارنگ همراه با افکت شیشه‌ای مدرن</p>
+                            </div>
+                          </div>
 
-                    {/* Preset 4: Midnight Dark */}
-                    <div
-                      onClick={() => {
-                        localStorage.setItem('app_bg_mode', 'preset');
-                        localStorage.setItem('app_preset_bg', 'dark-midnight');
-                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                        setMessage('پوسته تاریک ساده تنظیم شد');
-                        setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
-                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'dark-midnight'
-                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="h-24 rounded-xl bg-slate-900 flex items-center justify-center text-slate-300 font-bold text-xs shadow-inner">
-                        تاریک ساده (Slate)
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">پوسته تاریک ساده (Dark Midnight)</p>
-                        <p className="text-[11px] text-gray-500">محیط یکدست و تاریک بدون گرادینت</p>
-                      </div>
-                    </div>
+                          {/* Preset 3: Cyan Cosmic */}
+                          <div
+                            onClick={() => handleApplyPreset('cyan-cosmic', 'فیروزه‌ای کیهانی')}
+                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                              bgMode === 'preset' && bgPreset === 'cyan-cosmic'
+                                ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-white/10'
+                            }`}
+                          >
+                            <div className="h-24 rounded-xl bg-preset-cyan-cosmic flex items-center justify-center text-cyan-300 font-bold text-xs shadow-inner">
+                              کیهانی فیروزه‌ای
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">پوسته فیروزه‌ای ژرف (Cyan Cosmic Nebula)</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">رنگ‌های فیروزه‌ای و نیلی با حس فضایی</p>
+                            </div>
+                          </div>
 
-                    {/* Preset 5: Light Modern */}
-                    <div
-                      onClick={() => {
-                        localStorage.setItem('app_bg_mode', 'preset');
-                        localStorage.setItem('app_preset_bg', 'light-modern');
-                        window.dispatchEvent(new Event('APP_THEME_BG_CHANGED'));
-                        setMessage('پوسته روشن ساده تنظیم شد');
-                        setTimeout(() => setMessage(''), 3000);
-                      }}
-                      className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
-                        localStorage.getItem('app_bg_mode') === 'preset' && localStorage.getItem('app_preset_bg') === 'light-modern'
-                          ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="h-24 rounded-xl bg-slate-50 border flex items-center justify-center text-slate-700 font-bold text-xs shadow-inner">
-                        روشن ساده
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">پوسته روشن ساده (Light Minimal)</p>
-                        <p className="text-[11px] text-gray-500">ساده و تمیز برای کارهای روزمره</p>
-                      </div>
-                    </div>
+                          {/* Preset 4: Midnight Dark */}
+                          <div
+                            onClick={() => handleApplyPreset('dark-midnight', 'تاریک ساده')}
+                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                              bgMode === 'preset' && bgPreset === 'dark-midnight'
+                                ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-white/10'
+                            }`}
+                          >
+                            <div className="h-24 rounded-xl bg-slate-900 flex items-center justify-center text-slate-300 font-bold text-xs shadow-inner">
+                              تاریک ساده (Slate)
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">پوسته تاریک ساده (Dark Midnight)</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">محیط یکدست و تاریک بدون گرادینت</p>
+                            </div>
+                          </div>
+
+                          {/* Preset 5: Light Modern */}
+                          <div
+                            onClick={() => handleApplyPreset('light-modern', 'روشن ساده')}
+                            className={`cursor-pointer rounded-2xl p-4 border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                              bgMode === 'preset' && bgPreset === 'light-modern'
+                                ? 'border-pink-500 ring-2 ring-pink-500/20 shadow-lg'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-white/10'
+                            }`}
+                          >
+                            <div className="h-24 rounded-xl bg-slate-50 border flex items-center justify-center text-slate-700 font-bold text-xs shadow-inner">
+                              روشن ساده
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-800 dark:text-gray-200">پوسته روشن ساده (Light Minimal)</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">ساده و تمیز برای کارهای روزمره</p>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

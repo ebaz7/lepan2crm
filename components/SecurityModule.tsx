@@ -5,6 +5,7 @@ import { getSecurityLogs, saveSecurityLog, updateSecurityLog, deleteSecurityLog,
 import { generateUUID, getCurrentShamsiDate, jalaliToGregorian, formatDate, getShamsiDateFromIso } from '../constants';
 import { Shield, Plus, CheckCircle, XCircle, Clock, Truck, AlertTriangle, UserCheck, Calendar, Printer, Archive, FileSymlink, Edit, Trash2, Eye, FileText, CheckSquare, User as UserIcon, ListChecks, Activity, FileDown, Loader2, Pencil, ChevronDown, ChevronUp, FolderOpen, Folder, Save, X, Camera, Settings } from 'lucide-react';
 import { PrintSecurityDailyLog, PrintPersonnelDelay, PrintIncidentReport } from './security/SecurityPrints';
+import { IranianPlateInput, IranianPlateDisplay } from './IranianPlate';
 import { getRolePermissions } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator';
 import { isInFinancialYear } from '../utils/dateUtils';
@@ -24,15 +25,18 @@ const ScaledContainer: React.FC<{ children: React.ReactNode, isLandscape?: boole
             const wrapper = wrapperRef.current;
             if (wrapper) {
                 const wrapperWidth = wrapper.clientWidth;
-                // A4 Landscape = 297mm (~1123px), Portrait = 210mm (~794px)
-                const targetWidth = isLandscape ? 1123 : 794; 
+                // Measure viewport height minus top header controls (~100px)
+                const availHeight = Math.max(300, window.innerHeight - 110);
                 
-                if (wrapperWidth < targetWidth + 40) {
-                    const newScale = (wrapperWidth - 32) / targetWidth;
-                    setScale(newScale);
-                } else {
-                    setScale(1);
-                }
+                // A4 Landscape = 297mm (~1123px width, ~794px height), Portrait = 210mm (~794px width, ~1123px height)
+                const targetWidth = isLandscape ? 1123 : 794; 
+                const targetHeight = isLandscape ? 794 : 1123;
+
+                const scaleX = (wrapperWidth - 24) / targetWidth;
+                const scaleY = availHeight / targetHeight;
+                
+                const calculatedScale = Math.min(scaleX, scaleY, 1.0);
+                setScale(Math.max(calculatedScale, 0.35));
             }
         };
         handleResize();
@@ -40,13 +44,17 @@ const ScaledContainer: React.FC<{ children: React.ReactNode, isLandscape?: boole
         return () => window.removeEventListener('resize', handleResize);
     }, [isLandscape]);
 
+    const targetWidth = isLandscape ? '296mm' : '210mm';
+    const targetHeight = isLandscape ? '209mm' : '296mm';
+
     return (
-        <div ref={wrapperRef} className="w-full flex justify-center pb-10">
+        <div ref={wrapperRef} className="w-full h-full flex justify-center items-center overflow-hidden">
             <div style={{
                 transform: `scale(${scale})`,
-                transformOrigin: 'top center',
-                width: isLandscape ? '296mm' : '210mm',
-                marginBottom: `${(1 - scale) * -100}px` 
+                transformOrigin: 'center center',
+                width: targetWidth,
+                height: targetHeight,
+                flexShrink: 0
             }}>
                 {children}
             </div>
@@ -1410,7 +1418,10 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="text-xs font-bold block mb-1">شماره پلاک</label><input className="w-full border rounded p-2 dir-ltr" placeholder="12 A 345 67" value={logForm.plateNumber} onChange={e=>setLogForm({...logForm, plateNumber:e.target.value})}/></div>
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-bold block mb-1">شماره پلاک خودرو</label>
+                                        <IranianPlateInput value={logForm.plateNumber} onChange={val => setLogForm({...logForm, plateNumber: val})}/>
+                                    </div>
                                     <div><label className="text-xs font-bold block mb-1">مجوز دهنده</label><input className="w-full border rounded p-2" value={logForm.permitProvider} onChange={e=>setLogForm({...logForm, permitProvider:e.target.value})}/></div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
@@ -1486,7 +1497,9 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                                             <td className="p-3">
                                                 <div className="font-bold">{log.driverName}</div>
                                                 <div className="text-[10px] text-gray-500 font-mono">{log.driverPhone}</div>
-                                                <div className="font-mono text-blue-700 bg-blue-50 px-1 rounded inline-block mt-1">{log.plateNumber}</div>
+                                                <div className="mt-1 flex justify-center">
+                                                    <IranianPlateDisplay value={log.plateNumber} size="xs" />
+                                                </div>
                                                 {log.attachment && (
                                                     <button 
                                                         onClick={() => setViewAttachmentUrl(log.attachment)} 

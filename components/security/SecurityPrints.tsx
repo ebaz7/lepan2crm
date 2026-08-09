@@ -3,6 +3,7 @@ import React from 'react';
 import { SecurityLog, PersonnelDelay, SecurityIncident, DailySecurityMeta } from '../../types';
 import { formatDate } from '../../constants';
 import PrintPersonnelDelayForm from './PrintPersonnelDelayForm';
+import { IranianPlateDisplay } from '../IranianPlate';
 
 interface DailyLogProps {
     date: string;
@@ -128,7 +129,9 @@ export const PrintSecurityDailyLog: React.FC<DailyLogProps> = ({ date, logs, met
                                     <td style={{ border: '1px solid black', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px' }}>{log.entryTime}</td>
                                     <td style={{ border: '1px solid black', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px' }}>{log.exitTime}</td>
                                     <td style={{ border: '1px solid black', overflow: 'hidden', whiteSpace: 'nowrap' }}>{log.driverName}</td>
-                                    <td style={{ border: '1px solid black', fontFamily: 'monospace', direction: 'ltr' }}>{log.plateNumber}</td>
+                                    <td style={{ border: '1px solid black', padding: '2px', textAlign: 'center' }}>
+                                        {log.plateNumber ? <IranianPlateDisplay value={log.plateNumber} size="xs" /> : ''}
+                                    </td>
                                     <td style={{ border: '1px solid black', overflow: 'hidden', whiteSpace: 'nowrap' }}>{log.permitProvider}</td>
                                     <td style={{ border: '1px solid black', textAlign: 'right', paddingRight: '4px', fontWeight: '500', overflow: 'hidden', whiteSpace: 'nowrap' }}>{log.goodsName}</td>
                                     <td style={{ border: '1px solid black', fontFamily: 'monospace', fontWeight: 'bold' }}>{log.quantity}</td>
