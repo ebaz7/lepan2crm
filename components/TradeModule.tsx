@@ -60,6 +60,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const [newCommodityGroup, setNewCommodityGroup] = useState('');
     const [newMainCurrency, setNewMainCurrency] = useState('EUR');
     const [newRecordCompany, setNewRecordCompany] = useState('');
+
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [transferForm, setTransferForm] = useState({ targetCommodityGroup: '', newFileNumber: '', newGoodsName: '', newSellerName: '', description: '' });
     
     const [activeTab, setActiveTab] = useState<'timeline' | 'proforma' | 'insurance' | 'currency_purchase' | 'shipping_docs' | 'inspection' | 'clearance_docs' | 'green_leaf' | 'internal_shipping' | 'agent_fees' | 'final_calculation'>('timeline');
     
@@ -885,7 +888,89 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const handleDocFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploadingDocFile(true); const reader = new FileReader(); reader.onload = async (ev) => { const base64 = ev.target?.result as string; try { const result = await uploadFile(file.name, base64); setShippingDocForm(prev => ({ ...prev, attachments: [...(prev.attachments || []), { fileName: result.fileName, url: result.url }] })); } catch (error) { alert('خطا در آپلود فایل'); } finally { setUploadingDocFile(false); } }; reader.readAsDataURL(file); e.target.value = ''; };
     const handleSaveShippingDoc = async () => { if (!selectedRecord || !shippingDocForm.documentNumber) return; let totalNet = shippingDocForm.netWeight; let totalGross = shippingDocForm.grossWeight; let totalPackages = shippingDocForm.packagesCount; if (activeShippingSubTab === 'Packing List' && shippingDocForm.packingItems && shippingDocForm.packingItems.length > 0) { totalNet = shippingDocForm.packingItems.reduce((acc, i) => acc + i.netWeight, 0); totalGross = shippingDocForm.packingItems.reduce((acc, i) => acc + i.grossWeight, 0); totalPackages = shippingDocForm.packingItems.reduce((acc, i) => acc + i.packageCount, 0); } const newDoc: ShippingDocument = { id: generateUUID(), type: activeShippingSubTab, status: shippingDocForm.status || 'Draft', documentNumber: shippingDocForm.documentNumber, documentDate: shippingDocForm.documentDate || '', createdAt: Date.now(), createdBy: currentUser.fullName, attachments: shippingDocForm.attachments || [], invoiceItems: activeShippingSubTab === 'Commercial Invoice' ? shippingDocForm.invoiceItems : undefined, packingItems: activeShippingSubTab === 'Packing List' ? shippingDocForm.packingItems : undefined, freightCost: activeShippingSubTab === 'Commercial Invoice' ? Number(shippingDocForm.freightCost) : undefined, currency: shippingDocForm.currency, netWeight: totalNet, grossWeight: totalGross, packagesCount: totalPackages, vesselName: shippingDocForm.vesselName, portOfLoading: shippingDocForm.portOfLoading, portOfDischarge: shippingDocForm.portOfDischarge, description: shippingDocForm.description }; const updatedDocs = [...(selectedRecord.shippingDocuments || []), newDoc]; const updatedRecord = { ...selectedRecord, shippingDocuments: updatedDocs }; if (!updatedRecord.stages[TradeStage.SHIPPING_DOCS]) updatedRecord.stages[TradeStage.SHIPPING_DOCS] = getStageData(updatedRecord, TradeStage.SHIPPING_DOCS); if (activeShippingSubTab === 'Commercial Invoice') { updatedRecord.stages[TradeStage.SHIPPING_DOCS].costCurrency = updatedDocs.filter(d => d.type === 'Commercial Invoice').reduce((acc, d) => acc + (d.invoiceItems?.reduce((sum, i) => sum + i.totalPrice, 0) || 0) + (d.freightCost || 0), 0); } await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); setShippingDocForm({ status: 'Draft', documentNumber: '', documentDate: '', attachments: [], invoiceItems: [], packingItems: [], freightCost: 0 }); };
     const handleDeleteShippingDoc = async (id: string) => { if (!selectedRecord) return; const updatedDocs = (selectedRecord.shippingDocuments || []).filter(d => d.id !== id); const updatedRecord = { ...selectedRecord, shippingDocuments: updatedDocs }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
-    const handleSyncInvoiceToProforma = async () => { if (!selectedRecord) return; if (!confirm('آیا مطمئن هستید؟ این عملیات اقلام و هزینه حمل پروفرما را با مقادیر این اینویس جایگزین می‌کند. اقلام هم‌نام (از پارت‌های مختلف) تجمیع خواهند شد.')) return; const invoiceItems = shippingDocForm.invoiceItems || []; const aggregatedMap = new Map<string, { weight: number, totalPrice: number }>(); for (const item of invoiceItems) { const name = item.name.trim(); const current = aggregatedMap.get(name) || { weight: 0, totalPrice: 0 }; aggregatedMap.set(name, { weight: current.weight + item.weight, totalPrice: current.totalPrice + item.totalPrice }); } const newItems: TradeItem[] = []; aggregatedMap.forEach((val, name) => { newItems.push({ id: generateUUID(), name: name, weight: val.weight, unitPrice: val.weight > 0 ? val.totalPrice / val.weight : 0, totalPrice: val.totalPrice, hsCode: '' }); }); const updatedRecord = { ...selectedRecord, items: newItems, freightCost: Number(shippingDocForm.freightCost) || 0 }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); alert('پروفرما با موفقیت بروزرسانی شد (تجمیع بر اساس نام کالا).'); };
+    const handleSyncInvoiceToProforma = async () => { 
+        if (!selectedRecord) return; 
+        if (!confirm('آیا مطمئن هستید؟ این عملیات اقلام و هزینه حمل پروفرما را با مقادیر این اینویس جایگزین می‌کند و نسخه فعلی به عنوان سابقه و بایگانی در پرونده ذخیره خواهد شد.')) return; 
+        
+        const historyEntry = {
+            id: generateUUID(),
+            items: [...selectedRecord.items],
+            freightCost: selectedRecord.freightCost || 0,
+            updatedAt: Date.now(),
+            updatedBy: currentUser.fullName,
+            description: 'نسخ اینویس و جایگزینی پروفرما'
+        };
+        const existingHistory = selectedRecord.proformaHistory || [];
+
+        const invoiceItems = shippingDocForm.invoiceItems || []; 
+        const aggregatedMap = new Map<string, { weight: number, totalPrice: number }>(); 
+        for (const item of invoiceItems) { 
+            const name = item.name.trim(); 
+            const current = aggregatedMap.get(name) || { weight: 0, totalPrice: 0 }; 
+            aggregatedMap.set(name, { weight: current.weight + item.weight, totalPrice: current.totalPrice + item.totalPrice }); 
+        } 
+        const newItems: TradeItem[] = []; 
+        aggregatedMap.forEach((val, name) => { 
+            newItems.push({ id: generateUUID(), name: name, weight: val.weight, unitPrice: val.weight > 0 ? val.totalPrice / val.weight : 0, totalPrice: val.totalPrice, hsCode: '' }); 
+        }); 
+        const updatedRecord = { 
+            ...selectedRecord, 
+            items: newItems, 
+            freightCost: Number(shippingDocForm.freightCost) || 0,
+            proformaHistory: [historyEntry, ...existingHistory]
+        }; 
+        await updateTradeRecord(updatedRecord); 
+        setSelectedRecord(updatedRecord); 
+        alert('پروفرما با موفقیت بروزرسانی شد و نسخه قبلی در تاریخچه و بایگانی پرونده ذخیره گردید.'); 
+    };
+
+    const handleExecuteTransferProforma = async () => {
+        if (!selectedRecord) return;
+        if (!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName) {
+            alert('لطفاً گروه کالایی مقصد، شماره پرونده جدید و نام کالای جدید را وارد نمایید.');
+            return;
+        }
+
+        const transferNote = `انتقال از پروفرم ${selectedRecord.fileNumber} (${selectedRecord.goodsName}) به این پروفرم جدید: ${transferForm.newGoodsName}`;
+        
+        const newRecord: TradeRecord = {
+            ...selectedRecord,
+            id: generateUUID(),
+            fileNumber: transferForm.newFileNumber,
+            goodsName: transferNote,
+            sellerName: transferForm.newSellerName || selectedRecord.sellerName,
+            commodityGroup: transferForm.targetCommodityGroup,
+            startDate: new Date().toLocaleDateString('fa-IR'),
+            createdAt: Date.now(),
+            createdBy: currentUser.fullName,
+            proformaHistory: [
+                {
+                    id: generateUUID(),
+                    items: [...selectedRecord.items],
+                    freightCost: selectedRecord.freightCost || 0,
+                    updatedAt: Date.now(),
+                    updatedBy: currentUser.fullName,
+                    description: `پروفرم منتقل شده از پرونده قبلی (${selectedRecord.fileNumber})`
+                },
+                ...(selectedRecord.proformaHistory || [])
+            ]
+        };
+
+        const updatedOldRecord = {
+            ...selectedRecord,
+            status: 'Completed' as const,
+            isArchived: true
+        };
+
+        await updateTradeRecord(updatedOldRecord);
+        await createTradeRecord(newRecord);
+
+        setShowTransferModal(false);
+        alert('پرونده با موفقیت به گروه جدید منتقل شد و پروفرم جدید ثبت گردید.');
+        setSelectedRecord(newRecord);
+        setViewMode('dashboard');
+        loadRecords();
+    };
     const handleStageClick = (stage: TradeStage) => { const data = getStageData(selectedRecord, stage); setEditingStage(stage); setStageFormData(data); };
     const handleStageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploadingStageFile(true); const reader = new FileReader(); reader.onload = async (ev) => { const base64 = ev.target?.result as string; try { const result = await uploadFile(file.name, base64); setStageFormData(prev => ({ ...prev, attachments: [...(prev.attachments || []), { fileName: result.fileName, url: result.url }] })); } catch (error) { alert('خطا در آپلود'); } finally { setUploadingStageFile(false); } }; reader.readAsDataURL(file); e.target.value = ''; };
     const handleSaveStage = async () => { if (!selectedRecord || !editingStage) return; const updatedRecord = { ...selectedRecord }; updatedRecord.stages[editingStage] = { ...getStageData(selectedRecord, editingStage), ...stageFormData, updatedAt: Date.now(), updatedBy: currentUser.fullName }; if (editingStage === TradeStage.ALLOCATION_QUEUE && stageFormData.queueDate) { updatedRecord.stages[TradeStage.ALLOCATION_QUEUE].queueDate = stageFormData.queueDate; } if (editingStage === TradeStage.ALLOCATION_APPROVED) { updatedRecord.stages[TradeStage.ALLOCATION_APPROVED].allocationDate = stageFormData.allocationDate; updatedRecord.stages[TradeStage.ALLOCATION_APPROVED].allocationCode = stageFormData.allocationCode; updatedRecord.stages[TradeStage.ALLOCATION_APPROVED].allocationExpiry = stageFormData.allocationExpiry; } await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); setEditingStage(null); };
@@ -1439,9 +1524,62 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 </div>
                             </div>
 
+                            {/* Proforma History / Archive Section */}
+                            {selectedRecord.proformaHistory && selectedRecord.proformaHistory.length > 0 && (
+                                <div className="glass-panel p-6 rounded-xl shadow-sm border bg-amber-50/50">
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <History size={18} className="text-amber-600"/> بایگانی و سوابق پروفرم‌های قبلی این پرونده
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {selectedRecord.proformaHistory.map((hist, hIdx) => (
+                                            <div key={hist.id || hIdx} className="bg-white p-4 rounded-xl border border-amber-200 text-xs shadow-xs space-y-2">
+                                                <div className="flex justify-between items-center text-gray-500 border-b pb-2">
+                                                    <span className="font-bold text-gray-800">{hist.description || 'نسخه قبلی پروفرما'}</span>
+                                                    <div className="flex gap-3 font-mono">
+                                                        <span>ویرایش‌کننده: {hist.updatedBy}</span>
+                                                        <span>تاریخ: {new Date(hist.updatedAt).toLocaleDateString('fa-IR')}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-gray-700">
+                                                    <span className="font-bold block mb-1">اقلام این نسخه:</span>
+                                                    <ul className="list-disc pr-4 space-y-0.5">
+                                                        {hist.items.map((i, iIdx) => (
+                                                            <li key={i.id || iIdx}>
+                                                                {i.name} - وزن: {formatNumberString(i.weight)} KG - قیمت کل: {formatNumberString(i.totalPrice)} {selectedRecord.mainCurrency}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    <div className="mt-2 font-bold font-mono text-gray-800">
+                                                        هزینه حمل: {formatNumberString(hist.freightCost)} {selectedRecord.mainCurrency}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="glass-panel p-6 rounded-xl shadow-sm border">
                                 <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                    <h3 className="font-bold text-gray-800">اقلام پروفرما</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="font-bold text-gray-800">اقلام پروفرما</h3>
+                                        <button 
+                                            onClick={() => {
+                                                setTransferForm({
+                                                    targetCommodityGroup: commodityGroups.find(g => g !== selectedRecord.commodityGroup) || 'چیپس',
+                                                    newFileNumber: selectedRecord.fileNumber + '-TR',
+                                                    newGoodsName: selectedRecord.goodsName,
+                                                    newSellerName: selectedRecord.sellerName,
+                                                    description: ''
+                                                });
+                                                setShowTransferModal(true);
+                                            }} 
+                                            className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-black hover:bg-amber-100 transition-all active:scale-95"
+                                            title="انتقال پروفرم به گروه کالایی دیگر"
+                                        >
+                                            <ArrowRightLeft size={14}/> انتقال به گروه دیگر
+                                        </button>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => setShowProformaPrint(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-black hover:bg-blue-100 transition-all active:scale-95"><Printer size={14}/> مشاهده و چاپ</button>
                                         <div className="flex items-center gap-1">
@@ -2441,22 +2579,90 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             
             {/* New Record Modal */}
             {showNewModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4">
-                    <div className="glass-panel rounded-2xl shadow-xl w-full max-w-md p-6 animate-scale-in">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-xl text-gray-800">ثبت پرونده جدید</h3>
-                            <button onClick={() => setShowNewModal(false)}><X size={24} className="text-gray-400 hover:text-red-500" /></button>
-                        </div>
-                        <div className="space-y-4">
-                            <div><label className="block text-sm font-bold text-gray-700 mb-1">شماره پرونده</label><input className="w-full border rounded-xl p-3 bg-gray-50 font-mono text-left dir-ltr" value={newFileNumber} onChange={e => setNewFileNumber(e.target.value)} placeholder="File No..." /></div>
-                            <div><label className="block text-sm font-bold text-gray-700 mb-1">نام کالا (شرح کلی)</label><input className="w-full border rounded-xl p-3" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: قطعات یدکی..." /></div>
-                            <div><label className="block text-sm font-bold text-gray-700 mb-1">فروشنده</label><input className="w-full border rounded-xl p-3" value={newSellerName} onChange={e => setNewSellerName(e.target.value)} placeholder="Seller Name..." /></div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-bold text-gray-700 mb-1">گروه کالایی</label><input list="commodity-groups" className="w-full border rounded-xl p-3" value={newCommodityGroup} onChange={e => setNewCommodityGroup(e.target.value)} placeholder="انتخاب..." /><datalist id="commodity-groups">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist></div>
-                                <div><label className="block text-sm font-bold text-gray-700 mb-1">ارز پایه</label><select className="w-full border rounded-xl p-3 glass-panel" value={newMainCurrency} onChange={e => setNewMainCurrency(e.target.value)}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+                    <div className="glass-panel bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 animate-scale-in border border-gray-100 text-right" dir="rtl">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                            <div>
+                                <h3 className="font-bold text-xl text-gray-800">ثبت پرونده جدید</h3>
+                                <p className="text-xs text-gray-500 mt-1">مشخصات اولیه پرونده تجاری یا پروفرم را وارد کنید</p>
                             </div>
-                            <div><label className="block text-sm font-bold text-gray-700 mb-1">شرکت</label><select className="w-full border rounded-xl p-3 glass-panel" value={newRecordCompany} onChange={e => setNewRecordCompany(e.target.value)}><option value="">انتخاب شرکت...</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                            <button onClick={handleCreateRecord} disabled={!newFileNumber || !newGoodsName || !newRecordCompany} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4 disabled:opacity-50 transition-all">ایجاد پرونده</button>
+                            <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                        </div>
+                        <div className="space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">شماره پرونده *</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50/50 font-mono text-left dir-ltr text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newFileNumber} onChange={e => setNewFileNumber(e.target.value)} placeholder="مثال: File-1403-01..." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">نام کالا (شرح کلی) *</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: مواد اولیه پلیمر / قطعات یدکی..." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">فروشنده</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newSellerName} onChange={e => setNewSellerName(e.target.value)} placeholder="نام شرکت فروشنده..." />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700">گروه کالایی</label>
+                                    <input list="commodity-groups" className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newCommodityGroup} onChange={e => setNewCommodityGroup(e.target.value)} placeholder="انتخاب یا ورود گروه..." />
+                                    <datalist id="commodity-groups">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700">ارز پایه</label>
+                                    <select className="w-full border border-gray-200 rounded-xl p-3.5 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newMainCurrency} onChange={e => setNewMainCurrency(e.target.value)}>
+                                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">شرکت *</label>
+                                <select className="w-full border border-gray-200 rounded-xl p-3.5 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none" value={newRecordCompany} onChange={e => setNewRecordCompany(e.target.value)}>
+                                    <option value="">انتخاب شرکت مربوطه...</option>
+                                    {availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="pt-4 border-t border-gray-100 flex gap-3">
+                                <button onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-200 transition-all">انصراف</button>
+                                <button onClick={handleCreateRecord} disabled={!newFileNumber || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Transfer Proforma Modal */}
+            {showTransferModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+                    <div className="glass-panel bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 animate-scale-in border border-gray-100 text-right" dir="rtl">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                            <div>
+                                <h3 className="font-bold text-xl text-gray-800">انتقال پروفرم به گروه کالایی دیگر</h3>
+                                <p className="text-xs text-gray-500 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
+                            </div>
+                            <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                        </div>
+                        <div className="space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">گروه کالایی مقصد *</label>
+                                <input list="commodity-groups-transfer" className="w-full border border-gray-200 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" value={transferForm.targetCommodityGroup} onChange={e => setTransferForm({...transferForm, targetCommodityGroup: e.target.value})} placeholder="مثلا: چیپس..." />
+                                <datalist id="commodity-groups-transfer">{commodityGroups.map(g => <option key={g} value={g} />)}</datalist>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">شماره پرونده / پروفرم جدید *</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50/50 font-mono text-left dir-ltr text-sm outline-none" value={transferForm.newFileNumber} onChange={e => setTransferForm({...transferForm, newFileNumber: e.target.value})} placeholder="File No..." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">نام و مشخصات کالای جدید *</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm outline-none" value={transferForm.newGoodsName} onChange={e => setTransferForm({...transferForm, newGoodsName: e.target.value})} placeholder="نام مشخصات پروفرم جدید..." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-gray-700">فروشنده جدید (اختیاری)</label>
+                                <input className="w-full border border-gray-200 rounded-xl p-3.5 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
+                            </div>
+                            <div className="pt-4 border-t border-gray-100 flex gap-3">
+                                <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-200 transition-all">انصراف</button>
+                                <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3.5 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
+                            </div>
                         </div>
                     </div>
                 </div>

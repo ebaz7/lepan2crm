@@ -62,7 +62,7 @@ export const MAJOR_CATEGORIES = [
   'اسپاندکس (کاور)',
   'کش',
   'اسپاندکس پوشش (ساپورت)',
-  'پلی استر شواتیز',
+  'پلی استر شوایتر',
   'نایلون',
   'نخ ملت',
   'لایکرا',
@@ -72,7 +72,7 @@ export const MAJOR_CATEGORIES = [
   'نخ ۱۲۰ پلی استر',
   'لاستیک',
   'لاکرا',
-  'نخ ۱۸۰ پلی استر اسپان',
+  'پلی استر DTY',
   'مستربچ'
 ];
 
@@ -87,20 +87,23 @@ export function classifyMajorCategory(groupName: string = '', itemName: string =
   
   if (text.includes('کاور') || text.includes('کاورینگ') || (text.includes('اسپاندکس') && text.includes('کاور'))) return 'اسپاندکس (کاور)';
   if (text.includes('ساپورت') || text.includes('پوشش') || (text.includes('اسپاندکس') && text.includes('پوشش'))) return 'اسپاندکس پوشش (ساپورت)';
-  if (text.includes('شواتیز') || (text.includes('پلی استر') && text.includes('شواتیز'))) return 'پلی استر شواتیز';
-  if (text.includes('120') || text.includes('۱۲۰')) return 'نخ ۱۲۰ پلی استر';
-  if (text.includes('180') || text.includes('۱۸۰') || text.includes('اسپان')) return 'نخ ۱۸۰ پلی استر اسپان';
-  if (text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
+  if (text.includes('شواتیز') || text.includes('شوایتر') || (text.includes('پلی استر') && text.includes('شواتیز'))) return 'پلی استر شوایتر';
+  if (text.includes('120') || text.includes('۱۲۰')) {
+    if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
+    return 'نخ ۱۲۰ پلی استر';
+  }
   if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
+  if (text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
   if (text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
   if (text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
   if (text.includes('چیپس') || text.includes('chip')) return 'چیپس';
   if (text.includes('لایکرا') || text.includes('lycra')) return 'لایکرا';
-  if (text.includes('لاکرا')) return 'لاکرا';
+  if (text.includes('لاکرا') || text.includes('اسپندکس لاکرا')) return 'لاکرا';
   if (text.includes('مستربچ') || text.includes('masterbatch')) return 'مستربچ';
   if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
   if (text.includes('کش') || text.includes('elastic')) return 'کش';
-  if (text.includes('اسپاندکس') || text.includes('spandex')) return 'اسپاندکس (کاور)';
+  if (text.includes('اسپاندکس') || text.includes('spandex') || text.includes('اسپندکس')) return 'اسپاندکس (کاور)';
+  if (text.includes('پلی استر') || text.includes('polyester') || text.includes('dty') || text.includes('دی تی آی')) return 'پلی استر DTY';
 
   return groupName ? groupName : (itemName ? itemName : 'سایر محصولات');
 }

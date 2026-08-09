@@ -286,7 +286,7 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
         <div className="order-2 w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
             <div style={{ 
               width: '210mm', 
-              height: '296mm',
+              minHeight: '296mm',
               backgroundColor: 'white', 
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
               transform: `scale(${scale})`,

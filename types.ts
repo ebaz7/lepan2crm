@@ -1070,6 +1070,14 @@ export interface TradeRecord {
     agentData?: AgentData;
     isCommitmentFulfilled?: boolean;
     exchangeRate?: number;
+    proformaHistory?: Array<{
+        id: string;
+        items: TradeItem[];
+        freightCost: number;
+        updatedAt: number;
+        updatedBy: string;
+        description?: string;
+    }>;
 }
 
 export enum MeetingStatus {
