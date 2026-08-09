@@ -857,7 +857,8 @@ const Settings: React.FC<SettingsProps> = ({
         if (
           settings.companies &&
           settings.companies.length > 0 &&
-          !selectedCompanyIdForSec
+          !selectedCompanyIdForSec &&
+          settings?.companies?.[0]
         ) {
           setSelectedCompanyIdForSec(settings.companies[0].id);
         }
@@ -867,11 +868,11 @@ const Settings: React.FC<SettingsProps> = ({
     };
     if (
       activeCategory === "secretariat" ||
-      (settings.companies && settings.companies.length > 0)
+      (settings?.companies && settings.companies.length > 0)
     ) {
       fetchSecConfigs();
     }
-  }, [activeCategory, settings.companies]);
+  }, [activeCategory, settings?.companies]);
 
   useEffect(() => {
     if (!selectedCompanyIdForSec) return;
@@ -1794,16 +1795,23 @@ const Settings: React.FC<SettingsProps> = ({
       </div>
 
       <div className="flex-1 p-6 md:p-8 overflow-y-auto h-[calc(100dvh-140px)] md:h-full pb-20">
-        {activeCategory === "fiscal" ? (
+        {!settings ? (
+          <div className="glass-panel rounded-2xl p-12 flex flex-col items-center justify-center gap-4 text-center my-8 max-w-xl mx-auto">
+            <Loader2 size={36} className="animate-spin text-pink-600" />
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">در حال دریافت و همگام‌سازی تنظیمات از سرور...</p>
+          </div>
+        ) : activeCategory === "fiscal" ? (
           <FiscalYearManager settings={settings} onSettingsChange={(newSettings) => setSettings(newSettings)} />
         ) : (
-          <form onSubmit={handleSave} className="space-y-8 max-w-4xl mx-auto">
-            {activeCategory === "system" && (
-              <div className="space-y-8 animate-fade-in">
-                <div className="space-y-4">
-                  <h3 className="font-bold text-gray-800 border-b pb-2">
-                    تنظیمات ظاهری و اعلان‌ها
-                  </h3>
+          <>
+            {activeCategory !== "theme" && (
+              <form onSubmit={handleSave} className="space-y-8 max-w-4xl mx-auto">
+                {activeCategory === "system" && (
+                  <div className="space-y-8 animate-fade-in">
+                    <div className="space-y-4">
+                      <h3 className="font-bold text-gray-800 border-b pb-2">
+                        تنظیمات ظاهری و اعلان‌ها
+                      </h3>
                   <div className="space-y-4">
                     <label className="text-sm font-bold text-gray-700 block mb-1">
                       نام برنامه (جهت نصب PWA)
@@ -6300,7 +6308,7 @@ const Settings: React.FC<SettingsProps> = ({
 
         {/* --- Theme & Custom Background Settings --- */}
         {activeCategory === "theme" && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-4xl mx-auto">
             <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm">
               <div className="flex items-center gap-3 border-b pb-4 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
@@ -6657,6 +6665,8 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
           </div>
         )}
+      </>
+    )}
       </div>
 
       {/* --- Secretariat Template Editor Modal --- */}
