@@ -526,6 +526,18 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     return uniqueSalesTargets;
 };
 
+// Helper to extract net weight from row details
+const parseNetWeight = (row) => {
+    const notes = row.ItemNotes || '';
+    const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+    if (match) return parseFloat(match[1]);
+    
+    const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
+    if (seriesMatch) return parseFloat(seriesMatch[1]);
+
+    return parseFloat(row.Quantity || 0);
+};
+
 // Helper to generate and send daily sales report for a specific Date
 const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', targetsOverride = null, selectedPlatforms = null) => {
     const settings = db.settings || {};
@@ -557,15 +569,6 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const shamsiClean = shamsiDate.replace(/\//g, '');
     const shamsiDash = shamsiDate.replace(/\//g, '-');
     const gregSlash = gregDate.replace(/-/g, '/');
-
-    const parseNetWeight = (row) => {
-        const notes = row.ItemNotes || '';
-        const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
-        if (match) return parseFloat(match[1]);
-        const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
-        if (seriesMatch) return parseFloat(seriesMatch[1]);
-        return parseFloat(row.Quantity || 0);
-    };
     
     const sql = `
         SELECT 
@@ -631,7 +634,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             Amount: inv.amount || inv.totalPrice || 0,
             GroupName: inv.groupName || inv.category || 'سایر گروه‌ها',
             CustomerName: inv.customerName || inv.recipientName || 'مشتری',
-            OpCode: inv.opCode || '3'
+            OpCode: inv.opCode || '12'
         }));
     }
 
@@ -647,11 +650,11 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     invMap.forEach((rows) => {
         const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
         const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+        const sumItemQty = rows.reduce((s, r) => s + parseNetWeight(r), 0);
 
         rows.forEach(r => {
             const itemAmt = parseFloat(r.Amount || 0);
-            const itemQty = parseFloat(r.Quantity || 0);
+            const itemQty = parseNetWeight(r);
             let allocatedAmt = 0;
             if (headerPayable > 0) {
                 if (sumItemAmt > 0) {
@@ -666,6 +669,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             }
             salesRows.push({
                 ...r,
+                Quantity: itemQty,
                 Amount: allocatedAmt
             });
         });
@@ -683,7 +687,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         
         salesRows.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = parseNetWeight(inv);
+            const qty = parseFloat(inv.Quantity || 0);
             let amt = parseFloat(inv.Amount || 0);
             const isReturn = inv.OpCode === '13';
             

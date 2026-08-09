@@ -345,7 +345,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
-    // Helper to extract net weight from row details (extracting net weight from item notes or quantity)
+    // Helper to extract net weight from row details
     const parseNetWeight = (row: any) => {
         const notes = row.ItemNotes || '';
         const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
@@ -942,11 +942,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 invMap.forEach((rows) => {
                     const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
                     const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-                    const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+                    const sumItemQty = rows.reduce((s, r) => s + parseNetWeight(r), 0);
 
                     rows.forEach(r => {
                         const itemAmt = parseFloat(r.Amount || 0);
-                        const itemQty = parseFloat(r.Quantity || 0);
+                        const itemQty = parseNetWeight(r);
                         let allocatedAmt = 0;
                         if (headerPayable > 0) {
                             if (sumItemAmt > 0) {
@@ -961,6 +961,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         }
                         processed.push({
                             ...r,
+                            Quantity: itemQty.toString(),
                             Amount: allocatedAmt.toString(),
                             isOfficial: headerPayable > sumItemAmt || headerPayable > 0
                         });
@@ -1059,7 +1060,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const qty = parseNetWeight(row);
+            const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -1298,7 +1299,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         todayInvs.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = parseNetWeight(inv);
+            const qty = parseFloat(inv.Quantity || 0);
             const amt = parseFloat(inv.Amount || 0);
             const isReturn = inv.OpCode === '13';
 
@@ -1504,7 +1505,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         salesData.forEach(row => {
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
-            const qty = parseNetWeight(row);
+            const qty = parseFloat(row.Quantity || 0);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
