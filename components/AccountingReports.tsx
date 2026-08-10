@@ -957,9 +957,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                    (t10.Field_009 = '12' AND t11.Field_007 > t11.Field_006 * 1000)
                     OR
-                    t10.Field_009 = '13'
+                    (t10.Field_009 = '13' AND t11.Field_007 > t11.Field_006 * 1000)
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
@@ -1062,9 +1062,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                        (t10.Field_009 = '12' AND t11.Field_007 > t11.Field_006 * 1000)
                         OR
-                        t10.Field_009 = '13'
+                        (t10.Field_009 = '13' AND t11.Field_007 > t11.Field_006 * 1000)
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
