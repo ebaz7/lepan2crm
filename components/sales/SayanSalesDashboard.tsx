@@ -114,22 +114,9 @@ export function isActualProduct(row: any): boolean {
   const name = String(row.ItemName || '').trim();
   const group = String(row.GroupName || '').trim();
   
-  // 1. Explicit exclusion of known helper code
-  if (code === '01011001') {
+  // If the group is empty, and name is empty or name is equal to the code, or it's a digit-only string, it's not an actual product
+  if (!group && (!name || name === code || /^\d+$/.test(name))) {
     return false;
-  }
-
-  // 2. Explicit inclusion for real products starting with 01 or 04
-  let matchesProductCode = false;
-  if (code.startsWith('01') || code.startsWith('04')) {
-    matchesProductCode = true;
-  }
-
-  // 3. Fallback logic if it's not a known product code pattern
-  if (!matchesProductCode) {
-    if (!group && (!name || name === code || /^\d+$/.test(name))) {
-      return false;
-    }
   }
 
   const lowerName = name.toLowerCase();
@@ -155,73 +142,8 @@ export function isActualProduct(row: any): boolean {
     }
   }
 
-  // 5. Exclude token / balancing 1-Rial-per-kg transactions (UnitPrice <= 100 Rials/kg)
-  const amt = parseFloat(row.Amount || 0);
-  const qty = parseFloat(row.Quantity || 0);
-  if (amt > 0 && qty > 0) {
-    const unitPrice = amt / qty;
-    if (unitPrice <= 100) {
-      return false;
-    }
-  }
-
   return true;
 }
-
-export function cleanPersianDigits(str: string): string {
-  if (!str) return '';
-  const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
-  const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
-  let clean = '';
-  for (let i = 0; i < str.length; i++) {
-    const char = str[i];
-    const pIdx = persianDigits.indexOf(char);
-    const aIdx = arabicDigits.indexOf(char);
-    if (pIdx !== -1) {
-      clean += pIdx;
-    } else if (aIdx !== -1) {
-      clean += aIdx;
-    } else if (char === '/' || char === '٫' || char === ',') {
-      const prev = i > 0 ? str[i - 1] : '';
-      const next = i < str.length - 1 ? str[i + 1] : '';
-      const isDigit = (c: string) => /[\d۰-۹٠-٩]/.test(c);
-      if (isDigit(prev) || isDigit(next)) {
-        clean += '.';
-      } else {
-        clean += char;
-      }
-    } else {
-      clean += char;
-    }
-  }
-  return clean;
-}
-
-export function parseNetWeight(row: any): number {
-  if (!isActualProduct(row)) return 0;
-
-  const qty = parseFloat(row.Quantity || 0);
-  const notes = cleanPersianDigits(row.ItemNotes || '');
-
-  // 1. Match "وزن خالص: 14.97"
-  let match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
-  if (match) return parseFloat(match[1]);
-
-  // 2. Match "خالص: 14.97" (excluding "ناخالص" by using negative lookbehind)
-  match = notes.match(/(?<!نا)خالص\s*[:：\-]?\s*([\d.]+)/);
-  if (match) return parseFloat(match[1]);
-
-  // 3. Match "سری ساخت: PO-F-1-1-14.97"
-  const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
-  if (seriesMatch) return parseFloat(seriesMatch[1]);
-
-  // 4. Match general "وزن: 14.97" if not preceded by "نا"
-  const weightMatch = notes.match(/(?<!نا)وزن\s*[:：\-]?\s*([\d.]+)/);
-  if (weightMatch) return parseFloat(weightMatch[1]);
-
-  return qty;
-}
-
 
 function formatMoney(amount: number): string {
   if (isNaN(amount)) return '۰';
@@ -511,7 +433,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     filteredRows.forEach(row => {
       if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseNetWeight(row);
+      const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
@@ -827,7 +749,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     filteredB.forEach(row => {
       if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseNetWeight(row);
+      const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);

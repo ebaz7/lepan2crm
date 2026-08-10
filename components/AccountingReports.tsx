@@ -351,26 +351,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const code = String(row.ItemCode || '').trim();
         const name = String(row.ItemName || '').trim();
         const group = String(row.GroupName || '').trim();
-
-        // 1. Explicit exclusion of known helper code
-        if (code === '01011001') {
+        if (!group && (!name || name === code || /^\d+$/.test(name))) {
             return false;
         }
 
-        // 2. Explicit inclusion for real products starting with 01 or 04
-        let matchesProductCode = false;
-        if (code.startsWith('01') || code.startsWith('04')) {
-            matchesProductCode = true;
-        }
-
-        // 3. Fallback logic if it's not a known product code pattern
-        if (!matchesProductCode) {
-            if (!group && (!name || name === code || /^\d+$/.test(name))) {
-                return false;
-            }
-        }
-
-        // 4. Exclusion based on keywords
         const lowerName = name.toLowerCase();
         const lowerGroup = group.toLowerCase();
 
@@ -394,84 +378,32 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             }
         }
 
-        // 5. Exclude token / balancing 1-Rial-per-kg transactions (UnitPrice <= 100 Rials/kg)
-        const amt = parseFloat(row.Amount || 0);
-        const qty = parseFloat(row.Quantity || 0);
-        if (amt > 0 && qty > 0) {
-            const unitPrice = amt / qty;
-            if (unitPrice <= 100) {
-                return false;
-            }
-        }
-
         return true;
-    };
-
-    const cleanPersianDigits = (str: string): string => {
-        if (!str) return '';
-        const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
-        const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
-        let clean = '';
-        for (let i = 0; i < str.length; i++) {
-            const char = str[i];
-            const pIdx = persianDigits.indexOf(char);
-            const aIdx = arabicDigits.indexOf(char);
-            if (pIdx !== -1) {
-                clean += pIdx;
-            } else if (aIdx !== -1) {
-                clean += aIdx;
-            } else if (char === '/' || char === '٫' || char === ',') {
-                const prev = i > 0 ? str[i - 1] : '';
-                const next = i < str.length - 1 ? str[i + 1] : '';
-                const isDigit = (c: string) => /[\d۰-۹٠-٩]/.test(c);
-                if (isDigit(prev) || isDigit(next)) {
-                    clean += '.';
-                } else {
-                    clean += char;
-                }
-            } else {
-                clean += char;
-            }
-        }
-        return clean;
     };
 
     // Helper to extract net weight from row details
     const parseNetWeight = (row: any) => {
         if (!isActualProduct(row)) return 0;
-
-        const qty = parseFloat(row.Quantity || 0);
-        const notes = cleanPersianDigits(row.ItemNotes || '');
-
-        // 1. Match "وزن خالص: 14.97"
-        let match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+        const notes = row.ItemNotes || '';
+        const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
         if (match) return parseFloat(match[1]);
-
-        // 2. Match "خالص: 14.97" (excluding "ناخالص" by using negative lookbehind)
-        match = notes.match(/(?<!نا)خالص\s*[:：\-]?\s*([\d.]+)/);
-        if (match) return parseFloat(match[1]);
-
-        // 3. Match "سری ساخت: PO-F-1-1-14.97"
+        
         const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
         if (seriesMatch) return parseFloat(seriesMatch[1]);
 
-        // 4. Match general "وزن: 14.97" if not preceded by "نا"
-        const weightMatch = notes.match(/(?<!نا)وزن\s*[:：\-]?\s*([\d.]+)/);
-        if (weightMatch) return parseFloat(weightMatch[1]);
-
-        return qty;
+        return parseFloat(row.Quantity || 0);
     };
 
     // Helper to extract gross weight from row details
     const parseGrossWeight = (row: any) => {
-        const notes = cleanPersianDigits(row.ItemNotes || '');
+        const notes = row.ItemNotes || '';
         const match = notes.match(/وزن ناخالص\s*[:：\-]?\s*([\d.]+)/);
         return match ? parseFloat(match[1]) : 0;
     };
 
     // Helper to parse or calculate fee / unit price from row details
     const parseFee = (row: any, netWeight: number) => {
-        const notes = cleanPersianDigits((row.ItemNotes || '') + ' ' + (row.Notes || ''));
+        const notes = (row.ItemNotes || '') + ' ' + (row.Notes || '');
         const match = notes.match(/(?:فی|قیمت واحد|نرخ|قیمت)\s*[:：\-]?\s*([\d,.]+)/);
         if (match) {
             return parseFloat(match[1].replace(/,/g, ''));
@@ -1008,7 +940,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
-                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1026,7 +957,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    t10.Field_009 IN ('12', '13')
+                    (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                    OR
+                    t10.Field_009 = '13'
                   )
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
@@ -1112,7 +1045,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
-                                              AND t11.Field_036 = t10.Field_009
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1130,7 +1062,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        t10.Field_009 IN ('12', '13')
+                        (t10.Field_009 = '12' AND t11.Field_007 > 0)
+                        OR
+                        t10.Field_009 = '13'
                       )
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
@@ -1164,7 +1098,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const qty = parseNetWeight(row);
+            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -1609,7 +1543,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         salesData.forEach(row => {
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
-            const qty = parseNetWeight(row);
+            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -3437,7 +3371,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             displayedInvoices.forEach(row => {
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
-                                const qty = parseNetWeight(row);
+                                const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
                                 const amt = parseFloat(row.Amount || 0);
                                 const isReturn = row.OpCode === '13';
 
