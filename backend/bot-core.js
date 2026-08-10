@@ -317,8 +317,10 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t11.Field_007 as Amount,
                 t_group.GroupName,
                 t07.Field_006 as CustomerName
-            FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 AND t11.Field_003 = t10.Field_004
+                        FROM STR_TBL_010 t10
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                      AND t11.Field_003 = t10.Field_004
+                                      AND t11.Field_036 = t10.Field_009
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
@@ -329,9 +331,7 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
             LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             WHERE (
-                (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
-                OR
-                (t10.Field_009 IN ('13'))
+                t10.Field_009 IN ('12', '13')
             )
               AND (t10.Field_008 LIKE '${from}%' OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' OR t10.Field_008 BETWEEN '${from}' AND '${to}')
             ORDER BY t10.Field_008 DESC
@@ -3974,6 +3974,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
+                                          AND t11.Field_036 = t10.Field_009
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
@@ -3984,9 +3985,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
-                    OR
-                    (t10.Field_009 IN ('13'))
+                    t10.Field_009 IN ('12', '13')
                 )
                   AND (t10.Field_008 = '${todayStr}' OR t10.Field_008 LIKE '${todayStr}%' OR t10.Field_008 BETWEEN '${todayStr}T00:00:00.000Z' AND '${todayStr}T23:59:59.999Z')
                 ORDER BY t10.Field_008 DESC
