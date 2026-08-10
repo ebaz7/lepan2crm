@@ -145,6 +145,19 @@ export function isActualProduct(row: any): boolean {
   return true;
 }
 
+export function parseNetWeight(row: any): number {
+  if (!isActualProduct(row)) return 0;
+  const notes = row.ItemNotes || '';
+  const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+  if (match) return parseFloat(match[1]);
+  
+  const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
+  if (seriesMatch) return parseFloat(seriesMatch[1]);
+
+  return parseFloat(row.Quantity || 0);
+}
+
+
 function formatMoney(amount: number): string {
   if (isNaN(amount)) return '۰';
   return Math.round(amount).toLocaleString('fa-IR');
@@ -433,7 +446,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     filteredRows.forEach(row => {
       if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseFloat(row.Quantity || '0') || 0;
+      const qty = parseNetWeight(row);
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
@@ -749,7 +762,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     filteredB.forEach(row => {
       if (!isActualProduct(row)) return;
       const amt = parseFloat(row.Amount || '0') || 0;
-      const qty = parseFloat(row.Quantity || '0') || 0;
+      const qty = parseNetWeight(row);
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
       const cat = classifyMajorCategory(row.GroupName, row.ItemName);

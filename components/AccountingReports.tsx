@@ -1096,7 +1096,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const activeYearNum = activeYear ? parseInt(activeYear.toString(), 10) : jNow.jy;
 
         salesData.forEach(row => {
-            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
+            const qty = parseNetWeight(row);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -1541,7 +1541,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         salesData.forEach(row => {
             const key = `${row.GroupName || ''}_${row.ItemName || ''}`;
-            const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
+            const qty = parseNetWeight(row);
             const amt = parseFloat(row.Amount || 0);
             const isReturn = row.OpCode === '13';
 
@@ -3369,7 +3369,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             displayedInvoices.forEach(row => {
                                 const key = `${row.GroupName || 'سایر'}_${row.ItemName || 'کالا'}`;
-                                const qty = isActualProduct(row) ? (parseFloat(row.Quantity || 0) || 0) : 0;
+                                const qty = parseNetWeight(row);
                                 const amt = parseFloat(row.Amount || 0);
                                 const isReturn = row.OpCode === '13';
 
