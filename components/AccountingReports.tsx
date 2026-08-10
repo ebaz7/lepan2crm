@@ -351,7 +351,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const code = String(row.ItemCode || '').trim();
         const name = String(row.ItemName || '').trim();
         const group = String(row.GroupName || '').trim();
-        if (!group && (!name || name === code || /^\d+$/.test(name))) {
+
+        if (code === '050101' || code === '02020302' || code.startsWith('081001')) {
             return false;
         }
 
@@ -957,10 +958,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                 LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                 WHERE (
-                    (t10.Field_009 = '12' AND t11.Field_007 > t11.Field_006 * 1000)
+                    (t10.Field_009 = '12' AND TRY_CAST(t11.Field_007 AS FLOAT) > TRY_CAST(t11.Field_006 AS FLOAT) * 1000)
                     OR
-                    (t10.Field_009 = '13' AND t11.Field_007 > t11.Field_006 * 1000)
+                    (t10.Field_009 = '13')
                   )
+                  AND RTRIM(LTRIM(t11.Field_005)) NOT IN ('050101', '02020302')
                   ${dateFilter}
                 ORDER BY t10.Field_008 DESC
             `;
@@ -976,25 +978,37 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const processed: any[] = [];
                 invMap.forEach((rows) => {
-                    const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
-                    const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-                    const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+                    const headerPayable = parseFloat(rows[0].HeaderPayable || 0);
+
+                    // Allocate header payable among actual products
+                    const targetProductRows = rows.filter(r => {
+                        const code = String(r.ItemCode || '').trim();
+                        const qty = parseFloat(r.Quantity || 0);
+                        return qty > 0 && !code.startsWith('081001') && code !== '050101' && code !== '02020302';
+                    });
+
+                    const rowsToDistribute = targetProductRows.length > 0 ? targetProductRows : rows;
+                    const sumItemAmt = rowsToDistribute.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
+                    const sumItemQty = rowsToDistribute.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
 
                     rows.forEach(r => {
                         const itemAmt = parseFloat(r.Amount || 0);
                         const itemQty = parseFloat(r.Quantity || 0);
+                        const isTarget = rowsToDistribute.includes(r);
+
                         let allocatedAmt = 0;
-                        if (headerPayable > 0) {
+                        if (isTarget && headerPayable > 0) {
                             if (sumItemAmt > 0) {
                                 allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
                             } else if (sumItemQty > 0) {
                                 allocatedAmt = headerPayable * (itemQty / sumItemQty);
                             } else {
-                                allocatedAmt = headerPayable / rows.length;
+                                allocatedAmt = headerPayable / rowsToDistribute.length;
                             }
                         } else {
                             allocatedAmt = itemAmt;
                         }
+
                         processed.push({
                             ...r,
                             Amount: allocatedAmt.toString(),
@@ -1062,10 +1076,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
                     LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
                     WHERE (
-                        (t10.Field_009 = '12' AND t11.Field_007 > t11.Field_006 * 1000)
+                        (t10.Field_009 = '12' AND TRY_CAST(t11.Field_007 AS FLOAT) > TRY_CAST(t11.Field_006 AS FLOAT) * 1000)
                         OR
-                        (t10.Field_009 = '13' AND t11.Field_007 > t11.Field_006 * 1000)
+                        (t10.Field_009 = '13')
                       )
+                      AND RTRIM(LTRIM(t11.Field_005)) NOT IN ('050101', '02020302')
                       ${dateFilterB}
                     ORDER BY t10.Field_008 DESC
                 `;

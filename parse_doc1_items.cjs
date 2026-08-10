@@ -1,7 +1,6 @@
 const fs = require('fs');
 
-const text = fs.readFileSync('pdf_parsed.txt', 'utf8');
-const doc1Part = text.split('=================== doc2.pdf ===================')[0];
+const doc1 = fs.readFileSync('doc1_full.txt', 'utf8');
 
-console.log("=== DOC1 Content snippet ===");
-console.log(doc1Part.substring(0, 3000));
+// Let's print doc1 text
+console.log(doc1);
