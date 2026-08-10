@@ -114,9 +114,22 @@ export function isActualProduct(row: any): boolean {
   const name = String(row.ItemName || '').trim();
   const group = String(row.GroupName || '').trim();
   
-  // If the group is empty, and name is empty or name is equal to the code, or it's a digit-only string, it's not an actual product
-  if (!group && (!name || name === code || /^\d+$/.test(name))) {
+  // 1. Explicit exclusion of known helper code
+  if (code === '01011001') {
     return false;
+  }
+
+  // 2. Explicit inclusion for real products starting with 01 or 04
+  let matchesProductCode = false;
+  if (code.startsWith('01') || code.startsWith('04')) {
+    matchesProductCode = true;
+  }
+
+  // 3. Fallback logic if it's not a known product code pattern
+  if (!matchesProductCode) {
+    if (!group && (!name || name === code || /^\d+$/.test(name))) {
+      return false;
+    }
   }
 
   const lowerName = name.toLowerCase();
@@ -142,11 +155,32 @@ export function isActualProduct(row: any): boolean {
     }
   }
 
+  // 5. Exclude token / balancing 1-Rial-per-kg transactions (UnitPrice <= 100 Rials/kg)
+  const amt = parseFloat(row.Amount || 0);
+  const qty = parseFloat(row.Quantity || 0);
+  if (amt > 0 && qty > 0) {
+    const unitPrice = amt / qty;
+    if (unitPrice <= 100) {
+      return false;
+    }
+  }
+
   return true;
 }
 
 export function parseNetWeight(row: any): number {
   if (!isActualProduct(row)) return 0;
+
+  const qty = parseFloat(row.Quantity || 0);
+  const amt = parseFloat(row.Amount || 0);
+
+  // If the row has no price (Amount is 0 or null), it's an unbilled tracking row.
+  // For unbilled rows, we MUST use the raw Quantity directly and NOT parse notes weight,
+  // because notes weight belongs to the main billed row and will cause double-counting.
+  if (amt === 0) {
+    return qty;
+  }
+
   const notes = row.ItemNotes || '';
   const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
   if (match) return parseFloat(match[1]);
@@ -154,7 +188,7 @@ export function parseNetWeight(row: any): number {
   const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
   if (seriesMatch) return parseFloat(seriesMatch[1]);
 
-  return parseFloat(row.Quantity || 0);
+  return qty;
 }
 
 
