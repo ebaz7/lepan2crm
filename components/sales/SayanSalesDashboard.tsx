@@ -168,25 +168,56 @@ export function isActualProduct(row: any): boolean {
   return true;
 }
 
+export function cleanPersianDigits(str: string): string {
+  if (!str) return '';
+  const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+  const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+  let clean = '';
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const pIdx = persianDigits.indexOf(char);
+    const aIdx = arabicDigits.indexOf(char);
+    if (pIdx !== -1) {
+      clean += pIdx;
+    } else if (aIdx !== -1) {
+      clean += aIdx;
+    } else if (char === '/' || char === '٫' || char === ',') {
+      const prev = i > 0 ? str[i - 1] : '';
+      const next = i < str.length - 1 ? str[i + 1] : '';
+      const isDigit = (c: string) => /[\d۰-۹٠-٩]/.test(c);
+      if (isDigit(prev) || isDigit(next)) {
+        clean += '.';
+      } else {
+        clean += char;
+      }
+    } else {
+      clean += char;
+    }
+  }
+  return clean;
+}
+
 export function parseNetWeight(row: any): number {
   if (!isActualProduct(row)) return 0;
 
   const qty = parseFloat(row.Quantity || 0);
-  const amt = parseFloat(row.Amount || 0);
+  const notes = cleanPersianDigits(row.ItemNotes || '');
 
-  // If the row has no price (Amount is 0 or null), it's an unbilled tracking row.
-  // For unbilled rows, we MUST use the raw Quantity directly and NOT parse notes weight,
-  // because notes weight belongs to the main billed row and will cause double-counting.
-  if (amt === 0) {
-    return qty;
-  }
-
-  const notes = row.ItemNotes || '';
-  const match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
+  // 1. Match "وزن خالص: 14.97"
+  let match = notes.match(/وزن خالص\s*[:：\-]?\s*([\d.]+)/);
   if (match) return parseFloat(match[1]);
-  
+
+  // 2. Match "خالص: 14.97" (excluding "ناخالص" by using negative lookbehind)
+  match = notes.match(/(?<!نا)خالص\s*[:：\-]?\s*([\d.]+)/);
+  if (match) return parseFloat(match[1]);
+
+  // 3. Match "سری ساخت: PO-F-1-1-14.97"
   const seriesMatch = notes.match(/سری ساخت\s*[:：\-]?\s*[A-Za-z0-9-]+\-([\d.]+)/);
   if (seriesMatch) return parseFloat(seriesMatch[1]);
+
+  // 4. Match general "وزن: 14.97" if not preceded by "نا"
+  const weightMatch = notes.match(/(?<!نا)وزن\s*[:：\-]?\s*([\d.]+)/);
+  if (weightMatch) return parseFloat(weightMatch[1]);
 
   return qty;
 }
