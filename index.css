@@ -1527,4 +1527,147 @@ html [id*="print-section"] th {
   color: #0f172a !important;
 }
 
+/* ==========================================================================
+   THEME MORPHING UI OVERRIDES FOR ALL 5 UI STYLES
+   ========================================================================== */
+
+/* 1. Glassmorphism (Default) */
+html.theme-light-aurora body {
+  background-color: transparent !important;
+}
+
+/* 2. Bento Grid UI Style */
+html.theme-bento body {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+html.theme-bento .glass-panel,
+html.theme-bento aside,
+html.theme-bento header,
+html.theme-bento .bg-white,
+html.theme-bento .bg-slate-900,
+html.theme-bento .bg-zinc-900 {
+  background-color: #131b2e !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.15) !important;
+  border-radius: 20px !important;
+  color: #f8fafc !important;
+}
+html.theme-bento input,
+html.theme-bento select,
+html.theme-bento textarea {
+  background-color: #1c2742 !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+}
+html.theme-bento th {
+  background-color: #1a233d !important;
+  color: #a5b4fc !important;
+}
+
+/* 3. Claymorphism (3D Puffy Clay Style) */
+html.theme-claymorphism body {
+  background-color: #eef2f6 !important;
+  color: #1e293b !important;
+}
+html.theme-claymorphism .glass-panel,
+html.theme-claymorphism aside,
+html.theme-claymorphism header,
+html.theme-claymorphism .bg-white {
+  background-color: #eef2f6 !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 24px !important;
+  box-shadow: 8px 8px 18px rgba(163, 177, 198, 0.55), -8px -8px 18px rgba(255, 255, 255, 0.85), inset 2px 2px 4px rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: none !important;
+  color: #1e293b !important;
+}
+html.theme-claymorphism button:not(.no-clay) {
+  border-radius: 18px !important;
+  box-shadow: 5px 5px 12px rgba(163, 177, 198, 0.5), -5px -5px 12px rgba(255, 255, 255, 0.85) !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+html.theme-claymorphism button:not(.no-clay):active {
+  box-shadow: inset 3px 3px 6px rgba(163, 177, 198, 0.5), inset -3px -3px 6px rgba(255, 255, 255, 0.85) !important;
+}
+html.theme-claymorphism input,
+html.theme-claymorphism select,
+html.theme-claymorphism textarea {
+  background-color: #eef2f6 !important;
+  border-radius: 16px !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: inset 4px 4px 8px rgba(163, 177, 198, 0.45), inset -4px -4px 8px rgba(255, 255, 255, 0.85) !important;
+  color: #1e293b !important;
+}
+
+/* 4. Minimalism (Clean Flat Style) */
+html.theme-minimalism body {
+  background-color: #fafafa !important;
+  color: #18181b !important;
+}
+html.theme-minimalism .glass-panel,
+html.theme-minimalism aside,
+html.theme-minimalism header,
+html.theme-minimalism .bg-white {
+  background-color: #ffffff !important;
+  border: 1px solid #e4e4e7 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  border-radius: 12px !important;
+  backdrop-filter: none !important;
+  color: #18181b !important;
+}
+html.theme-minimalism button {
+  box-shadow: none !important;
+  border-radius: 10px !important;
+}
+html.theme-minimalism input,
+html.theme-minimalism select,
+html.theme-minimalism textarea {
+  background-color: #ffffff !important;
+  border: 1px solid #d4d4d8 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  color: #18181b !important;
+}
+
+/* 5. Maximalism / Neobrutalism (Pop-Art Vibrant Style) */
+html.theme-maximalism body {
+  background-color: #fef08a !important;
+  color: #000000 !important;
+}
+html.theme-maximalism .glass-panel,
+html.theme-maximalism aside,
+html.theme-maximalism header,
+html.theme-maximalism .bg-white,
+html.theme-maximalism .bg-slate-900 {
+  background-color: #ffffff !important;
+  border: 2.5px solid #000000 !important;
+  box-shadow: 4px 4px 0px #000000 !important;
+  border-radius: 14px !important;
+  backdrop-filter: none !important;
+  color: #000000 !important;
+}
+html.theme-maximalism button:not(.no-brutal) {
+  border: 2px solid #000000 !important;
+  box-shadow: 3px 3px 0px #000000 !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+}
+html.theme-maximalism button:not(.no-brutal):active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0px #000000 !important;
+}
+html.theme-maximalism input,
+html.theme-maximalism select,
+html.theme-maximalism textarea {
+  border: 2px solid #000000 !important;
+  box-shadow: 2.5px 2.5px 0px #000000 !important;
+  border-radius: 10px !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+
 

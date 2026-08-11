@@ -45,6 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     const saved = localStorage.getItem('app_custom_bg_blur');
     return saved ? parseInt(saved, 10) : 0;
   });
+  const [bgImageVersion, setBgImageVersion] = useState<number>(0);
 
   useEffect(() => {
     const handleBgChange = () => {
@@ -53,6 +54,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       setCustomBgImage(localStorage.getItem('app_custom_bg_image'));
       const savedBlur = localStorage.getItem('app_custom_bg_blur');
       setCustomBgBlur(savedBlur ? parseInt(savedBlur, 10) : 0);
+      setBgImageVersion(v => v + 1);
     };
     window.addEventListener('APP_THEME_BG_CHANGED', handleBgChange);
     return () => window.removeEventListener('APP_THEME_BG_CHANGED', handleBgChange);
@@ -71,12 +73,18 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       'has-preset-bg-light-modern'
     );
     
-    if (bgMode === 'custom' && customBgImage) {
-      root.classList.add('has-custom-bg');
-    } else if (bgMode === 'preset') {
-      root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
+    // Check if background image should be enabled
+    const savedBgOverride = localStorage.getItem('app_enable_bg_image');
+    const isBgActive = savedBgOverride === 'true' || (savedBgOverride !== 'false' && theme === 'light-aurora');
+
+    if (isBgActive) {
+      if (bgMode === 'custom' && customBgImage) {
+        root.classList.add('has-custom-bg');
+      } else if (bgMode === 'preset') {
+        root.classList.add(`has-preset-bg-${bgPreset || 'aurora-light'}`);
+      }
     }
-  }, [bgMode, bgPreset, customBgImage, theme]);
+  }, [bgMode, bgPreset, customBgImage, theme, bgImageVersion]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
