@@ -1734,6 +1734,75 @@ app.post('/api/heartbeat', (req, res) => {
     res.json({ success: true });
 });
 
+// WEB PUSH SUBSCRIPTION ENDPOINTS
+const getVapidKeyHandler = (req, res) => {
+    res.json({ publicKey: vapidKeys.publicKey });
+};
+app.get('/api/vapid-key', getVapidKeyHandler);
+app.get('/vapid-key', getVapidKeyHandler);
+
+const subscribeHandler = (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.subscriptions) db.subscriptions = [];
+        const body = req.body || {};
+        
+        const endpoint = body.endpoint || (body.subscription && body.subscription.endpoint) || body.token;
+        if (!endpoint) {
+            return res.status(400).json({ error: 'Endpoint or token is required' });
+        }
+        
+        const existingIdx = db.subscriptions.findIndex(s => s.endpoint === endpoint || (s.subscription && s.subscription.endpoint === endpoint));
+        
+        const subObject = body.subscription || (body.endpoint && body.keys ? { endpoint: body.endpoint, keys: body.keys } : null);
+        
+        const record = {
+            endpoint: endpoint,
+            subscription: subObject,
+            username: body.username || null,
+            role: body.role || null,
+            deviceType: body.deviceType || body.type || 'web',
+            token: body.token || null,
+            updatedAt: Date.now()
+        };
+        
+        if (existingIdx > -1) {
+            db.subscriptions[existingIdx] = { ...db.subscriptions[existingIdx], ...record };
+        } else {
+            db.subscriptions.push(record);
+        }
+        
+        saveDb(db);
+        res.json({ success: true, subscriptionsCount: db.subscriptions.length });
+    } catch (e) {
+        console.error("Subscribe endpoint error:", e);
+        res.status(500).json({ error: "Failed to subscribe" });
+    }
+};
+app.post('/api/subscribe', subscribeHandler);
+app.post('/subscribe', subscribeHandler);
+
+const unsubscribeHandler = (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.subscriptions) db.subscriptions = [];
+        const { endpoint, username } = req.body || {};
+        
+        if (endpoint) {
+            db.subscriptions = db.subscriptions.filter(s => s.endpoint !== endpoint && (!s.subscription || s.subscription.endpoint !== endpoint));
+        } else if (username) {
+            db.subscriptions = db.subscriptions.filter(s => s.username !== username);
+        }
+        saveDb(db);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Unsubscribe endpoint error:", e);
+        res.status(500).json({ error: "Failed to unsubscribe" });
+    }
+};
+app.post('/api/unsubscribe', unsubscribeHandler);
+app.post('/unsubscribe', unsubscribeHandler);
+
 // BROADCAST TO BOT USERS
 app.post('/api/bot/broadcast', async (req, res) => {
     try {
@@ -1816,11 +1885,52 @@ export async function broadcastNotification(title, body, url = null, targetRoles
 
         if (db.subscriptions && Array.isArray(db.subscriptions) && db.subscriptions.length > 0) {
             const payload = JSON.stringify({ title, body, url, id: notif.id });
+            const targetRolesArray = targetRoles ? (Array.isArray(targetRoles) ? targetRoles : [targetRoles]) : null;
+            const targetUsernamesArray = targetUsernames ? (Array.isArray(targetUsernames) ? targetUsernames : [targetUsernames]) : null;
+            const excludeUsernamesArray = excludeUsernames ? (Array.isArray(excludeUsernames) ? excludeUsernames : [excludeUsernames]) : null;
+
+            const lowerRoles = targetRolesArray ? targetRolesArray.map(r => String(r).toLowerCase()) : null;
+            const lowerTargets = targetUsernamesArray ? targetUsernamesArray.map(u => String(u).toLowerCase()) : null;
+            const lowerExcludes = excludeUsernamesArray ? excludeUsernamesArray.map(u => String(u).toLowerCase()) : [];
+
             db.subscriptions.forEach(sub => {
-                if (targetUsernames && sub.username && !targetUsernames.includes(sub.username)) return;
-                if (excludeUsernames && sub.username && excludeUsernames.includes(sub.username)) return;
-                if (sub.subscription) {
-                    webpush.sendNotification(sub.subscription, payload).catch(err => {
+                const subUsername = sub.username ? String(sub.username).toLowerCase() : null;
+                const subRole = sub.role ? String(sub.role).toLowerCase() : null;
+
+                // 1. Excluded User Guard: Never send to the actor/sender
+                if (subUsername && lowerExcludes.includes(subUsername)) {
+                    return;
+                }
+
+                // 2. Flexible Permission & Cartable Guard:
+                const hasRoleRestriction = lowerRoles && lowerRoles.length > 0;
+                const hasTargetRestriction = lowerTargets && lowerTargets.length > 0;
+
+                let isMatch = false;
+
+                if (!hasRoleRestriction && !hasTargetRestriction) {
+                    // No restrictions defined -> General broadcast to ALL users (e.g., Production Meetings, Public Chat)
+                    isMatch = true;
+                } else {
+                    // Targeted User Match: If the item is in the user's cartable / specifically for them, notify them regardless of role
+                    if (hasTargetRestriction && subUsername && lowerTargets.includes(subUsername)) {
+                        isMatch = true;
+                    }
+                    // Role Match: If the user holds an authorized role for this module
+                    if (hasRoleRestriction && subRole && lowerRoles.includes(subRole)) {
+                        isMatch = true;
+                    }
+                }
+
+                if (!isMatch) {
+                    return; // Skip if neither directly targeted nor holding an allowed role
+                }
+
+                // 3. Dispatch Web Push
+                const pushSub = sub.subscription || (sub.endpoint && sub.keys ? { endpoint: sub.endpoint, keys: sub.keys } : null);
+                if (pushSub && pushSub.endpoint) {
+                    webpush.sendNotification(pushSub, payload).catch(err => {
+                        console.warn("WebPush send error for endpoint:", sub.endpoint, err.message);
                         if (err.statusCode === 404 || err.statusCode === 410) {
                             db.subscriptions = db.subscriptions.filter(s => s.endpoint !== sub.endpoint);
                             saveDb(db);
@@ -2053,23 +2163,34 @@ app.post('/api/chat', async (req, res) => {
     // Broadcast notifications asynchronously in the background
     try {
         if (msg.recipient) {
+            const targetUser = db.users?.find(u => 
+                (u.username && u.username.toLowerCase() === msg.recipient.toLowerCase()) || 
+                (u.fullName && u.fullName.toLowerCase() === msg.recipient.toLowerCase())
+            );
+            const targets = [msg.recipient];
+            if (targetUser) {
+                if (targetUser.username && !targets.includes(targetUser.username)) targets.push(targetUser.username);
+                if (targetUser.fullName && !targets.includes(targetUser.fullName)) targets.push(targetUser.fullName);
+            }
             broadcastNotification(
                 `پیام از ${msg.sender}`,
-                `${msg.sender} پیام داد: ${msg.message || (msg.audioUrl ? '🎤 پیام صوتی' : '📎 فایل')}`,
+                `${msg.sender}: ${msg.message || (msg.audioUrl ? '🎤 پیام صوتی' : '📎 فایل')}`,
                 `/chat?pv=${msg.senderUsername}`,
                 null,
-                [msg.recipient],
+                targets,
                 [msg.senderUsername] // Exclude sender
             );
         } else if (msg.groupId) {
-            const group = db.groups?.find(g => g.id === msg.groupId);
+            const group = db.groups?.find(g => g.id === msg.groupId) || db.taskGroups?.find(g => g.id === msg.groupId);
             if (group) {
+                const memberList = Array.isArray(group.members) ? [...group.members] : [];
+                if (group.createdBy && !memberList.includes(group.createdBy)) memberList.push(group.createdBy);
                 broadcastNotification(
                     `${group.name}`,
                     `${msg.sender}: ${msg.message || (msg.audioUrl ? '🎤 پیام صوتی' : '📎 فایل')}`,
                     `/chat?group=${msg.groupId}`,
                     null,
-                    group.members.filter(m => m !== msg.senderUsername),
+                    memberList.filter(m => String(m).toLowerCase() !== String(msg.senderUsername).toLowerCase()),
                     [msg.senderUsername] // Exclude sender
                 );
             }
@@ -2376,6 +2497,13 @@ app.post('/api/meetings/:id/announce', async (req, res) => {
         const meeting = (db.meetings || []).find(m => m.id === req.params.id);
         if (meeting) {
             await notifyMeetingAnnouncement(meeting, db);
+            broadcastNotification(
+                `✨ اعلان برگزاری جلسه تولید #${meeting.meetingNumber || ''}`,
+                `جلسه تولید شماره ${meeting.meetingNumber || ''} روز ${meeting.date || ''} ساعت ${meeting.time || '۱۲:۰۰'} برگزار می‌شود.`,
+                '/production-meetings',
+                null, // targetRoles = null -> broadcast to ALL
+                null  // targetUsernames = null -> broadcast to ALL
+            );
             res.json({ success: true });
         } else {
             res.status(404).json({ error: 'صورتجلسه یافت نشد' });
@@ -2391,6 +2519,13 @@ app.post('/api/meetings/:id/send-minutes', async (req, res) => {
         const meeting = (db.meetings || []).find(m => m.id === req.params.id);
         if (meeting) {
             await notifyMeetingMinutes(meeting, db);
+            broadcastNotification(
+                `📝 ارسال صورتجلسه تولید #${meeting.meetingNumber || ''}`,
+                `صورتجلسه شماره ${meeting.meetingNumber || ''} ثبت و ابلاغ گردید.`,
+                '/production-meetings',
+                null, // targetRoles = null -> broadcast to ALL
+                null  // targetUsernames = null -> broadcast to ALL
+            );
             res.json({ success: true });
         } else {
             res.status(404).json({ error: 'صورتجلسه یافت نشد' });
@@ -2805,12 +2940,15 @@ app.put('/api/purchase-requests/:id', async (req, res) => {
                 const eventType = isEdit ? 'EDIT' : 'STEP';
                 const stepName = isEdit ? 'ویرایش درخواست خرید' : (reqItem.status || 'بروزرسانی وضعیت');
 
+                const targets = Array.from(new Set([reqItem.requester, reqItem.username, reqItem.createdBy].filter(Boolean)));
+
                 await notifyPurchaseRequestStep(reqItem, null, null, null, freshDb, stepName, eventType);
                 await broadcastNotification(
                     `🔄 بروزرسانی درخواست خرید #${reqItem.requestNumber || reqItem.id}`,
                     `وضعیت/مرحله: ${stepName} | عنوان: ${reqItem.title || '-'}`,
                     '/purchase',
-                    ['admin', 'ceo', 'manager', 'commercial', 'financial']
+                    ['admin', 'ceo', 'manager', 'commercial', 'financial'],
+                    targets.length > 0 ? targets : null
                 );
             } catch (err) {
                 console.error("Background notifyPurchaseRequestStep error:", err);
@@ -2881,12 +3019,14 @@ app.post('/api/secretariat-letters', async (req, res) => {
             try {
                 const freshDb = getDb();
                 const letter = (freshDb.secretariatLetters || []).find(x => x.id === item.id) || item;
+                const targets = Array.from(new Set([letter.sender, letter.receiver, letter.createdBy, letter.assignedTo].filter(Boolean)));
                 await notifySecretariatLetter(letter, freshDb);
                 await broadcastNotification(
                     `✉️ نامه اداری جدید #${letter.letterNumber}`,
                     `موضوع: ${letter.subject || '-'} | فرستنده: ${letter.sender || '-'} | گیرنده: ${letter.receiver || '-'}`,
                     '/secretariat',
-                    ['admin', 'ceo', 'manager', 'office']
+                    ['admin', 'ceo', 'manager', 'office'],
+                    targets.length > 0 ? targets : null
                 );
             } catch (err) {
                 console.error("Background notifySecretariatLetter error:", err);
@@ -2919,12 +3059,14 @@ app.put('/api/secretariat-letters/:id', async (req, res) => {
             try {
                 const freshDb = getDb();
                 const letter = (freshDb.secretariatLetters || []).find(x => x.id === req.params.id) || updatedItem;
+                const targets = Array.from(new Set([letter.sender, letter.receiver, letter.createdBy, letter.assignedTo].filter(Boolean)));
                 await notifySecretariatLetter(letter, freshDb);
                 await broadcastNotification(
                     `🔄 بروزرسانی نامه اداری #${letter.letterNumber}`,
                     `موضوع: ${letter.subject || '-'} | وضعیت/تاییدها بروزرسانی شد.`,
                     '/secretariat',
-                    ['admin', 'ceo', 'manager', 'office']
+                    ['admin', 'ceo', 'manager', 'office'],
+                    targets.length > 0 ? targets : null
                 );
             } catch (err) {
                 console.error("Background notifySecretariatLetter error:", err);
@@ -3000,6 +3142,7 @@ app.post('/api/exit-permits', async (req, res) => {
                 const permit = (freshDb.exitPermits || []).find(x => x.id === item.id) || item;
                 const eventType = isEdit ? 'EDIT' : 'CREATE';
                 const stepName = isEdit ? 'ویرایش سند' : 'ثبت اولیه';
+                const targets = Array.from(new Set([permit.requester, permit.createdBy, permit.recipientName].filter(Boolean)));
 
                 await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
 
@@ -3008,8 +3151,7 @@ app.post('/api/exit-permits', async (req, res) => {
                     `شرکت: ${permit.company || '-'} | گیرنده: ${permit.recipientName || '-'} | راننده: ${permit.driverName || '-'} (پلاک: ${permit.plateNumber || '-'})`,
                     '/manage-exit',
                     ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager'],
-                    null,
-                    permit.requester ? [permit.requester] : null
+                    targets.length > 0 ? targets : null
                 );
             } catch (err) {
                 console.error("Background notifyExitPermitStep error on POST /api/exit-permits:", err);
@@ -3046,6 +3188,7 @@ app.put('/api/exit-permits/:id', async (req, res) => {
                 const permit = (freshDb.exitPermits || []).find(x => x.id === req.params.id) || updatedItem;
                 const eventType = isEdit ? 'EDIT' : 'STEP';
                 const stepName = isEdit ? 'ویرایش سند' : (permit.status || 'بروزرسانی وضعیت');
+                const targets = Array.from(new Set([permit.requester, permit.createdBy, permit.recipientName].filter(Boolean)));
 
                 await notifyExitPermitStep(permit, null, null, null, freshDb, stepName, eventType);
 
@@ -3053,7 +3196,8 @@ app.put('/api/exit-permits/:id', async (req, res) => {
                     `🔄 بروزرسانی برگه خروج کالا #${permit.permitNumber}`,
                     `مرحله: ${stepName} | وضعیت: ${permit.status || '-'} | گیرنده: ${permit.recipientName || '-'}`,
                     '/manage-exit',
-                    ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager']
+                    ['admin', 'ceo', 'manager', 'factory_manager', 'warehouse', 'security', 'sales_manager'],
+                    targets.length > 0 ? targets : null
                 );
             } catch (err) {
                 console.error("Background notifyExitPermitStep error on PUT /api/exit-permits:", err);

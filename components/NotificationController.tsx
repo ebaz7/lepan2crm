@@ -42,13 +42,6 @@ const NotificationController: React.FC<Props> = ({ currentUser, onNotificationCl
 
     const registerOrUpdateSubscription = async () => {
         try {
-            const settings = await getSettings();
-            const perms = getRolePermissions(currentUser.role, settings, currentUser);
-            const canSeeNotifications = currentUser.role === UserRole.ADMIN || perms.canViewNotifications === true;
-            
-            if (!canSeeNotifications) {
-                return; // User has no permission to use notifications
-            }
             if (Capacitor.isNativePlatform()) {
                 const permStatus = await PushNotifications.checkPermissions();
                 if (permStatus.receive !== 'granted') {
