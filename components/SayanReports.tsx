@@ -14,7 +14,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 select-text">
       {/* Navigation header */}
-      <div className="bg-white/30 dark:bg-zinc-950/20 border-b border-zinc-200/40 dark:border-zinc-800/40 px-6 flex justify-between items-center h-14 flex-shrink-0 backdrop-blur-sm">
+      <div className="bg-white/30 dark:bg-zinc-950/20 border-b border-zinc-200/40 dark:border-zinc-800/40 px-3 sm:px-6 flex justify-between items-center h-12 sm:h-14 flex-shrink-0 backdrop-blur-sm">
         <div className="flex items-center gap-6 h-full">
           <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
             <BarChart2 size={16} />

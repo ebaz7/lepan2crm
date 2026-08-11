@@ -394,9 +394,9 @@ export const CustomerBalanceModule: React.FC<{ currentUser?: any }> = ({ current
   };
 
   return (
-    <div className="p-4 md:p-6 text-right max-w-7xl mx-auto" dir="rtl">
+    <div className="p-2 sm:p-4 md:p-6 text-right max-w-7xl mx-auto" dir="rtl">
       {/* Header Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 bg-white dark:bg-zinc-900 duration-200 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 sm:mb-6 bg-white dark:bg-zinc-900 duration-200 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800">
         <div>
           <h1 className="text-2xl font-black text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <Wallet className="text-emerald-500 w-7 h-7" />
@@ -762,7 +762,7 @@ export const CustomerBalanceModule: React.FC<{ currentUser?: any }> = ({ current
             </table>
             
             {/* Mobile Cards - Enhanced UI */}
-            <div className="md:hidden space-y-4 p-4">
+            <div className="md:hidden space-y-2.5 p-1.5 sm:p-4">
               {loading ? (
                 <div className="py-10 text-center text-gray-400 font-bold flex flex-col items-center gap-2">
                   <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
@@ -777,7 +777,7 @@ export const CustomerBalanceModule: React.FC<{ currentUser?: any }> = ({ current
                   const isZero = item.balance === 0;
                   const isExcluded = excludedCodes.includes(item.accountCode);
                   return (
-                    <div key={item.id || item.accountCode} className={`bg-white dark:bg-zinc-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-700 text-right relative overflow-hidden group active:scale-[0.98] transition-transform ${isExcluded ? 'opacity-50 italic' : ''}`}>
+                    <div key={item.id || item.accountCode} className={`bg-white dark:bg-zinc-800 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-700 text-right relative overflow-hidden group active:scale-[0.98] transition-transform ${isExcluded ? 'opacity-50 italic' : ''}`}>
                       <div className={`absolute top-0 left-0 w-1.5 h-full ${
                         isExcluded ? 'bg-rose-400' : isZero ? 'bg-zinc-400' : item.type === 'بدهکار' ? 'bg-emerald-500' : 'bg-rose-500'
                       }`}></div>

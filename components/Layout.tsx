@@ -35,7 +35,7 @@ interface LayoutProps {
 
 import { SearchModal } from './SearchModal';
 
-const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveTab, currentUser, onLogout, notifications, clearNotifications, markAllNotificationsAsRead, onDeleteNotification, onAddNotification, onRemoveNotification, financialYear, setFinancialYear, settings: propSettings, theme, toggleTheme, unreadChatCount = 0 }) => {
+const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveTab, currentUser, onLogout, notifications, clearNotifications, markAllNotificationsAsRead, onDeleteNotification, onAddNotification, onRemoveNotification, financialYear, setFinancialYear, settings: propSettings, theme, toggleTheme, isDarkMode, onToggleDarkMode, unreadChatCount = 0 }) => {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [settings, setSettings] = useState<SystemSettings | null>(propSettings || null);
@@ -984,9 +984,9 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
         )}
       </AnimatePresence>
 
-      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 m-2.5 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-2xl md:rounded-[24px] border border-white/45 dark:border-zinc-900/35 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.3)] md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 m-0 sm:m-2.5 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-none sm:rounded-2xl md:rounded-[24px] border-0 sm:border border-white/45 dark:border-zinc-900/35 shadow-none sm:shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:sm:shadow-[0_16px_48px_rgba(0,0,0,0.3)] md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
           {/* Mobile Header - Sleek flat design matching shadcn/ui */}
-          <header className="p-4 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt py-3 sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl">
+          <header className="px-3 py-2.5 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl">
               <div className="flex items-center gap-3">
                   {activeTab === 'dashboard' ? (
                   <button 

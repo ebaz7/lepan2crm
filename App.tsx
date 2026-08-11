@@ -705,12 +705,14 @@ function App() {
   const removeNotification = (id: string) => { 
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       notificationsRef.current = notificationsRef.current.map(n => n.id === id ? { ...n, read: true } : n);
+      markNotificationAsShown(id);
       if (currentUser) apiCall('/notifications/read', 'POST', { username: currentUser.username, id }).catch(console.error);
   };
 
   const deleteNotification = (id: string) => {
       setNotifications(prev => prev.filter(n => n.id !== id));
       notificationsRef.current = notificationsRef.current.filter(n => n.id !== id);
+      markNotificationAsShown(id);
       if (currentUser) apiCall('/notifications/delete', 'POST', { username: currentUser.username, id }).catch(console.error);
   };
   const closeToast = () => { setToast(null); if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); };
@@ -914,10 +916,12 @@ function App() {
                 url: n.url
             }));
             
-            // Clean up / Mark all older notifications as shown on first load to prevent spamming alarms
-            if (isFirstLoad.current) {
-                mappedNotifs.forEach(n => markNotificationAsShown(n.id));
-            }
+            // Clean up / Mark all read or older notifications as shown to ensure cross-device deduplication
+            mappedNotifs.forEach(n => {
+                if (n.read || isFirstLoad.current) {
+                    markNotificationAsShown(n.id);
+                }
+            });
 
             const prevIds = notificationsRef.current.map(n => n.id);
             // Filter unread notifications that have not been shown on this device yet
@@ -1307,11 +1311,13 @@ function App() {
             clearNotifications={() => {
                 setNotifications([]);
                 notificationsRef.current = [];
+                clearAllActiveNotifications();
                 if (currentUser) apiCall('/notifications/delete', 'POST', { username: currentUser.username, id: 'all' }).catch(console.error);
             }}
             markAllNotificationsAsRead={() => {
                 setNotifications(prev => prev.map(n => ({...n, read: true})));
                 notificationsRef.current = notificationsRef.current.map(n => ({...n, read: true}));
+                clearAllActiveNotifications();
                 if (currentUser) apiCall('/notifications/read', 'POST', { username: currentUser.username, id: 'all' }).catch(console.error);
             }}
             onDeleteNotification={deleteNotification}

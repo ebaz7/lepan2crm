@@ -2687,11 +2687,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </div>
 
             {/* TAB CONTENT PANEL */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800 overflow-hidden">
                 
                 {/* 1. TRAZ TAB */}
                 {activeTab === 'traz' && (
-                    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+                    <div className="p-2 sm:p-6 space-y-3 sm:space-y-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-800">مانده بدهکاران و بستانکاران</h2>
@@ -4095,7 +4095,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 {/* 4. PRODUCTION TAB */}
                 {activeTab === 'production' && (
-                    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+                    <div className="p-2 sm:p-6 space-y-3 sm:space-y-6">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-200 pb-4 gap-4">
                             <div>
                                 <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
@@ -4630,7 +4630,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 {/* 5. CHEQUES TAB */}
                 {activeTab === 'cheques' && (
-                    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+                    <div className="p-2 sm:p-6 space-y-3 sm:space-y-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 gap-4">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-800">سامانه مدیریت چک‌ها و اسناد دریافتنی</h2>
@@ -4805,19 +4805,19 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             {/* Premium Statement Modal */}
             {isStatementModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in rtl">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 animate-fade-in rtl">
+                    <div className="bg-white dark:bg-zinc-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-zinc-800 w-full h-full sm:h-auto max-w-6xl sm:max-h-[90vh] flex flex-col overflow-hidden">
                         {/* Modal Header */}
-                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <div className="p-3.5 sm:p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
                             <div>
-                                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                                <h3 className="text-base sm:text-lg font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
                                     <FileText className="w-5 h-5 text-blue-600" />
                                     ریز صورتحساب و دفاترحساب اشخاص
                                 </h3>
-                                <div className="text-xs text-slate-500 mt-1 font-bold">
-                                    نام شخص: <span className="text-slate-900 text-sm font-black">{modalTafsiliName}</span> (کد تفصیلی: <span className="text-slate-900 font-mono font-bold">{modalTafsiliCode}</span>)
+                                <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1 font-bold">
+                                    نام شخص: <span className="text-slate-900 dark:text-zinc-100 text-xs sm:text-sm font-black">{modalTafsiliName}</span> (کد تفصیلی: <span className="text-slate-900 dark:text-zinc-100 font-mono font-bold">{modalTafsiliCode}</span>)
                                 </div>
-                                <div className="text-[10px] text-blue-600 mt-0.5 font-bold">
+                                <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 font-bold">
                                     بازه زمانی: {dateFrom || '---'} تا {dateTo || '---'}
                                 </div>
                             </div>
@@ -4828,14 +4828,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     setGuaranteeCheques([]);
                                     setStatementSearch('');
                                 }}
-                                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                             >
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
                         {/* Modal Toolbar */}
-                        <div className="p-4 bg-slate-100/50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                        <div className="p-2.5 sm:p-4 bg-slate-100/50 dark:bg-zinc-900/50 border-b border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-2.5">
                             <div className="relative w-full sm:w-80">
                                 <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
                                 <input 
@@ -4843,7 +4843,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     placeholder="جستجو در شرح تراکنش یا شماره سند..." 
                                     value={statementSearch} 
                                     onChange={e => setStatementSearch(e.target.value)} 
-                                    className="w-full pl-3 pr-9 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" 
+                                    className="w-full pl-3 pr-9 py-2 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" 
                                 />
                             </div>
 
@@ -4859,7 +4859,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 <button 
                                     onClick={handlePrintStatement}
                                     disabled={isLoading || filteredStatementData.length === 0}
-                                    className="flex-1 sm:flex-none px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer"
+                                    className="flex-1 sm:flex-none px-4 py-2 border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer"
                                 >
                                     <Printer className="w-3.5 h-3.5 text-slate-500" />
                                     چاپ / PDF
@@ -4868,7 +4868,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         </div>
 
                         {/* Modal Body (Table of Transactions) */}
-                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                        <div className="p-2 sm:p-6 overflow-y-auto flex-1 bg-slate-50/50 dark:bg-zinc-950/50">
                             {isLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 font-bold text-sm">
                                     <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -4942,9 +4942,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     </table>
 
                                     {/* Mobile View */}
-                                    <div className="block md:hidden divide-y divide-slate-100 bg-white">
+                                    <div className="block md:hidden divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
                                         {filteredStatementData.map((row, idx) => (
-                                            <div key={idx} className="p-4 space-y-2.5 text-xs">
+                                            <div key={idx} className="p-2.5 sm:p-4 space-y-2 text-xs">
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-[10px] text-slate-400 font-bold font-mono">سند: {row.SanadNo} | {formatDateToJalali(row.Date)}</span>
                                                     <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold ${
