@@ -114,11 +114,6 @@ export function isActualProduct(row: any): boolean {
   const name = String(row.ItemName || '').trim();
   const group = String(row.GroupName || '').trim();
   
-  // If the group is empty, and name is empty or name is equal to the code, or it's a digit-only string, it's not an actual product
-  if (!group && (!name || name === code || /^\d+$/.test(name))) {
-    return false;
-  }
-
   const lowerName = name.toLowerCase();
   const lowerGroup = group.toLowerCase();
 
@@ -140,6 +135,17 @@ export function isActualProduct(row: any): boolean {
     if (lowerName.includes(keyword) || lowerGroup.includes(keyword)) {
       return false;
     }
+  }
+
+  // Standard prefixes for actual products (yarns/raw materials)
+  const isProductPrefix = /^(01|02|04|05)/.test(code);
+  if (isProductPrefix) {
+    return true;
+  }
+
+  // If the group is empty, and name is empty or name is equal to the code, or it's a digit-only string, it's not an actual product
+  if (!group && (!name || name === code || /^\d+$/.test(name))) {
+    return false;
   }
 
   return true;
