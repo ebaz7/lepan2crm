@@ -947,6 +947,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
+                                          AND t11.Field_012 = t10.Field_018
                                           AND (
                                               (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
                                               OR
@@ -1062,6 +1063,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
+                                              AND t11.Field_012 = t10.Field_018
                                               AND (
                                                   (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
                                                   OR
@@ -2092,6 +2094,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
+                                              AND t11.Field_012 = t10.Field_018
                                               AND (
                                                   (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
                                                   OR

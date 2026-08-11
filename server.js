@@ -560,7 +560,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     
     const sql = `
         SELECT 
-            t10.Field_005 as DocId,
+            t10.Field_001 as DocId,
             t10.Field_006 as InvoiceNum,
             t10.Field_008 as Date,
             t10.Field_029 as Notes,
@@ -576,6 +576,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 FROM STR_TBL_010 t10
         INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                    AND t11.Field_003 = t10.Field_004
+                                   AND t11.Field_012 = t10.Field_018
                                    AND t11.Field_036 = t10.Field_009
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
@@ -1416,6 +1417,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
+                                      AND t11.Field_012 = t10.Field_018
                                       AND t11.Field_036 = t10.Field_009
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
