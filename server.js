@@ -14,7 +14,7 @@ import AdmZip from 'adm-zip';
 import webpush from 'web-push';
 import * as dbManager from './backend/db-manager.js';
 import * as utils from './backend/utils.js';
-import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, generateAndSendComparisonPDF, notifySecretariatLetter, getCustomerBalancesData } from './backend/bot-core.js';
+import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, generateAndSendComparisonPDF, notifySecretariatLetter, getCustomerBalancesData, fetchProcessedSayanSalesData, isActualProduct, classifyMajorCategory } from './backend/bot-core.js';
 import * as telegram from './backend/telegram.js';
 import * as bale from './backend/bale.js';
 import * as Renderer from './backend/renderer.js';
@@ -81,7 +81,7 @@ webpush.setVapidDetails(
 );
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(cors()); 
 // Maximum compression for speed
@@ -553,81 +553,14 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         throw new Error('توکن ربات بله در تنظیمات سیستم ثبت نشده است! لطفاً ابتدا توکن ربات بله را در «تنظیمات سیستم -> تب ربات‌ها» وارد نمایید.');
     }
 
-    // Fetch sales and returns data from Sayan ERP with local fallback
-    const shamsiClean = shamsiDate.replace(/\//g, '');
-    const shamsiDash = shamsiDate.replace(/\//g, '-');
-    const gregSlash = gregDate.replace(/-/g, '/');
-    
-    const sql = `
-        SELECT 
-            t10.Field_001 as DocId,
-            t10.Field_006 as InvoiceNum,
-            t10.Field_008 as Date,
-            t10.Field_029 as Notes,
-            t10.Field_037 as HeaderPayable,
-            t11.Field_005 as ItemCode,
-            COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
-            t11.Field_006 as Quantity,
-            t11.Field_031 as ItemNotes,
-            t11.Field_007 as Amount,
-            COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
-            t07.Field_006 as CustomerName,
-            t10.Field_009 as OpCode
-                FROM STR_TBL_010 t10
-        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                   AND t11.Field_003 = t10.Field_004
-                                   AND t11.Field_012 = t10.Field_018
-                                   AND t11.Field_036 = t10.Field_009
-        LEFT JOIN (
-            SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-            FROM GNR_TBL_003
-            WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-            GROUP BY RTRIM(LTRIM(Field_003))
-        ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
-        LEFT JOIN (
-            SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
-            FROM GNR_TBL_003
-            WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-            GROUP BY RTRIM(LTRIM(Field_003))
-        ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
-        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-        LEFT JOIN (
-            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-            FROM IND_TBL_021 t21_sub
-            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-            GROUP BY t21_sub.Field_004
-        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-        LEFT JOIN (
-            SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-            FROM IND_TBL_021 t21_sub
-            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-            LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
-            LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
-            GROUP BY t21_sub.Field_004
-        ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-        LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-        WHERE (
-            t10.Field_009 IN ('12', '13')
-          )
-          AND (
-            t10.Field_008 LIKE '${gregDate}%'
-            OR t10.Field_008 LIKE '${gregSlash}%'
-            ${shamsiDate ? `OR t10.Field_008 LIKE '${shamsiDate}%'` : ''}
-            ${shamsiClean ? `OR t10.Field_008 LIKE '${shamsiClean}%'` : ''}
-            ${shamsiDash ? `OR t10.Field_008 LIKE '${shamsiDash}%'` : ''}
-            OR t10.Field_008 BETWEEN '${gregDate}T00:00:00.000Z' AND '${gregDate}T23:59:59.999Z'
-            OR t10.Field_008 BETWEEN '${gregDate} 00:00:00' AND '${gregDate} 23:59:59'
-          )
-        ORDER BY t10.Field_008 DESC
-    `;
-
-    let rawSalesRows = [];
+    // Fetch sales and returns data using fetchProcessedSayanSalesData
+    let salesData;
     try {
-        rawSalesRows = await executeSayanQuery(db, sql);
+        salesData = await fetchProcessedSayanSalesData(db, dateObj, dateObj);
     } catch (e) {
         console.warn("Sayan ERP query failed, attempting local invoices fallback:", e.message);
         const localInvs = Array.isArray(db.invoices) ? db.invoices : (Array.isArray(db.exitPermits) ? db.exitPermits : []);
-        rawSalesRows = localInvs.map(inv => ({
+        const rawSalesRows = localInvs.map(inv => ({
             DocId: inv.id || inv.number,
             InvoiceNum: inv.number || inv.id,
             Date: inv.date || gregDate,
@@ -641,129 +574,59 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             CustomerName: inv.customerName || inv.recipientName || 'مشتری',
             OpCode: inv.opCode || '3'
         }));
+        
+        salesData = {
+            categoryList: [{
+                name: 'سایر محصولات',
+                salesQty: rawSalesRows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0),
+                salesAmt: rawSalesRows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0),
+                returnQty: 0,
+                returnAmt: 0,
+                netWgt: rawSalesRows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0),
+                netAmt: rawSalesRows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0),
+                netFee: 0
+            }],
+            summary: {
+                totalSalesQty: rawSalesRows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0),
+                totalSalesAmt: rawSalesRows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0),
+                totalReturnQty: 0,
+                totalReturnAmt: 0,
+                netWeight: rawSalesRows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0),
+                netAmount: rawSalesRows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0),
+                avgFee: 0,
+                invoiceCount: rawSalesRows.length,
+                customerCount: 1,
+                shamsiFrom: shamsiDate,
+                shamsiTo: shamsiDate,
+                gregFrom: gregDate,
+                gregTo: gregDate
+            }
+        };
     }
 
-    // Allocate HeaderPayable proportionally across item rows per invoice
-    const invMap = new Map();
-    rawSalesRows.forEach(row => {
-        const docId = row.DocId || 'unknown';
-        if (!invMap.has(docId)) invMap.set(docId, []);
-        invMap.get(docId).push(row);
-    });
+    const { categoryList, summary } = salesData;
 
-    const salesRows = [];
-    invMap.forEach((rows) => {
-        const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
-        const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
-
-        rows.forEach(r => {
-            const itemAmt = parseFloat(r.Amount || 0);
-            const itemQty = parseFloat(r.Quantity || 0);
-            let allocatedAmt = 0;
-            if (headerPayable > 0) {
-                if (sumItemAmt > 0) {
-                    allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
-                } else if (sumItemQty > 0) {
-                    allocatedAmt = headerPayable * (itemQty / sumItemQty);
-                } else {
-                    allocatedAmt = headerPayable / rows.length;
-                }
-            } else {
-                allocatedAmt = itemAmt;
-            }
-            salesRows.push({
-                ...r,
-                Amount: allocatedAmt
-            });
-        });
-    });
-    
-    if (salesRows.length > 0) {
+    if (categoryList.length > 0) {
         const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${shamsiDate} (${labelSuffix})`;
-        const columns = ['ردیف', 'گروه / نام کالا', 'فروش ناخالص (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص (ک‌گ / ریال)', 'فی نهایی (ریال)'];
+        const columns = ['ردیف', 'سرفصل کالا', 'فروش (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص نهایی (ک‌گ / ریال)', 'فی متوسط (ریال)'];
         
-        const groupedMap = new Map();
-        let totalSalesQty = 0;
-        let totalSalesAmt = 0;
-        let totalReturnQty = 0;
-        let totalReturnAmt = 0;
-        
-        const isActualProduct = (row) => {
-            if (!row) return false;
-            const name = String(row.ItemName || '').toLowerCase();
-            const group = String(row.GroupName || '').toLowerCase();
-            const keywordsToExclude = [
-                'کارتن', 'پالت', 'جعبه', 'حمل', 'کرایه', 'خدمات', 'هزینه', 'دوک خالی', 'کیسه خالی', 'بسته بندی', 'پلاستیک'
-            ];
-            for (const kw of keywordsToExclude) {
-                if (name.includes(kw) || group.includes(kw)) return false;
-            }
-            return true;
-        };
-
-        salesRows.forEach(inv => {
-            const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = isActualProduct(inv) ? parseFloat(inv.Quantity || 0) : 0;
-            let amt = parseFloat(inv.Amount || 0);
-            const isReturn = inv.OpCode === '13';
-            
-            if (isReturn) {
-                totalReturnQty += qty;
-                totalReturnAmt += amt;
-            } else {
-                totalSalesQty += qty;
-                totalSalesAmt += amt;
-            }
-            
-            if (!groupedMap.has(key)) {
-                groupedMap.set(key, {
-                    itemName: inv.ItemName || 'کالای بدون نام',
-                    groupName: inv.GroupName || 'سایر گروه‌ها',
-                    salesQty: 0,
-                    salesAmt: 0,
-                    returnQty: 0,
-                    returnAmt: 0
-                });
-            }
-            
-            const existing = groupedMap.get(key);
-            if (isReturn) {
-                existing.returnQty += qty;
-                existing.returnAmt += amt;
-            } else {
-                existing.salesQty += qty;
-                existing.salesAmt += amt;
-            }
-        });
-        
-        const groupedRows = Array.from(groupedMap.values());
-        
-        const tableRows = groupedRows.map((row, idx) => {
-            const netQty = row.salesQty - row.returnQty;
-            const netAmt = row.salesAmt - row.returnAmt;
-            const finalPrice = netQty > 0 ? (netAmt / netQty) : 0;
-            return [
-                (idx + 1).toLocaleString('fa-IR'),
-                `${row.groupName} - ${row.itemName}`,
-                `${row.salesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(row.salesAmt).toLocaleString('fa-IR')} ریال`,
-                `${row.returnQty > 0 ? row.returnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '0'} ک‌گ / ${Math.round(row.returnAmt).toLocaleString('fa-IR')} ریال`,
-                `${netQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(netAmt).toLocaleString('fa-IR')} ریال`,
-                Math.round(finalPrice).toLocaleString('fa-IR')
-            ];
-        });
-        
-        const grandNetQty = totalSalesQty - totalReturnQty;
-        const grandNetAmt = totalSalesAmt - totalReturnAmt;
-        const grandFinalPrice = grandNetQty > 0 ? (grandNetAmt / grandNetQty) : 0;
+        let idx = 1;
+        const tableRows = categoryList.map(cat => [
+            (idx++).toLocaleString('fa-IR'),
+            cat.name,
+            `${cat.salesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(cat.salesAmt).toLocaleString('fa-IR')}`,
+            `${cat.returnQty > 0 ? cat.returnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '۰'} / ${Math.round(cat.returnAmt).toLocaleString('fa-IR')}`,
+            `${cat.netWgt.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(cat.netAmt).toLocaleString('fa-IR')}`,
+            Math.round(cat.netFee).toLocaleString('fa-IR')
+        ]);
         
         tableRows.push([
             'جمع کل',
-            '-',
-            `${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال`,
-            `${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(totalReturnAmt).toLocaleString('fa-IR')} ریال`,
-            `${grandNetQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ک‌گ / ${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال`,
-            Math.round(grandFinalPrice).toLocaleString('fa-IR')
+            'خلاصه عملکرد',
+            `${summary.totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.totalSalesAmt).toLocaleString('fa-IR')}`,
+            `${summary.totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.totalReturnAmt).toLocaleString('fa-IR')}`,
+            `${summary.netWeight.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.netAmount).toLocaleString('fa-IR')}`,
+            Math.round(summary.avgFee).toLocaleString('fa-IR')
         ]);
         
         const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true); // Landscape
@@ -776,14 +639,13 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         
         const caption = `📊 *گزارش فروش و مرجوعی روزانه سایان ERP*
 📅 *تاریخ:* ${shamsiDate} (${labelSuffix})
-🧾 *تعداد اقلام:* ${groupedRows.length} مورد
-📦 *وزن فروش ناخالص:* ${totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
-💵 *مبلغ فروش ناخالص:* ${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال
-🔄 *وزن مرجوعی (کد ۱۳):* ${totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
-❌ *مبلغ مرجوعی:* ${Math.round(totalReturnAmt).toLocaleString('fa-IR')} ریال
-✅ *وزن خالص کل:* ${grandNetQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
-💰 *فروش خالص کل:* ${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال
-🏷️ *فی نهایی میانگین:* ${Math.round(grandFinalPrice).toLocaleString('fa-IR')} ریال/کیلوگرم`;
+📦 *وزن فروش ناخالص:* ${summary.totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+💵 *مبلغ فروش ناخالص:* ${Math.round(summary.totalSalesAmt).toLocaleString('fa-IR')} ریال
+🔄 *وزن مرجوعی (کد ۱۳):* ${summary.totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+❌ *مبلغ مرجوعی:* ${Math.round(summary.totalReturnAmt).toLocaleString('fa-IR')} ریال
+✅ *وزن خالص کل:* ${summary.netWeight.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
+💰 *فروش خالص کل:* ${Math.round(summary.netAmount).toLocaleString('fa-IR')} ریال
+🏷️ *فی نهایی میانگین:* ${Math.round(summary.avgFee).toLocaleString('fa-IR')} ریال/کیلوگرم`;
 
         let successfulSends = 0;
         const sendDetails = [];
@@ -1443,19 +1305,13 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 t11.Field_005 as ItemCode,
-                COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
                                       AND t11.Field_012 = t10.Field_018
                                       AND t11.Field_036 = t10.Field_009
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                FROM GNR_TBL_003
-                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                GROUP BY RTRIM(LTRIM(Field_003))
-            ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub

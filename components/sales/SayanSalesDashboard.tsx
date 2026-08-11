@@ -61,19 +61,21 @@ interface SayanSalesDashboardProps {
 export const MAJOR_CATEGORIES = [
   'اسپاندکس (کاور)',
   'کش',
-  'اسپاندکس پوشش (ساپورت)',
+  'اسپاندکس جوشی ( ساپورت )',
   'پلی استر شوایتر',
   'نایلون',
   'نخ ملت',
-  'لایکرا',
+  'الیاف',
   'FDY',
   'چیپس',
   'POY',
-  'نخ ۱۲۰ پلی استر',
+  'dty یا پلی استر',
   'لاستیک',
   'لاکرا',
-  'پلی استر DTY',
-  'مستربچ'
+  'پلی استر اسپان',
+  'مستر بچ',
+  'ضایعات POY',
+  'ضایعات تولید'
 ];
 
 const CATEGORY_COLORS = [
@@ -82,28 +84,32 @@ const CATEGORY_COLORS = [
   '#a855f7', '#e11d48', '#0284c7', '#059669', '#d97706', '#64748b'
 ];
 
-export function classifyMajorCategory(groupName: string = '', itemName: string = ''): string {
+export function classifyMajorCategory(groupName: string = '', itemName: string = '', itemCode: string = ''): string {
+  const code = String(itemCode || '').trim();
   const text = `${groupName} ${itemName}`.toLowerCase();
-  
-  if (text.includes('کاور') || text.includes('کاورینگ') || (text.includes('اسپاندکس') && text.includes('کاور'))) return 'اسپاندکس (کاور)';
-  if (text.includes('ساپورت') || text.includes('پوشش') || (text.includes('اسپاندکس') && text.includes('پوشش'))) return 'اسپاندکس پوشش (ساپورت)';
-  if (text.includes('شواتیز') || text.includes('شوایتر') || (text.includes('پلی استر') && text.includes('شواتیز'))) return 'پلی استر شوایتر';
-  if (text.includes('120') || text.includes('۱۲۰')) {
-    if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
-    return 'نخ ۱۲۰ پلی استر';
-  }
-  if (text.includes('poy') || text.includes('پی او وای')) return 'POY';
-  if (text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
-  if (text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
-  if (text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
-  if (text.includes('چیپس') || text.includes('chip')) return 'چیپس';
-  if (text.includes('لایکرا') || text.includes('lycra')) return 'لایکرا';
-  if (text.includes('لاکرا') || text.includes('اسپندکس لاکرا')) return 'لاکرا';
-  if (text.includes('مستربچ') || text.includes('masterbatch')) return 'مستربچ';
-  if (text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
-  if (text.includes('کش') || text.includes('elastic')) return 'کش';
+
+  if (code.startsWith('0501') || text.includes('ضایعات poy') || text.includes('ضایعات پی او وای')) return 'ضایعات POY';
+  if (code.startsWith('0502') || (text.includes('ضایعات') && !text.includes('poy'))) return 'ضایعات تولید';
+
+  if (code.startsWith('0401') || text.includes('کاور') || text.includes('کاورینگ')) return 'اسپاندکس (کاور)';
+  if (code.startsWith('0402') || (text.includes('کش') && !text.includes('روکش') && !text.includes('سرکش'))) return 'کش';
+  if (code.startsWith('0403') || text.includes('ساپورت') || text.includes('جوشی') || text.includes('پوشش')) return 'اسپاندکس جوشی ( ساپورت )';
+  if (code.startsWith('0405') || text.includes('شواتیز') || text.includes('شوایتر')) return 'پلی استر شوایتر';
+  if (code.startsWith('0407') || code.startsWith('0108') || text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
+  if (code.startsWith('0408') || text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
+  if (code.startsWith('0409') || text.includes('الیاف')) return 'الیاف';
+  if (code.startsWith('0410') || text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
+
+  if (code.startsWith('0101') || text.includes('چیپس') || text.includes('chip')) return 'چیپس';
+  if (code.startsWith('0102') || text.includes('poy') || text.includes('پی او وای')) return 'POY';
+  if (code.startsWith('0103') || text.includes('dty') || text.includes('دی تی آی') || text.includes('پلی استر')) return 'dty یا پلی استر';
+  if (code.startsWith('0104') || text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
+  if (code.startsWith('0105') || text.includes('لاکرا') || text.includes('لایکرا') || text.includes('lycra')) return 'لاکرا';
+  if (code.startsWith('0106') || text.includes('اسپان') || text.includes('span')) return 'پلی استر اسپان';
+  if (code.startsWith('0107') || text.includes('مستر') || text.includes('masterbatch')) return 'مستر بچ';
+
   if (text.includes('اسپاندکس') || text.includes('spandex') || text.includes('اسپندکس')) return 'اسپاندکس (کاور)';
-  if (text.includes('پلی استر') || text.includes('polyester') || text.includes('dty') || text.includes('دی تی آی')) return 'پلی استر DTY';
+  if (text.includes('پلی استر') || text.includes('polyester')) return 'dty یا پلی استر';
 
   return groupName ? groupName : (itemName ? itemName : 'سایر محصولات');
 }
@@ -444,7 +450,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const isReturn = String(row.OpCode || '').trim() === '13';
       const invNum = row.InvoiceNum || row.DocId || 'بدون شماره';
       const custName = row.CustomerName || 'مشتری متفرقه';
-      const majorCat = classifyMajorCategory(row.GroupName, row.ItemName);
+      const majorCat = classifyMajorCategory(row.GroupName, row.ItemName, row.ItemCode);
 
       if (invNum) invoicesSet.add(invNum);
       if (custName) customersSet.add(custName);
@@ -758,7 +764,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
       const qty = parseFloat(row.Quantity || '0') || 0;
       // OpCode 13 is Sales Return (مرجوعی از فروش).
       const isReturn = String(row.OpCode || '').trim() === '13';
-      const cat = classifyMajorCategory(row.GroupName, row.ItemName);
+      const cat = classifyMajorCategory(row.GroupName, row.ItemName, row.ItemCode);
       const itemKey = row.ItemCode || row.ItemName || 'کالا';
 
       if (isReturn) {

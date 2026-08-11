@@ -933,7 +933,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t10.Field_037 as HeaderPayable,
                     t10.Field_009 as OpCode,
                     t11.Field_005 as ItemCode,
-                    COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                    COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
@@ -942,7 +942,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t11.Field_010 as VAT,
                     t11.Field_011 as Tax,
                     t11.Field_012 as FinalAmount,
-                    COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
+                    t_group.GroupName,
                     t07.Field_006 as CustomerName
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
@@ -953,18 +953,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                               OR
                                               (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
                                           )
-                LEFT JOIN (
-                    SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                    FROM GNR_TBL_003
-                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                    GROUP BY RTRIM(LTRIM(Field_003))
-                ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
-                LEFT JOIN (
-                    SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
-                    FROM GNR_TBL_003
-                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                    GROUP BY RTRIM(LTRIM(Field_003))
-                ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                 LEFT JOIN (
                     SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -1061,7 +1049,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_037 as HeaderPayable,
                         t10.Field_009 as OpCode,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity,
                         t11.Field_031 as ItemNotes,
                         t11.Field_007 as Amount,
@@ -1070,7 +1058,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t11.Field_010 as VAT,
                         t11.Field_011 as Tax,
                         t11.Field_012 as FinalAmount,
-                        COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
+                        t_group.GroupName,
                         t07.Field_006 as CustomerName
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
@@ -1081,18 +1069,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                   OR
                                                   (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
                                               )
-                    LEFT JOIN (
-                        SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                        FROM GNR_TBL_003
-                        WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                        GROUP BY RTRIM(LTRIM(Field_003))
-                    ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
-                    LEFT JOIN (
-                        SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
-                        FROM GNR_TBL_003
-                        WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                        GROUP BY RTRIM(LTRIM(Field_003))
-                    ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
@@ -2113,7 +2089,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         t10.Field_008 as Date,
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
                         t11.Field_005 as ItemCode,
-                        COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+                        COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
                         t11.Field_006 as Quantity
                     FROM STR_TBL_010 t10
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
@@ -2126,12 +2102,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                   OR
                                                   (t10.Field_009 NOT IN ('3', '12', '23', '13') AND t11.Field_036 = t10.Field_009)
                                               )
-                    LEFT JOIN (
-                        SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                        FROM GNR_TBL_003
-                        WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                        GROUP BY RTRIM(LTRIM(Field_003))
-                    ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub

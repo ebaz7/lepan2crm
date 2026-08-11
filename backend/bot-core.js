@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import xlsx from 'xlsx';
+import * as jalaali from 'jalaali-js';
 import * as Renderer from './renderer.js';
 import * as dbManager from './db-manager.js';
 import * as utils from './utils.js';
@@ -125,6 +126,350 @@ const runSayanQuery = async (db, queryStr) => {
     const data = await response.json();
     return data.data || [];
 };
+
+export function isActualProduct(row) {
+  if (!row) return false;
+  const code = String(row.ItemCode || '').trim();
+  const name = String(row.ItemName || '').trim();
+  const group = String(row.GroupName || '').trim();
+  
+  const lowerName = name.toLowerCase();
+  const lowerGroup = group.toLowerCase();
+
+  const keywordsToExclude = [
+    'کارتن', 'پالت', 'جعبه', 'حمل', 'کرایه', 'خدمات',
+    'هزینه', 'دوک خالی', 'کیسه خالی', 'بسته بندی', 'پلاستیک'
+  ];
+
+  for (const keyword of keywordsToExclude) {
+    if (lowerName.includes(keyword) || lowerGroup.includes(keyword)) {
+      return false;
+    }
+  }
+
+  const isProductPrefix = /^(01|02|04|05)/.test(code);
+  if (isProductPrefix) return true;
+
+  if (!group && (!name || name === code || /^\d+$/.test(name))) {
+    return false;
+  }
+
+  return true;
+}
+
+const BOT_MAJOR_CATEGORIES = [
+  'اسپاندکس (کاور)',
+  'کش',
+  'اسپاندکس جوشی ( ساپورت )',
+  'پلی استر شوایتر',
+  'نایلون',
+  'نخ ملت',
+  'الیاف',
+  'FDY',
+  'چیپس',
+  'POY',
+  'dty یا پلی استر',
+  'لاستیک',
+  'لاکرا',
+  'پلی استر اسپان',
+  'مستر بچ',
+  'ضایعات POY',
+  'ضایعات تولید'
+];
+
+export function classifyMajorCategory(groupName = '', itemName = '', itemCode = '') {
+  const code = String(itemCode || '').trim();
+  const text = `${groupName} ${itemName}`.toLowerCase();
+
+  if (code.startsWith('0501') || text.includes('ضایعات poy') || text.includes('ضایعات پی او وای')) return 'ضایعات POY';
+  if (code.startsWith('0502') || (text.includes('ضایعات') && !text.includes('poy'))) return 'ضایعات تولید';
+
+  if (code.startsWith('0401') || text.includes('کاور') || text.includes('کاورینگ')) return 'اسپاندکس (کاور)';
+  if (code.startsWith('0402') || (text.includes('کش') && !text.includes('روکش') && !text.includes('سرکش'))) return 'کش';
+  if (code.startsWith('0403') || text.includes('ساپورت') || text.includes('جوشی') || text.includes('پوشش')) return 'اسپاندکس جوشی ( ساپورت )';
+  if (code.startsWith('0405') || text.includes('شواتیز') || text.includes('شوایتر')) return 'پلی استر شوایتر';
+  if (code.startsWith('0407') || code.startsWith('0108') || text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
+  if (code.startsWith('0408') || text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
+  if (code.startsWith('0409') || text.includes('الیاف')) return 'الیاف';
+  if (code.startsWith('0410') || text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
+
+  if (code.startsWith('0101') || text.includes('چیپس') || text.includes('chip')) return 'چیپس';
+  if (code.startsWith('0102') || text.includes('poy') || text.includes('پی او وای')) return 'POY';
+  if (code.startsWith('0103') || text.includes('dty') || text.includes('دی تی آی') || text.includes('پلی استر')) return 'dty یا پلی استر';
+  if (code.startsWith('0104') || text.includes('لاستیک') || text.includes('rubber')) return 'لاستیک';
+  if (code.startsWith('0105') || text.includes('لاکرا') || text.includes('لایکرا') || text.includes('lycra')) return 'لاکرا';
+  if (code.startsWith('0106') || text.includes('اسپان') || text.includes('span')) return 'پلی استر اسپان';
+  if (code.startsWith('0107') || text.includes('مستر') || text.includes('masterbatch')) return 'مستر بچ';
+
+  if (text.includes('اسپاندکس') || text.includes('spandex') || text.includes('اسپندکس')) return 'اسپاندکس (کاور)';
+  if (text.includes('پلی استر') || text.includes('polyester')) return 'dty یا پلی استر';
+
+  return groupName ? groupName : (itemName ? itemName : 'سایر محصولات');
+}
+
+export const normalizeToYmdStrings = (dateFromInput, dateToInput) => {
+    let gregFrom = '';
+    let gregTo = '';
+    let shamsiFrom = '';
+    let shamsiTo = '';
+
+    const processInput = (val) => {
+        if (!val) return { greg: '', shamsi: '' };
+        if (val instanceof Date) {
+            const g = getTehranDateString(val);
+            const sh = toShamsiFull(val.toISOString()).split(' ')[0].replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+            return { greg: g, shamsi: sh };
+        }
+        const str = String(val).trim().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+        if (str.includes('/') || str.includes('.') || str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            if (str.startsWith('13') || str.startsWith('14')) {
+                const parts = str.split(/[\/\.\-]/).map(p => parseInt(p, 10));
+                if (parts.length === 3) {
+                    const g = jalaali.toGregorian(parts[0], parts[1], parts[2]);
+                    const gregStr = `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
+                    const shamsiStr = `${parts[0]}/${String(parts[1]).padStart(2, '0')}/${String(parts[2]).padStart(2, '0')}`;
+                    return { greg: gregStr, shamsi: shamsiStr };
+                }
+            } else if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const parts = str.split('-').map(p => parseInt(p, 10));
+                const j = jalaali.toJalaali(parts[0], parts[1], parts[2]);
+                const shamsiStr = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+                return { greg: str, shamsi: shamsiStr };
+            }
+        }
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const g = getTehranDateString(d);
+            const sh = toShamsiFull(d.toISOString()).split(' ')[0].replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+            return { greg: g, shamsi: sh };
+        }
+        return { greg: str, shamsi: str };
+    };
+
+    const resFrom = processInput(dateFromInput);
+    const resTo = processInput(dateToInput || dateFromInput);
+
+    gregFrom = resFrom.greg;
+    shamsiFrom = resFrom.shamsi;
+    gregTo = resTo.greg || gregFrom;
+    shamsiTo = resTo.shamsi || shamsiFrom;
+
+    return { gregFrom, gregTo, shamsiFrom, shamsiTo };
+};
+
+export async function fetchProcessedSayanSalesData(db, dateFromInput, dateToInput) {
+    const { gregFrom, gregTo, shamsiFrom, shamsiTo } = normalizeToYmdStrings(dateFromInput, dateToInput);
+
+    const shamsiFromClean = shamsiFrom ? shamsiFrom.replace(/\//g, '') : '';
+    const shamsiToClean = shamsiTo ? shamsiTo.replace(/\//g, '') : '';
+    const shamsiFromDash = shamsiFrom ? shamsiFrom.replace(/\//g, '-') : '';
+    const shamsiToDash = shamsiTo ? shamsiTo.replace(/\//g, '-') : '';
+
+    let dateCond = '';
+    if (gregFrom === gregTo && gregFrom) {
+        dateCond = `
+            (
+                t10.Field_008 LIKE '${gregFrom}%'
+                OR t10.Field_008 LIKE '${gregFrom.replace(/-/g, '/')}%'
+                ${shamsiFrom ? `OR t10.Field_008 LIKE '${shamsiFrom}%'` : ''}
+                ${shamsiFromClean ? `OR t10.Field_008 LIKE '${shamsiFromClean}%'` : ''}
+                ${shamsiFromDash ? `OR t10.Field_008 LIKE '${shamsiFromDash}%'` : ''}
+                OR t10.Field_008 BETWEEN '${gregFrom}T00:00:00.000Z' AND '${gregFrom}T23:59:59.999Z'
+                OR t10.Field_008 BETWEEN '${gregFrom} 00:00:00' AND '${gregFrom} 23:59:59'
+            )
+        `;
+    } else {
+        dateCond = `
+            (
+                t10.Field_008 BETWEEN '${gregFrom}T00:00:00.000Z' AND '${gregTo}T23:59:59.999Z'
+                OR t10.Field_008 BETWEEN '${gregFrom} 00:00:00' AND '${gregTo} 23:59:59'
+                OR t10.Field_008 BETWEEN '${gregFrom}' AND '${gregTo}'
+                OR t10.Field_008 BETWEEN '${shamsiFrom}' AND '${shamsiTo}'
+                OR t10.Field_008 BETWEEN '${shamsiFromClean}' AND '${shamsiToClean}'
+                OR t10.Field_008 BETWEEN '${shamsiFromDash}' AND '${shamsiToDash}'
+            )
+        `;
+    }
+
+    const sql = `
+        SELECT 
+            t10.Field_001 as DocId,
+            t10.Field_006 as InvoiceNum,
+            t10.Field_008 as Date,
+            t10.Field_029 as Notes,
+            t10.Field_037 as HeaderPayable,
+            t11.Field_005 as ItemCode,
+            COALESCE(t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
+            t11.Field_006 as Quantity,
+            t11.Field_031 as ItemNotes,
+            t11.Field_007 as Amount,
+            t_group.GroupName,
+            t07.Field_006 as CustomerName,
+            t10.Field_009 as OpCode
+        FROM STR_TBL_010 t10
+        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                   AND t11.Field_003 = t10.Field_004
+                                   AND t11.Field_012 = t10.Field_018
+                                   AND (
+                                       (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
+                                       OR
+                                       (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
+                                   )
+        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+        LEFT JOIN (
+            SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+            LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+        LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+        WHERE (
+            (t10.Field_009 = '12' AND t11.Field_007 > 0)
+            OR
+            t10.Field_009 = '13'
+          )
+          AND ${dateCond}
+        ORDER BY t10.Field_008 DESC
+    `;
+
+    const rawSalesRows = await runSayanQuery(db, sql);
+    const productRows = rawSalesRows.filter(isActualProduct);
+
+    const invMap = new Map();
+    productRows.forEach(row => {
+        const docId = row.DocId || 'unknown';
+        if (!invMap.has(docId)) invMap.set(docId, []);
+        invMap.get(docId).push(row);
+    });
+
+    const salesRows = [];
+    invMap.forEach((rows) => {
+        const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
+        const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
+        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+
+        rows.forEach(r => {
+            const itemAmt = parseFloat(r.Amount || 0);
+            const itemQty = parseFloat(r.Quantity || 0);
+            let allocatedAmt = 0;
+            if (headerPayable > 0) {
+                if (sumItemAmt > 0) {
+                    allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
+                } else if (sumItemQty > 0) {
+                    allocatedAmt = headerPayable * (itemQty / sumItemQty);
+                } else {
+                    allocatedAmt = headerPayable / rows.length;
+                }
+            } else {
+                allocatedAmt = itemAmt;
+            }
+            salesRows.push({
+                ...r,
+                Amount: allocatedAmt
+            });
+        });
+    });
+
+    const categoryMap = new Map();
+    const invoicesSet = new Set();
+    const customersSet = new Set();
+
+    let totalSalesQty = 0;
+    let totalSalesAmt = 0;
+    let totalReturnQty = 0;
+    let totalReturnAmt = 0;
+
+    salesRows.forEach(inv => {
+        const isReturn = String(inv.OpCode || '').trim() === '13';
+        const qty = parseFloat(inv.Quantity || 0);
+        const amt = parseFloat(inv.Amount || 0);
+        const catName = classifyMajorCategory(inv.GroupName, inv.ItemName, inv.ItemCode);
+
+        if (inv.InvoiceNum || inv.DocId) invoicesSet.add(inv.InvoiceNum || inv.DocId);
+        if (inv.CustomerName) customersSet.add(inv.CustomerName);
+
+        if (isReturn) {
+            totalReturnQty += qty;
+            totalReturnAmt += amt;
+        } else {
+            totalSalesQty += qty;
+            totalSalesAmt += amt;
+        }
+
+        if (!categoryMap.has(catName)) {
+            categoryMap.set(catName, {
+                name: catName,
+                salesQty: 0,
+                salesAmt: 0,
+                returnQty: 0,
+                returnAmt: 0
+            });
+        }
+
+        const entry = categoryMap.get(catName);
+        if (isReturn) {
+            entry.returnQty += qty;
+            entry.returnAmt += amt;
+        } else {
+            entry.salesQty += qty;
+            entry.salesAmt += amt;
+        }
+    });
+
+    const categoryList = Array.from(categoryMap.values()).map(c => {
+        const netWgt = c.salesQty - c.returnQty;
+        const netAmt = c.salesAmt - c.returnAmt;
+        const netFee = netWgt > 0 ? netAmt / netWgt : 0;
+        return {
+            ...c,
+            netWgt,
+            netAmt,
+            netFee
+        };
+    });
+
+    categoryList.sort((a, b) => {
+        const indexA = BOT_MAJOR_CATEGORIES.indexOf(a.name);
+        const indexB = BOT_MAJOR_CATEGORIES.indexOf(b.name);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return 0;
+    });
+
+    const netWeight = totalSalesQty - totalReturnQty;
+    const netAmount = totalSalesAmt - totalReturnAmt;
+    const avgFee = netWeight > 0 ? netAmount / netWeight : 0;
+
+    return {
+        salesRows,
+        categoryList,
+        categoryMap,
+        summary: {
+            totalSalesQty,
+            totalSalesAmt,
+            totalReturnQty,
+            totalReturnAmt,
+            netWeight,
+            netAmount,
+            avgFee,
+            invoiceCount: invoicesSet.size,
+            customerCount: customersSet.size,
+            shamsiFrom,
+            shamsiTo,
+            gregFrom,
+            gregTo
+        }
+    };
+}
 
 export const hasSayanReportsAccess = (user, section) => {
     if (!user) return false;
@@ -297,187 +642,63 @@ const getTehranOffsetDateString = (offsetDays = 0) => {
     return formatter.format(target);
 };
 
-const isActualProduct = (row) => {
-    if (!row) return false;
-    const name = String(row.ItemName || '').toLowerCase();
-    const group = String(row.GroupName || '').toLowerCase();
-    const keywordsToExclude = [
-        'کارتن', 'پالت', 'جعبه', 'حمل', 'کرایه', 'خدمات', 'هزینه', 'دوک خالی', 'کیسه خالی', 'بسته بندی', 'پلاستیک'
-    ];
-    for (const kw of keywordsToExclude) {
-        if (name.includes(kw) || group.includes(kw)) return false;
-    }
-    return true;
-};
-
-const allocateSalesRows = (rawRows) => {
-    if (!rawRows || rawRows.length === 0) return [];
-    const invMap = new Map();
-    rawRows.forEach(row => {
-        const docId = row.DocId || row.InvoiceNum || 'unknown';
-        if (!invMap.has(docId)) invMap.set(docId, []);
-        invMap.get(docId).push(row);
-    });
-
-    const processed = [];
-    invMap.forEach((rows) => {
-        const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
-        const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
-        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
-
-        rows.forEach(r => {
-            const itemAmt = parseFloat(r.Amount || 0);
-            const itemQty = parseFloat(r.Quantity || 0);
-            let allocatedAmt = 0;
-            if (headerPayable > 0) {
-                if (sumItemAmt > 0) {
-                    allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
-                } else if (sumItemQty > 0) {
-                    allocatedAmt = headerPayable * (itemQty / sumItemQty);
-                } else {
-                    allocatedAmt = headerPayable / rows.length;
-                }
-            } else {
-                allocatedAmt = itemAmt;
-            }
-            processed.push({
-                ...r,
-                Amount: allocatedAmt.toString()
-            });
-        });
-    });
-    return processed;
-};
-
 export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateFromA, dateToA, dateFromB, dateToB, nameA = "بازه اول", nameB = "بازه دوم") => {
     const labelA = `${nameA} (${dateFromA}${dateFromA !== dateToA ? ' تا ' + dateToA : ''})`;
     const labelB = `${nameB} (${dateFromB}${dateFromB !== dateToB ? ' تا ' + dateToB : ''})`;
     await sendFn(chatId, `⏳ در حال محاسبه و استعلام گزارش مقایسه‌ای فروش سایان (دوره A: ${labelA} در برابر دوره B: ${labelB})... لطفا شکیبا باشید.`);
     
     try {
-        const buildSql = (from, to) => `
-            SELECT 
-                t10.Field_005 as DocId,
-                t10.Field_006 as InvoiceNum,
-                t10.Field_008 as Date,
-                t10.Field_009 as OpCode,
-                t10.Field_029 as Notes,
-                t10.Field_037 as HeaderPayable,
-                t11.Field_005 as ItemCode,
-                COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
-                t11.Field_006 as Quantity,
-                t11.Field_031 as ItemNotes,
-                t11.Field_007 as Amount,
-                COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
-                t07.Field_006 as CustomerName
-            FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                      AND t11.Field_003 = t10.Field_004
-                                      AND t11.Field_012 = t10.Field_018
-                                      AND (
-                                          (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
-                                          OR
-                                          (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
-                                      )
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                FROM GNR_TBL_003
-                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                GROUP BY RTRIM(LTRIM(Field_003))
-            ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
-                FROM GNR_TBL_003
-                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                GROUP BY RTRIM(LTRIM(Field_003))
-            ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
-            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-            LEFT JOIN (
-                SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
-                LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
-                GROUP BY t21_sub.Field_004
-            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-            WHERE (
-                t10.Field_009 IN ('12', '13')
-            )
-              AND (t10.Field_008 LIKE '${from}%' OR t10.Field_008 BETWEEN '${from}T00:00:00.000Z' AND '${to}T23:59:59.999Z' OR t10.Field_008 BETWEEN '${from}' AND '${to}')
-            ORDER BY t10.Field_008 DESC
-        `;
-
-        const [rawA, rawB] = await Promise.all([
-            runSayanQuery(db, buildSql(dateFromA, dateToA)),
-            runSayanQuery(db, buildSql(dateFromB, dateToB))
+        const [dataA, dataB] = await Promise.all([
+            fetchProcessedSayanSalesData(db, dateFromA, dateToA),
+            fetchProcessedSayanSalesData(db, dateFromB, dateToB)
         ]);
 
-        const rowsA = allocateSalesRows(rawA);
-        const rowsB = allocateSalesRows(rawB);
+        const mapA = dataA.categoryMap;
+        const mapB = dataB.categoryMap;
 
-        const groupMap = new Map();
+        const presentCats = new Set([...mapA.keys(), ...mapB.keys()]);
+        const allCatNames = [];
+        
+        BOT_MAJOR_CATEGORIES.forEach(cat => {
+            if (presentCats.has(cat)) {
+                allCatNames.push(cat);
+                presentCats.delete(cat);
+            }
+        });
+        presentCats.forEach(cat => {
+            allCatNames.push(cat);
+        });
 
-        const processRows = (rows, isPeriodA) => {
-            rows.forEach(r => {
-                const grp = r.GroupName || 'سایر موارد';
-                const qty = isActualProduct(r) ? parseFloat(r.Quantity || 0) : 0;
-                const amt = parseFloat(r.Amount || 0);
-                const isReturn = r.OpCode === '13';
-
-                if (!groupMap.has(grp)) {
-                    groupMap.set(grp, { qtyA: 0, amtA: 0, qtyB: 0, amtB: 0 });
-                }
-                const entry = groupMap.get(grp);
-                if (isPeriodA) {
-                    if (isReturn) {
-                        entry.qtyA -= qty;
-                        entry.amtA -= amt;
-                    } else {
-                        entry.qtyA += qty;
-                        entry.amtA += amt;
-                    }
-                } else {
-                    if (isReturn) {
-                        entry.qtyB -= qty;
-                        entry.amtB -= amt;
-                    } else {
-                        entry.qtyB += qty;
-                        entry.amtB += amt;
-                    }
-                }
-            });
-        };
-
-        processRows(rowsA, true);
-        processRows(rowsB, false);
-
-        let sumQtyA = 0, sumAmtA = 0, sumQtyB = 0, sumAmtB = 0;
         const columns = ['ردیف', 'گروه اصلی کالا', 'وزن A (ک‌گ)', 'مبلغ A (ریال)', 'وزن B (ک‌گ)', 'مبلغ B (ریال)', 'تغییر وزن %', 'تغییر مبلغ %', 'تغییر فی %'];
-
         const tableRows = [];
         let index = 1;
 
-        groupMap.forEach((data, groupName) => {
-            sumQtyA += data.qtyA;
-            sumAmtA += data.amtA;
-            sumQtyB += data.qtyB;
-            sumAmtB += data.amtB;
+        let totalWgtA = 0, totalAmtA = 0;
+        let totalWgtB = 0, totalAmtB = 0;
 
-            const feeA = data.qtyA > 0 ? (data.amtA / data.qtyA) : 0;
-            const feeB = data.qtyB > 0 ? (data.amtB / data.qtyB) : 0;
+        for (const catName of allCatNames) {
+            const rowA = mapA.get(catName) || { salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0 };
+            const rowB = mapB.get(catName) || { salesQty: 0, salesAmt: 0, returnQty: 0, returnAmt: 0 };
 
-            const diffQty = data.qtyA - data.qtyB;
-            const qtyPct = data.qtyB > 0 ? ((diffQty / data.qtyB) * 100).toFixed(1) : (data.qtyA > 0 ? '+100' : '0');
+            const wgtA = rowA.salesQty - rowA.returnQty;
+            const amtA = rowA.salesAmt - rowA.returnAmt;
+            const feeA = wgtA > 0 ? amtA / wgtA : 0;
+
+            const wgtB = rowB.salesQty - rowB.returnQty;
+            const amtB = rowB.salesAmt - rowB.returnAmt;
+            const feeB = wgtB > 0 ? amtB / wgtB : 0;
+
+            totalWgtA += wgtA;
+            totalAmtA += amtA;
+            totalWgtB += wgtB;
+            totalAmtB += amtB;
+
+            const diffQty = wgtA - wgtB;
+            const qtyPct = wgtB > 0 ? ((diffQty / wgtB) * 100).toFixed(1) : (wgtA > 0 ? '+100' : '0');
             const qtyPctStr = Number(qtyPct) >= 0 ? `+${qtyPct}%` : `${qtyPct}%`;
 
-            const diffAmt = data.amtA - data.amtB;
-            const amtPct = data.amtB > 0 ? ((diffAmt / data.amtB) * 100).toFixed(1) : (data.amtA > 0 ? '+100' : '0');
+            const diffAmt = amtA - amtB;
+            const amtPct = amtB > 0 ? ((diffAmt / amtB) * 100).toFixed(1) : (amtA > 0 ? '+100' : '0');
             const amtPctStr = Number(amtPct) >= 0 ? `+${amtPct}%` : `${amtPct}%`;
 
             const diffFee = feeA - feeB;
@@ -486,26 +707,26 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
 
             tableRows.push([
                 (index++).toLocaleString('fa-IR'),
-                groupName,
-                data.qtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-                Math.round(data.amtA).toLocaleString('fa-IR') + ' ریال',
-                data.qtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-                Math.round(data.amtB).toLocaleString('fa-IR') + ' ریال',
+                catName,
+                wgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtA).toLocaleString('fa-IR') + ' ریال',
+                wgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+                Math.round(amtB).toLocaleString('fa-IR') + ' ریال',
                 qtyPctStr,
                 amtPctStr,
                 feePctStr
             ]);
-        });
+        }
 
-        const avgFeeA = sumQtyA > 0 ? (sumAmtA / sumQtyA) : 0;
-        const avgFeeB = sumQtyB > 0 ? (sumAmtB / sumQtyB) : 0;
+        const avgFeeA = totalWgtA > 0 ? (totalAmtA / totalWgtA) : 0;
+        const avgFeeB = totalWgtB > 0 ? (totalAmtB / totalWgtB) : 0;
 
-        const totalDiffQty = sumQtyA - sumQtyB;
-        const totalQtyPct = sumQtyB > 0 ? ((totalDiffQty / sumQtyB) * 100).toFixed(1) : (sumQtyA > 0 ? '+100' : '0');
+        const totalDiffQty = totalWgtA - totalWgtB;
+        const totalQtyPct = totalWgtB > 0 ? ((totalDiffQty / totalWgtB) * 100).toFixed(1) : (totalWgtA > 0 ? '+100' : '0');
         const totalQtyPctStr = Number(totalQtyPct) >= 0 ? `+${totalQtyPct}%` : `${totalQtyPct}%`;
 
-        const totalDiffAmt = sumAmtA - sumAmtB;
-        const totalAmtPct = sumAmtB > 0 ? ((totalDiffAmt / sumAmtB) * 100).toFixed(1) : (sumAmtA > 0 ? '+100' : '0');
+        const totalDiffAmt = totalAmtA - totalAmtB;
+        const totalAmtPct = totalAmtB > 0 ? ((totalDiffAmt / totalAmtB) * 100).toFixed(1) : (totalAmtA > 0 ? '+100' : '0');
         const totalAmtPctStr = Number(totalAmtPct) >= 0 ? `+${totalAmtPct}%` : `${totalAmtPct}%`;
 
         const totalDiffFee = avgFeeA - avgFeeB;
@@ -515,10 +736,10 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
         tableRows.push([
             'جمع کل',
             'خلاصه کل عملکرد',
-            sumQtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-            Math.round(sumAmtA).toLocaleString('fa-IR') + ' ریال',
-            sumQtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
-            Math.round(sumAmtB).toLocaleString('fa-IR') + ' ریال',
+            totalWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalAmtA).toLocaleString('fa-IR') + ' ریال',
+            totalWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ک‌گ',
+            Math.round(totalAmtB).toLocaleString('fa-IR') + ' ریال',
             totalQtyPctStr,
             totalAmtPctStr,
             totalFeePctStr
@@ -530,12 +751,12 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
 
         const caption = `📊 *گزارش مدیریتی و تحلیلی مقایسه‌ای فروش (سایان ERP)*\n\n` +
             `🔹 **دوره A (${labelA}):**\n` +
-            `   📦 وزن کل: ${sumQtyA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
-            `   💰 مبلغ کل: ${Math.round(sumAmtA).toLocaleString('fa-IR')} ریال\n` +
+            `   📦 وزن کل: ${totalWgtA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
+            `   💰 مبلغ کل: ${Math.round(totalAmtA).toLocaleString('fa-IR')} ریال\n` +
             `   🏷 فی متوسط: ${Math.round(avgFeeA).toLocaleString('fa-IR')} ریال/ک‌گ\n\n` +
             `🔸 **دوره B (${labelB}):**\n` +
-            `   📦 وزن کل: ${sumQtyB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
-            `   💰 مبلغ کل: ${Math.round(sumAmtB).toLocaleString('fa-IR')} ریال\n` +
+            `   📦 وزن کل: ${totalWgtB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم\n` +
+            `   💰 مبلغ کل: ${Math.round(totalAmtB).toLocaleString('fa-IR')} ریال\n` +
             `   🏷 فی متوسط: ${Math.round(avgFeeB).toLocaleString('fa-IR')} ریال/ک‌گ\n\n` +
             `📈 **تغییرات وزن:** ${totalQtyPctStr}\n` +
             `💵 **تغییرات مبلغ:** ${totalAmtPctStr}\n` +
@@ -1661,17 +1882,17 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
 
         if (session.state === 'BOT_SAYAN_WAIT_COMPARE_DATES') {
             const val = text.trim();
-            // Expected format: YYYY-MM-DD, YYYY-MM-DD | YYYY-MM-DD, YYYY-MM-DD
+            // Expected format: Date1, Date2 | Date3, Date4 (Supports both Shamsi 1403/01/01 and Gregorian 2024-01-01)
             const parts = val.split('|');
             if (parts.length !== 2) {
-                return sendFn(chatId, "⚠️ فرمت وارد شده اشتباه است. لطفاً دقیقاً مانند الگو بنویسید:\n\nتاریخ شروع بازه ۱, تاریخ پایان بازه ۱ | تاریخ شروع بازه ۲, تاریخ پایان بازه ۲\n\nمثال:\n2023-10-01, 2023-10-10 | 2023-11-01, 2023-11-10", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
+                return sendFn(chatId, "⚠️ فرمت وارد شده اشتباه است. لطفاً دقیقاً مانند الگو بنویسید:\n\nتاریخ شروع بازه ۱, تاریخ پایان بازه ۱ | تاریخ شروع بازه ۲, تاریخ پایان بازه ۲\n\nمثال شمسی:\n1403/01/01, 1403/01/15 | 1403/02/01, 1403/02/15\n\nمثال میلادی:\n2024-01-01, 2024-01-15 | 2024-02-01, 2024-02-15", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
             }
             
             const rangeA = parts[0].split(',').map(s => s.trim());
             const rangeB = parts[1].split(',').map(s => s.trim());
             
             if (rangeA.length !== 2 || rangeB.length !== 2) {
-                return sendFn(chatId, "⚠️ فرمت وارد شده برای تاریخ‌های بازه اول یا دوم ناقص است. مثال:\n2023-10-01, 2023-10-10 | 2023-11-01, 2023-11-10", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
+                return sendFn(chatId, "⚠️ فرمت وارد شده برای تاریخ‌های بازه اول یا دوم ناقص است. مثال:\n1403/01/01, 1403/01/15 | 1403/02/01, 1403/02/15", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
             }
             
             const dateFromA = rangeA[0];
@@ -1679,9 +1900,9 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
             const dateFromB = rangeB[0];
             const dateToB = rangeB[1];
             
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            const dateRegex = /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/;
             if (!dateRegex.test(dateFromA) || !dateRegex.test(dateToA) || !dateRegex.test(dateFromB) || !dateRegex.test(dateToB)) {
-                return sendFn(chatId, "⚠️ لطفاً از فرمت میلادی معتبر YYYY-MM-DD (مثال: 2023-10-01) استفاده کنید.", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
+                return sendFn(chatId, "⚠️ لطفاً از فرمت معتبر تاریخ (شمسی مانند 1403/01/01 یا میلادی مانند 2024-01-01) استفاده کنید.", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'BOT_SAYAN_COMPARE_SALES' }]] } });
             }
             
             session.state = 'IDLE';
@@ -4027,147 +4248,37 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
         
         try {
             const todayStr = getTehranDateString();
-            
-            const sql = `
-                SELECT 
-                    t10.Field_005 as DocId,
-                    t10.Field_006 as InvoiceNum,
-                    t10.Field_008 as Date,
-                    t10.Field_009 as OpCode,
-                    t10.Field_029 as Notes,
-                    t10.Field_037 as HeaderPayable,
-                    t11.Field_005 as ItemCode,
-                    COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
-                    t11.Field_006 as Quantity,
-                    t11.Field_031 as ItemNotes,
-                    t11.Field_007 as Amount,
-                    COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
-                    t07.Field_006 as CustomerName
-                FROM STR_TBL_010 t10
-                INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                          AND t11.Field_003 = t10.Field_004
-                                          AND t11.Field_012 = t10.Field_018
-                                          AND (
-                                              (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
-                                              OR
-                                              (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
-                                          )
-                LEFT JOIN (
-                    SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
-                    FROM GNR_TBL_003
-                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                    GROUP BY RTRIM(LTRIM(Field_003))
-                ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
-                LEFT JOIN (
-                    SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
-                    FROM GNR_TBL_003
-                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
-                    GROUP BY RTRIM(LTRIM(Field_003))
-                ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
-                LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                LEFT JOIN (
-                    SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                    FROM IND_TBL_021 t21_sub
-                    LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                    GROUP BY t21_sub.Field_004
-                ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-                LEFT JOIN (
-                    SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                    FROM IND_TBL_021 t21_sub
-                    LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
-                    LEFT JOIN IND_TBL_002 t02_parent ON t02_sub.Field_009 = t02_parent.Field_008
-                    GROUP BY t21_sub.Field_004
-                ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-                LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-                WHERE (
-                    t10.Field_009 IN ('12', '13')
-                )
-                  AND (t10.Field_008 = '${todayStr}' OR t10.Field_008 LIKE '${todayStr}%' OR t10.Field_008 BETWEEN '${todayStr}T00:00:00.000Z' AND '${todayStr}T23:59:59.999Z')
-                ORDER BY t10.Field_008 DESC
-            `;
-            
-            const rawSales = await runSayanQuery(db, sql);
-            
-            if (rawSales.length === 0) {
+            const salesData = await fetchProcessedSayanSalesData(db, todayStr, todayStr);
+            const { categoryList, summary } = salesData;
+
+            if (categoryList.length === 0) {
                 return sendFn(chatId, `⚠️ هیچ فاکتور فروش یا مرجوعی برای امروز (${toShamsiFull(new Date())}) در سرور سایان ثبت نشده است.`);
             }
-
-            const salesRows = allocateSalesRows(rawSales);
             
-            const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${toShamsiFull(new Date())}`;
-            const columns = ['ردیف', 'گروه کالا', 'نام کالا / محصول', 'فروش ناخالص (ک‌گ/ریال)', 'مرجوعی کد ۱۳ (ک‌گ/ریال)', 'خالص نهایی (ک‌گ/ریال)'];
+            const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${summary.shamsiFrom || toShamsiFull(new Date())}`;
+            const columns = ['ردیف', 'سرفصل کالا', 'فروش (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص نهایی (ک‌گ / ریال)'];
             
-            const groupedMap = new Map();
-            let totalSalesQty = 0, totalSalesAmt = 0;
-            let totalRetQty = 0, totalRetAmt = 0;
-            
-            salesRows.forEach(inv => {
-                const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-                const qty = isActualProduct(inv) ? parseFloat(inv.Quantity || 0) : 0;
-                let amt = parseFloat(inv.Amount || 0);
-
-                const isReturn = inv.OpCode === '13';
-
-                if (isReturn) {
-                    totalRetQty += qty;
-                    totalRetAmt += amt;
-                } else {
-                    totalSalesQty += qty;
-                    totalSalesAmt += amt;
-                }
-                
-                if (groupedMap.has(key)) {
-                    const existing = groupedMap.get(key);
-                    if (isReturn) {
-                        existing.retQty += qty;
-                        existing.retAmt += amt;
-                    } else {
-                        existing.salesQty += qty;
-                        existing.salesAmt += amt;
-                    }
-                } else {
-                    groupedMap.set(key, {
-                        itemName: inv.ItemName || 'کالای بدون نام',
-                        groupName: inv.GroupName || 'سایر گروه‌ها',
-                        salesQty: isReturn ? 0 : qty,
-                        salesAmt: isReturn ? 0 : amt,
-                        retQty: isReturn ? qty : 0,
-                        retAmt: isReturn ? amt : 0
-                    });
-                }
-            });
-            
-            const groupedRows = Array.from(groupedMap.values());
-            
-            const tableRows = groupedRows.map((row, idx) => {
-                const netQty = row.salesQty - row.retQty;
-                const netAmt = row.salesAmt - row.retAmt;
-                return [
-                    (idx + 1).toLocaleString('fa-IR'),
-                    row.groupName,
-                    row.itemName,
-                    `${row.salesQty.toLocaleString('fa-IR')} / ${Math.round(row.salesAmt).toLocaleString('fa-IR')}`,
-                    `${row.retQty > 0 ? row.retQty.toLocaleString('fa-IR') : '۰'} / ${Math.round(row.retAmt).toLocaleString('fa-IR')}`,
-                    `${netQty.toLocaleString('fa-IR')} / ${Math.round(netAmt).toLocaleString('fa-IR')}`
-                ];
-            });
-            
-            const grandNetQty = totalSalesQty - totalRetQty;
-            const grandNetAmt = totalSalesAmt - totalRetAmt;
+            let idx = 1;
+            const tableRows = categoryList.map(cat => [
+                (idx++).toLocaleString('fa-IR'),
+                cat.name,
+                `${cat.salesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(cat.salesAmt).toLocaleString('fa-IR')}`,
+                `${cat.returnQty > 0 ? cat.returnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '۰'} / ${Math.round(cat.returnAmt).toLocaleString('fa-IR')}`,
+                `${cat.netWgt.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(cat.netAmt).toLocaleString('fa-IR')}`
+            ]);
 
             tableRows.push([
                 'جمع کل',
-                '-',
-                '-',
-                `${totalSalesQty.toLocaleString('fa-IR')} / ${Math.round(totalSalesAmt).toLocaleString('fa-IR')}`,
-                `${totalRetQty.toLocaleString('fa-IR')} / ${Math.round(totalRetAmt).toLocaleString('fa-IR')}`,
-                `${grandNetQty.toLocaleString('fa-IR')} / ${Math.round(grandNetAmt).toLocaleString('fa-IR')}`
+                'خلاصه عملکرد',
+                `${summary.totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.totalSalesAmt).toLocaleString('fa-IR')}`,
+                `${summary.totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.totalReturnAmt).toLocaleString('fa-IR')}`,
+                `${summary.netWeight.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${Math.round(summary.netAmount).toLocaleString('fa-IR')}`
             ]);
             
             const pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
             const filename = `Sayan_Daily_Sales_${todayStr}.pdf`;
             
-            await sendDocFn(chatId, pdfBuffer, filename, `Sayan ERP 🧾 ${title}\n تعداد اقلام: ${groupedRows.length}\n 📦 فروش ناخالص: ${totalSalesQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(totalSalesAmt).toLocaleString('fa-IR')} ریال)\n 🔄 مرجوعی کد ۱۳: ${totalRetQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(totalRetAmt).toLocaleString('fa-IR')} ریال)\n ✅ فروش خالص کل: ${grandNetQty.toLocaleString('fa-IR')} کیلوگرم (${Math.round(grandNetAmt).toLocaleString('fa-IR')} ریال)`);
+            await sendDocFn(chatId, pdfBuffer, filename, `Sayan ERP 🧾 ${title}\n 📦 فروش ناخالص: ${summary.totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم (${Math.round(summary.totalSalesAmt).toLocaleString('fa-IR')} ریال)\n 🔄 مرجوعی کد ۱۳: ${summary.totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم (${Math.round(summary.totalReturnAmt).toLocaleString('fa-IR')} ریال)\n ✅ فروش خالص کل: ${summary.netWeight.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم (${Math.round(summary.netAmount).toLocaleString('fa-IR')} ریال)\n 🏷 فی متوسط خالص: ${Math.round(summary.avgFee).toLocaleString('fa-IR')} ریال/ک‌گ`);
         } catch (err) {
             console.error("Bot Daily Sales Error:", err);
             sendFn(chatId, `❌ خطا در تهیه گزارش فروش سایان: ${err.message}`);
