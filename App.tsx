@@ -163,22 +163,35 @@ function App() {
     try { window.history.replaceState(state, title, url); } catch (e) { window.location.hash = url; }
   };
   const [financialYear, setFinancialYearState] = useState<string>(new Date().toLocaleDateString('fa-IR-u-nu-latn').split('/')[0]);
-  const [theme, setTheme] = useState<string>('light-aurora');
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') || 'light-aurora');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => localStorage.getItem('app_dark_mode') === 'true');
   const [showThemeModal, setShowThemeModal] = useState(false);
 
-  const applyThemeToRoot = (themeName: string) => {
+  const applyThemeToRoot = (themeName: string, dark: boolean) => {
     const root = document.documentElement;
-    root.classList.remove('dark', 'theme-light-aurora', 'theme-bento', 'theme-claymorphism', 'theme-minimalism', 'theme-maximalism');
+    root.classList.remove(
+      'dark',
+      'theme-light-aurora',
+      'theme-bento',
+      'theme-claymorphism',
+      'theme-skeuomorphism',
+      'theme-minimalism',
+      'theme-maximalism'
+    );
     if (themeName && themeName !== 'light') {
       root.classList.add(themeName);
+    }
+    if (dark) {
+      root.classList.add('dark');
     }
   };
 
   useEffect(() => {
-    // Load persisted theme from localStorage, defaulting to 'light-aurora'
     const savedTheme = localStorage.getItem('theme') || 'light-aurora';
+    const savedDark = localStorage.getItem('app_dark_mode') === 'true';
     setTheme(savedTheme);
-    applyThemeToRoot(savedTheme);
+    setIsDarkMode(savedDark);
+    applyThemeToRoot(savedTheme, savedDark);
   }, []);
 
   useEffect(() => {
@@ -195,10 +208,19 @@ function App() {
     setShowThemeModal(true);
   };
 
+  const handleToggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem('app_dark_mode', next ? 'true' : 'false');
+      applyThemeToRoot(theme, next);
+      return next;
+    });
+  };
+
   const handleSelectTheme = (newTheme: AppThemeMode) => {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    applyThemeToRoot(newTheme);
+    applyThemeToRoot(newTheme, isDarkMode);
   };
   const [orders, setOrders] = useState<PaymentOrder[]>(() => {
     try { const item = localStorage.getItem('app_data_orders'); return item ? JSON.parse(item) : []; } catch { return []; }
@@ -1300,6 +1322,8 @@ function App() {
             settings={settings}
             theme={theme}
             toggleTheme={toggleTheme}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={handleToggleDarkMode}
             unreadChatCount={unreadChatCount}
             >
             
@@ -1388,8 +1412,10 @@ function App() {
             <ThemeSelectorModal
                 isOpen={showThemeModal}
                 onClose={() => setShowThemeModal(false)}
-                currentTheme={theme}
+                currentTheme={theme as AppThemeMode}
                 onSelectTheme={handleSelectTheme}
+                isDarkMode={isDarkMode}
+                onToggleDarkMode={handleToggleDarkMode}
             />
             </Layout>
         )}

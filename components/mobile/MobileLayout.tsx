@@ -25,7 +25,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
   toggleTheme
 }) => {
   return (
-    <div className="flex flex-col min-h-screen bg-transparent text-gray-800 dark:text-gray-200 pb-20 relative overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-transparent text-gray-800 dark:text-gray-200 pb-20 relative overflow-x-hidden max-w-full w-full">
       {/* Background Blobs for fluid depth */}
       <div className="bg-blobs">
           <div className="blob blob-1"></div>
@@ -33,7 +33,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
       </div>
 
       {/* Mobile Header with Google Gemini aesthetics */}
-      <header className="glass-header p-4 sticky top-0 z-50 flex justify-between items-center safe-pt rounded-b-[2rem] shadow-b-[4px_0_30px_rgba(0,0,0,0.03)] border-none">
+      <header className="glass-header px-4 pt-4 pb-3 sticky top-0 z-50 flex justify-between items-center safe-pt rounded-b-[2rem] shadow-b-[4px_0_30px_rgba(0,0,0,0.03)] border-none w-full">
         <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-gradient-to-tr from-[#4b90ff] via-[#aa72ff] to-[#ff6097] text-white rounded-2xl flex items-center justify-center font-bold shadow-xl border-2 border-white/40 rotate-2 animate-pulse-subtle">
                 {currentUser.fullName.charAt(0)}

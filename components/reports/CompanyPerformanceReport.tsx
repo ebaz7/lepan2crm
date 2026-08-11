@@ -274,15 +274,24 @@ const CompanyPerformanceReport: React.FC<Props> = ({ records }) => {
             {/* Responsive Container for Scaling */}
             <div className="flex-1 overflow-auto flex justify-center bg-gray-50 p-4" ref={containerWrapperRef}>
                 <div style={{ 
-                    width: '210mm', 
-                    minHeight: '297mm',
-                    backgroundColor: 'white',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    transform: `scale(${scale})`,
-                    transformOrigin: 'top center',
-                    marginBottom: `${(1 - scale) * -100}px` 
+                  width: `${210 * 3.779527559 * scale}px`,
+                  minHeight: `${297 * 3.779527559 * scale}px`,
+                  position: 'relative',
+                  flexShrink: 0
                 }}>
-                    {content}
+                  <div style={{ 
+                      width: '210mm', 
+                      minHeight: '297mm',
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                      transform: `scale(${scale})`,
+                      transformOrigin: 'top left',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0
+                  }}>
+                      {content}
+                  </div>
                 </div>
             </div>
         </div>

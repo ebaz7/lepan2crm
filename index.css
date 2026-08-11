@@ -239,33 +239,35 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 
 
 
-/* Clear, Defined Card Containers for Light Aurora Theme - Restoring Glass Effect */
+/* Clear, Defined Card Containers for Light Aurora Theme - Optimized for GPU Performance */
 .theme-light-aurora .apple-glass,
 .theme-light-aurora .glass-panel {
-  background: rgba(255, 255, 255, 0.16) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
   box-shadow: 
     0 10px 25px -5px rgba(15, 23, 42, 0.08),
     0 4px 6px -2px rgba(15, 23, 42, 0.04),
     inset 0 1.5px 2px rgba(255, 255, 255, 0.5) !important;
+  transform: translateZ(0);
 }
 
 .theme-light-aurora .apple-glass-hover:hover,
 .theme-light-aurora .glass-panel:hover {
-  background: rgba(255, 255, 255, 0.28) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
   box-shadow: 
     0 14px 32px -4px rgba(15, 23, 42, 0.12),
     inset 0 1.5px 2px rgba(255, 255, 255, 0.6) !important;
 }
 
 .theme-light-aurora .glass-header {
-  background: rgba(255, 255, 255, 0.2) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  transform: translateZ(0);
 }
 
 .theme-light-aurora input[type="text"], 
@@ -680,6 +682,13 @@ html.dark.has-preset-bg-cyan-cosmic .text-gray-400 {
   font-display: swap;
 }
 
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden !important;
+  position: relative;
+  width: 100%;
+}
+
 body {
   font-family: 'Vazirmatn', sans-serif;
   background: var(--app-bg);
@@ -687,7 +696,7 @@ body {
   color: var(--text-primary);
   overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile PWA */
   -webkit-font-smoothing: antialiased;
-  -moz-osx-osx-font-smoothing: grayscale;
+  -moz-osx-font-smoothing: grayscale;
   /* Disable text selection highlight for app-like feel */
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
@@ -1397,20 +1406,22 @@ html.has-preset-bg-aurora-light aside,
 html.has-preset-bg-cosmic-dark aside,
 html.has-preset-bg-cyan-cosmic aside,
 html.theme-light-aurora aside {
-  background: rgba(255, 255, 255, 0.16) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
   border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateZ(0);
 }
 
 html.has-custom-bg.dark aside,
 html.has-preset-bg-cosmic-dark.dark aside,
 html.has-preset-bg-cyan-cosmic.dark aside,
 html.has-preset-bg-aurora-light.dark aside {
-  background: rgba(15, 23, 42, 0.16) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  background: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
+  transform: translateZ(0);
 }
 
 /* Ensure that table cells in report panels have pristine text clarity and weight */
@@ -1528,7 +1539,7 @@ html [id*="print-section"] th {
 }
 
 /* ==========================================================================
-   THEME MORPHING UI OVERRIDES FOR ALL 5 UI STYLES
+   THEME MORPHING UI OVERRIDES FOR ALL 6 UI STYLES
    ========================================================================== */
 
 /* 1. Glassmorphism (Default) */
@@ -1545,6 +1556,9 @@ html.theme-bento .glass-panel,
 html.theme-bento aside,
 html.theme-bento header,
 html.theme-bento .bg-white,
+html.theme-bento .bg-gray-50,
+html.theme-bento .bg-zinc-50,
+html.theme-bento .bg-slate-50,
 html.theme-bento .bg-slate-900,
 html.theme-bento .bg-zinc-900 {
   background-color: #131b2e !important;
@@ -1552,6 +1566,26 @@ html.theme-bento .bg-zinc-900 {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.15) !important;
   border-radius: 20px !important;
   color: #f8fafc !important;
+}
+html.theme-bento .text-zinc-900,
+html.theme-bento .text-slate-900,
+html.theme-bento .text-gray-900,
+html.theme-bento .text-black,
+html.theme-bento .text-zinc-800,
+html.theme-bento .text-slate-800,
+html.theme-bento .text-gray-800,
+html.theme-bento .text-zinc-700,
+html.theme-bento .text-slate-700,
+html.theme-bento .text-gray-700 {
+  color: #f8fafc !important;
+}
+html.theme-bento .text-zinc-600,
+html.theme-bento .text-slate-600,
+html.theme-bento .text-gray-600,
+html.theme-bento .text-zinc-500,
+html.theme-bento .text-slate-500,
+html.theme-bento .text-gray-500 {
+  color: #a5b4fc !important;
 }
 html.theme-bento input,
 html.theme-bento select,
@@ -1564,6 +1598,9 @@ html.theme-bento textarea {
 html.theme-bento th {
   background-color: #1a233d !important;
   color: #a5b4fc !important;
+}
+html.theme-bento td {
+  border-color: rgba(99, 102, 241, 0.15) !important;
 }
 
 /* 3. Claymorphism (3D Puffy Clay Style) */
@@ -1600,7 +1637,49 @@ html.theme-claymorphism textarea {
   color: #1e293b !important;
 }
 
-/* 4. Minimalism (Clean Flat Style) */
+/* 4. Skeuomorphism (Realistic Tactile Beveled Style) */
+html.theme-skeuomorphism body {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+html.theme-skeuomorphism .glass-panel,
+html.theme-skeuomorphism aside,
+html.theme-skeuomorphism header,
+html.theme-skeuomorphism .bg-white {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  border: 1px solid #cbd5e1 !important;
+  border-top-color: #ffffff !important;
+  border-bottom-color: #a1a1aa !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+  border-radius: 16px !important;
+  color: #0f172a !important;
+}
+html.theme-skeuomorphism button {
+  background: linear-gradient(180deg, #ffffff 0%, #d4d4d8 100%) !important;
+  border: 1px solid #a1a1aa !important;
+  border-top-color: #ffffff !important;
+  box-shadow: inset 0 1px 0 #ffffff, 0 3px 6px rgba(0, 0, 0, 0.1) !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  transition: all 0.15s ease !important;
+}
+html.theme-skeuomorphism button:active {
+  background: linear-gradient(180deg, #cbd5e1 0%, #e2e8f0 100%) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18) !important;
+}
+html.theme-skeuomorphism input,
+html.theme-skeuomorphism select,
+html.theme-skeuomorphism textarea {
+  background: linear-gradient(180deg, #e2e8f0 0%, #f1f5f9 100%) !important;
+  border: 1.5px solid #a1a1aa !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12) !important;
+  border-radius: 10px !important;
+  color: #0f172a !important;
+}
+
+/* 5. Minimalism (Clean Flat Style) */
 html.theme-minimalism body {
   background-color: #fafafa !important;
   color: #18181b !important;
@@ -1630,7 +1709,7 @@ html.theme-minimalism textarea {
   color: #18181b !important;
 }
 
-/* 5. Maximalism / Neobrutalism (Pop-Art Vibrant Style) */
+/* 6. Maximalism / Neobrutalism (Pop-Art Vibrant Style) */
 html.theme-maximalism body {
   background-color: #fef08a !important;
   color: #000000 !important;
@@ -1667,6 +1746,247 @@ html.theme-maximalism textarea {
   background-color: #ffffff !important;
   color: #000000 !important;
   font-weight: 700 !important;
+}
+
+/* ---------------------------------------------------- */
+/* PROFESSIONAL DARK MODE OVERRIDES FOR ALL THEMES     */
+/* ---------------------------------------------------- */
+
+/* 1. Bento Theme Dark Overrides */
+html.dark.theme-bento body {
+  background-color: #070a12 !important;
+  color: #f8fafc !important;
+}
+html.dark.theme-bento .glass-panel,
+html.dark.theme-bento aside,
+html.dark.theme-bento header,
+html.dark.theme-bento .bg-white {
+  background-color: #0f172a !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #f8fafc !important;
+}
+html.dark.theme-bento .text-zinc-900,
+html.dark.theme-bento .text-slate-900,
+html.dark.theme-bento .text-gray-900,
+html.dark.theme-bento .text-black,
+html.dark.theme-bento .text-zinc-800,
+html.dark.theme-bento .text-slate-800,
+html.dark.theme-bento .text-gray-800,
+html.dark.theme-bento .text-zinc-700,
+html.dark.theme-bento .text-slate-700,
+html.dark.theme-bento .text-gray-700 {
+  color: #f8fafc !important;
+}
+html.dark.theme-bento .text-zinc-600,
+html.dark.theme-bento .text-slate-600,
+html.dark.theme-bento .text-gray-600,
+html.dark.theme-bento .text-zinc-500,
+html.dark.theme-bento .text-slate-500,
+html.dark.theme-bento .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+/* 2. Claymorphism Dark Overrides */
+html.dark.theme-claymorphism body {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+html.dark.theme-claymorphism .glass-panel,
+html.dark.theme-claymorphism aside,
+html.dark.theme-claymorphism header,
+html.dark.theme-claymorphism .bg-white {
+  background-color: #1e293b !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 8px 8px 18px rgba(0, 0, 0, 0.6), -4px -4px 12px rgba(51, 65, 85, 0.4), inset 1px 1px 2px rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+html.dark.theme-claymorphism button:not(.no-clay) {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.5), -2px -2px 8px rgba(255, 255, 255, 0.08) !important;
+}
+html.dark.theme-claymorphism button:not(.no-clay):active {
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.1) !important;
+}
+html.dark.theme-claymorphism input,
+html.dark.theme-claymorphism select,
+html.dark.theme-claymorphism textarea {
+  background-color: #0f172a !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6) !important;
+  color: #f8fafc !important;
+}
+html.dark.theme-claymorphism .text-zinc-900,
+html.dark.theme-claymorphism .text-slate-900,
+html.dark.theme-claymorphism .text-gray-900,
+html.dark.theme-claymorphism .text-black,
+html.dark.theme-claymorphism .text-zinc-800,
+html.dark.theme-claymorphism .text-slate-800,
+html.dark.theme-claymorphism .text-gray-800,
+html.dark.theme-claymorphism .text-zinc-700,
+html.dark.theme-claymorphism .text-slate-700,
+html.dark.theme-claymorphism .text-gray-700 {
+  color: #f8fafc !important;
+}
+html.dark.theme-claymorphism .text-zinc-600,
+html.dark.theme-claymorphism .text-slate-600,
+html.dark.theme-claymorphism .text-gray-600,
+html.dark.theme-claymorphism .text-zinc-500,
+html.dark.theme-claymorphism .text-slate-500,
+html.dark.theme-claymorphism .text-gray-500 {
+  color: #cbd5e1 !important;
+}
+
+/* 3. Skeuomorphism Dark Overrides */
+html.dark.theme-skeuomorphism body {
+  background-color: #121215 !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-skeuomorphism .glass-panel,
+html.dark.theme-skeuomorphism aside,
+html.dark.theme-skeuomorphism header,
+html.dark.theme-skeuomorphism .bg-white {
+  background: linear-gradient(180deg, #27272a 0%, #18181b 100%) !important;
+  border: 1px solid #3f3f46 !important;
+  border-top-color: #52525b !important;
+  border-bottom-color: #09090b !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 18px rgba(0, 0, 0, 0.6) !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-skeuomorphism button {
+  background: linear-gradient(180deg, #3f3f46 0%, #27272a 100%) !important;
+  border: 1px solid #52525b !important;
+  border-top-color: #71717a !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 6px rgba(0, 0, 0, 0.4) !important;
+  color: #ffffff !important;
+}
+html.dark.theme-skeuomorphism button:active {
+  background: linear-gradient(180deg, #18181b 0%, #27272a 100%) !important;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6) !important;
+}
+html.dark.theme-skeuomorphism input,
+html.dark.theme-skeuomorphism select,
+html.dark.theme-skeuomorphism textarea {
+  background: linear-gradient(180deg, #18181b 0%, #27272a 100%) !important;
+  border: 1.5px solid #3f3f46 !important;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5) !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-skeuomorphism .text-zinc-900,
+html.dark.theme-skeuomorphism .text-slate-900,
+html.dark.theme-skeuomorphism .text-gray-900,
+html.dark.theme-skeuomorphism .text-black,
+html.dark.theme-skeuomorphism .text-zinc-800,
+html.dark.theme-skeuomorphism .text-slate-800,
+html.dark.theme-skeuomorphism .text-gray-800,
+html.dark.theme-skeuomorphism .text-zinc-700,
+html.dark.theme-skeuomorphism .text-slate-700,
+html.dark.theme-skeuomorphism .text-gray-700 {
+  color: #f4f4f5 !important;
+}
+html.dark.theme-skeuomorphism .text-zinc-600,
+html.dark.theme-skeuomorphism .text-slate-600,
+html.dark.theme-skeuomorphism .text-gray-600,
+html.dark.theme-skeuomorphism .text-zinc-500,
+html.dark.theme-skeuomorphism .text-slate-500,
+html.dark.theme-skeuomorphism .text-gray-500 {
+  color: #a1a1aa !important;
+}
+
+/* 4. Minimalism Dark Overrides */
+html.dark.theme-minimalism body {
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-minimalism .glass-panel,
+html.dark.theme-minimalism aside,
+html.dark.theme-minimalism header,
+html.dark.theme-minimalism .bg-white {
+  background-color: #18181b !important;
+  border: 1px solid #27272a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-minimalism input,
+html.dark.theme-minimalism select,
+html.dark.theme-minimalism textarea {
+  background-color: #09090b !important;
+  border: 1px solid #27272a !important;
+  color: #f4f4f5 !important;
+}
+html.dark.theme-minimalism .text-zinc-900,
+html.dark.theme-minimalism .text-slate-900,
+html.dark.theme-minimalism .text-gray-900,
+html.dark.theme-minimalism .text-black,
+html.dark.theme-minimalism .text-zinc-800,
+html.dark.theme-minimalism .text-slate-800,
+html.dark.theme-minimalism .text-gray-800,
+html.dark.theme-minimalism .text-zinc-700,
+html.dark.theme-minimalism .text-slate-700,
+html.dark.theme-minimalism .text-gray-700 {
+  color: #f4f4f5 !important;
+}
+html.dark.theme-minimalism .text-zinc-600,
+html.dark.theme-minimalism .text-slate-600,
+html.dark.theme-minimalism .text-gray-600,
+html.dark.theme-minimalism .text-zinc-500,
+html.dark.theme-minimalism .text-slate-500,
+html.dark.theme-minimalism .text-gray-500 {
+  color: #a1a1aa !important;
+}
+
+/* 5. Maximalism / Neobrutalism Dark Overrides */
+html.dark.theme-maximalism body {
+  background-color: #180828 !important;
+  color: #ffffff !important;
+}
+html.dark.theme-maximalism .glass-panel,
+html.dark.theme-maximalism aside,
+html.dark.theme-maximalism header,
+html.dark.theme-maximalism .bg-white,
+html.dark.theme-maximalism .bg-slate-900 {
+  background-color: #2e1065 !important;
+  border: 2.5px solid #a855f7 !important;
+  box-shadow: 4px 4px 0px #a855f7 !important;
+  color: #ffffff !important;
+}
+html.dark.theme-maximalism button:not(.no-brutal) {
+  border: 2px solid #c084fc !important;
+  box-shadow: 3px 3px 0px #c084fc !important;
+  background-color: #3b0764 !important;
+  color: #ffffff !important;
+}
+html.dark.theme-maximalism button:not(.no-brutal):active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0px #c084fc !important;
+}
+html.dark.theme-maximalism input,
+html.dark.theme-maximalism select,
+html.dark.theme-maximalism textarea {
+  border: 2px solid #a855f7 !important;
+  box-shadow: 2.5px 2.5px 0px #a855f7 !important;
+  background-color: #180828 !important;
+  color: #ffffff !important;
+}
+html.dark.theme-maximalism .text-zinc-900,
+html.dark.theme-maximalism .text-slate-900,
+html.dark.theme-maximalism .text-gray-900,
+html.dark.theme-maximalism .text-black,
+html.dark.theme-maximalism .text-zinc-800,
+html.dark.theme-maximalism .text-slate-800,
+html.dark.theme-maximalism .text-gray-800,
+html.dark.theme-maximalism .text-zinc-700,
+html.dark.theme-maximalism .text-slate-700,
+html.dark.theme-maximalism .text-gray-700 {
+  color: #ffffff !important;
+}
+html.dark.theme-maximalism .text-zinc-600,
+html.dark.theme-maximalism .text-slate-600,
+html.dark.theme-maximalism .text-gray-600,
+html.dark.theme-maximalism .text-zinc-500,
+html.dark.theme-maximalism .text-slate-500,
+html.dark.theme-maximalism .text-gray-500 {
+  color: #e9d5ff !important;
 }
 
 

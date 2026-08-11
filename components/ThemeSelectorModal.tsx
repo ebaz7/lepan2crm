@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Sparkles, LayoutGrid, Box, Feather, Zap, Image } from 'lucide-react';
+import { X, Check, Sparkles, LayoutGrid, Box, Feather, Zap, Image, Layers, Moon, Sun } from 'lucide-react';
 
-export type AppThemeMode = 'light-aurora' | 'theme-bento' | 'theme-claymorphism' | 'theme-minimalism' | 'theme-maximalism';
+export type AppThemeMode = 'light-aurora' | 'theme-bento' | 'theme-claymorphism' | 'theme-skeuomorphism' | 'theme-minimalism' | 'theme-maximalism';
 
 interface ThemeSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTheme: string;
   onSelectTheme: (theme: AppThemeMode) => void;
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 export const THEME_OPTIONS: { id: AppThemeMode; name: string; desc: string; icon: any; badge: string; bgGradient: string; borderStyle: string }[] = [
@@ -23,7 +25,7 @@ export const THEME_OPTIONS: { id: AppThemeMode; name: string; desc: string; icon
   {
     id: 'theme-bento',
     name: 'بنتو گرید (Bento Grid)',
-    desc: 'پوسته مدرن بنتو با کارت‌های مجزا، پس‌زمینه داست‌آبی یا نیلی و لبه‌های گرد',
+    desc: 'پوسته مدرن بنتو با کارت‌های مجزا، پس‌زمینه نیلی تیره، کنتراست بالا و لبه‌های گرد',
     icon: LayoutGrid,
     badge: 'مدرن',
     bgGradient: 'from-slate-900 via-indigo-950 to-slate-900',
@@ -37,6 +39,15 @@ export const THEME_OPTIONS: { id: AppThemeMode; name: string; desc: string; icon
     badge: 'سه‌بعدی',
     bgGradient: 'from-purple-100 via-indigo-100 to-blue-100',
     borderStyle: 'border-white shadow-[6px_6px_12px_rgba(163,177,198,0.5),-6px_-6px_12px_rgba(255,255,255,0.8)] rounded-2xl',
+  },
+  {
+    id: 'theme-skeuomorphism',
+    name: 'واقع‌گرایانه (Skeuomorphism)',
+    desc: 'پوسته کلاسیک واقع‌گرایانه با دکمه‌های برجسته، افکت‌های نوری بیول و حس ملموس',
+    icon: Layers,
+    badge: 'برجسته',
+    bgGradient: 'from-gray-200 via-slate-300 to-zinc-200',
+    borderStyle: 'border-white/90 shadow-[inset_0_1px_2px_rgba(255,255,255,1),0_6px_12px_rgba(0,0,0,0.15)] bg-gradient-to-b from-gray-100 to-gray-300 text-slate-800',
   },
   {
     id: 'theme-minimalism',
@@ -63,6 +74,8 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   onClose,
   currentTheme,
   onSelectTheme,
+  isDarkMode = false,
+  onToggleDarkMode,
 }) => {
   const [bgEnabled, setBgEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('app_enable_bg_image');
@@ -107,7 +120,7 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" dir="rtl">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" dir="rtl">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
@@ -130,6 +143,32 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
 
         {/* Options & Settings */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Dark Mode Toggle */}
+          {onToggleDarkMode && (
+            <div className="p-4 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0">
+                  {isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
+                </div>
+                <div>
+                  <span className="font-bold text-sm text-slate-900 dark:text-white block">حالت شب / دارک مود (Dark Mode)</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    {isDarkMode 
+                      ? 'حالت دارک حرفه‌ای و اصولی روی پوسته فعلی فعال است' 
+                      : 'حالت روشن (Light Mode)'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                className={`w-12 h-7 rounded-full transition-colors relative p-1 shrink-0 ${isDarkMode ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${isDarkMode ? 'translate-x-0' : '-translate-x-5'}`} />
+              </button>
+            </div>
+          )}
+
           {/* Background Wallpaper Toggle */}
           <div className="p-4 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-3">

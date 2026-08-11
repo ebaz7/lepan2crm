@@ -205,19 +205,28 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
          </div>
       </div>
       
-      {/* Responsive Wrapper */}
-      <div className="w-full flex justify-center pb-12" ref={containerWrapperRef}>
+      {/* Responsive Wrapper - Pixel-Perfect Bounding Box */}
+      <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+        <div style={{ 
+          width: `${210 * 3.779527559 * scale}px`,
+          minHeight: `${297 * 3.779527559 * scale}px`,
+          position: 'relative',
+          flexShrink: 0
+        }}>
           <div style={{ 
             width: '210mm', 
             minHeight: '297mm',
             backgroundColor: 'white', 
             boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
             transform: `scale(${scale})`,
-            transformOrigin: 'top center',
-            marginBottom: scale < 1 ? `${(scale - 1) * 1120}px` : '24px'
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0
           }} className="printable-content rounded-sm">
               {content}
           </div>
+        </div>
       </div>
     </div>
   );

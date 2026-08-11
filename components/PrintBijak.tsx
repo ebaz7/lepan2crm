@@ -309,18 +309,27 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
                                     generateAndSend(targetId, hidePrices, "📄 *بیجک ارسالی*", sharePlatform)
                             }} className="w-full text-right p-3 hover:bg-blue-50 rounded-xl border border-transparent hover:border-blue-100 flex items-center gap-3 transition-colors group"><div className={`p-2 rounded-full ${c.isGroup ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{c.isGroup ? <Users size={18}/> : <Smartphone size={18}/>}</div><div className="flex-1"><div className="font-bold text-gray-800 text-sm group-hover:text-blue-700">{c.name}</div><div className="text-xs text-gray-500 font-mono mt-0.5">{targetId || c.number}</div></div><div className="bg-gray-100 px-3 py-1 rounded-lg text-xs font-bold text-gray-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">ارسال</div></button>);
                             }))}</div><div className="p-3 border-t bg-gray-50"><button onClick={() => { const num = prompt("شماره یا شناسه را وارد کنید:"); if(num) generateAndSend(num, hidePrices, "📄 *بیجک ارسالی*", sharePlatform); }} className="w-full glass-panel border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors">ورود دستی</button></div></div></div>)}
-        <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+        <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+          <div style={{ 
+            width: `${148 * 3.779527559 * scale}px`,
+            minHeight: `${209 * 3.779527559 * scale}px`,
+            position: 'relative',
+            flexShrink: 0
+          }}>
             <div style={{ 
               width: '148mm', 
-              height: '209mm',
+              minHeight: '209mm',
               backgroundColor: 'white', 
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
               transform: `scale(${scale})`,
-              transformOrigin: 'top center',
-              marginBottom: `${(1 - scale) * -100}px` 
-            }}>
+              transformOrigin: 'top left',
+              position: 'absolute',
+              top: 0,
+              left: 0
+            }} className="printable-content rounded-sm">
                 {content}
             </div>
+          </div>
         </div>
     </div>
   );

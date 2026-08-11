@@ -285,18 +285,27 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
         </div>
 
         {/* Responsive Container for Scaling */}
-        <div className="w-full flex justify-center pb-12" ref={containerWrapperRef}>
+        <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+          <div style={{ 
+            width: `${210 * 3.779527559 * scale}px`,
+            minHeight: `${296 * 3.779527559 * scale}px`,
+            position: 'relative',
+            flexShrink: 0
+          }}>
             <div style={{ 
               width: '210mm', 
               minHeight: '296mm',
               backgroundColor: 'white', 
               boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
               transform: `scale(${scale})`,
-              transformOrigin: 'top center',
-              marginBottom: scale < 1 ? `${(scale - 1) * 1118}px` : '24px' 
+              transformOrigin: 'top left',
+              position: 'absolute',
+              top: 0,
+              left: 0
             }} className="printable-content rounded-sm">
                 {content}
             </div>
+          </div>
         </div>
     </div>
   );

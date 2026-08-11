@@ -209,19 +209,28 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
          </div>
       </div>
       
-      {/* Responsive Wrapper */}
-      <div className="w-full flex justify-center pb-10 overflow-hidden" ref={containerWrapperRef}>
+      {/* Responsive Wrapper - Pixel-Perfect Bounding Box */}
+      <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+        <div style={{ 
+          width: `${296 * 3.779527559 * scale}px`,
+          minHeight: `${209 * 3.779527559 * scale}px`,
+          position: 'relative',
+          flexShrink: 0
+        }}>
           <div style={{ 
             width: '296mm', 
             minHeight: '209mm',
             backgroundColor: 'white', 
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
             transform: `scale(${scale})`,
-            transformOrigin: 'top center',
-            marginBottom: `${(scale - 1) * 1120}px` 
-          }} className="printable-content">
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }} className="printable-content rounded-sm">
               {content}
           </div>
+        </div>
       </div>
     </div>
   );
