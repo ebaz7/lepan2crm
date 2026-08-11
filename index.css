@@ -62,6 +62,58 @@
     --border-color: rgba(255, 255, 255, 0.35);
     --gemini-spark: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
   }
+
+  /* 2. Bento Grid Theme */
+  .theme-bento {
+    --app-bg: #0b0f19;
+    --glass-bg: #131b2e;
+    --glass-bg-hover: #1c2742;
+    --glass-border: rgba(99, 102, 241, 0.25);
+    --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.2);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(99, 102, 241, 0.25);
+    --gemini-spark: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  }
+
+  /* 3. Claymorphism Theme */
+  .theme-claymorphism {
+    --app-bg: #eef2f6;
+    --glass-bg: #eef2f6;
+    --glass-bg-hover: #f5f8fc;
+    --glass-border: #ffffff;
+    --glass-shadow: 8px 8px 16px rgba(163, 177, 198, 0.6), -8px -8px 16px rgba(255, 255, 255, 0.8), inset 2px 2px 4px rgba(255, 255, 255, 0.7);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #d1d5db;
+    --gemini-spark: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+  }
+
+  /* 4. Minimalism Theme */
+  .theme-minimalism {
+    --app-bg: #fafafa;
+    --glass-bg: #ffffff;
+    --glass-bg-hover: #f4f4f5;
+    --glass-border: #e4e4e7;
+    --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --text-primary: #18181b;
+    --text-secondary: #71717a;
+    --border-color: #e4e4e7;
+    --gemini-spark: linear-gradient(135deg, #18181b 0%, #52525b 100%);
+  }
+
+  /* 5. Maximalism / Neobrutalism Theme */
+  .theme-maximalism {
+    --app-bg: #fef08a;
+    --glass-bg: #ffffff;
+    --glass-bg-hover: #dfff00;
+    --glass-border: #000000;
+    --glass-shadow: 4px 4px 0px #000000;
+    --text-primary: #000000;
+    --text-secondary: #000000;
+    --border-color: #000000;
+    --gemini-spark: linear-gradient(135deg, #ccff00 0%, #ff007f 100%);
+  }
 }
 
 /* Eye-Friendly Background Blobs */

@@ -26,7 +26,7 @@ interface LayoutProps {
   financialYear?: string;
   setFinancialYear?: (y: string) => void;
   settings?: SystemSettings | null;
-  theme: 'light' | 'dark' | 'light-aurora';
+  theme: string;
   toggleTheme: () => void;
   unreadChatCount?: number;
 }
@@ -779,16 +779,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           
           <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
               <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="تغییر پوسته">
-                  {theme === 'light-aurora' ? (
-                      <Sparkles size={18} className="text-purple-500 animate-pulse" />
-                  ) : theme === 'light' ? (
-                      <Moon size={18} className="text-zinc-500" />
-                  ) : (
-                      <Sun size={18} className="text-yellow-400" />
-                  )}
+                  <Sparkles size={18} className="text-purple-500 animate-pulse" />
                   {isSidebarOpen && (
                       <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
-                          {theme === 'light-aurora' ? 'شیشه‌ای رنگی پویا (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
+                          {theme === 'light-aurora' ? 'پوسته شیشه‌ای' : theme === 'theme-bento' ? 'پوسته بنتو گرید' : theme === 'theme-claymorphism' ? 'پوسته سفالی ۳D' : theme === 'theme-minimalism' ? 'پوسته مینیمال' : theme === 'theme-maximalism' ? 'پوسته ماکسیمال' : 'تغییر پوسته'}
                       </span>
                   )}
               </button>
@@ -892,7 +886,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                               <Settings size={14} className="text-zinc-500" /> تنظیمات پروفایل
                           </button>
                           <button onClick={toggleTheme} className="flex items-center justify-center gap-2 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50">
-                              {theme === 'light-aurora' ? <Sparkles size={14} className="text-purple-500 animate-pulse" /> : theme === 'light' ? <Moon size={14} className="text-zinc-500" /> : <Sun size={14} className="text-yellow-400" />} {theme === 'light-aurora' ? 'شیشه‌ای رنگی پویا (دیفالت)' : theme === 'light' ? 'پوسته روشن' : 'پوسته تاریک'}
+                              <Sparkles size={14} className="text-purple-500 animate-pulse" /> تغییر پوسته و ظاهر UI
                           </button>
                       </div>
                       <button onClick={handleLogout} className="flex items-center justify-center gap-2 p-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/30 border border-red-100 dark:border-red-950/50 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold transition-colors">

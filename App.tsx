@@ -26,6 +26,7 @@ import CctiConverter from './components/CctiConverter';
 import SayanReports from './components/SayanReports';
 import SecretariatModule from './components/SecretariatModule';
 import { ChequeReceiptModule } from './components/ChequeReceiptModule';
+import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
 import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements } from './services/storageService'; 
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
 import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement } from './types';
@@ -162,21 +163,22 @@ function App() {
     try { window.history.replaceState(state, title, url); } catch (e) { window.location.hash = url; }
   };
   const [financialYear, setFinancialYearState] = useState<string>(new Date().toLocaleDateString('fa-IR-u-nu-latn').split('/')[0]);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'light-aurora'>('light-aurora');
+  const [theme, setTheme] = useState<string>('light-aurora');
+  const [showThemeModal, setShowThemeModal] = useState(false);
+
+  const applyThemeToRoot = (themeName: string) => {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'theme-light-aurora', 'theme-bento', 'theme-claymorphism', 'theme-minimalism', 'theme-maximalism');
+    if (themeName && themeName !== 'light') {
+      root.classList.add(themeName);
+    }
+  };
 
   useEffect(() => {
-    // Load persisted theme from localStorage, defaulting to 'light-aurora' (premium transparent glass)
+    // Load persisted theme from localStorage, defaulting to 'light-aurora'
     const savedTheme = localStorage.getItem('theme') || 'light-aurora';
-    setTheme(savedTheme as any);
-    if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('theme-light-aurora');
-    } else if (savedTheme === 'light') {
-        document.documentElement.classList.remove('dark', 'theme-light-aurora');
-    } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('theme-light-aurora');
-    }
+    setTheme(savedTheme);
+    applyThemeToRoot(savedTheme);
   }, []);
 
   useEffect(() => {
@@ -190,24 +192,13 @@ function App() {
   }, []);
 
   const toggleTheme = () => {
-      let newTheme: 'light' | 'dark' | 'light-aurora';
-      if (theme === 'light-aurora') {
-          newTheme = 'dark';
-      } else if (theme === 'dark') {
-          newTheme = 'light';
-      } else {
-          newTheme = 'light-aurora';
-      }
-      setTheme(newTheme);
-      localStorage.setItem('theme', newTheme);
-      
-      const root = document.documentElement;
-      root.classList.remove('dark', 'theme-light-aurora');
-      if (newTheme === 'dark') {
-          root.classList.add('dark');
-      } else if (newTheme === 'light-aurora') {
-          root.classList.add('theme-light-aurora');
-      }
+    setShowThemeModal(true);
+  };
+
+  const handleSelectTheme = (newTheme: AppThemeMode) => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    applyThemeToRoot(newTheme);
   };
   const [orders, setOrders] = useState<PaymentOrder[]>(() => {
     try { const item = localStorage.getItem('app_data_orders'); return item ? JSON.parse(item) : []; } catch { return []; }
@@ -1394,6 +1385,12 @@ function App() {
                     />
                 </div> 
             </div>
+            <ThemeSelectorModal
+                isOpen={showThemeModal}
+                onClose={() => setShowThemeModal(false)}
+                currentTheme={theme}
+                onSelectTheme={handleSelectTheme}
+            />
             </Layout>
         )}
     </>

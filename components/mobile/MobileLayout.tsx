@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, PlusCircle, ListChecks, User as UserIcon, Menu, Sun, Moon } from 'lucide-react';
+import { Home, PlusCircle, ListChecks, User as UserIcon, Menu, Sparkles } from 'lucide-react';
 import { User } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -11,7 +11,7 @@ interface MobileLayoutProps {
   currentUser: User;
   onLogout: () => void;
   unreadCount: number;
-  theme?: 'light' | 'dark';
+  theme?: string;
   toggleTheme?: () => void;
 }
 
@@ -49,8 +49,9 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
                 <button 
                   onClick={toggleTheme}
                   className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/20 dark:bg-white/10 backdrop-blur-3xl border border-white/40 dark:border-white/10 text-zinc-700 dark:text-zinc-300 shadow-md transition-transform active:scale-90"
+                  title="تغییر پوسته UI"
                 >
-                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} className="text-yellow-400" />}
+                    <Sparkles size={18} className="text-purple-500 animate-pulse" />
                 </button>
             )}
         </div>
