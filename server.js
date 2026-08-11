@@ -81,7 +81,7 @@ webpush.setVapidDetails(
 );
 
 const app = express();
-const PORT = 3000;
+const PORT = process.argv.includes('--dev') ? 3000 : (process.env.PORT || 3000);
 
 app.use(cors()); 
 // Maximum compression for speed
