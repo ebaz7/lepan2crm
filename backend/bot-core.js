@@ -297,6 +297,58 @@ const getTehranOffsetDateString = (offsetDays = 0) => {
     return formatter.format(target);
 };
 
+const isActualProduct = (row) => {
+    if (!row) return false;
+    const name = String(row.ItemName || '').toLowerCase();
+    const group = String(row.GroupName || '').toLowerCase();
+    const keywordsToExclude = [
+        'کارتن', 'پالت', 'جعبه', 'حمل', 'کرایه', 'خدمات', 'هزینه', 'دوک خالی', 'کیسه خالی', 'بسته بندی', 'پلاستیک'
+    ];
+    for (const kw of keywordsToExclude) {
+        if (name.includes(kw) || group.includes(kw)) return false;
+    }
+    return true;
+};
+
+const allocateSalesRows = (rawRows) => {
+    if (!rawRows || rawRows.length === 0) return [];
+    const invMap = new Map();
+    rawRows.forEach(row => {
+        const docId = row.DocId || row.InvoiceNum || 'unknown';
+        if (!invMap.has(docId)) invMap.set(docId, []);
+        invMap.get(docId).push(row);
+    });
+
+    const processed = [];
+    invMap.forEach((rows) => {
+        const headerPayable = parseFloat(rows[0].HeaderPayable || rows[0].Amount || 0);
+        const sumItemAmt = rows.reduce((s, r) => s + parseFloat(r.Amount || 0), 0);
+        const sumItemQty = rows.reduce((s, r) => s + parseFloat(r.Quantity || 0), 0);
+
+        rows.forEach(r => {
+            const itemAmt = parseFloat(r.Amount || 0);
+            const itemQty = parseFloat(r.Quantity || 0);
+            let allocatedAmt = 0;
+            if (headerPayable > 0) {
+                if (sumItemAmt > 0) {
+                    allocatedAmt = headerPayable * (itemAmt / sumItemAmt);
+                } else if (sumItemQty > 0) {
+                    allocatedAmt = headerPayable * (itemQty / sumItemQty);
+                } else {
+                    allocatedAmt = headerPayable / rows.length;
+                }
+            } else {
+                allocatedAmt = itemAmt;
+            }
+            processed.push({
+                ...r,
+                Amount: allocatedAmt.toString()
+            });
+        });
+    });
+    return processed;
+};
+
 export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn, dateFromA, dateToA, dateFromB, dateToB, nameA = "بازه اول", nameB = "بازه دوم") => {
     const labelA = `${nameA} (${dateFromA}${dateFromA !== dateToA ? ' تا ' + dateToA : ''})`;
     const labelB = `${nameB} (${dateFromB}${dateFromB !== dateToB ? ' تا ' + dateToB : ''})`;
@@ -310,22 +362,42 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
                 t10.Field_008 as Date,
                 t10.Field_009 as OpCode,
                 t10.Field_029 as Notes,
+                t10.Field_037 as HeaderPayable,
                 t11.Field_005 as ItemCode,
-                t22.Field_004 as ItemName,
+                COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity,
                 t11.Field_031 as ItemNotes,
                 t11.Field_007 as Amount,
-                t_group.GroupName,
+                COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
                 t07.Field_006 as CustomerName
-                        FROM STR_TBL_010 t10
+            FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
+                                      AND t11.Field_012 = t10.Field_018
                                       AND (
                                           (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
                                           OR
                                           (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
                                       )
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
+                FROM GNR_TBL_003
+                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+                GROUP BY RTRIM(LTRIM(Field_003))
+            ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
+                FROM GNR_TBL_003
+                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+                GROUP BY RTRIM(LTRIM(Field_003))
+            ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
             LEFT JOIN (
                 SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                 FROM IND_TBL_021 t21_sub
@@ -341,26 +413,21 @@ export const generateAndSendComparisonPDF = async (db, chatId, sendFn, sendDocFn
             ORDER BY t10.Field_008 DESC
         `;
 
-        const [rowsA, rowsB] = await Promise.all([
+        const [rawA, rawB] = await Promise.all([
             runSayanQuery(db, buildSql(dateFromA, dateToA)),
             runSayanQuery(db, buildSql(dateFromB, dateToB))
         ]);
+
+        const rowsA = allocateSalesRows(rawA);
+        const rowsB = allocateSalesRows(rawB);
 
         const groupMap = new Map();
 
         const processRows = (rows, isPeriodA) => {
             rows.forEach(r => {
                 const grp = r.GroupName || 'سایر موارد';
-                const qty = parseFloat(r.Quantity || 0);
-                let amt = parseFloat(r.Amount || 0);
-                
-                const h = r.Notes || '';
-                const i = r.ItemNotes || '';
-                const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
-                if (isOfficial) {
-                    amt = amt * 1.10;
-                }
-
+                const qty = isActualProduct(r) ? parseFloat(r.Quantity || 0) : 0;
+                const amt = parseFloat(r.Amount || 0);
                 const isReturn = r.OpCode === '13';
 
                 if (!groupMap.has(grp)) {
@@ -3968,22 +4035,42 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     t10.Field_008 as Date,
                     t10.Field_009 as OpCode,
                     t10.Field_029 as Notes,
+                    t10.Field_037 as HeaderPayable,
                     t11.Field_005 as ItemCode,
-                    t22.Field_004 as ItemName,
+                    COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                     t11.Field_006 as Quantity,
                     t11.Field_031 as ItemNotes,
                     t11.Field_007 as Amount,
-                    t_group.GroupName,
+                    COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
                     t07.Field_006 as CustomerName
                 FROM STR_TBL_010 t10
                 INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                           AND t11.Field_003 = t10.Field_004
+                                          AND t11.Field_012 = t10.Field_018
                                           AND (
                                               (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
                                               OR
                                               (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
                                           )
+                LEFT JOIN (
+                    SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
+                    FROM GNR_TBL_003
+                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+                    GROUP BY RTRIM(LTRIM(Field_003))
+                ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
+                LEFT JOIN (
+                    SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
+                    FROM GNR_TBL_003
+                    WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+                    GROUP BY RTRIM(LTRIM(Field_003))
+                ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
                 LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+                LEFT JOIN (
+                    SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                    FROM IND_TBL_021 t21_sub
+                    LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                    GROUP BY t21_sub.Field_004
+                ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
                 LEFT JOIN (
                     SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                     FROM IND_TBL_021 t21_sub
@@ -3999,11 +4086,13 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                 ORDER BY t10.Field_008 DESC
             `;
             
-            const salesRows = await runSayanQuery(db, sql);
+            const rawSales = await runSayanQuery(db, sql);
             
-            if (salesRows.length === 0) {
+            if (rawSales.length === 0) {
                 return sendFn(chatId, `⚠️ هیچ فاکتور فروش یا مرجوعی برای امروز (${toShamsiFull(new Date())}) در سرور سایان ثبت نشده است.`);
             }
+
+            const salesRows = allocateSalesRows(rawSales);
             
             const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${toShamsiFull(new Date())}`;
             const columns = ['ردیف', 'گروه کالا', 'نام کالا / محصول', 'فروش ناخالص (ک‌گ/ریال)', 'مرجوعی کد ۱۳ (ک‌گ/ریال)', 'خالص نهایی (ک‌گ/ریال)'];
@@ -4014,15 +4103,8 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             
             salesRows.forEach(inv => {
                 const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-                const qty = parseFloat(inv.Quantity || 0);
+                const qty = isActualProduct(inv) ? parseFloat(inv.Quantity || 0) : 0;
                 let amt = parseFloat(inv.Amount || 0);
-
-                const h = inv.Notes || '';
-                const i = inv.ItemNotes || '';
-                const isOfficial = h.includes('نوع: رسمی') || h.includes('نوع:رسمی') || i.includes('نوع: رسمی') || i.includes('نوع:رسمی') || (i.includes('ارزش افزوده:') && !i.includes('ارزش افزوده: 0') && !i.includes('ارزش افزوده:0'));
-                if (isOfficial) {
-                    amt = amt * 1.10;
-                }
 
                 const isReturn = inv.OpCode === '13';
 

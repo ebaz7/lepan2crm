@@ -566,11 +566,11 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             t10.Field_029 as Notes,
             t10.Field_037 as HeaderPayable,
             t11.Field_005 as ItemCode,
-            t22.Field_004 as ItemName,
+            COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
             t11.Field_006 as Quantity,
             t11.Field_031 as ItemNotes,
             t11.Field_007 as Amount,
-            t_group.GroupName,
+            COALESCE(t_gnr_grp.GroupName, t_group.GroupName, 'سایر گروه‌ها') as GroupName,
             t07.Field_006 as CustomerName,
             t10.Field_009 as OpCode
                 FROM STR_TBL_010 t10
@@ -578,7 +578,25 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                                    AND t11.Field_003 = t10.Field_004
                                    AND t11.Field_012 = t10.Field_018
                                    AND t11.Field_036 = t10.Field_009
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
+            FROM GNR_TBL_003
+            WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+            GROUP BY RTRIM(LTRIM(Field_003))
+        ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(Field_003)) as GroupCode, MIN(Field_008) as GroupName
+            FROM GNR_TBL_003
+            WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+            GROUP BY RTRIM(LTRIM(Field_003))
+        ) t_gnr_grp ON SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4) = t_gnr_grp.GroupCode
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
         LEFT JOIN (
             SELECT t21_sub.Field_004 as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
             FROM IND_TBL_021 t21_sub
@@ -671,9 +689,22 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
         let totalReturnQty = 0;
         let totalReturnAmt = 0;
         
+        const isActualProduct = (row) => {
+            if (!row) return false;
+            const name = String(row.ItemName || '').toLowerCase();
+            const group = String(row.GroupName || '').toLowerCase();
+            const keywordsToExclude = [
+                'کارتن', 'پالت', 'جعبه', 'حمل', 'کرایه', 'خدمات', 'هزینه', 'دوک خالی', 'کیسه خالی', 'بسته بندی', 'پلاستیک'
+            ];
+            for (const kw of keywordsToExclude) {
+                if (name.includes(kw) || group.includes(kw)) return false;
+            }
+            return true;
+        };
+
         salesRows.forEach(inv => {
             const key = `${inv.GroupName || ''}_${inv.ItemName || ''}`;
-            const qty = parseFloat(inv.Quantity || 0);
+            const qty = isActualProduct(inv) ? parseFloat(inv.Quantity || 0) : 0;
             let amt = parseFloat(inv.Amount || 0);
             const isReturn = inv.OpCode === '13';
             
@@ -1412,13 +1443,19 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 t11.Field_005 as ItemCode,
-                COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
+                COALESCE(t_gnr.ItemName, t22.Field_004, t_name.ItemName, t11.Field_005, 'کالای بدون نام') as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
                                       AND t11.Field_012 = t10.Field_018
                                       AND t11.Field_036 = t10.Field_009
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(Field_003)) as ItemCode, MIN(Field_008) as ItemName
+                FROM GNR_TBL_003
+                WHERE Field_003 IS NOT NULL AND Field_003 <> ''
+                GROUP BY RTRIM(LTRIM(Field_003))
+            ) t_gnr ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_gnr.ItemCode))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
