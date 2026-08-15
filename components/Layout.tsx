@@ -354,10 +354,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           } else {
               setNotifEnabled(false);
               if (!Capacitor.isNativePlatform()) {
-                  if (Notification.permission === 'denied') {
+                  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
                       alert("دسترسی به نوتیفیکیشن توسط شما مسدود شده است.");
                   } else {
-                      alert("امکان فعال‌سازی وجود ندارد.");
+                      alert("امکان فعال‌سازی وجود ندارد یا توسط مرورگر پشتیبانی نمی‌شود.");
                   }
               }
           } 

@@ -680,11 +680,20 @@ function App() {
 
   const playNotificationSound = () => { 
       try { 
-          // Offline-safe beep sound (Base64)
-          const beep = "data:audio/wav;base64,UklGRl9vT1dAVEfmt"; 
-          const audio = new Audio(beep); 
-          audio.volume = 1.0; 
-          audio.play().catch(e => console.log("Audio blocked")); 
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+              const ctx = new AudioContextClass();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(880, ctx.currentTime);
+              gain.gain.setValueAtTime(0.15, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+              osc.start(ctx.currentTime);
+              osc.stop(ctx.currentTime + 0.25);
+          }
       } catch (e) { } 
   };
 

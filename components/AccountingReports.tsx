@@ -2095,13 +2095,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
                                               AND t11.Field_012 = t10.Field_018
-                                              AND (
-                                                  (t10.Field_009 IN ('3', '12', '23') AND t11.Field_036 = t10.Field_009)
-                                                  OR
-                                                  (t10.Field_009 = '13' AND t11.Field_036 IN ('3', '12', '23', '13'))
-                                                  OR
-                                                  (t10.Field_009 NOT IN ('3', '12', '23', '13') AND t11.Field_036 = t10.Field_009)
-                                              )
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub

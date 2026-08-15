@@ -71,8 +71,10 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
       }
   }
 
-  // Web Logic
-  if (!("Notification" in window)) return false;
+  // Web Logic - Safe check for iOS Safari & unsupported browsers
+  if (typeof window === 'undefined' || !("Notification" in window) || typeof Notification === 'undefined') {
+      return false;
+  }
   
   try {
       const permission = await Notification.requestPermission();
@@ -100,7 +102,7 @@ export const clearAllActiveNotifications = async () => {
             console.error('Error removing delivered local notifications', e);
         }
     } else {
-        if ("serviceWorker" in navigator) {
+        if (typeof navigator !== 'undefined' && "serviceWorker" in navigator) {
             try {
                 const reg = await navigator.serviceWorker.ready;
                 if (reg && reg.getNotifications) {
@@ -191,6 +193,9 @@ export const setupNativePushNotifications = async (username: string, role: strin
 
 export const subscribeToPushNotifications = async () => {
     if (Capacitor.isNativePlatform()) return; // Native handled by Capacitor plugin
+    if (typeof window === 'undefined' || typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return;
+    }
 
     try {
         // 1. Get VAPID Key from Server
@@ -199,7 +204,7 @@ export const subscribeToPushNotifications = async () => {
 
         // 2. Get Service Worker Registration
         const registration = await navigator.serviceWorker.ready;
-        if (!registration) throw new Error("Service Worker not ready");
+        if (!registration || !registration.pushManager) throw new Error("Push manager not available");
 
         // 3. Subscribe to Push Manager
         const convertedVapidKey = urlBase64ToUint8Array(publicKey);
@@ -409,23 +414,28 @@ export const sendNotification = async (title: string, body: string, data?: any) 
       return;
   }
 
-  if (Notification.permission === "granted") {
+  if (typeof window !== 'undefined' && 'Notification' in window && typeof Notification !== 'undefined' && Notification.permission === "granted") {
       try {
           const iconUrl = getPwaIconUrl();
           // Check if SW is active to show via SW (more reliable)
-          const registration = await navigator.serviceWorker.ready;
-          if (registration && registration.active) {
-              registration.showNotification(title, {
-                  body,
-                  icon: iconUrl,
-                  dir: 'rtl',
-                  lang: 'fa',
-                  vibrate: [200, 100, 200],
-                  tag: idValue || 'general',
-                  renotify: true,
-                  data: data
-              } as any);
-          } else {
+          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+              const registration = await navigator.serviceWorker.ready;
+              if (registration && registration.active && typeof registration.showNotification === 'function') {
+                  registration.showNotification(title, {
+                      body,
+                      icon: iconUrl,
+                      dir: 'rtl',
+                      lang: 'fa',
+                      vibrate: [200, 100, 200],
+                      tag: idValue || 'general',
+                      renotify: true,
+                      data: data
+                  } as any);
+                  return;
+              }
+          }
+          
+          if (typeof Notification === 'function') {
               new Notification(title, { body, icon: iconUrl, dir: 'rtl', lang: 'fa' });
           }
       } catch (e) {
