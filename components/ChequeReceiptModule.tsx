@@ -8,9 +8,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Tesseract from 'tesseract.js';
 import jsQR from 'jsqr';
-import * as pdfjsLib from 'pdfjs-dist';
-// @ts-ignore
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChequeReceipt, ChequeItem, UserRole } from '../types';
 import { 
   getChequeReceipts, saveChequeReceipt, deleteChequeReceipt, 
@@ -21,51 +18,25 @@ import { apiCall } from '../services/apiService';
 import { PersianHandwritingPad } from './PersianHandwritingPad';
 import { PenTool } from 'lucide-react';
 
-// Configure pdf.js worker to use the local bundled worker from Vite for 100% offline support
-let workerBlobUrl: string | null = null;
-export const ensurePdfWorkerInitialized = async () => {
-  if (typeof window === 'undefined') return;
-  if (workerBlobUrl) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
-    return;
-  }
+// Lazy loader for pdfjs-dist to ensure zero startup impact and 100% compatibility with older iOS WebKit
+let cachedPdfLib: any = null;
+export const getPdfLib = async () => {
+  if (cachedPdfLib) return cachedPdfLib;
   try {
-    // Standard URL format in Vite
-    const workerUrl = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url
-    ).href || pdfjsWorker;
-
-    console.log('Resolving PDF.js worker URL:', workerUrl);
-    
-    // Fetch the local worker and create a Blob URL.
-    // This is the absolute best way to ensure 100% offline support
-    // and bypass sandboxed iframe restrictions!
-    const response = await fetch(workerUrl);
-    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-    const blob = await response.blob();
-    workerBlobUrl = URL.createObjectURL(blob);
-    
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerBlobUrl;
-    console.log('PDF.js worker initialized successfully with Blob URL:', workerBlobUrl);
-  } catch (e) {
-    console.warn('Failed to initialize PDF.js worker via Blob URL, falling back to static URL:', e);
-    // Fall back to standard URL
-    try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.min.mjs',
-        import.meta.url
-      ).href || pdfjsWorker;
-    } catch (err) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+    const pdfLib = await import('pdfjs-dist');
+    // @ts-ignore
+    const workerModule = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+    const workerUrl = workerModule.default || workerModule;
+    if (pdfLib && pdfLib.GlobalWorkerOptions) {
+      pdfLib.GlobalWorkerOptions.workerSrc = workerUrl;
     }
+    cachedPdfLib = pdfLib;
+    return cachedPdfLib;
+  } catch (err) {
+    console.error('Failed to load pdfjs-dist:', err);
+    throw new Error('بارگذاری کتابخانه پی‌دی‌اف با خطا مواجه شد.');
   }
 };
-
-// Initial non-blocking invocation
-ensurePdfWorkerInitialized().catch(err => {
-  console.warn('Initial pdf worker init failed:', err);
-});
 
 // Persian bank list for autocomplete and filters
 const COMMON_IRANIAN_BANKS = [
@@ -1036,7 +1007,8 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
           fileReader.readAsArrayBuffer(file);
         });
 
-        await ensurePdfWorkerInitialized();
+        setAiStatusMessage('در حال آماده‌سازی موتور پی‌دی‌اف و استخراج صفحات...');
+        const pdfjsLib = await getPdfLib();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const totalPages = pdf.numPages;
         setAiStatusMessage(`سند پی‌دی‌اف شامل ${totalPages} صفحه بارگذاری شد. شروع آنالیز تک‌تک صفحات...`);

@@ -13,6 +13,101 @@
     <title>سیستم مدیریت پرداخت</title>
     
     <script>
+      // Comprehensive Polyfills for iOS Safari (iPhone 8, iPhone X, older WebKit)
+      (function() {
+        if (typeof globalThis === 'undefined') {
+          window.globalThis = window;
+        }
+        
+        // Promise.withResolvers polyfill
+        if (typeof Promise.withResolvers !== 'function') {
+          Promise.withResolvers = function() {
+            var resolve, reject;
+            var promise = new Promise(function(res, rej) {
+              resolve = res;
+              reject = rej;
+            });
+            return { promise: promise, resolve: resolve, reject: reject };
+          };
+        }
+
+        // Object.hasOwn polyfill (iOS < 15.4)
+        if (typeof Object.hasOwn !== 'function') {
+          Object.hasOwn = function(object, property) {
+            if (object == null) {
+              throw new TypeError('Cannot convert undefined or null to object');
+            }
+            return Object.prototype.hasOwnProperty.call(object, property);
+          };
+        }
+
+        // Array.prototype.at polyfill (iOS < 15.4)
+        if (!Array.prototype.at) {
+          Array.prototype.at = function(n) {
+            n = Math.trunc(n) || 0;
+            if (n < 0) n += this.length;
+            if (n < 0 || n >= this.length) return undefined;
+            return this[n];
+          };
+        }
+
+        // String.prototype.at polyfill (iOS < 15.4)
+        if (!String.prototype.at) {
+          String.prototype.at = function(n) {
+            n = Math.trunc(n) || 0;
+            if (n < 0) n += this.length;
+            if (n < 0 || n >= this.length) return "";
+            return this[n];
+          };
+        }
+
+        // Array modern immutable methods polyfills
+        if (!Array.prototype.toReversed) {
+          Array.prototype.toReversed = function() {
+            return this.slice().reverse();
+          };
+        }
+        if (!Array.prototype.toSorted) {
+          Array.prototype.toSorted = function(compareFn) {
+            return this.slice().sort(compareFn);
+          };
+        }
+        if (!Array.prototype.toSpliced) {
+          Array.prototype.toSpliced = function(start, deleteCount) {
+            var copy = this.slice();
+            var items = Array.prototype.slice.call(arguments, 2);
+            var args = [start, deleteCount === undefined ? copy.length - start : deleteCount].concat(items);
+            copy.splice.apply(copy, args);
+            return copy;
+          };
+        }
+
+        // crypto.randomUUID polyfill (iOS < 15.4)
+        if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
+          crypto.randomUUID = function() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              var r = (Math.random() * 16) | 0;
+              var v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            });
+          };
+        }
+
+        // structuredClone polyfill fallback (iOS < 15.4)
+        if (typeof window.structuredClone !== 'function') {
+          window.structuredClone = function(val) {
+            if (val === undefined) return undefined;
+            try {
+              return JSON.parse(JSON.stringify(val));
+            } catch(e) {
+              return val;
+            }
+          };
+        }
+      })();
+    </script>
+    
+    <script>
       // Apply cached settings immediately for better PWA feel
       try {
         const settings = JSON.parse(localStorage.getItem('app_data_settings') || '{}');

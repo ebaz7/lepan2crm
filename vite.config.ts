@@ -22,7 +22,7 @@ export default defineConfig({
     },
   },
   build: {
-    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+    target: ['es2018', 'edge88', 'firefox78', 'chrome80', 'safari13', 'ios13'],
     outDir: 'dist',
     emptyOutDir: true,
   }
