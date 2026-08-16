@@ -126,6 +126,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [chequesData, setChequesData] = useState<any[]>([]);
     const [chequeStatusFilter, setChequeStatusFilter] = useState('all'); // all, in_hand, at_bank, returned, spent
     const [chequeSearch, setChequeSearch] = useState('');
+    const [hideOldSpentCheques, setHideOldSpentCheques] = useState(true); // Hide cashed/spent cheques older than 2 years
 
     // ==========================================
     // DATE INITIALIZATION & CONVERSIONS
@@ -2479,7 +2480,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     statusGroup = 'at_bank';
                 } else if (desc.includes('برگشت') || desc.includes('واخواست')) {
                     statusGroup = 'returned';
-                } else if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت')) {
+                } else if (desc.includes('وصول') || desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال') || desc.includes('پاس')) {
                     statusGroup = 'spent';
                 }
 
@@ -2502,8 +2503,41 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
+    const isOlderThanTwoYears = (dateStr: string): boolean => {
+        if (!dateStr) return false;
+        try {
+            const clean = String(dateStr).trim()
+                .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+                .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
+
+            const sh = parseShamsiParts(clean);
+            if (sh) {
+                const now = new Date();
+                const iranTime = new Date(now.getTime() + (3.5 * 60 * 60 * 1000));
+                const curJ = jalaali.toJalaali(iranTime.getUTCFullYear(), iranTime.getUTCMonth() + 1, iranTime.getUTCDate());
+                
+                const curTotalDays = (curJ.jy * 365.25) + (curJ.jm * 30.5) + curJ.jd;
+                const chequeTotalDays = (sh.jy * 365.25) + (sh.jm * 30.5) + sh.jd;
+                return (curTotalDays - chequeTotalDays) > (2 * 365);
+            }
+            
+            const d = new Date(clean);
+            if (!isNaN(d.getTime())) {
+                const now = new Date();
+                const twoYearsMs = 2 * 365.25 * 24 * 60 * 60 * 1000;
+                return (now.getTime() - d.getTime()) > twoYearsMs;
+            }
+        } catch (e) {}
+        return false;
+    };
+
     const getFilteredCheques = () => {
         return chequesData.filter(c => {
+            // When a cheque is cashed or spent, and its date is older than two years, exclude it from results
+            if (hideOldSpentCheques && c.statusGroup === 'spent' && isOlderThanTwoYears(c.dueDate)) {
+                return false;
+            }
+
             const matchesSearch = c.chequeNo.includes(chequeSearch) || 
                                   c.drawerName.toLowerCase().includes(chequeSearch.toLowerCase()) || 
                                   c.bankName.toLowerCase().includes(chequeSearch.toLowerCase());
@@ -4666,15 +4700,30 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     </div>
                                 </div>
                                 
-                                <div className="relative w-full md:w-56">
-                                    <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                                    <input 
-                                        type="text"
-                                        placeholder="جستجوی چک، بانک، صادرکننده..." 
-                                        className="w-full pl-3 pr-8 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" 
-                                        value={chequeSearch}
-                                        onChange={(e) => setChequeSearch(e.target.value)}
-                                    />
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <button
+                                        onClick={() => setHideOldSpentCheques(!hideOldSpentCheques)}
+                                        title="فیلتر عدم نمایش چک‌های وصول یا خرج‌شده با تاریخ بیش از ۲ سال گذشته"
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold border transition-colors whitespace-nowrap ${
+                                            hideOldSpentCheques
+                                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                                : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${hideOldSpentCheques ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                                        <span>{hideOldSpentCheques ? 'حذف وصولی/خرجی ۲+ سال (فعال)' : 'نمایش همه (شامل وصولی ۲+ سال)'}</span>
+                                    </button>
+
+                                    <div className="relative w-full md:w-56">
+                                        <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                                        <input 
+                                            type="text"
+                                            placeholder="جستجوی چک، بانک، صادرکننده..." 
+                                            className="w-full pl-3 pr-8 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" 
+                                            value={chequeSearch}
+                                            onChange={(e) => setChequeSearch(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

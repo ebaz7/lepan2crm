@@ -230,6 +230,26 @@ const Settings: React.FC<SettingsProps> = ({
 
   const [sendingManualSalesToday, setSendingManualSalesToday] = useState(false);
   const [sendingManualSalesYesterday, setSendingManualSalesYesterday] = useState(false);
+  const [sendingManualCheques, setSendingManualCheques] = useState(false);
+
+  const handleSendManualChequesVault = async () => {
+    setSendingManualCheques(true);
+    try {
+      const data = await apiCall<{ success: boolean; message?: string; error?: string; count?: number }>('/sayan/cheques-report/send-vault', 'POST', {
+        attachPdf: settings.chequeVaultAttachPdf ?? true,
+        attachExcel: settings.chequeVaultAttachExcel ?? true
+      });
+      if (data && data.success) {
+        alert(`✅ ${data.message || `گزارش چک‌های نزد صندوق خزانه‌داری با موفقیت به گروه‌ها ارسال گردید (${data.count || 0} فقره چک).`}`);
+      } else {
+        alert(`❌ خطا در ارسال گزارش چک‌ها: ${data?.error || 'پاسخ ناموفق از سرور'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ خطا در برقراری ارتباط با سرور: ${e.message || e}`);
+    } finally {
+      setSendingManualCheques(false);
+    }
+  };
 
   const [customBgImage, setCustomBgImage] = useState<string | null>(() => localStorage.getItem('app_custom_bg_image'));
   const [customBgBlur, setCustomBgBlur] = useState<number>(() => {
@@ -4026,13 +4046,66 @@ const Settings: React.FC<SettingsProps> = ({
                       />
                     </div>
 
-                    <div className="border-t pt-4 mt-4 space-y-4">
-                      <h4 className="font-bold text-sm text-blue-800">
-                        📊 تنظیمات ارسال خودکار آمار فروش روزانه (ساعت ۷ غروب)
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="border-t pt-4 mt-4 space-y-4 bg-blue-50/40 p-4 rounded-2xl border border-blue-100">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-blue-100 pb-3">
                         <div>
-                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                          <h4 className="font-extrabold text-sm text-blue-900 flex items-center gap-2">
+                            <span>📊 تنظیمات ارسال خودکار آمار فروش روزانه و مقایسه‌ای (امروز و دیروز)</span>
+                            <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-mono">سایان ERP</span>
+                          </h4>
+                          <p className="text-[11px] text-blue-700/80 mt-0.5">
+                            ساعت و گروه‌های مقصد ارسال خودکار آمار فروش روزانه را تنظیم نمایید
+                          </p>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-2xs">
+                          <input
+                            type="checkbox"
+                            checked={settings.dailySalesAutoSendEnabled ?? true}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                dailySalesAutoSendEnabled: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">فعال‌سازی ارسال خودکار</span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="p-2.5 bg-white rounded-xl border border-blue-200">
+                          <label className="text-xs font-extrabold text-blue-900 block mb-1">
+                            ⏰ ساعت ارسال (به وقت تهران)
+                          </label>
+                          <input
+                            type="time"
+                            value={settings.dailySalesSendTime || "19:00"}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                dailySalesSendTime: e.target.value,
+                              })
+                            }
+                            className="w-full border-2 border-blue-300 rounded-lg p-1.5 text-xs font-mono font-bold text-center text-blue-950 bg-blue-50/50 outline-none focus:border-blue-600"
+                          />
+                          <div className="flex gap-1 mt-1 justify-center">
+                            {['17:00', '19:00', '20:30'].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setSettings({ ...settings, dailySalesSendTime: t })}
+                                className="text-[9px] font-mono px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200"
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
                             شناسه گروه تلگرام آمار فروش
                           </label>
                           <input
@@ -4048,8 +4121,9 @@ const Settings: React.FC<SettingsProps> = ({
                             placeholder="-100..."
                           />
                         </div>
+
                         <div>
-                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
                             شناسه گروه بله آمار فروش
                           </label>
                           <input
@@ -4065,8 +4139,212 @@ const Settings: React.FC<SettingsProps> = ({
                             placeholder="ID..."
                           />
                         </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
+                            شناسه گروه واتساپ آمار فروش
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.dailySalesWhatsAppGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                dailySalesWhatsAppGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
+                          />
+                        </div>
                       </div>
 
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-blue-100/80">
+                        <span className="text-[11px] text-blue-800">
+                          💡 سیستم هم آمار روز جاری و هم مقایسه با روز قبل را به این گروه‌ها در ساعت مقرر مخابره می‌کند.
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSendManualSales('today')}
+                            disabled={sendingManualSalesToday}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {sendingManualSalesToday ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                            <span>ارسال آزمایشی فروش امروز</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendManualSales('yesterday')}
+                            disabled={sendingManualSalesYesterday}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {sendingManualSalesYesterday ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                            <span>ارسال آزمایشی فروش دیروز</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CHEQUE VAULT TREASURY AUTOMATED REPORT CONFIGURATION */}
+                    <div className="border-t pt-4 mt-4 space-y-4 bg-emerald-50/40 p-4 rounded-2xl border border-emerald-100">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                        <div>
+                          <h4 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
+                            <span>🏛️ تنظیمات ارسال خودکار وضعیت چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)</span>
+                            <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-mono">اسناد راکد صندوق</span>
+                          </h4>
+                          <p className="text-[11px] text-emerald-800 mt-0.5">
+                            تمرکز اصلی بر چک‌های نزد صندوق (دریافت شده ولی وصول‌نشده، خوابانده‌نشده به حساب، یا برگشتی به صندوق) برای سال ۱۴۰۴ به بعد
+                          </p>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+                          <input
+                            type="checkbox"
+                            checked={settings.chequeVaultAutoSendEnabled ?? true}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultAutoSendEnabled: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">فعال‌سازی ارسال خودکار چک‌ها</span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="p-2.5 bg-white rounded-xl border border-emerald-200">
+                          <label className="text-xs font-extrabold text-emerald-950 block mb-1">
+                            ⏰ ساعت ارسال (به وقت تهران)
+                          </label>
+                          <input
+                            type="time"
+                            value={settings.chequeVaultSendTime || "09:00"}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultSendTime: e.target.value,
+                              })
+                            }
+                            className="w-full border-2 border-emerald-300 rounded-lg p-1.5 text-xs font-mono font-bold text-center text-emerald-950 bg-emerald-50/50 outline-none focus:border-emerald-600"
+                          />
+                          <div className="flex gap-1 mt-1 justify-center">
+                            {['08:30', '09:00', '15:00', '17:00'].map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setSettings({ ...settings, chequeVaultSendTime: t })}
+                                className="text-[9px] font-mono px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded border border-emerald-200"
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
+                            شناسه گروه تلگرام چک‌های صندوق
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.chequeVaultTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultTelegramGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="-100... (گروه مالی/مدیریت)"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
+                            شناسه گروه بله چک‌های صندوق
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.chequeVaultBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultBaleGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="ID..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-gray-700 block mb-1">
+                            شناسه گروه واتساپ چک‌های صندوق
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.chequeVaultWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Cheque Attachments & Options */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-emerald-100">
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs font-bold text-emerald-950">پیوست‌های خودکار:</span>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={settings.chequeVaultAttachPdf ?? true}
+                              onChange={(e) =>
+                                setSettings({
+                                  ...settings,
+                                  chequeVaultAttachPdf: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 rounded text-emerald-600"
+                            />
+                            <span>📄 فایل PDF رسمی</span>
+                          </label>
+
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={settings.chequeVaultAttachExcel ?? true}
+                              onChange={(e) =>
+                                setSettings({
+                                  ...settings,
+                                  chequeVaultAttachExcel: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 rounded text-emerald-600"
+                            />
+                            <span>📊 فایل Excel کامل</span>
+                          </label>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleSendManualChequesVault}
+                          disabled={sendingManualCheques}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50 transition-all"
+                        >
+                          {sendingManualCheques ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                          <span>ارسال آزمایشی گزارش چک‌های صندوق هم‌اکنون</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="border-t pt-4 mt-4 space-y-4">

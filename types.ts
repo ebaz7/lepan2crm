@@ -375,6 +375,23 @@ export interface SystemSettings {
   
   dailySalesTelegramGroupId?: string;
   dailySalesBaleGroupId?: string;
+  dailySalesWhatsAppGroupId?: string;
+  dailySalesSendTime?: string; // e.g. "19:00"
+  dailySalesSendHour?: number;
+  dailySalesSendMinute?: number;
+  dailySalesAutoSendEnabled?: boolean;
+  
+  // CHEQUES VAULT AUTOMATIC REPORT SETTINGS
+  chequeVaultTelegramGroupId?: string;
+  chequeVaultBaleGroupId?: string;
+  chequeVaultWhatsappGroupId?: string;
+  chequeVaultSendTime?: string; // e.g. "09:00" or "18:00"
+  chequeVaultSendHour?: number;
+  chequeVaultSendMinute?: number;
+  chequeVaultAutoSendEnabled?: boolean;
+  chequeVaultAttachPdf?: boolean;
+  chequeVaultAttachExcel?: boolean;
+  
   productionTelegramGroupId?: string;
   productionBaleGroupId?: string;
   productionWhatsappGroupId?: string;

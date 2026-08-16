@@ -101,8 +101,37 @@ const getTodayJalali = (): string => {
     const toEng = (s: string) => s.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
     return `${toEng(year)}/${toEng(month)}/${toEng(day)}`;
   } catch (e) {
-    return '1403/01/01';
+    return '1404/01/01';
   }
+};
+
+// Check if cheque date is older than X years
+export const isChequeOlderThanYears = (dateStr?: string, years: number = 2): boolean => {
+  if (!dateStr) return false;
+  try {
+    const today = getTodayJalali();
+    const parseJalaliParts = (str: string) => {
+      const clean = str.trim().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+      const parts = clean.split(/[\/\.\-]/).map(p => parseInt(p, 10)).filter(n => !isNaN(n));
+      if (parts.length === 3) {
+        let jy = parts[0] >= 1300 ? parts[0] : parts[2];
+        let jm = parts[1];
+        let jd = parts[0] >= 1300 ? parts[2] : parts[0];
+        if (jy < 100) jy += 1400;
+        return { jy, jm, jd };
+      }
+      return null;
+    };
+
+    const t = parseJalaliParts(today);
+    const c = parseJalaliParts(dateStr);
+    if (t && c) {
+      const totalDaysToday = t.jy * 365.25 + t.jm * 30.5 + t.jd;
+      const totalDaysCheque = c.jy * 365.25 + c.jm * 30.5 + c.jd;
+      return (totalDaysToday - totalDaysCheque) > (years * 365);
+    }
+  } catch (e) {}
+  return false;
 };
 
 // --- OFFLINE HANDWRITING PREPROCESSING & OCR HELPERS ---
@@ -1436,10 +1465,16 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
           const status = c.chequeStatus || 'box';
           const isActioned = status !== 'box';
           
-          if (isActioned && cutoffDate) {
-            const dueDate = c.dueDate || '';
-            if (dueDate < cutoffDate) {
-              return; // Skip actioned cheques before cutoff date
+          if (isActioned) {
+            // Exclude actioned (cashed/spent/deposited) cheques older than 2 years
+            if (isChequeOlderThanYears(c.dueDate, 2)) {
+              return;
+            }
+            if (cutoffDate) {
+              const dueDate = c.dueDate || '';
+              if (dueDate < cutoffDate) {
+                return; // Skip actioned cheques before cutoff date
+              }
             }
           }
           list.push({ cheque: c, receipt: r });

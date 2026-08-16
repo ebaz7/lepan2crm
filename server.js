@@ -14,7 +14,7 @@ import AdmZip from 'adm-zip';
 import webpush from 'web-push';
 import * as dbManager from './backend/db-manager.js';
 import * as utils from './backend/utils.js';
-import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, generateAndSendComparisonPDF, notifySecretariatLetter, getCustomerBalancesData, fetchProcessedSayanSalesData, isActualProduct, classifyMajorCategory } from './backend/bot-core.js';
+import { notifyExitPermitStep, notifyPaymentOrderStep, notifyWarehouseBijak, notifyMeetingAnnouncement, notifyMeetingMinutes, notifyPurchaseRequestStep, runDailyReport, generateAndSendComparisonPDF, notifySecretariatLetter, getCustomerBalancesData, fetchProcessedSayanSalesData, isActualProduct, classifyMajorCategory, sendTreasuryChequesReport } from './backend/bot-core.js';
 import * as telegram from './backend/telegram.js';
 import * as bale from './backend/bale.js';
 import * as Renderer from './backend/renderer.js';
@@ -730,25 +730,38 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
 
 
 
-// Schedule daily automated reports for 19:00 Tehran time (15:30 UTC)
-cron.schedule('30 15 * * *', async () => {
-    console.log(">>> Running Automated 19:00 Reports (Sales)...");
-    const db = getDb();
-    const settings = db.settings || {};
+// Note: Automated daily reports (Sales & Cheques) are dynamically managed via setupDailyReports() in Tehran TimeZone (Asia/Tehran)
 
+app.post('/api/sayan/sales-report/send-daily', async (req, res) => {
     try {
-        const today = new Date();
-        await sendDailySalesReportForDate(db, today, 'امروز', null);
+        const db = getDb();
+        const { date, labelSuffix, customTargets, selectedPlatforms, includeYesterday } = req.body;
+        const dateObj = date ? new Date(date) : new Date();
+        const result = await sendDailySalesReportForDate(db, dateObj, labelSuffix || 'امروز', customTargets, selectedPlatforms);
+        
+        let yesterdayResult = null;
+        if (includeYesterday) {
+            const yesterdayDate = new Date(dateObj);
+            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            yesterdayResult = await sendDailySalesReportForDate(db, yesterdayDate, 'دیروز', customTargets, selectedPlatforms);
+        }
+
+        res.json({ success: true, today: result, yesterday: yesterdayResult });
     } catch (err) {
-        console.error("[Cron 19:00] Daily sales (today) automatic cron error:", err);
+        console.error("Manual Daily Sales Send Error:", err);
+        res.status(500).json({ error: err.message });
     }
-    
+});
+
+app.post('/api/sayan/cheques-report/send-vault', async (req, res) => {
     try {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        await sendDailySalesReportForDate(db, yesterday, 'دیروز', null);
+        const db = getDb();
+        const { customTargets, selectedPlatforms, attachPdf, attachExcel } = req.body;
+        const result = await sendTreasuryChequesReport(db, customTargets, selectedPlatforms, { attachPdf, attachExcel });
+        res.json(result);
     } catch (err) {
-        console.error("[Cron 19:00] Daily sales (yesterday) automatic cron error:", err);
+        console.error("Manual Treasury Cheques Send Error:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -3855,69 +3868,121 @@ function setupDailyReports() {
 
         const db = getDb();
         if (!db.reportDeliveryJobs) db.reportDeliveryJobs = [];
+        const settings = db.settings || {};
         
         // Seed initial default jobs if list is empty
         if (db.reportDeliveryJobs.length === 0) {
+            const defaultSalesTime = settings.dailySalesSendTime || '19:00';
+            const [dsh, dsm] = defaultSalesTime.split(':').map(x => parseInt(x, 10) || 0);
+
+            const defaultChequeTime = settings.chequeVaultSendTime || '09:00';
+            const [cqh, cqm] = defaultChequeTime.split(':').map(x => parseInt(x, 10) || 0);
+
             db.reportDeliveryJobs = [
                 {
-                    id: 'job_daily_sales_1900',
-                    title: 'گزارش روزانه ارشد مدیریتی فروش سایان ERP',
+                    id: 'job_daily_sales_custom',
+                    title: 'گزارش روزانه ارشد مدیریتی فروش سایان ERP (امروز)',
                     module: 'sales',
                     reportType: 'daily_sales',
                     botPlatforms: ['telegram', 'bale'],
-                    destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
-                    scheduleType: 'daily_1900',
-                    cronExpression: '0 19 * * *',
+                    destinationGroup: settings.dailySalesTelegramGroupId || settings.telegramGroupId || '',
+                    telegramGroup: settings.dailySalesTelegramGroupId || '',
+                    baleGroup: settings.dailySalesBaleGroupId || '',
+                    whatsappGroup: settings.dailySalesWhatsAppGroupId || '',
+                    scheduleType: 'daily_custom',
+                    sendTime: defaultSalesTime,
+                    sendHour: dsh || 19,
+                    sendMinute: dsm || 0,
+                    cronExpression: `${dsm || 0} ${dsh || 19} * * *`,
                     attachPdf: true,
                     attachExcel: true,
                     attachImage: true,
-                    enabled: true,
+                    enabled: settings.dailySalesAutoSendEnabled ?? true,
                     createdAt: new Date().toISOString()
                 },
                 {
-                    id: 'job_daily_comparison_1900',
-                    title: 'گزارش پایش مقایسه‌ای فروش (دیروز با امروز)',
+                    id: 'job_daily_comparison_custom',
+                    title: 'گزارش پایش مقایسه‌ای فروش (امروز با دیروز)',
                     module: 'sales',
                     reportType: 'sales_comparison',
                     botPlatforms: ['telegram', 'bale'],
-                    destinationGroup: db.settings?.telegramGroupId || db.settings?.baleGroupId || '-100123456789',
-                    scheduleType: 'daily_comp_1900',
-                    cronExpression: '0 19 * * *',
+                    destinationGroup: settings.dailySalesTelegramGroupId || settings.telegramGroupId || '',
+                    telegramGroup: settings.dailySalesTelegramGroupId || '',
+                    baleGroup: settings.dailySalesBaleGroupId || '',
+                    whatsappGroup: settings.dailySalesWhatsAppGroupId || '',
+                    scheduleType: 'daily_custom',
+                    sendTime: defaultSalesTime,
+                    sendHour: dsh || 19,
+                    sendMinute: dsm || 0,
+                    cronExpression: `${dsm || 0} ${dsh || 19} * * *`,
                     attachPdf: true,
                     attachExcel: true,
                     attachImage: true,
-                    enabled: true,
+                    enabled: settings.dailySalesAutoSendEnabled ?? true,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: 'job_cheques_treasury_vault',
+                    title: 'گزارش وضعیت چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴)',
+                    module: 'accounting',
+                    reportType: 'cheque_vault',
+                    botPlatforms: ['telegram', 'bale'],
+                    destinationGroup: settings.chequeVaultTelegramGroupId || settings.botAccountingGroupIdTele || '',
+                    telegramGroup: settings.chequeVaultTelegramGroupId || '',
+                    baleGroup: settings.chequeVaultBaleGroupId || '',
+                    whatsappGroup: settings.chequeVaultWhatsappGroupId || '',
+                    scheduleType: 'daily_custom',
+                    sendTime: defaultChequeTime,
+                    sendHour: cqh || 9,
+                    sendMinute: cqm || 0,
+                    cronExpression: `${cqm || 0} ${cqh || 9} * * *`,
+                    attachPdf: settings.chequeVaultAttachPdf ?? true,
+                    attachExcel: settings.chequeVaultAttachExcel ?? true,
+                    attachImage: false,
+                    enabled: settings.chequeVaultAutoSendEnabled ?? true,
                     createdAt: new Date().toISOString()
                 }
             ];
             saveDb(db);
         }
 
-        // Register cron triggers for all enabled jobs
+        // Register cron triggers for all enabled jobs in Asia/Tehran timezone
         db.reportDeliveryJobs.forEach(job => {
             if (!job.enabled) return;
 
-            let cronPattern = job.cronExpression || '0 19 * * *';
-            if (job.scheduleType === 'daily_1900' || job.scheduleType === 'daily_comp_1900') {
-                cronPattern = '30 15 * * *'; // 19:00 Iran time in UTC (15:30 UTC) or 0 19 local
+            let cronPattern = '0 19 * * *';
+
+            // Check if exact sendHour and sendMinute or sendTime is configured
+            if (job.sendHour !== undefined && job.sendMinute !== undefined) {
+                cronPattern = `${parseInt(job.sendMinute, 10) || 0} ${parseInt(job.sendHour, 10) || 0} * * *`;
+            } else if (job.sendTime && typeof job.sendTime === 'string' && job.sendTime.includes(':')) {
+                const [h, m] = job.sendTime.split(':').map(x => parseInt(x, 10) || 0);
+                cronPattern = `${m} ${h} * * *`;
+            } else if (job.cronExpression && job.cronExpression.trim()) {
+                cronPattern = job.cronExpression.trim();
+            } else if (job.scheduleType === 'daily_1900' || job.scheduleType === 'daily_comp_1900') {
+                cronPattern = '0 19 * * *';
             } else if (job.scheduleType === 'weekly') {
-                cronPattern = '30 15 * * 6'; // Saturday 19:00
+                cronPattern = '0 19 * * 6'; // Saturday 19:00 Tehran
             } else if (job.scheduleType === 'monthly') {
-                cronPattern = '30 15 1 * *'; // 1st of month 19:00
+                cronPattern = '0 19 1 * *'; // 1st of month 19:00 Tehran
             }
 
             try {
                 const task = cron.schedule(cronPattern, async () => {
-                    console.log(`⏰ Executing Scheduled Report Job: ${job.title} (${job.id})`);
+                    console.log(`⏰ [Tehran Time Cron] Executing Scheduled Report Job: ${job.title} (${job.id}) at ${new Date().toLocaleTimeString('fa-IR')}`);
                     await executeReportJob(job);
+                }, {
+                    timezone: "Asia/Tehran"
                 });
                 scheduledReportCronTasks.push(task);
+                console.log(`📌 Scheduled Report [${job.title}] with cron pattern "${cronPattern}" (Tehran Time)`);
             } catch (err) {
                 console.error(`Failed to schedule report job ${job.id}:`, err);
             }
         });
 
-        console.log(`✅ Loaded ${db.reportDeliveryJobs.length} report delivery jobs (${scheduledReportCronTasks.length} active cron schedules).`);
+        console.log(`✅ Loaded ${db.reportDeliveryJobs.length} report delivery jobs (${scheduledReportCronTasks.length} active cron schedules in Tehran Time).`);
     } catch (e) {
         console.error("setupDailyReports Error:", e);
     }
@@ -3930,24 +3995,49 @@ async function executeReportJob(job) {
         
         const isProdJob = job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'inventory_stock';
         const isSalesJob = job.module === 'sales' || job.reportType === 'daily_sales' || job.reportType === 'sales_comparison';
+        const isChequeJob = job.module === 'accounting' || job.reportType === 'cheque_vault' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts';
 
-        const defaultTgGroup = isProdJob
-            ? (db.settings?.productionTelegramGroupId || db.settings?.factoryGroupId)
-            : (isSalesJob ? (db.settings?.dailySalesTelegramGroupId || db.settings?.botDailySalesGroupIdTele) : (db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId));
+        const defaultTgGroup = isChequeJob
+            ? (db.settings?.chequeVaultTelegramGroupId || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId)
+            : (isProdJob
+                ? (db.settings?.productionTelegramGroupId || db.settings?.factoryGroupId)
+                : (isSalesJob ? (db.settings?.dailySalesTelegramGroupId || db.settings?.botDailySalesGroupIdTele) : (db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId)));
 
-        const defaultBaleGroup = isProdJob
-            ? db.settings?.productionBaleGroupId
-            : (isSalesJob ? (db.settings?.dailySalesBaleGroupId || db.settings?.botDailySalesGroupIdBale) : (db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId));
+        const defaultBaleGroup = isChequeJob
+            ? (db.settings?.chequeVaultBaleGroupId || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId)
+            : (isProdJob
+                ? db.settings?.productionBaleGroupId
+                : (isSalesJob ? (db.settings?.dailySalesBaleGroupId || db.settings?.botDailySalesGroupIdBale) : (db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId)));
 
-        const defaultWaGroup = isProdJob
-            ? db.settings?.productionWhatsappGroupId
-            : (isSalesJob ? (db.settings?.dailySalesWhatsappGroupId || db.settings?.botDailySalesGroupIdWhatsApp) : (db.settings?.botBijakGroupIdWhatsApp || db.settings?.defaultWarehouseGroup));
+        const defaultWaGroup = isChequeJob
+            ? (db.settings?.chequeVaultWhatsappGroupId || db.settings?.botBijakGroupIdWhatsApp)
+            : (isProdJob
+                ? db.settings?.productionWhatsappGroupId
+                : (isSalesJob ? (db.settings?.dailySalesWhatsappGroupId || db.settings?.botDailySalesGroupIdWhatsApp) : (db.settings?.botBijakGroupIdWhatsApp || db.settings?.defaultWarehouseGroup)));
 
         const teleGroup = job.telegramGroup || job.destinationGroup || defaultTgGroup;
         const baleGroup = job.baleGroup || job.destinationGroup || defaultBaleGroup;
         const waGroup = job.whatsappGroup || job.destinationGroup || defaultWaGroup;
 
-        if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
+        const customTargets = [];
+        if (job.botPlatforms?.includes('telegram') && teleGroup) {
+            customTargets.push({ platform: 'telegram', id: teleGroup });
+        }
+        if (job.botPlatforms?.includes('bale') && baleGroup) {
+            customTargets.push({ platform: 'bale', id: baleGroup });
+        }
+        if (job.botPlatforms?.includes('whatsapp') && waGroup) {
+            customTargets.push({ platform: 'whatsapp', id: waGroup });
+        }
+
+        if (job.reportType === 'cheque_vault' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts') {
+            // Send Vault Cheques Report (Year 1404+)
+            const res = await sendTreasuryChequesReport(db, customTargets.length > 0 ? customTargets : null, job.botPlatforms, {
+                attachPdf: job.attachPdf ?? true,
+                attachExcel: job.attachExcel ?? true
+            });
+            console.log(`✅ Cheques Vault report dispatched successfully: ${res.count} cheques found.`);
+        } else if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
                     try { await telegram.sendBotMessage(teleGroup, text, opts); } catch(e){ console.error("TG Send err:", e.message); }
@@ -3982,22 +4072,9 @@ async function executeReportJob(job) {
 
             await generateAndSendComparisonPDF(db, teleGroup || baleGroup || waGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
         } else {
-            // Standard daily sales report or other module
-            const customTargets = [];
-            if (job.botPlatforms?.includes('telegram')) {
-                const tgId = job.telegramGroup || job.destinationGroup;
-                if (tgId) customTargets.push({ platform: 'telegram', id: tgId });
-            }
-            if (job.botPlatforms?.includes('bale')) {
-                const baleId = job.baleGroup || job.destinationGroup;
-                if (baleId) customTargets.push({ platform: 'bale', id: baleId });
-            }
-            if (job.botPlatforms?.includes('whatsapp')) {
-                const waId = job.whatsappGroup || job.destinationGroup;
-                if (waId) customTargets.push({ platform: 'whatsapp', id: waId });
-            }
-
-            await sendDailySalesReportForDate(db, new Date(), 'روزانه ۱۹:۰۰', customTargets.length > 0 ? customTargets : null, job.botPlatforms);
+            // Standard daily sales report
+            const timeLabel = job.sendTime ? `ساعت ${job.sendTime}` : 'گزارش روزانه';
+            await sendDailySalesReportForDate(db, new Date(), timeLabel, customTargets.length > 0 ? customTargets : null, job.botPlatforms);
         }
 
         // Update last run timestamp

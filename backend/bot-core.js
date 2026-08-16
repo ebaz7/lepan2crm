@@ -5494,3 +5494,342 @@ export const notifySecretariatLetter = async (letter, db) => {
         console.error("notifySecretariatLetter error:", err);
     }
 };
+
+export const sendTreasuryChequesReport = async (db, customTargets = null, platforms = ['telegram', 'bale', 'whatsapp'], options = {}) => {
+    const settings = db.settings || {};
+    const attachPdf = options.attachPdf ?? (settings.chequeVaultAttachPdf ?? true);
+    const attachExcel = options.attachExcel ?? (settings.chequeVaultAttachExcel ?? true);
+
+    // Collect targets
+    let targets = [];
+    if (customTargets && customTargets.length > 0) {
+        targets = customTargets;
+    } else {
+        if (settings.chequeVaultTelegramGroupId) targets.push({ platform: 'telegram', id: settings.chequeVaultTelegramGroupId });
+        if (settings.chequeVaultBaleGroupId) targets.push({ platform: 'bale', id: settings.chequeVaultBaleGroupId });
+        if (settings.chequeVaultWhatsappGroupId) targets.push({ platform: 'whatsapp', id: settings.chequeVaultWhatsappGroupId });
+        
+        // Fallbacks if not set specifically
+        if (targets.length === 0) {
+            if (settings.botAccountingGroupIdTele) targets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele });
+            if (settings.botAccountingGroupIdBale) targets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
+            if (settings.telegramGroupId) targets.push({ platform: 'telegram', id: settings.telegramGroupId });
+            if (settings.baleGroupId) targets.push({ platform: 'bale', id: settings.baleGroupId });
+        }
+    }
+
+    if (targets.length === 0) {
+        console.warn("[Treasury Cheques Report] No target groups configured for cheque vault report.");
+        return { count: 0, sent: false, error: 'شناسه گروه مقصد چک‌های صندوق در تنظیمات ثبت نشده است.' };
+    }
+
+    // Query Sayan ERP BUR_TBL_012 for cheques
+    let rows = [];
+    if (settings.sayanApiUrl) {
+        try {
+            const sql = `
+                SELECT 
+                    Field_001 as Id,
+                    Field_004 as StatusType,
+                    Field_005 as ChequeNo,
+                    Field_006 as DueDate,
+                    Field_009 as BankName,
+                    Field_011 as DrawerName,
+                    Field_013 as Amount,
+                    Field_015 as StatusDesc
+                FROM BUR_TBL_012
+                ORDER BY Field_006 ASC
+            `;
+            rows = await runSayanQuery(db, sql);
+        } catch (err) {
+            console.error("Sayan query error for treasury cheques:", err.message);
+        }
+    }
+
+    // Helper to check if a date is 1404 onwards
+    const is1404Plus = (dateStr) => {
+        if (!dateStr) return false;
+        const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+        if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
+        if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
+        try {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const sh = toShamsiFull(d.toISOString());
+                return sh.startsWith('1404') || sh.startsWith('1405') || sh.startsWith('1406');
+            }
+        } catch (e) {}
+        return true;
+    };
+
+    // Helper to format Jalali date string
+    const toShamsiStr = (d) => {
+        if (!d) return '-';
+        const str = String(d).trim();
+        if (str.includes('/') && (str.startsWith('14') || str.startsWith('13'))) {
+            return str.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+        }
+        try {
+            const dateObj = new Date(d);
+            if (!isNaN(dateObj.getTime())) {
+                return toShamsiFull(dateObj.toISOString()).split(' ')[0].replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+            }
+        } catch(e) {}
+        return str;
+    };
+
+    const treasuryCheques = [];
+
+    // Process Sayan rows
+    if (Array.isArray(rows) && rows.length > 0) {
+        rows.forEach(r => {
+            const dueShamsi = toShamsiStr(r.DueDate);
+            // Strictly exclude anything before 1404
+            if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
+
+            const desc = String(r.StatusDesc || '').trim();
+            const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار');
+            const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
+            const isCashed = desc.includes('وصول') || desc.includes('پاس');
+            const isReturned = desc.includes('برگشت') || desc.includes('واخواست');
+
+            // Cheques in vault:
+            // 1. Not at bank, not spent, not cashed
+            // 2. OR bounced/returned back to box
+            if ((!isAtBank && !isSpent && !isCashed) || (isReturned && (desc.includes('صندوق') || !isSpent))) {
+                const isReturnedToBox = isReturned;
+                treasuryCheques.push({
+                    id: String(r.Id || r.ChequeNo),
+                    chequeNo: r.ChequeNo || String(r.Id || '-'),
+                    dueDate: dueShamsi,
+                    bankName: r.BankName || 'نامشخص',
+                    drawerName: r.DrawerName || 'نامشخص',
+                    amount: parseFloat(r.Amount || 0),
+                    statusDesc: isReturnedToBox ? 'برگشتی عودت به صندوق' : (desc || 'نزد صندوق (دریافت شده)'),
+                    isReturnedToBox,
+                    source: 'sayan'
+                });
+            }
+        });
+    }
+
+    // Process local chequeReceipts
+    const localReceipts = db.chequeReceipts || [];
+    localReceipts.forEach(rec => {
+        if (rec.status !== 'approved' && rec.status !== 'archived') return;
+        if (Array.isArray(rec.cheques)) {
+            rec.cheques.forEach(c => {
+                const dueShamsi = toShamsiStr(c.dueDate);
+                if (!is1404Plus(dueShamsi) && !is1404Plus(c.dueDate)) return;
+
+                const status = c.chequeStatus || 'box';
+                // Only box or returned_to_box
+                if (status === 'box' || status === 'returned_to_box') {
+                    // Check if already present from Sayan by chequeNo
+                    const exists = treasuryCheques.some(tc => tc.chequeNo === c.chequeNumber || tc.id === c.sayyadId);
+                    if (!exists) {
+                        treasuryCheques.push({
+                            id: c.sayyadId || c.id || c.chequeNumber,
+                            chequeNo: c.chequeNumber || c.sayyadId || '-',
+                            dueDate: dueShamsi,
+                            bankName: c.bankName || 'نامشخص',
+                            drawerName: c.drawerName || rec.customerName || 'نامشخص',
+                            amount: parseFloat(c.amount || 0),
+                            statusDesc: status === 'returned_to_box' ? 'برگشتی عودت به صندوق' : 'نزد صندوق',
+                            isReturnedToBox: status === 'returned_to_box',
+                            source: 'local'
+                        });
+                    }
+                }
+            });
+        }
+    });
+
+    // Sort by DueDate ascending
+    treasuryCheques.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+
+    // Today in Shamsi
+    const now = new Date();
+    const todayShamsi = toShamsiFull(now.toISOString()).split(' ')[0].replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+
+    let totalAmount = 0;
+    let overdueCount = 0, overdueAmount = 0;
+    let todayCount = 0, todayAmount = 0;
+    let weekCount = 0, weekAmount = 0;
+    let returnedCount = 0, returnedAmount = 0;
+
+    treasuryCheques.forEach(c => {
+        totalAmount += c.amount;
+        if (c.isReturnedToBox) {
+            returnedCount++;
+            returnedAmount += c.amount;
+        }
+        if (c.dueDate < todayShamsi) {
+            overdueCount++;
+            overdueAmount += c.amount;
+        } else if (c.dueDate === todayShamsi) {
+            todayCount++;
+            todayAmount += c.amount;
+        }
+    });
+
+    // Format text message
+    let msg = `🏛️ *گزارش وضعیت چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴)*\n`;
+    msg += `📅 *تاریخ گزارش:* ${todayShamsi}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💎 *موجودی کل چک‌های صندوق:* ${treasuryCheques.length.toLocaleString('fa-IR')} فقره\n`;
+    msg += `💰 *مجموع کل مبالغ:* ${Math.round(totalAmount).toLocaleString('fa-IR')} ریال (${Math.round(totalAmount / 10).toLocaleString('fa-IR')} تومان)\n\n`;
+
+    if (overdueCount > 0) {
+        msg += `⚠️ *چک‌های سررسید گذشته (اقدام فوری):* ${overdueCount.toLocaleString('fa-IR')} فقره | ${Math.round(overdueAmount).toLocaleString('fa-IR')} ریال\n`;
+    }
+    if (todayCount > 0) {
+        msg += `🔔 *سررسید امروز:* ${todayCount.toLocaleString('fa-IR')} فقره | ${Math.round(todayAmount).toLocaleString('fa-IR')} ریال\n`;
+    }
+    if (returnedCount > 0) {
+        msg += `🔄 *چک‌های برگشتی موجود در صندوق:* ${returnedCount.toLocaleString('fa-IR')} فقره | ${Math.round(returnedAmount).toLocaleString('fa-IR')} ریال\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `📋 *خلاصه نزدیک‌ترین چک‌های نزد صندوق:*\n`;
+
+    const topCheques = treasuryCheques.slice(0, 10);
+    topCheques.forEach((c, idx) => {
+        const isOverdue = c.dueDate < todayShamsi;
+        const icon = c.isReturnedToBox ? '🔴' : (isOverdue ? '⚠️' : '🔹');
+        msg += `${icon} *${idx + 1}.* سررسید: \`${c.dueDate}\` | مبلغ: \`${Math.round(c.amount).toLocaleString('fa-IR')}\` ریال\n`;
+        msg += `   👤 صادرکننده: ${c.drawerName} | 🏦 ${c.bankName} (چک: \`${c.chequeNo}\`)\n`;
+    });
+
+    if (treasuryCheques.length > 10) {
+        msg += `\n... و ${(treasuryCheques.length - 10).toLocaleString('fa-IR')} فقره دیگر (در فایل‌های پیوست PDF و Excel).\n`;
+    }
+    msg += `\n_⚡ سیستم مدیریت مالی و خزانه‌داری متمرکز سایان ERP_`;
+
+    // Generate PDF if needed
+    let pdfBuffer = null;
+    if (attachPdf) {
+        const title = `گزارش جامع چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴) - ${todayShamsi}`;
+        const columns = ['ردیف', 'شماره چک', 'سررسید', 'صادرکننده / طرف حساب', 'بانک و شعبه', 'مبلغ (ریال)', 'وضعیت در صندوق'];
+        const tableRows = treasuryCheques.map((c, idx) => [
+            (idx + 1).toLocaleString('fa-IR'),
+            c.chequeNo,
+            c.dueDate,
+            c.drawerName,
+            c.bankName,
+            Math.round(c.amount).toLocaleString('fa-IR'),
+            c.statusDesc
+        ]);
+        tableRows.push([
+            'جمع کل',
+            '-',
+            '-',
+            '-',
+            '-',
+            Math.round(totalAmount).toLocaleString('fa-IR'),
+            `${treasuryCheques.length.toLocaleString('fa-IR')} فقره`
+        ]);
+        pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
+    }
+
+    // Generate Excel if needed
+    let excelBuffer = null;
+    if (attachExcel) {
+        const wsData = [
+            [`گزارش چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴) - تاریخ گزارش: ${todayShamsi}`],
+            [`مجموع کل: ${Math.round(totalAmount).toLocaleString('fa-IR')} ریال | تعداد: ${treasuryCheques.length} فقره`],
+            [],
+            ['ردیف', 'شماره چک', 'تاریخ سررسید', 'صادرکننده / طرف حساب', 'بانک صادرکننده', 'مبلغ اسمی (ریال)', 'وضعیت سند']
+        ];
+        treasuryCheques.forEach((c, idx) => {
+            wsData.push([
+                idx + 1,
+                c.chequeNo,
+                c.dueDate,
+                c.drawerName,
+                c.bankName,
+                c.amount,
+                c.statusDesc
+            ]);
+        });
+        wsData.push([
+            'جمع کل',
+            '',
+            '',
+            '',
+            '',
+            totalAmount,
+            `${treasuryCheques.length} فقره`
+        ]);
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.aoa_to_sheet(wsData);
+        xlsx.utils.book_append_sheet(wb, ws, 'چک‌های صندوق');
+        excelBuffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    }
+
+    const baleModule = await import('./bale.js');
+    const tgModule = await import('./telegram.js');
+
+    // Dispatch to targets
+    let sentCount = 0;
+    const sendDetails = [];
+
+    for (const target of targets) {
+        if (!platforms.includes(target.platform)) continue;
+        const cleanId = sanitizeGroupId(target.id);
+        if (!cleanId) continue;
+
+        try {
+            if (target.platform === 'telegram') {
+                await tgModule.sendBotMessage(cleanId, msg, { parse_mode: 'Markdown' });
+                if (pdfBuffer) {
+                    await tgModule.sendBotDocument(cleanId, pdfBuffer, `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 گزارش رسمی چک‌های نزد صندوق (${todayShamsi})`);
+                }
+                if (excelBuffer) {
+                    await tgModule.sendBotDocument(cleanId, excelBuffer, `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.xlsx`, `📊 فایل اکسل چک‌های نزد صندوق (${todayShamsi})`);
+                }
+                sentCount++;
+                sendDetails.push({ target: target.id, platform: 'telegram', success: true });
+            } else if (target.platform === 'bale') {
+                await baleModule.sendBotMessage(cleanId, msg);
+                if (pdfBuffer) {
+                    await baleModule.sendBotDocument(cleanId, pdfBuffer, `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.pdf`, `گزارش رسمی چک‌های نزد صندوق`);
+                }
+                if (excelBuffer) {
+                    await baleModule.sendBotDocument(cleanId, excelBuffer, `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.xlsx`, `فایل اکسل چک‌های نزد صندوق`);
+                }
+                sentCount++;
+                sendDetails.push({ target: target.id, platform: 'bale', success: true });
+            } else if (target.platform === 'whatsapp') {
+                await whatsapp.sendMessage(cleanId, msg);
+                if (pdfBuffer) {
+                    await whatsapp.sendMessage(cleanId, `گزارش رسمی چک‌های نزد صندوق`, {
+                        data: pdfBuffer.toString('base64'),
+                        mimeType: 'application/pdf',
+                        filename: `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.pdf`
+                    });
+                }
+                if (excelBuffer) {
+                    await whatsapp.sendMessage(cleanId, `فایل اکسل چک‌های نزد صندوق`, {
+                        data: excelBuffer.toString('base64'),
+                        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        filename: `Treasury_Cheques_${todayShamsi.replace(/\//g, '-')}.xlsx`
+                    });
+                }
+                sentCount++;
+                sendDetails.push({ target: target.id, platform: 'whatsapp', success: true });
+            }
+        } catch (e) {
+            console.error(`Failed to send treasury cheques report to ${target.platform} ${cleanId}:`, e.message);
+            sendDetails.push({ target: target.id, platform: target.platform, success: false, error: e.message });
+        }
+    }
+
+    return {
+        count: treasuryCheques.length,
+        totalAmount,
+        sent: sentCount > 0,
+        successfulSends: sentCount,
+        sendDetails
+    };
+};

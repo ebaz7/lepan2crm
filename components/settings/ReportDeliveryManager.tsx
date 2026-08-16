@@ -11,13 +11,16 @@ export interface ReportDeliveryJob {
   id: string;
   title: string;
   module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr';
-  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'custom';
+  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
   destinationGroup?: string;
   telegramGroup?: string;
   baleGroup?: string;
   whatsappGroup?: string;
-  scheduleType: 'daily_1900' | 'daily_comp_1900' | 'weekly' | 'monthly' | 'cron';
+  scheduleType: 'daily_custom' | 'daily_1900' | 'daily_comp_1900' | 'weekly' | 'monthly' | 'cron';
+  sendTime?: string; // HH:MM (e.g. 19:00, 09:00, 15:30)
+  sendHour?: number;
+  sendMinute?: number;
   cronExpression?: string;
   attachPdf: boolean;
   attachExcel: boolean;
@@ -32,24 +35,26 @@ const MODULE_OPTIONS = [
   { value: 'sales', label: 'فروش و بازاریابی (Sales)' },
   { value: 'purchasing', label: 'خرید و تدارکات (Purchasing)' },
   { value: 'inventory', label: 'انبار و انبارداری (Inventory)' },
-  { value: 'accounting', label: 'حسابداری و مالی (Accounting)' },
+  { value: 'accounting', label: 'حسابداری و خزانه‌داری (Accounting/Treasury)' },
   { value: 'hr', label: 'تردد و خروج نیروها (HR/Logistics)' },
 ];
 
 const REPORT_TYPE_OPTIONS = [
   { value: 'daily_sales', label: 'گزارش روزانه عملکرد فروش (سایان ERP)' },
-  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش (دیروز با امروز / دو بازه)' },
-  { value: 'inventory_stock', label: 'گزارش موجودی و گردش کالای انبار' },
+  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش (امروز با دیروز / دو بازه)' },
+  { value: 'cheque_vault', label: '🏛️ گزارش وضعیت چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
+  { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی' },
   { value: 'customer_balances', label: 'گزارش مانده حساب و تراز مشتریان (تفضیل‌ها)' },
-  { value: 'cheque_alerts', label: 'گزارش سررسید چک‌ها و اسناد دریافتنی' },
+  { value: 'inventory_stock', label: 'گزارش موجودی و گردش کالای انبار' },
 ];
 
 const SCHEDULE_OPTIONS = [
-  { value: 'daily_1900', label: 'هر روز ساعت ۱۹:۰۰ (خودکار)' },
-  { value: 'daily_comp_1900', label: 'هر روز ساعت ۱۹:۰۰ (مقایسه‌ای امروز با دیروز)' },
+  { value: 'daily_custom', label: 'روزانه در ساعت مشخص دلخواه (ارسال دقیق به وقت تهران)' },
+  { value: 'daily_1900', label: 'هر روز ساعت ۱۹:۰۰ (پیش‌فرض فروش)' },
+  { value: 'daily_comp_1900', label: 'هر روز ساعت ۱۹:۰۰ (پایش مقایسه‌ای امروز با دیروز)' },
   { value: 'weekly', label: 'هفتگی (شنبه‌ها ساعت ۱۹:۰۰)' },
   { value: 'monthly', label: 'ماهانه (اول هر ماه شمسی ساعت ۱۹:۰۰)' },
-  { value: 'cron', label: 'تنظیم سفارشی (Cron Expression)' },
+  { value: 'cron', label: 'فرمول اختصاصی و پیشرفته کرون (Cron Expression)' },
 ];
 
 export const ReportDeliveryManager: React.FC = () => {
@@ -89,7 +94,10 @@ export const ReportDeliveryManager: React.FC = () => {
       telegramGroup: '',
       baleGroup: '',
       whatsappGroup: '',
-      scheduleType: 'daily_1900',
+      scheduleType: 'daily_custom',
+      sendTime: '19:00',
+      sendHour: 19,
+      sendMinute: 0,
       cronExpression: '0 19 * * *',
       attachPdf: true,
       attachExcel: true,
@@ -100,8 +108,10 @@ export const ReportDeliveryManager: React.FC = () => {
   };
 
   const handleOpenEditModal = (job: ReportDeliveryJob) => {
+    const timeVal = job.sendTime || (job.sendHour !== undefined ? `${String(job.sendHour).padStart(2, '0')}:${String(job.sendMinute || 0).padStart(2, '0')}` : '19:00');
     setEditingJob({
       ...job,
+      sendTime: timeVal,
       telegramGroup: job.telegramGroup || (job.botPlatforms?.includes('telegram') ? job.destinationGroup || '' : ''),
       baleGroup: job.baleGroup || (job.botPlatforms?.includes('bale') ? job.destinationGroup || '' : ''),
       whatsappGroup: job.whatsappGroup || (job.botPlatforms?.includes('whatsapp') ? job.destinationGroup || '' : ''),
@@ -125,8 +135,22 @@ export const ReportDeliveryManager: React.FC = () => {
       return;
     }
 
+    let sendHour = editingJob.sendHour;
+    let sendMinute = editingJob.sendMinute;
+    let cronPattern = editingJob.cronExpression || '0 19 * * *';
+
+    if (editingJob.sendTime && editingJob.sendTime.includes(':')) {
+      const parts = editingJob.sendTime.split(':').map(x => parseInt(x, 10) || 0);
+      sendHour = parts[0];
+      sendMinute = parts[1];
+      cronPattern = `${sendMinute} ${sendHour} * * *`;
+    }
+
     const payload = {
       ...editingJob,
+      sendHour,
+      sendMinute,
+      cronExpression: editingJob.scheduleType === 'cron' ? (editingJob.cronExpression || cronPattern) : cronPattern,
       telegramGroup: tg,
       baleGroup: bale,
       whatsappGroup: wa,
@@ -255,9 +279,11 @@ export const ReportDeliveryManager: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Clock size={14} className="text-blue-500" />
-                    <span>زمان‌بندی: {SCHEDULE_OPTIONS.find(s => s.value === job.scheduleType)?.label || job.scheduleType}</span>
+                  <span className="flex items-center gap-1 bg-blue-50 text-blue-800 font-bold px-2.5 py-1 rounded-xl border border-blue-200">
+                    <Clock size={14} className="text-blue-600" />
+                    <span>
+                      {job.scheduleType === 'cron' ? `کرون: ${job.cronExpression}` : `⏰ ساعت ارسال: ${job.sendTime || '19:00'} (به وقت تهران)`}
+                    </span>
                   </span>
 
                   <span className="flex items-center gap-1">
@@ -445,8 +471,13 @@ export const ReportDeliveryManager: React.FC = () => {
               <div>
                 <label className="block font-bold text-slate-700 mb-1">نوع زمان‌بندی تکرار:</label>
                 <select
-                  value={editingJob.scheduleType || 'daily_1900'}
-                  onChange={(e) => setEditingJob(prev => ({ ...prev, scheduleType: e.target.value as any }))}
+                  value={editingJob.scheduleType || 'daily_custom'}
+                  onChange={(e) => {
+                    const st = e.target.value as any;
+                    let defaultTime = editingJob.sendTime || '19:00';
+                    if (st === 'daily_1900' || st === 'daily_comp_1900') defaultTime = '19:00';
+                    setEditingJob(prev => ({ ...prev, scheduleType: st, sendTime: defaultTime }));
+                  }}
                   className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500"
                 >
                   {SCHEDULE_OPTIONS.map(s => (
@@ -454,6 +485,64 @@ export const ReportDeliveryManager: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Exact Time Selector for Daily / Custom schedules */}
+              {editingJob.scheduleType !== 'cron' ? (
+                <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-extrabold text-xs text-blue-900 flex items-center gap-1.5">
+                      <Clock size={15} className="text-blue-600" />
+                      <span>ساعت دقیق ارسال خودکار روزانه (به وقت تهران):</span>
+                    </label>
+                    <span className="text-[10px] text-blue-700 font-bold bg-blue-100 px-2 py-0.5 rounded-lg">Asia/Tehran</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="time"
+                      value={editingJob.sendTime || '19:00'}
+                      onChange={(e) => setEditingJob(prev => ({ ...prev, sendTime: e.target.value }))}
+                      className="p-2 border-2 border-blue-300 rounded-xl font-mono text-sm font-black text-blue-950 bg-white outline-none focus:border-blue-600 text-center w-36 shadow-xs"
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold">ساعات پیشنهادی:</span>
+                      {['08:30', '09:00', '15:00', '17:00', '19:00', '21:00'].map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setEditingJob(prev => ({ ...prev, sendTime: t }))}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            editingJob.sendTime === t
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-white text-slate-700 border border-slate-200 hover:bg-blue-50'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-normal">
+                    💡 گزارش در این ساعت دقیق به صورت اتوماتیک توسط سرور به گروه‌های مشخص شده ارسال خواهد شد.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2">
+                  <label className="font-extrabold text-xs text-amber-900 block">
+                    فرمول زمان‌بندی کرون (Cron Expression):
+                  </label>
+                  <input
+                    type="text"
+                    value={editingJob.cronExpression || '0 19 * * *'}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, cronExpression: e.target.value }))}
+                    placeholder="مثلاً: 0 19 * * * یا 30 15 * * *"
+                    className="w-full p-2 border border-amber-300 rounded-xl font-mono text-xs text-slate-900 outline-none focus:border-amber-600 dir-ltr text-left bg-white"
+                  />
+                  <p className="text-[10px] text-amber-800">
+                    فرمت: دقیقه ساعت روز_ماه ماه روز_هفته (به عنوان مثال <code>0 19 * * *</code> یعنی هر روز راس ۱۹:۰۰ به وقت تهران)
+                  </p>
+                </div>
+              )}
 
               {/* Bot Platforms */}
               <div>
