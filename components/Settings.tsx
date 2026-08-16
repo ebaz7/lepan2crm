@@ -4929,39 +4929,123 @@ const Settings: React.FC<SettingsProps> = ({
                       گروه‌هایی که اعلان برگزاری جلسه به آن‌ها ارسال می‌شود.
                     </p>
                     <div className="space-y-4 glass-panel p-5 rounded-2xl border bg-white/50">
-                      <div>
-                        <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
-                          <Send size={14} /> شناسه تلگرام
-                        </label>
-                        <input
-                          className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500"
-                          value={
-                            settings.botMeetingAnnouncementTelegramId || ""
-                          }
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              botMeetingAnnouncementTelegramId: e.target.value,
-                            })
-                          }
-                          placeholder="-100..."
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <Send size={14} /> تلگرام (گروه اول)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={
+                              settings.botMeetingAnnouncementTelegramId || ""
+                            }
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementTelegramId: e.target.value,
+                              })
+                            }
+                            placeholder="-100..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <Send size={14} /> تلگرام (گروه دوم)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={
+                              settings.botMeetingAnnouncementSecondGroupIdTele || ""
+                            }
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementSecondGroupIdTele:
+                                  e.target.value,
+                              })
+                            }
+                            placeholder="-100..."
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
-                          <MessageCircle size={14} /> شناسه بله
-                        </label>
-                        <input
-                          className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500"
-                          value={settings.botMeetingAnnouncementBaleId || ""}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              botMeetingAnnouncementBaleId: e.target.value,
-                            })
-                          }
-                          placeholder="ID..."
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <MessageCircle size={14} /> بله (گروه اول)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={settings.botMeetingAnnouncementBaleId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementBaleId: e.target.value,
+                              })
+                            }
+                            placeholder="ID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <MessageCircle size={14} /> بله (گروه دوم)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={
+                              settings.botMeetingAnnouncementSecondGroupIdBale || ""
+                            }
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementSecondGroupIdBale:
+                                  e.target.value,
+                              })
+                            }
+                            placeholder="ID..."
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <Truck size={14} /> واتساپ (گروه اول)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={
+                              settings.botMeetingAnnouncementWhatsAppId ||
+                              settings.botMeetingAnnouncementGroupId ||
+                              ""
+                            }
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementWhatsAppId: e.target.value,
+                              })
+                            }
+                            placeholder="JID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-500 block mb-1.5 flex items-center gap-2">
+                            <Truck size={14} /> واتساپ (گروه دوم)
+                          </label>
+                          <input
+                            className="w-full border rounded-xl p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 ring-blue-500 shadow-sm"
+                            value={
+                              settings.botMeetingAnnouncementSecondGroupIdWhatsApp ||
+                              ""
+                            }
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                botMeetingAnnouncementSecondGroupIdWhatsApp:
+                                  e.target.value,
+                              })
+                            }
+                            placeholder="JID..."
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

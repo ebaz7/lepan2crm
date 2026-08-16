@@ -756,11 +756,43 @@ app.post('/api/sayan/sales-report/send-daily', async (req, res) => {
 app.post('/api/sayan/cheques-report/send-vault', async (req, res) => {
     try {
         const db = getDb();
-        const { customTargets, selectedPlatforms, attachPdf, attachExcel } = req.body;
-        const result = await sendTreasuryChequesReport(db, customTargets, selectedPlatforms, { attachPdf, attachExcel });
+        const { customTargets, selectedPlatforms, attachPdf, attachExcel, reportType, sortBy, sortOrder, filterBank, filterDrawer, customCheques, title } = req.body;
+        const result = await sendTreasuryChequesReport(db, customTargets, selectedPlatforms, { 
+            attachPdf, 
+            attachExcel, 
+            reportType: reportType || 'vault', 
+            sortBy, 
+            sortOrder, 
+            filterBank, 
+            filterDrawer, 
+            customCheques, 
+            title 
+        });
         res.json(result);
     } catch (err) {
         console.error("Manual Treasury Cheques Send Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/sayan/cheques-report/send', async (req, res) => {
+    try {
+        const db = getDb();
+        const { customTargets, selectedPlatforms, attachPdf, attachExcel, reportType, sortBy, sortOrder, filterBank, filterDrawer, customCheques, title } = req.body;
+        const result = await sendTreasuryChequesReport(db, customTargets, selectedPlatforms, { 
+            attachPdf, 
+            attachExcel, 
+            reportType: reportType || 'vault', 
+            sortBy, 
+            sortOrder, 
+            filterBank, 
+            filterDrawer, 
+            customCheques, 
+            title 
+        });
+        res.json(result);
+    } catch (err) {
+        console.error("Manual Cheques Send Error:", err);
         res.status(500).json({ error: err.message });
     }
 });

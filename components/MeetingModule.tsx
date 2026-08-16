@@ -26,6 +26,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
     const [viewMeeting, setViewMeeting] = useState<MeetingMinutes | null>(null);
     const [showPrintModal, setShowPrintModal] = useState<MeetingMinutes | null>(null);
     const [activeAttendeeIndex, setActiveAttendeeIndex] = useState<number | null>(null);
+    const [isSendingAction, setIsSendingAction] = useState(false);
     
     const [meetingForm, setMeetingForm] = useState<Partial<MeetingMinutes>>({
         date: '',
@@ -580,24 +581,32 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
     };
 
     const handleSendAnnouncement = async (meeting: MeetingMinutes) => {
+        if (isSendingAction) return;
         if (!window.confirm('آیا از ارسال اعلان برگزاری این جلسه اطمینان دارید؟')) return;
+        setIsSendingAction(true);
         try {
             await sendMeetingAnnouncement(meeting.id);
             alert('اعلان با موفقیت ارسال شد.');
             loadData();
         } catch (error) {
             alert('خطا در ارسال اعلان');
+        } finally {
+            setIsSendingAction(false);
         }
     };
 
     const handleSendMinutes = async (meeting: MeetingMinutes) => {
+        if (isSendingAction) return;
         if (!window.confirm('آیا از ارسال صورتجلسه تایید شده به گروه تولید اطمینان دارید؟')) return;
+        setIsSendingAction(true);
         try {
             await sendMeetingMinutes(meeting.id);
             alert('صورتجلسه با موفقیت ارسال شد.');
             loadData();
         } catch (error) {
             alert('خطا در ارسال صورتجلسه');
+        } finally {
+            setIsSendingAction(false);
         }
     };
 
