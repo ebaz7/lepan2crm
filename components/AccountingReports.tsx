@@ -2539,9 +2539,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     statusGroup = 'at_bank';
                 } else if (isSpentOrCashed) {
                     statusGroup = 'spent';
-                } else if (dueYear > 0 && dueYear < 1404) {
-                    // Cheques with due dates in 1403 or earlier are legacy closed/settled items
-                    statusGroup = 'spent';
                 } else {
                     statusGroup = 'in_hand';
                 }
@@ -2718,7 +2715,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const printTime = `${String(iranTime.getUTCHours()).padStart(2, '0')}:${String(iranTime.getUTCMinutes()).padStart(2, '0')}`;
 
         let statusTitle = "گزارش جامع اسناد دریافتنی و چک‌های خزانه‌داری";
-        if (chequeStatusFilter === 'in_hand') statusTitle = "گزارش رسمی چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)";
+        if (chequeStatusFilter === 'in_hand') statusTitle = "گزارش اسناد و چک‌های نزد صندوق خزانه‌داری";
         else if (chequeStatusFilter === 'returned') statusTitle = "گزارش رسمی چک‌های واخواست‌شده و برگشتی خزانه‌داری";
         else if (chequeStatusFilter === 'at_bank') statusTitle = "گزارش چک‌های واگذار شده به بانک (در جریان وصول)";
         else if (chequeStatusFilter === 'spent') statusTitle = "گزارش چک‌های وصول و خرج شده";
@@ -5932,7 +5929,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             {chequeBotTargetType === 'vault' && <Check className="w-4 h-4 text-blue-600" />}
                                         </div>
                                         <div className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                                            فقط چک‌های نزد صندوق خزانه‌داری (۱۴۰۴ به بعد)
+                                            اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری
                                         </div>
                                     </button>
 

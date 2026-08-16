@@ -4179,16 +4179,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             let tableRows = [];
 
             if (rows && rows.length > 0) {
-                const is1404PlusYear = (dateStr) => {
-                    if (!dateStr) return false;
-                    const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-                    if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
-                    if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
-                    return true;
-                };
-
                 const vaultRows = rows.filter(r => {
-                    if (!is1404PlusYear(r.DueDate)) return false;
                     const desc = String(r.StatusDesc || '').trim();
                     const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
                     const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
@@ -5572,22 +5563,6 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         return { count: 0, sent: false, error: 'شناسه گروه مقصد چک‌ها در تنظیمات ثبت نشده است.' };
     }
 
-    // Helper to check if a date is 1404 onwards
-    const is1404Plus = (dateStr) => {
-        if (!dateStr) return false;
-        const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-        if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
-        if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
-        try {
-            const d = new Date(str);
-            if (!isNaN(d.getTime())) {
-                const sh = toShamsiFull(d.toISOString());
-                return sh.startsWith('1404') || sh.startsWith('1405') || sh.startsWith('1406');
-            }
-        } catch (e) {}
-        return true;
-    };
-
     // Helper to format Jalali date string
     const toShamsiStr = (d) => {
         if (!d) return '-';
@@ -5603,6 +5578,10 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         } catch(e) {}
         return str;
     };
+
+    // Today in Shamsi
+    const now = new Date();
+    const todayShamsi = toShamsiFull(now.toISOString()).split(' ')[0].replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
 
     let treasuryCheques = [];
 
@@ -5648,9 +5627,6 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         if (Array.isArray(rows) && rows.length > 0) {
             rows.forEach(r => {
                 const dueShamsi = toShamsiStr(r.DueDate);
-                // Strictly exclude anything before 1404
-                if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
-
                 const desc = String(r.StatusDesc || '').trim();
                 const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
                 const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
@@ -5660,12 +5636,18 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 let matchesReportType = false;
                 if (reportType === 'returned') {
                     matchesReportType = isReturned;
+                } else if (reportType === 'not_due') {
+                    // Only active cheques with future due date
+                    matchesReportType = (!isAtBank && !isSpent && !isCashed && !isReturned) && (dueShamsi > todayShamsi);
+                } else if (reportType === 'overdue') {
+                    // Overdue cheques in vault
+                    matchesReportType = (!isAtBank && !isSpent && !isCashed && !isReturned) && (dueShamsi < todayShamsi);
                 } else if (reportType === 'vault') {
                     matchesReportType = (!isAtBank && !isSpent && !isCashed) || (isReturned && (desc.includes('صندوق') || !isSpent));
                 } else if (reportType === 'at_bank') {
                     matchesReportType = isAtBank;
                 } else {
-                    // all
+                    // all open receivables
                     matchesReportType = !isSpent && !isCashed;
                 }
 
@@ -5693,12 +5675,14 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             if (Array.isArray(rec.cheques)) {
                 rec.cheques.forEach(c => {
                     const dueShamsi = toShamsiStr(c.dueDate);
-                    if (!is1404Plus(dueShamsi) && !is1404Plus(c.dueDate)) return;
-
                     const status = c.chequeStatus || 'box';
                     let matchesStatus = false;
                     if (reportType === 'returned') {
                         matchesStatus = status === 'returned_to_box';
+                    } else if (reportType === 'not_due') {
+                        matchesStatus = status === 'box' && (dueShamsi > todayShamsi);
+                    } else if (reportType === 'overdue') {
+                        matchesStatus = status === 'box' && (dueShamsi < todayShamsi);
                     } else if (reportType === 'vault') {
                         matchesStatus = status === 'box' || status === 'returned_to_box';
                     } else if (reportType === 'at_bank') {
@@ -5752,13 +5736,10 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         return sortOrder === 'desc' ? -cmp : cmp;
     });
 
-    // Today in Shamsi
-    const now = new Date();
-    const todayShamsi = toShamsiFull(now.toISOString()).split(' ')[0].replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-
     let totalAmount = 0;
     let overdueCount = 0, overdueAmount = 0;
     let todayCount = 0, todayAmount = 0;
+    let futureCount = 0, futureAmount = 0;
     let returnedCount = 0, returnedAmount = 0;
 
     treasuryCheques.forEach(c => {
@@ -5766,13 +5747,19 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         if (c.isReturnedToBox) {
             returnedCount++;
             returnedAmount += c.amount;
-        }
-        if (c.dueDate < todayShamsi) {
+            c.computedStatus = 'برگشتی در صندوق';
+        } else if (c.dueDate < todayShamsi) {
             overdueCount++;
             overdueAmount += c.amount;
+            c.computedStatus = 'سررسید گذشته (معوق)';
         } else if (c.dueDate === todayShamsi) {
             todayCount++;
             todayAmount += c.amount;
+            c.computedStatus = 'سررسید امروز';
+        } else {
+            futureCount++;
+            futureAmount += c.amount;
+            c.computedStatus = 'سررسید آتی (نشده)';
         }
     });
 
@@ -5782,9 +5769,11 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             ? 'گزارش چک‌های برگشت‌خورده و واخواست‌شده خزانه‌داری' 
             : reportType === 'at_bank'
             ? 'گزارش چک‌های واگذارشده به بانک (در جریان وصول)'
+            : reportType === 'not_due'
+            ? 'گزارش چک‌های سررسید نشده خزانه‌داری (اسناد آتی)'
             : reportType === 'all'
             ? 'گزارش جامع اسناد و چک‌های دریافتنی'
-            : 'گزارش وضعیت چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)'
+            : 'گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری'
     );
 
     const sortLabel = sortBy === 'amount' 
@@ -5805,11 +5794,14 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
     if (reportType === 'returned') {
         msg += `⚠️ *مجموع چک‌های برگشتی:* ${returnedCount.toLocaleString('fa-IR')} فقره | ${Math.round(returnedAmount).toLocaleString('fa-IR')} ریال\n`;
     } else {
-        if (overdueCount > 0) {
-            msg += `⚠️ *چک‌های سررسید گذشته (اقدام فوری):* ${overdueCount.toLocaleString('fa-IR')} فقره | ${Math.round(overdueAmount).toLocaleString('fa-IR')} ریال\n`;
+        if (futureCount > 0) {
+            msg += `⏳ *چک‌های سررسید نشده (آتی):* ${futureCount.toLocaleString('fa-IR')} فقره | ${Math.round(futureAmount).toLocaleString('fa-IR')} ریال\n`;
         }
         if (todayCount > 0) {
             msg += `🔔 *سررسید امروز:* ${todayCount.toLocaleString('fa-IR')} فقره | ${Math.round(todayAmount).toLocaleString('fa-IR')} ریال\n`;
+        }
+        if (overdueCount > 0) {
+            msg += `⚠️ *چک‌های سررسید گذشته (معوق نزد صندوق):* ${overdueCount.toLocaleString('fa-IR')} فقره | ${Math.round(overdueAmount).toLocaleString('fa-IR')} ریال\n`;
         }
         if (returnedCount > 0) {
             msg += `🔄 *چک‌های برگشتی در صندوق:* ${returnedCount.toLocaleString('fa-IR')} فقره | ${Math.round(returnedAmount).toLocaleString('fa-IR')} ریال\n`;
@@ -5844,7 +5836,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             c.drawerName,
             c.bankName,
             Math.round(c.amount).toLocaleString('fa-IR'),
-            c.statusDesc
+            c.computedStatus || c.statusDesc
         ]);
         tableRows.push([
             'جمع کل',
