@@ -4179,7 +4179,16 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             let tableRows = [];
 
             if (rows && rows.length > 0) {
+                const is1404PlusYear = (dateStr) => {
+                    if (!dateStr) return false;
+                    const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+                    if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
+                    if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
+                    return true;
+                };
+
                 const vaultRows = rows.filter(r => {
+                    if (!is1404PlusYear(r.DueDate)) return false;
                     const desc = String(r.StatusDesc || '').trim();
                     const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
                     const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
@@ -5563,6 +5572,22 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         return { count: 0, sent: false, error: 'شناسه گروه مقصد چک‌ها در تنظیمات ثبت نشده است.' };
     }
 
+    // Helper to check if a date is 1404 onwards
+    const is1404Plus = (dateStr) => {
+        if (!dateStr) return false;
+        const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+        if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
+        if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
+        try {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const sh = toShamsiFull(d.toISOString());
+                return sh.startsWith('1404') || sh.startsWith('1405') || sh.startsWith('1406');
+            }
+        } catch (e) {}
+        return true;
+    };
+
     // Helper to format Jalali date string
     const toShamsiStr = (d) => {
         if (!d) return '-';
@@ -5627,6 +5652,9 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         if (Array.isArray(rows) && rows.length > 0) {
             rows.forEach(r => {
                 const dueShamsi = toShamsiStr(r.DueDate);
+                // Strictly exclude anything before 1404
+                if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
+
                 const desc = String(r.StatusDesc || '').trim();
                 const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
                 const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
@@ -5675,6 +5703,8 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             if (Array.isArray(rec.cheques)) {
                 rec.cheques.forEach(c => {
                     const dueShamsi = toShamsiStr(c.dueDate);
+                    if (!is1404Plus(dueShamsi) && !is1404Plus(c.dueDate)) return;
+
                     const status = c.chequeStatus || 'box';
                     let matchesStatus = false;
                     if (reportType === 'returned') {

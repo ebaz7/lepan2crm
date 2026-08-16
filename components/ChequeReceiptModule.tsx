@@ -1465,6 +1465,14 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
           const status = c.chequeStatus || 'box';
           const isActioned = status !== 'box';
           
+          if (status === 'box') {
+            const dueClean = (c.dueDate || '').trim().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+            const firstPart = parseInt(dueClean.split(/[\/\.\-]/)[0], 10);
+            if (firstPart >= 1300 && firstPart < 1404) {
+              return; // Exclude legacy closed cheques from prior years
+            }
+          }
+          
           if (isActioned) {
             // Exclude actioned (cashed/spent/deposited) cheques older than 2 years
             if (isChequeOlderThanYears(c.dueDate, 2)) {

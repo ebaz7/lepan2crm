@@ -42,7 +42,7 @@ const MODULE_OPTIONS = [
 const REPORT_TYPE_OPTIONS = [
   { value: 'daily_sales', label: 'گزارش روزانه عملکرد فروش (سایان ERP)' },
   { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش (امروز با دیروز / دو بازه)' },
-  { value: 'cheque_vault', label: '🏛️ گزارش جامع اسناد و چک‌های دریافتنی نزد صندوق (شامل سررسید آتی و گذشته)' },
+  { value: 'cheque_vault', label: '🏛️ گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
   { value: 'cheque_not_due', label: '⏳ فقط چک‌های سررسید نشده نزد صندوق (اسناد آتی)' },
   { value: 'cheque_overdue', label: '⚠️ فقط چک‌های سررسید گذشته / معوق نزد صندوق (پیگیری فوری)' },
   { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی' },
