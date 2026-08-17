@@ -1359,14 +1359,12 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_direct.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_p10.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_p8.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_p6.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_p4.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                     NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                     RTRIM(LTRIM(t11.Field_005)),
                     N'کالای بدون نام'
                 ) as ItemName,
@@ -1375,8 +1373,10 @@ app.get('/api/sayan/production-report', async (req, res) => {
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
                                       AND t11.Field_012 = t10.Field_018
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02_direct ON RTRIM(LTRIM(t02_direct.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
@@ -1391,23 +1391,38 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            LEFT JOIN IND_TBL_002 t_p10 ON RTRIM(LTRIM(t_p10.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 10)
-            LEFT JOIN IND_TBL_002 t_p8 ON RTRIM(LTRIM(t_p8.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 8)
-            LEFT JOIN IND_TBL_002 t_p6 ON RTRIM(LTRIM(t_p6.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 6)
-            LEFT JOIN IND_TBL_002 t_p4 ON RTRIM(LTRIM(t_p4.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 4)
             WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
                OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
-               OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t_p8.Field_003, t_p6.Field_003, '') LIKE N'%شوایتر%'
-               OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t_p8.Field_003, t_p6.Field_003, '') LIKE N'%شواتیز%')
+               OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
+               OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
-            ORDER BY COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
+            ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
         `;
 
         const rawRows = await executeSayanQuery(db, sql);
 
         const itemsMap = new Map();
         let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
+
+        const getKnownYarnNameByCode = (code, isSchweiter) => {
+            const c = String(code || '').replace(/[^0-9]/g, '');
+            if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
+            if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
+            if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
+            if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
+            if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
+            if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
+            if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
+            if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
+            if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
+            if (c.startsWith('0101')) return 'نخ POY';
+            if (c.startsWith('0104')) return 'نخ کش';
+            if (c.startsWith('0105')) return 'نخ اسپاندکس';
+            if (c.startsWith('0102')) return 'نخ شوایتر';
+            if (isSchweiter) return 'کالای شوایتر';
+            return 'کالای تولیدی';
+        };
 
         rawRows.forEach(r => {
             const itemCode = String(r.ItemCode || '').trim();
@@ -1421,12 +1436,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
             const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
             if (isPureCode) {
-                if (isSchwiterItem) rawName = `نخ شوایتر`;
-                else if (docType === '61') rawName = `نخ POY`;
-                else if (docType === '67') rawName = `نخ DTY`;
-                else if (docType === '79') rawName = `نخ کش`;
-                else if (docType === '73') rawName = `نخ اسپاندکس`;
-                else rawName = `کالای تولیدی`;
+                rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem);
             } else {
                 if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
                     rawName = `شوایتر - ${rawName}`;

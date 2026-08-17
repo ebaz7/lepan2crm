@@ -2122,14 +2122,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         RTRIM(LTRIM(t10.Field_009)) as DocType,
                         RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                         COALESCE(
+                            NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                             NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                            NULLIF(RTRIM(LTRIM(t02_direct.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t_p10.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t_p8.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t_p6.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t_p4.Field_003)), ''),
+                            NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
                             NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                             NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                            NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                             RTRIM(LTRIM(t11.Field_005)),
                             N'کالای بدون نام'
                         ) as ItemName,
@@ -2138,8 +2136,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                               AND t11.Field_003 = t10.Field_004
                                               AND t11.Field_012 = t10.Field_018
+                    LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                    LEFT JOIN IND_TBL_002 t02_direct ON RTRIM(LTRIM(t02_direct.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+                    LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+                    LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN (
                         SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                         FROM IND_TBL_021 t21_sub
@@ -2154,22 +2154,37 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                         GROUP BY t21_sub.Field_004
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-                    LEFT JOIN IND_TBL_002 t_p10 ON RTRIM(LTRIM(t_p10.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 10)
-                    LEFT JOIN IND_TBL_002 t_p8 ON RTRIM(LTRIM(t_p8.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 8)
-                    LEFT JOIN IND_TBL_002 t_p6 ON RTRIM(LTRIM(t_p6.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 6)
-                    LEFT JOIN IND_TBL_002 t_p4 ON RTRIM(LTRIM(t_p4.Field_008)) = LEFT(RTRIM(LTRIM(t11.Field_005)), 4)
                     WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
                        OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
-                       OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t_p8.Field_003, t_p6.Field_003, '') LIKE N'%شوایتر%'
-                       OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t_p8.Field_003, t_p6.Field_003, '') LIKE N'%شواتیز%')
+                       OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
+                       OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
                       AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
-                    ORDER BY COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
+                    ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
                 `;
                 
                 const rawRows = await runSayanQuery(sql);
                 const itemsMap = new Map();
                 let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
+
+                const getKnownYarnNameByCode = (code: string, isSchweiter: boolean): string => {
+                    const c = code.replace(/[^0-9]/g, '');
+                    if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
+                    if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
+                    if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
+                    if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
+                    if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
+                    if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
+                    if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
+                    if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
+                    if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
+                    if (c.startsWith('0101')) return 'نخ POY';
+                    if (c.startsWith('0104')) return 'نخ کش';
+                    if (c.startsWith('0105')) return 'نخ اسپاندکس';
+                    if (c.startsWith('0102')) return 'نخ شوایتر';
+                    if (isSchweiter) return 'کالای شوایتر';
+                    return 'کالای تولیدی';
+                };
 
                 rawRows.forEach((r: any) => {
                     const itemCode = String(r.ItemCode || '').trim();
@@ -2183,12 +2198,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
                     if (isPureCode) {
-                        if (isSchwiterItem) rawName = `نخ شوایتر`;
-                        else if (docType === '61') rawName = `نخ POY`;
-                        else if (docType === '67') rawName = `نخ DTY`;
-                        else if (docType === '79') rawName = `نخ کش`;
-                        else if (docType === '73') rawName = `نخ اسپاندکس`;
-                        else rawName = `کالای تولیدی`;
+                        rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem);
                     } else {
                         if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
                             rawName = `شوایتر - ${rawName}`;
@@ -2534,16 +2544,35 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         try {
             const sql = `
                 SELECT 
-                    Field_001 as Id,
-                    Field_004 as StatusType,
-                    Field_005 as ChequeNo,
-                    Field_006 as DueDate,
-                    Field_009 as BankName,
-                    Field_011 as DrawerName,
-                    Field_013 as Amount,
-                    Field_015 as StatusDesc
-                FROM BUR_TBL_012
-                ORDER BY Field_006 ASC
+                    t12.Field_001 as Id,
+                    t12.Field_004 as StatusType,
+                    t12.Field_005 as ChequeNo,
+                    t12.Field_006 as DueDate,
+                    t12.Field_008 as IsActive,
+                    t12.Field_009 as BankName,
+                    t12.Field_011 as DrawerName,
+                    t12.Field_013 as Amount,
+                    t12.Field_014 as Field014,
+                    t12.Field_015 as StatusDesc,
+                    t12.Field_016 as StatusCode,
+                    t12.Field_017 as Field017,
+                    t_last_op.LastOpCode,
+                    t_last_op.LastOpAccount
+                FROM BUR_TBL_012 t12
+                LEFT JOIN (
+                    SELECT 
+                        t09.Field_006 as ChequeId,
+                        t09.Field_004 as LastOpCode,
+                        t09.Field_010 as LastOpAccount
+                    FROM BUR_TBL_009 t09
+                    INNER JOIN (
+                        SELECT Field_006 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
+                        FROM BUR_TBL_009
+                        WHERE Field_006 IS NOT NULL AND RTRIM(LTRIM(Field_006)) <> ''
+                        GROUP BY Field_006
+                    ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
+                ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
+                ORDER BY t12.Field_006 ASC
             `;
             const data = await runSayanQuery(sql);
             const mapped = data.map((row: any) => {
@@ -2572,7 +2601,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const dueYear = getDueYear(row.DueDate);
                 
+                const lastOp = String(row.LastOpCode || '').trim();
                 const statusType = String(row.StatusType || '').trim();
+                const statusCode = String(row.StatusCode || '').trim();
                 const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)));
                 
                 // Clean normalized string for robust matching
@@ -2585,7 +2616,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .trim();
 
                 // 1. Explicitly Returned / Bounced
-                const isReturned = statusType === '4' || 
+                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' ||
                                    normDesc.includes('برگشت') || 
                                    normDesc.includes('واخواست') || 
                                    normDesc.includes('عدم پرداخت') || 
@@ -2599,48 +2630,34 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             normDesc.includes('وصول‌نشده') || 
                                             normDesc.includes('غیر وصول');
 
-                const mentionsBank = normDesc.includes('بانک') ||
-                                     normDesc.includes('ملت') ||
-                                     normDesc.includes('ملی') ||
-                                     normDesc.includes('صادرات') ||
-                                     normDesc.includes('تجارت') ||
-                                     normDesc.includes('سپه') ||
-                                     normDesc.includes('کشاورزی') ||
-                                     normDesc.includes('سامان') ||
-                                     normDesc.includes('پارسیان') ||
-                                     normDesc.includes('پاسارگاد') ||
-                                     normDesc.includes('رفاه') ||
-                                     normDesc.includes('شهر') ||
-                                     normDesc.includes('دی') ||
-                                     normDesc.includes('سینا') ||
-                                     normDesc.includes('رسالت') ||
-                                     normDesc.includes('گردشگری') ||
-                                     normDesc.includes('قوامین') ||
-                                     normDesc.includes('حساب');
-
                 const isSpentOrCashed = !isReturned && (
+                    lastOp === '14' || lastOp === '17' || lastOp === '18' ||
                     statusType === '3' || statusType === '5' || statusType === '6' ||
+                    statusCode === '3' || statusCode === '5' || statusCode === '6' ||
                     chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                    (!hasExplicitNotCashed && normDesc.includes('وصول') && !normDesc.includes('در جریان')) ||
+                    (!hasExplicitNotCashed && normDesc.includes('وصول') && !normDesc.includes('در جریان') && !normDesc.includes('درجریان')) ||
                     normDesc.includes('پاس') ||
                     normDesc.includes('تسویه') ||
                     normDesc.includes('خرج') ||
                     normDesc.includes('پرداخت') ||
                     normDesc.includes('انتقال') ||
                     normDesc.includes('واریز') ||
-                    normDesc.includes('نقد')
+                    (normDesc.includes('ملت') && normDesc.includes('وصول')) ||
+                    (normDesc.includes('بانک') && normDesc.includes('وصول') && !hasExplicitNotCashed)
                 );
 
                 // 3. Cheques currently at bank (deposited in collection, not yet cashed)
                 const isAtBank = !isReturned && !isSpentOrCashed && (
+                    lastOp === '13' ||
                     statusType === '2' ||
+                    statusCode === '2' ||
                     normDesc.includes('در جریان') ||
                     normDesc.includes('درجریان') ||
                     normDesc.includes('واگذار') ||
                     normDesc.includes('واگذاری') ||
                     normDesc.includes('خوابانده') ||
                     normDesc.includes('کلر') ||
-                    (mentionsBank && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
+                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
                 );
 
                 let statusGroup = 'in_hand'; // default نزد صندوق
@@ -2651,8 +2668,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 } else if (isAtBank) {
                     statusGroup = 'at_bank';
                 } else if (dueYear > 0 && dueYear < 1404) {
-                    statusGroup = 'spent';
-                } else if (mentionsBank && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق')) {
                     statusGroup = 'spent';
                 } else if (statusType !== '' && statusType !== '1' && statusType !== '0') {
                     statusGroup = 'spent';

@@ -4159,15 +4159,35 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                 try {
                     const sql = `
                         SELECT 
-                            Field_001 as Id,
-                            Field_005 as ChequeNo,
-                            Field_006 as DueDate,
-                            Field_009 as BankName,
-                            Field_011 as DrawerName,
-                            Field_013 as Amount,
-                            Field_015 as StatusDesc
-                        FROM BUR_TBL_012
-                        ORDER BY Field_006 ASC
+                            t12.Field_001 as Id,
+                            t12.Field_004 as StatusType,
+                            t12.Field_005 as ChequeNo,
+                            t12.Field_006 as DueDate,
+                            t12.Field_008 as IsActive,
+                            t12.Field_009 as BankName,
+                            t12.Field_011 as DrawerName,
+                            t12.Field_013 as Amount,
+                            t12.Field_014 as Field014,
+                            t12.Field_015 as StatusDesc,
+                            t12.Field_016 as StatusCode,
+                            t12.Field_017 as Field017,
+                            t_last_op.LastOpCode,
+                            t_last_op.LastOpAccount
+                        FROM BUR_TBL_012 t12
+                        LEFT JOIN (
+                            SELECT 
+                                t09.Field_006 as ChequeId,
+                                t09.Field_004 as LastOpCode,
+                                t09.Field_010 as LastOpAccount
+                            FROM BUR_TBL_009 t09
+                            INNER JOIN (
+                                SELECT Field_006 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
+                                FROM BUR_TBL_009
+                                WHERE Field_006 IS NOT NULL AND RTRIM(LTRIM(Field_006)) <> ''
+                                GROUP BY Field_006
+                            ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
+                        ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
+                        ORDER BY t12.Field_006 ASC
                     `;
                     rows = await runSayanQuery(db, sql);
                 } catch (err) {
@@ -4189,7 +4209,9 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
 
                 const vaultRows = rows.filter(r => {
                     if (!is1404PlusYear(r.DueDate)) return false;
+                    const lastOp = String(r.LastOpCode || '').trim();
                     const statusType = String(r.StatusType || '').trim();
+                    const statusCode = String(r.StatusCode || '').trim();
                     const chequeNo = String(r.ChequeNo || r.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
                     const rawDesc = String(r.StatusDesc || '').trim();
                     const cleanDesc = rawDesc
@@ -4200,7 +4222,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         .toLowerCase()
                         .trim();
 
-                    const isReturned = statusType === '4' || 
+                    const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' ||
                                        cleanDesc.includes('برگشت') || 
                                        cleanDesc.includes('واخواست') || 
                                        cleanDesc.includes('عدم پرداخت') || 
@@ -4213,51 +4235,36 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                                                 cleanDesc.includes('وصول‌نشده') || 
                                                 cleanDesc.includes('غیر وصول');
 
-                    const mentionsBank = cleanDesc.includes('بانک') ||
-                                         cleanDesc.includes('ملت') ||
-                                         cleanDesc.includes('ملی') ||
-                                         cleanDesc.includes('صادرات') ||
-                                         cleanDesc.includes('تجارت') ||
-                                         cleanDesc.includes('سپه') ||
-                                         cleanDesc.includes('کشاورزی') ||
-                                         cleanDesc.includes('سامان') ||
-                                         cleanDesc.includes('پارسیان') ||
-                                         cleanDesc.includes('پاسارگاد') ||
-                                         cleanDesc.includes('رفاه') ||
-                                         cleanDesc.includes('شهر') ||
-                                         cleanDesc.includes('دی') ||
-                                         cleanDesc.includes('سینا') ||
-                                         cleanDesc.includes('رسالت') ||
-                                         cleanDesc.includes('گردشگری') ||
-                                         cleanDesc.includes('قوامین') ||
-                                         cleanDesc.includes('حساب');
-
                     const isCashed = !isReturned && (
+                        lastOp === '14' || lastOp === '17' || lastOp === '18' ||
                         statusType === '3' || statusType === '5' || statusType === '6' ||
+                        statusCode === '3' || statusCode === '5' || statusCode === '6' ||
                         chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                        (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
+                        (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
                         cleanDesc.includes('پاس') ||
                         cleanDesc.includes('تسویه') ||
                         cleanDesc.includes('خرج') ||
                         cleanDesc.includes('پرداخت') ||
                         cleanDesc.includes('انتقال') ||
                         cleanDesc.includes('واریز') ||
-                        cleanDesc.includes('نقد')
+                        (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
+                        (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed)
                     );
 
                     const isAtBank = !isReturned && !isCashed && (
+                        lastOp === '13' ||
                         statusType === '2' ||
+                        statusCode === '2' ||
                         cleanDesc.includes('در جریان') ||
                         cleanDesc.includes('درجریان') ||
                         cleanDesc.includes('واگذار') ||
                         cleanDesc.includes('واگذاری') ||
                         cleanDesc.includes('خوابانده') ||
                         cleanDesc.includes('کلر') ||
-                        (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                     );
 
                     if (isAtBank || isCashed || isReturned || (statusType !== '' && statusType !== '1' && statusType !== '0')) return false;
-                    if (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق')) return false;
                     return true;
                 });
 
@@ -5695,16 +5702,35 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             try {
                 const sql = `
                     SELECT 
-                        Field_001 as Id,
-                        Field_004 as StatusType,
-                        Field_005 as ChequeNo,
-                        Field_006 as DueDate,
-                        Field_009 as BankName,
-                        Field_011 as DrawerName,
-                        Field_013 as Amount,
-                        Field_015 as StatusDesc
-                    FROM BUR_TBL_012
-                    ORDER BY Field_006 ASC
+                        t12.Field_001 as Id,
+                        t12.Field_004 as StatusType,
+                        t12.Field_005 as ChequeNo,
+                        t12.Field_006 as DueDate,
+                        t12.Field_008 as IsActive,
+                        t12.Field_009 as BankName,
+                        t12.Field_011 as DrawerName,
+                        t12.Field_013 as Amount,
+                        t12.Field_014 as Field014,
+                        t12.Field_015 as StatusDesc,
+                        t12.Field_016 as StatusCode,
+                        t12.Field_017 as Field017,
+                        t_last_op.LastOpCode,
+                        t_last_op.LastOpAccount
+                    FROM BUR_TBL_012 t12
+                    LEFT JOIN (
+                        SELECT 
+                            t09.Field_006 as ChequeId,
+                            t09.Field_004 as LastOpCode,
+                            t09.Field_010 as LastOpAccount
+                        FROM BUR_TBL_009 t09
+                        INNER JOIN (
+                            SELECT Field_006 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
+                            FROM BUR_TBL_009
+                            WHERE Field_006 IS NOT NULL AND RTRIM(LTRIM(Field_006)) <> ''
+                            GROUP BY Field_006
+                        ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
+                    ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
+                    ORDER BY t12.Field_006 ASC
                 `;
                 rows = await runSayanQuery(db, sql);
             } catch (err) {
@@ -5719,7 +5745,9 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 // Strictly exclude anything before 1404
                 if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
 
+                const lastOp = String(r.LastOpCode || '').trim();
                 const statusType = String(r.StatusType || '').trim();
+                const statusCode = String(r.StatusCode || '').trim();
                 const chequeNo = String(r.ChequeNo || r.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
                 const rawDesc = String(r.StatusDesc || '').trim();
                 const cleanDesc = rawDesc
@@ -5730,7 +5758,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     .toLowerCase()
                     .trim();
 
-                const isReturned = statusType === '4' || 
+                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' || 
                                    cleanDesc.includes('برگشت') || 
                                    cleanDesc.includes('واخواست') || 
                                    cleanDesc.includes('عدم پرداخت') || 
@@ -5743,48 +5771,34 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                                             cleanDesc.includes('وصول‌نشده') || 
                                             cleanDesc.includes('غیر وصول');
 
-                const mentionsBank = cleanDesc.includes('بانک') ||
-                                     cleanDesc.includes('ملت') ||
-                                     cleanDesc.includes('ملی') ||
-                                     cleanDesc.includes('صادرات') ||
-                                     cleanDesc.includes('تجارت') ||
-                                     cleanDesc.includes('سپه') ||
-                                     cleanDesc.includes('کشاورزی') ||
-                                     cleanDesc.includes('سامان') ||
-                                     cleanDesc.includes('پارسیان') ||
-                                     cleanDesc.includes('پاسارگاد') ||
-                                     cleanDesc.includes('رفاه') ||
-                                     cleanDesc.includes('شهر') ||
-                                     cleanDesc.includes('دی') ||
-                                     cleanDesc.includes('سینا') ||
-                                     cleanDesc.includes('رسالت') ||
-                                     cleanDesc.includes('گردشگری') ||
-                                     cleanDesc.includes('قوامین') ||
-                                     cleanDesc.includes('حساب');
-
                 const isCashed = !isReturned && (
+                    lastOp === '14' || lastOp === '17' || lastOp === '18' ||
                     statusType === '3' || statusType === '5' || statusType === '6' ||
+                    statusCode === '3' || statusCode === '5' || statusCode === '6' ||
                     chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
+                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
                     cleanDesc.includes('پاس') ||
                     cleanDesc.includes('تسویه') ||
                     cleanDesc.includes('خرج') ||
                     cleanDesc.includes('پرداخت') ||
                     cleanDesc.includes('انتقال') ||
                     cleanDesc.includes('واریز') ||
-                    cleanDesc.includes('نقد') ||
+                    (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
+                    (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed) ||
                     (statusType !== '' && statusType !== '1' && statusType !== '0')
                 );
 
                 const isAtBank = !isReturned && !isCashed && (
+                    lastOp === '13' ||
                     statusType === '2' ||
+                    statusCode === '2' ||
                     cleanDesc.includes('در جریان') ||
                     cleanDesc.includes('درجریان') ||
                     cleanDesc.includes('واگذار') ||
                     cleanDesc.includes('واگذاری') ||
                     cleanDesc.includes('خوابانده') ||
                     cleanDesc.includes('کلر') ||
-                    (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                 );
 
                 let matchesReportType = false;
