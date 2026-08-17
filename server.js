@@ -1391,10 +1391,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70', '68', '63', '65', '75', '80') 
-               OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
-               OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
-               OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
+            WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
             ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
@@ -1405,7 +1402,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
         const itemsMap = new Map();
         let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
 
-        const getKnownYarnNameByCode = (code, isSchweiter, docType) => {
+        const getKnownYarnNameByCode = (code, docType) => {
             const c = String(code || '').replace(/[^0-9]/g, '');
             if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
             if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
@@ -1419,7 +1416,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
             if (c.startsWith('0101')) return 'نخ POY';
             if (c.startsWith('0104')) return 'نخ کش';
             if (c.startsWith('0105')) return 'نخ اسپاندکس';
-            if (c.startsWith('0102') || docType === '70' || isSchweiter) return 'نخ شوایتر';
+            if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
             if (docType === '61') return 'نخ POY';
             if (docType === '67') return 'نخ DTY';
             if (docType === '79') return 'نخ کش';
@@ -1431,19 +1428,13 @@ app.get('/api/sayan/production-report', async (req, res) => {
             const itemCode = String(r.ItemCode || '').trim();
             let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
             const qty = parseFloat(r.Quantity || 0);
-            const docType = String(r.DocType).trim();
-            const lowerName = rawName.toLowerCase();
-            const isSchwiterItem = docType === '70' || itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['70', '68', '63', '65', '75', '80'].includes(docType);
+            const docType = String(r.DocType || '').trim();
 
             const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
             const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
             if (isPureCode) {
-                rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem, docType);
-            } else {
-                if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
-                    rawName = `شوایتر - ${rawName}`;
-                }
+                rawName = getKnownYarnNameByCode(itemCode, docType);
             }
 
             if (!itemsMap.has(rawName)) {
@@ -1460,12 +1451,11 @@ app.get('/api/sayan/production-report', async (req, res) => {
             }
 
             const item = itemsMap.get(rawName);
-            if (isSchwiterItem) { item.qty_schweiter += qty; qty_schweiter += qty; }
-            else if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
+            if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
             else if (docType === '67') { item.qty_67 += qty; qty_67 += qty; }
             else if (docType === '79') { item.qty_79 += qty; qty_79 += qty; }
             else if (docType === '73') { item.qty_73 += qty; qty_73 += qty; }
-            else { item.qty_schweiter += qty; qty_schweiter += qty; }
+            else if (docType === '70') { item.qty_schweiter += qty; qty_schweiter += qty; }
             item.total += qty;
         });
 

@@ -2154,10 +2154,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                         GROUP BY t21_sub.Field_004
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-                    WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70', '68', '63', '65', '75', '80') 
-                       OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
-                       OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
-                       OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
+                    WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
                       AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
                     ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
@@ -2167,7 +2164,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 const itemsMap = new Map();
                 let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
 
-                const getKnownYarnNameByCode = (code: string, isSchweiter: boolean, docType?: string): string => {
+                const getKnownYarnNameByCode = (code: string, docType?: string): string => {
                     const c = code.replace(/[^0-9]/g, '');
                     if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
                     if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
@@ -2181,7 +2178,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     if (c.startsWith('0101')) return 'نخ POY';
                     if (c.startsWith('0104')) return 'نخ کش';
                     if (c.startsWith('0105')) return 'نخ اسپاندکس';
-                    if (c.startsWith('0102') || docType === '70' || isSchweiter) return 'نخ شوایتر';
+                    if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
                     if (docType === '61') return 'نخ POY';
                     if (docType === '67') return 'نخ DTY';
                     if (docType === '79') return 'نخ کش';
@@ -2193,19 +2190,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     const itemCode = String(r.ItemCode || '').trim();
                     let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
                     const qty = parseFloat(r.Quantity || 0);
-                    const docType = String(r.DocType).trim();
-                    const lowerName = rawName.toLowerCase();
-                    const isSchwiterItem = docType === '70' || itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['70', '68', '63', '65', '75', '80'].includes(docType);
+                    const docType = String(r.DocType || '').trim();
 
                     const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
                     const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
                     if (isPureCode) {
-                        rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem, docType);
-                    } else {
-                        if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
-                            rawName = `شوایتر - ${rawName}`;
-                        }
+                        rawName = getKnownYarnNameByCode(itemCode, docType);
                     }
 
                     if (!itemsMap.has(rawName)) {
@@ -2222,12 +2213,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     }
 
                     const item = itemsMap.get(rawName);
-                    if (isSchwiterItem) { item.qty_schweiter += qty; qSchweiter += qty; }
-                    else if (docType === '61') { item.qty_61 += qty; q61 += qty; }
+                    if (docType === '61') { item.qty_61 += qty; q61 += qty; }
                     else if (docType === '67') { item.qty_67 += qty; q67 += qty; }
                     else if (docType === '79') { item.qty_79 += qty; q79 += qty; }
                     else if (docType === '73') { item.qty_73 += qty; q73 += qty; }
-                    else { item.qty_schweiter += qty; qSchweiter += qty; }
+                    else if (docType === '70') { item.qty_schweiter += qty; qSchweiter += qty; }
                     item.total += qty;
                 });
 
@@ -2575,6 +2565,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         GROUP BY Field_006
                     ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
                 ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
+                             OR CAST(t12.Field_005 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
                 ORDER BY t12.Field_006 ASC
             `;
             const data = await runSayanQuery(sql);
@@ -2607,6 +2598,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 const lastOp = String(row.LastOpCode || '').trim();
                 const statusType = String(row.StatusType || '').trim();
                 const statusCode = String(row.StatusCode || '').trim();
+                const isActive = String(row.IsActive ?? '1').trim();
                 const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)));
                 
                 // Clean normalized string for robust matching
@@ -2626,32 +2618,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                    normDesc.includes('عودت') || 
                                    normDesc.includes('نکول');
 
-                // 2. Explicitly Cashed / Cleared / Spent / Settled / Deposited
-                const hasExplicitNotCashed = normDesc.includes('وصول نشده') || 
-                                            normDesc.includes('وصول نشد') || 
-                                            normDesc.includes('عدم وصول') || 
-                                            normDesc.includes('وصول‌نشده') || 
-                                            normDesc.includes('غیر وصول');
-
-                const isSpentOrCashed = !isReturned && (
-                    lastOp === '14' || lastOp === '17' || lastOp === '18' ||
-                    statusType === '3' || statusType === '5' || statusType === '6' ||
-                    statusCode === '3' || statusCode === '5' || statusCode === '6' ||
-                    chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                    (!hasExplicitNotCashed && normDesc.includes('وصول') && !normDesc.includes('در جریان') && !normDesc.includes('درجریان')) ||
-                    normDesc.includes('پاس') ||
-                    normDesc.includes('تسویه') ||
-                    normDesc.includes('خرج') ||
-                    normDesc.includes('پرداخت') ||
-                    normDesc.includes('انتقال') ||
-                    normDesc.includes('واریز') ||
-                    (normDesc.includes('ملت') && normDesc.includes('وصول')) ||
-                    (normDesc.includes('بانک') && normDesc.includes('وصول') && !hasExplicitNotCashed)
-                );
-
-                // 3. Cheques currently at bank (deposited in collection, not yet cashed)
-                const isAtBank = !isReturned && !isSpentOrCashed && (
-                    lastOp === '13' ||
+                // 2. Cheques currently at bank (deposited in collection / خوابانده به حساب) -> NOT in vault
+                const isAtBank = !isReturned && (
+                    lastOp === '13' || lastOp === '2' ||
                     statusType === '2' ||
                     statusCode === '2' ||
                     normDesc.includes('در جریان') ||
@@ -2663,16 +2632,39 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
                 );
 
+                // 3. Explicitly Cashed / Cleared / Spent / Settled -> NOT in vault
+                const hasExplicitNotCashed = normDesc.includes('وصول نشده') || 
+                                            normDesc.includes('وصول نشد') || 
+                                            normDesc.includes('عدم وصول') || 
+                                            normDesc.includes('وصول‌نشده') || 
+                                            normDesc.includes('غیر وصول');
+
+                const isSpentOrCashed = !isReturned && !isAtBank && (
+                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
+                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
+                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
+                    chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
+                    (!hasExplicitNotCashed && normDesc.includes('وصول') && !normDesc.includes('در جریان') && !normDesc.includes('درجریان')) ||
+                    normDesc.includes('پاس') ||
+                    normDesc.includes('تسویه') ||
+                    normDesc.includes('خرج') ||
+                    normDesc.includes('پرداخت') ||
+                    normDesc.includes('انتقال') ||
+                    normDesc.includes('واریز') ||
+                    (normDesc.includes('ملت') && normDesc.includes('وصول')) ||
+                    (normDesc.includes('بانک') && normDesc.includes('وصول') && !hasExplicitNotCashed) ||
+                    (statusType !== '' && statusType !== '1' && statusType !== '0') ||
+                    isActive === '0' || isActive === 'false'
+                );
+
                 let statusGroup = 'in_hand'; // default نزد صندوق
                 if (isReturned) {
                     statusGroup = 'returned';
-                } else if (isSpentOrCashed) {
-                    statusGroup = 'spent';
                 } else if (isAtBank) {
                     statusGroup = 'at_bank';
-                } else if (dueYear > 0 && dueYear < 1404) {
+                } else if (isSpentOrCashed) {
                     statusGroup = 'spent';
-                } else if (statusType !== '' && statusType !== '1' && statusType !== '0') {
+                } else if (dueYear > 0 && dueYear < 1404) {
                     statusGroup = 'spent';
                 } else {
                     statusGroup = 'in_hand';
