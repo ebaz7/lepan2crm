@@ -6195,7 +6195,7 @@ const Settings: React.FC<SettingsProps> = ({
                     </div>
                     <div className="grid grid-cols-1 gap-4">
                       <div>
-                        <label className="flex items-center gap-2 cursor-pointer mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                        <label className="flex items-center gap-2 cursor-pointer p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                           <div className="relative">
                             <input 
                               type="checkbox" 
@@ -6211,122 +6211,6 @@ const Settings: React.FC<SettingsProps> = ({
                             <div className="text-xs text-indigo-700 mt-0.5">در صورت فعال بودن، در بخش خروج کارخانه و تاییدات انبار با سایان ارتباط برقرار می‌شود.</div>
                           </div>
                         </label>
-                      </div>
-                      <div>
-                        <label className="text-xs font-black text-gray-500 block mb-1">
-                          آدرس API سرور سایان (SAYAN API URL)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="http://192.168.41.225:3000/api/external/v1"
-                          className="w-full border border-gray-200 rounded-xl p-3 text-sm dir-ltr outline-none"
-                          value={settings.sayanApiUrl || ""}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              sayanApiUrl: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-black text-gray-500 block mb-1">
-                          توکن امنیتی (Bearer Token) - ضد تداخل مرورگر
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            autoComplete="off"
-                            data-lpignore="true"
-                            placeholder="s_gate_live_..."
-                            className="flex-1 border border-gray-200 rounded-xl p-3 text-sm dir-ltr bg-slate-50 font-mono text-xs focus:bg-white focus:ring-2 ring-indigo-500 outline-none"
-                            value={settings.sayanApiKey || ""}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                sayanApiKey: e.target.value,
-                              })
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!settings.sayanApiUrl)
-                                return alert("❌ ابتدا آدرس API را وارد کنید");
-                              const url = settings.sayanApiUrl.replace(
-                                /\/$/,
-                                "",
-                              );
-                              try {
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(
-                                  () => controller.abort(),
-                                  8000,
-                                );
-
-                                const res = await fetch("/api/sayan-proxy", {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    url: `${url}/invoices`,
-                                    headers: {
-                                      Authorization: `Bearer ${settings.sayanApiKey}`,
-                                    },
-                                    method: "GET",
-                                  }),
-                                  signal: controller.signal,
-                                });
-
-                                clearTimeout(timeoutId);
-
-                                const data = await res.json();
-
-                                if (res.ok) {
-                                  alert(
-                                    "✅ اتصال از طریق پروکسی موفقیت‌آمیز بود!\nسرور برنامه توانست به پل سایان وصل شود.",
-                                  );
-                                } else {
-                                  if (res.status === 500) {
-                                    if (data.isLocalIp) {
-                                      alert(
-                                        "⚠️ خطا: آدرس IP وارد شده یک IP محلی (Private) است.\n\nسرور برنامه که در اینترنت قرار دارد نمی‌تواند مستقیم به سیستم شما وصل شود مگر اینکه:\n۱. از یک توکل مانند Ngrok استفاده کنید.\n۲. یا IP استاتیک (Public) داشته باشید و پورت را باز کنید.",
-                                      );
-                                    } else {
-                                      alert(
-                                        `⚠️ مشکل در اتصال پل:\n${data.details || "خطای ناشناخته"}`,
-                                      );
-                                    }
-                                  } else if (
-                                    res.status === 401 ||
-                                    res.status === 403
-                                  ) {
-                                    alert(
-                                      `❌ خطای احراز هویت (${res.status}):\nتوکن Bearer اشتباه است یا منقضی شده است.`,
-                                    );
-                                  } else {
-                                    alert(
-                                      `❌ خطای پاسخ سرور (${res.status}): ${res.statusText}`,
-                                    );
-                                  }
-                                }
-                              } catch (e: any) {
-                                console.error("Test Connection Error:", e);
-                                alert(
-                                  "❌ خطای ارتباط با سرور برنامه! مطمئن شوید که به اینترنت متصل هستید.",
-                                );
-                              }
-                            }}
-                            className="bg-blue-600 text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap hover:bg-blue-700 transition-colors"
-                          >
-                            تست اتصال (از طریق سرور)
-                          </button>
-                        </div>
-                        <p className="text-[9px] text-gray-400 mt-1 font-bold">
-                          فقط کد توکن را وارد کنید. کلمه Bearer به صورت خودکار
-                          اضافه می‌شود.
-                        </p>
                       </div>
                     </div>
                     <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex gap-3 items-start">

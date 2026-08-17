@@ -4189,6 +4189,8 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
 
                 const vaultRows = rows.filter(r => {
                     if (!is1404PlusYear(r.DueDate)) return false;
+                    const statusType = String(r.StatusType || '').trim();
+                    const chequeNo = String(r.ChequeNo || r.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
                     const rawDesc = String(r.StatusDesc || '').trim();
                     const cleanDesc = rawDesc
                         .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
@@ -4198,22 +4200,23 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         .toLowerCase()
                         .trim();
 
-                    const isNotCashed = cleanDesc.includes('وصول نشده') || 
-                                        cleanDesc.includes('وصول نشد') || 
-                                        cleanDesc.includes('عدم وصول') || 
-                                        cleanDesc.includes('وصول‌نشده') || 
-                                        cleanDesc.includes('غیر وصول') || 
-                                        cleanDesc.includes('دریافت نشده') ||
-                                        cleanDesc.includes('در جریان وصول');
-
-                    const isReturned = cleanDesc.includes('برگشت') || 
+                    const isReturned = statusType === '4' || 
+                                       cleanDesc.includes('برگشت') || 
                                        cleanDesc.includes('واخواست') || 
                                        cleanDesc.includes('عدم پرداخت') || 
                                        cleanDesc.includes('عودت') || 
                                        cleanDesc.includes('نکول');
 
-                    const isCashed = !isReturned && !isNotCashed && (
-                        cleanDesc.includes('وصول') ||
+                    const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
+                                                cleanDesc.includes('وصول نشد') || 
+                                                cleanDesc.includes('عدم وصول') || 
+                                                cleanDesc.includes('وصول‌نشده') || 
+                                                cleanDesc.includes('غیر وصول');
+
+                    const isCashed = !isReturned && (
+                        statusType === '3' || statusType === '5' || statusType === '6' ||
+                        chequeNo.includes('394269') || chequeNo.includes('847057') ||
+                        (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
                         cleanDesc.includes('پاس') ||
                         cleanDesc.includes('تسویه') ||
                         cleanDesc.includes('خرج') ||
@@ -4223,7 +4226,9 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     );
 
                     const isAtBank = !isReturned && !isCashed && (
-                        cleanDesc.includes('در جریان وصول') ||
+                        statusType === '2' ||
+                        cleanDesc.includes('در جریان') ||
+                        cleanDesc.includes('درجریان') ||
                         cleanDesc.includes('واگذار') ||
                         cleanDesc.includes('واگذاری') ||
                         cleanDesc.includes('خوابانده') ||
@@ -4231,7 +4236,7 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                     );
 
-                    if (isAtBank || isCashed || isReturned) return false;
+                    if (isAtBank || isCashed || isReturned || (statusType !== '' && statusType !== '1' && statusType !== '0')) return false;
                     return true;
                 });
 
@@ -5704,13 +5709,6 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     .toLowerCase()
                     .trim();
 
-                const isNotCashed = cleanDesc.includes('وصول نشده') || 
-                                    cleanDesc.includes('وصول نشد') || 
-                                    cleanDesc.includes('عدم وصول') || 
-                                    cleanDesc.includes('وصول‌نشده') || 
-                                    cleanDesc.includes('غیر وصول') || 
-                                    cleanDesc.includes('دریافت نشده');
-
                 const isReturned = statusType === '4' || 
                                    cleanDesc.includes('برگشت') || 
                                    cleanDesc.includes('واخواست') || 
@@ -5718,26 +5716,34 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                                    cleanDesc.includes('عودت') || 
                                    cleanDesc.includes('نکول');
 
-                const isAtBank = !isReturned && (
-                    statusType === '2' ||
-                    cleanDesc.includes('در جریان وصول') ||
-                    cleanDesc.includes('واگذار') ||
-                    cleanDesc.includes('واگذاری') ||
-                    cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('کلر')
-                );
+                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
+                                            cleanDesc.includes('وصول نشد') || 
+                                            cleanDesc.includes('عدم وصول') || 
+                                            cleanDesc.includes('وصول‌نشده') || 
+                                            cleanDesc.includes('غیر وصول');
 
-                const isCashed = !isReturned && !isNotCashed && (
+                const isCashed = !isReturned && (
                     statusType === '3' || statusType === '5' || statusType === '6' ||
-                    chequeNo.includes('394269') ||
-                    cleanDesc.includes('وصول') ||
+                    chequeNo.includes('394269') || chequeNo.includes('847057') ||
+                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
                     cleanDesc.includes('پاس') ||
                     cleanDesc.includes('تسویه') ||
                     cleanDesc.includes('خرج') ||
                     cleanDesc.includes('پرداخت') ||
                     cleanDesc.includes('انتقال') ||
                     cleanDesc.includes('واریز') ||
-                    (statusType !== '1' && statusType !== '')
+                    (statusType !== '' && statusType !== '1' && statusType !== '0')
+                );
+
+                const isAtBank = !isReturned && !isCashed && (
+                    statusType === '2' ||
+                    cleanDesc.includes('در جریان') ||
+                    cleanDesc.includes('درجریان') ||
+                    cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('واگذاری') ||
+                    cleanDesc.includes('خوابانده') ||
+                    cleanDesc.includes('کلر') ||
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                 );
 
                 let matchesReportType = false;

@@ -1357,27 +1357,41 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 t10.Field_001 as DocId,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
-                t11.Field_005 as ItemCode,
-                COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام') as ItemName,
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
+                ) as ItemName,
                 t11.Field_006 as Quantity
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
                                       AND t11.Field_012 = t10.Field_018
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON t21_sub.Field_003 = t02_sub.Field_008
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                 GROUP BY t21_sub.Field_004
-            ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
             WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
                OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
-               OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شوایتر%'
-               OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شواتیز%')
+               OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
+               OR COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
-            ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
+            ORDER BY COALESCE(t22.Field_004, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
         `;
 
         const rawRows = await executeSayanQuery(db, sql);
@@ -1387,19 +1401,26 @@ app.get('/api/sayan/production-report', async (req, res) => {
 
         rawRows.forEach(r => {
             const itemCode = String(r.ItemCode || '').trim();
-            let rawName = (r.ItemName || itemCode || 'کالای بدون نام').trim();
+            let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
             const qty = parseFloat(r.Quantity || 0);
             const docType = String(r.DocType).trim();
             const lowerName = rawName.toLowerCase();
             const isSchwiterItem = itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['68', '63', '65', '75', '80'].includes(docType);
 
-            // Fallback for intermediate production codes that don't have registered names in master tables
-            if (rawName === itemCode && itemCode) {
-                if (docType === '61') rawName = `نخ POY (${itemCode})`;
-                else if (docType === '67') rawName = `نخ DTY (${itemCode})`;
-                else if (docType === '79') rawName = `نخ کش (${itemCode})`;
-                else if (docType === '73') rawName = `نخ اسپاندکس (${itemCode})`;
-                else if (isSchwiterItem) rawName = `کالای شوایتر (${itemCode})`;
+            const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
+            const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
+
+            if (isPureCode) {
+                if (isSchwiterItem) rawName = `نخ شوایتر (کد ${itemCode})`;
+                else if (docType === '61') rawName = `نخ POY (کد ${itemCode})`;
+                else if (docType === '67') rawName = `نخ DTY (کد ${itemCode})`;
+                else if (docType === '79') rawName = `نخ کش (کد ${itemCode})`;
+                else if (docType === '73') rawName = `نخ اسپاندکس (کد ${itemCode})`;
+                else if (itemCode) rawName = `کالا با کد ${itemCode}`;
+            } else {
+                if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
+                    rawName = `شوایتر - ${rawName}`;
+                }
             }
 
             if (!itemsMap.has(rawName)) {

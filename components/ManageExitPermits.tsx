@@ -458,7 +458,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 sayanRemittanceNumber: sayanRemittanceData?.remittanceNumber || currentPermit.sayanRemittanceNumber,
                 sayanSubCode: sayanRemittanceData?.subCode || currentPermit.sayanSubCode,
                 sayanArchiveCode: sayanRemittanceData?.archiveCode || currentPermit.sayanArchiveCode,
-                sayanSyncedAt: sayanRemittanceData ? new Date().toISOString() : currentPermit.sayanSyncedAt,
+                sayanSyncedAt: sayanRemittanceData ? Date.now() : currentPermit.sayanSyncedAt,
                 sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc
             };
             
