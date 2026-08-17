@@ -4213,16 +4213,36 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                                                 cleanDesc.includes('وصول‌نشده') || 
                                                 cleanDesc.includes('غیر وصول');
 
+                    const mentionsBank = cleanDesc.includes('بانک') ||
+                                         cleanDesc.includes('ملت') ||
+                                         cleanDesc.includes('ملی') ||
+                                         cleanDesc.includes('صادرات') ||
+                                         cleanDesc.includes('تجارت') ||
+                                         cleanDesc.includes('سپه') ||
+                                         cleanDesc.includes('کشاورزی') ||
+                                         cleanDesc.includes('سامان') ||
+                                         cleanDesc.includes('پارسیان') ||
+                                         cleanDesc.includes('پاسارگاد') ||
+                                         cleanDesc.includes('رفاه') ||
+                                         cleanDesc.includes('شهر') ||
+                                         cleanDesc.includes('دی') ||
+                                         cleanDesc.includes('سینا') ||
+                                         cleanDesc.includes('رسالت') ||
+                                         cleanDesc.includes('گردشگری') ||
+                                         cleanDesc.includes('قوامین') ||
+                                         cleanDesc.includes('حساب');
+
                     const isCashed = !isReturned && (
                         statusType === '3' || statusType === '5' || statusType === '6' ||
-                        chequeNo.includes('394269') || chequeNo.includes('847057') ||
+                        chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
                         (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
                         cleanDesc.includes('پاس') ||
                         cleanDesc.includes('تسویه') ||
                         cleanDesc.includes('خرج') ||
                         cleanDesc.includes('پرداخت') ||
                         cleanDesc.includes('انتقال') ||
-                        cleanDesc.includes('واریز')
+                        cleanDesc.includes('واریز') ||
+                        cleanDesc.includes('نقد')
                     );
 
                     const isAtBank = !isReturned && !isCashed && (
@@ -4233,10 +4253,11 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         cleanDesc.includes('واگذاری') ||
                         cleanDesc.includes('خوابانده') ||
                         cleanDesc.includes('کلر') ||
-                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                        (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                     );
 
                     if (isAtBank || isCashed || isReturned || (statusType !== '' && statusType !== '1' && statusType !== '0')) return false;
+                    if (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق')) return false;
                     return true;
                 });
 
@@ -5722,9 +5743,28 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                                             cleanDesc.includes('وصول‌نشده') || 
                                             cleanDesc.includes('غیر وصول');
 
+                const mentionsBank = cleanDesc.includes('بانک') ||
+                                     cleanDesc.includes('ملت') ||
+                                     cleanDesc.includes('ملی') ||
+                                     cleanDesc.includes('صادرات') ||
+                                     cleanDesc.includes('تجارت') ||
+                                     cleanDesc.includes('سپه') ||
+                                     cleanDesc.includes('کشاورزی') ||
+                                     cleanDesc.includes('سامان') ||
+                                     cleanDesc.includes('پارسیان') ||
+                                     cleanDesc.includes('پاسارگاد') ||
+                                     cleanDesc.includes('رفاه') ||
+                                     cleanDesc.includes('شهر') ||
+                                     cleanDesc.includes('دی') ||
+                                     cleanDesc.includes('سینا') ||
+                                     cleanDesc.includes('رسالت') ||
+                                     cleanDesc.includes('گردشگری') ||
+                                     cleanDesc.includes('قوامین') ||
+                                     cleanDesc.includes('حساب');
+
                 const isCashed = !isReturned && (
                     statusType === '3' || statusType === '5' || statusType === '6' ||
-                    chequeNo.includes('394269') || chequeNo.includes('847057') ||
+                    chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
                     (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان')) ||
                     cleanDesc.includes('پاس') ||
                     cleanDesc.includes('تسویه') ||
@@ -5732,6 +5772,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     cleanDesc.includes('پرداخت') ||
                     cleanDesc.includes('انتقال') ||
                     cleanDesc.includes('واریز') ||
+                    cleanDesc.includes('نقد') ||
                     (statusType !== '' && statusType !== '1' && statusType !== '0')
                 );
 
@@ -5743,7 +5784,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     cleanDesc.includes('واگذاری') ||
                     cleanDesc.includes('خوابانده') ||
                     cleanDesc.includes('کلر') ||
-                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                    (mentionsBank && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                 );
 
                 let matchesReportType = false;
