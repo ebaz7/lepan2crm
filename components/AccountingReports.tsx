@@ -2551,24 +2551,25 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t12.Field_015 as StatusDesc,
                     t12.Field_016 as StatusCode,
                     t_last_op.LastOpCode,
+                    t_last_op.LastOpSubCode,
                     t_last_op.LastOpAccount,
                     t_last_op.LastOpAccountName
                 FROM BUR_TBL_012 t12
                 LEFT JOIN (
                     SELECT 
-                        t09.Field_006 as ChequeId,
-                        t09.Field_004 as LastOpCode,
-                        t09.Field_010 as LastOpAccount,
+                        t09.Field_007 as ChequeId,
+                        t09.Field_023 as LastOpCode,
+                        t09.Field_005 as LastOpSubCode,
+                        t09.Field_012 as LastOpAccount,
                         t09.Field_020 as LastOpAccountName
                     FROM BUR_TBL_009 t09
                     INNER JOIN (
-                        SELECT Field_006 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
+                        SELECT Field_007 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
                         FROM BUR_TBL_009
-                        WHERE Field_006 IS NOT NULL AND RTRIM(LTRIM(Field_006)) <> ''
-                        GROUP BY Field_006
-                    ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
+                        WHERE Field_007 IS NOT NULL AND RTRIM(LTRIM(Field_007)) <> ''
+                        GROUP BY Field_007
+                    ) t_max ON t09.Field_007 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
                 ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
-                             OR CAST(t12.Field_005 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
                 ORDER BY t12.Field_006 ASC, t12.Field_001 ASC
             `;
             const data = await runSayanQuery(sql);
@@ -2599,12 +2600,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 };
 
                 const lastOp = String(row.LastOpCode || '').trim();
+                const subOp = String(row.LastOpSubCode || '').trim();
                 const lastOpAcc = String(row.LastOpAccount || '').trim();
                 const lastOpAccName = String(row.LastOpAccountName || '').trim();
-                const statusType = String(row.StatusType || '').trim();
-                const statusCode = String(row.StatusCode || '').trim();
                 const isActive = String(row.IsActive ?? '1').trim();
-                const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, (x: string) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x).toString());
                 const rawDesc = String(row.StatusDesc || '').trim();
                 const cleanDesc = rawDesc
                     .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
@@ -2614,106 +2613,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .toLowerCase()
                     .trim();
 
-                const isAccEmpty = lastOpAcc === '' || lastOpAcc === '0' || lastOpAcc === 'null' || lastOpAccName === '';
+                const isCashed = cleanDesc.includes('وصول شده') || 
+                                 cleanDesc.includes('برگشتی وصول شده') || 
+                                 (lastOp === '17' && subOp === '28') || 
+                                 (lastOp === '18' && (subOp === '29' || subOp === '28' || subOp === '30'));
 
-                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
-                                            cleanDesc.includes('وصول نشد') || 
-                                            cleanDesc.includes('عدم وصول') || 
-                                            cleanDesc.includes('وصول‌نشده') || 
-                                            cleanDesc.includes('غیر وصول');
+                const isSpent = cleanDesc.includes('چک خرجی') || 
+                                (lastOp === '18' && (subOp === '31' || subOp === '33' || subOp === '34' || subOp === '36'));
 
-                // Check if the cheque is explicitly cleared, spent, returned, or at bank from its description or system status
-                const isExplicitlySettledOrOut = 
-                    (cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان') && !hasExplicitNotCashed) ||
-                    cleanDesc.includes('پاس') ||
-                    cleanDesc.includes('تسویه') ||
-                    cleanDesc.includes('خرج') ||
-                    cleanDesc.includes('پرداخت') ||
-                    cleanDesc.includes('انتقال') ||
-                    cleanDesc.includes('واریز') ||
-                    cleanDesc.includes('برگشت') || 
-                    cleanDesc.includes('واخواست') || 
-                    cleanDesc.includes('عدم پرداخت') || 
-                    cleanDesc.includes('عودت') || 
-                    cleanDesc.includes('نکول') ||
-                    cleanDesc.includes('در جریان') ||
-                    cleanDesc.includes('درجریان') ||
-                    cleanDesc.includes('واگذار') ||
-                    cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('کلر') ||
-                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
-                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
-                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3';
+                const isReturned = cleanDesc.includes('برگشت به طرف حساب') || 
+                                   lastOp === '16' || 
+                                   lastOp === '15';
 
-                // 1. In Vault / Near Box (نزد صندوق)
-                // - Either no operations registered (lastOp === '') AND status is active (IsActive not '0')
-                // - OR last operation was Receive (lastOp === '1' or '11' or '12') AND target operation location is empty (isAccEmpty)
-                // - AND MUST NOT have explicit settled/out markers
-                const isInVault = ((lastOp === '' && isActive !== '0') || 
-                                  ((lastOp === '1' || lastOp === '11' || lastOp === '12') && isAccEmpty)) && !isExplicitlySettledOrOut;
-
-                // 2. Explicitly Returned (برگشتی)
-                // - Either last operation was Return/Bounce (lastOp === '4' or '15' or '16') AND target operation location is empty (isAccEmpty)
-                // - OR statusType/statusCode is '4' AND target operation location is empty
-                // - OR cleanDesc/rawDesc explicitly says returned and location is empty
-                const isReturned = !isInVault && (
-                    ((lastOp === '4' || lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4') && isAccEmpty) ||
-                    ((cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول')) && isAccEmpty) ||
-                    (cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول'))
-                );
-
-                // 3. Deposited to Bank (واگذار به بانک / در جریان وصول)
-                // - Last operation is واگذاری (lastOp === '2' or '13' or '21')
-                // - OR target operation account name/desc contains bank and is not empty
-                const isAtBank = !isInVault && !isReturned && (
-                    lastOp === '13' || lastOp === '2' || lastOp === '21' ||
-                    statusType === '2' ||
-                    statusCode === '2' ||
-                    cleanDesc.includes('در جریان') ||
-                    cleanDesc.includes('درجریان') ||
-                    cleanDesc.includes('واگذار') ||
-                    cleanDesc.includes('واگذاری') ||
-                    cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('کلر') ||
-                    (!isAccEmpty && (cleanDesc.includes('بانک') || lastOpAccName.includes('بانک')))
-                );
-
-                // 4. Cashed / Settled / Cleared (وصول شده / خرج شده)
-                // - If not in vault, not at bank, and not returned, it is considered cashed/spent!
-                // - This is the correct logical default because once it leaves the vault and is not at bank, it's settled or spent.
-                // - Plus explicit conditions for Sayan status codes (14, 17, 18, 19, 3, etc.)
-
-                const isCashed = !isInVault && !isReturned && !isAtBank && (
-                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
-                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
-                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
-                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
-                    cleanDesc.includes('پاس') ||
-                    cleanDesc.includes('تسویه') ||
-                    cleanDesc.includes('خرج') ||
-                    cleanDesc.includes('پرداخت') ||
-                    cleanDesc.includes('انتقال') ||
-                    cleanDesc.includes('واریز') ||
-                    isActive === '0' || isActive === 'false' ||
-                    // Fallback to true since it has left the vault and is not at bank/returned
-                    true
-                );
+                const isAtBank = cleanDesc.includes('به حساب خوابانده شده') || 
+                                 (lastOp === '17' && subOp === '24') || 
+                                 lastOp === '12';
 
                 let statusGroup: 'in_hand' | 'at_bank' | 'returned' | 'spent' = 'in_hand';
-                let statusLabel = 'در صندوق';
+                let statusLabel = 'نزد صندوق';
 
-                if (isInVault) {
-                    statusGroup = 'in_hand';
-                    statusLabel = 'نزد صندوق';
+                if (isActive === '0' || isActive === 'false') {
+                    statusGroup = 'spent';
+                    statusLabel = 'غیرفعال / تسویه شده';
+                } else if (isCashed) {
+                    statusGroup = 'spent';
+                    statusLabel = 'وصول شده';
+                } else if (isSpent) {
+                    statusGroup = 'spent';
+                    statusLabel = 'خرج شده';
                 } else if (isReturned) {
                     statusGroup = 'returned';
                     statusLabel = 'برگشتی';
                 } else if (isAtBank) {
                     statusGroup = 'at_bank';
-                    statusLabel = 'واگذار به بانک';
-                } else if (isCashed) {
-                    statusGroup = 'spent';
-                    statusLabel = 'وصول/خرج شده';
+                    statusLabel = 'در جریان وصول (بانک)';
+                } else {
+                    statusGroup = 'in_hand';
+                    statusLabel = 'نزد صندوق (فعال)';
                 }
 
                 const chequeType = (row.StatusType === '2' || row.Field014 === '2') ? 'پرداختنی' : 'دریافتنی';
