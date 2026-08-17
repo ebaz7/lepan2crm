@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ExitPermit, ExitPermitItem, SystemSettings } from '../types';
 import { Save, X, Package, Calculator, Plus, Trash2, RefreshCw, CheckCircle2, FileText, ArrowDownToLine, Eye, AlertCircle } from 'lucide-react';
 import { generateUUID } from '../constants';
@@ -169,7 +170,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     securityGuardName: permit.approverSecurity || 'انتظامات'
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-start pt-12 md:pt-16 pb-28 overflow-y-auto overflow-x-hidden justify-center p-4 animate-fade-in">
       <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
@@ -358,6 +359,8 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default WarehouseFinalizeModal;

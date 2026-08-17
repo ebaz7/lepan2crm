@@ -2543,12 +2543,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     t12.Field_006 as DueDate,
                     t12.Field_008 as IsActive,
                     t12.Field_009 as BankName,
+                    t12.Field_010 as BranchName,
                     t12.Field_011 as DrawerName,
+                    t12.Field_012 as InOrderOf,
                     t12.Field_013 as Amount,
                     t12.Field_014 as Field014,
                     t12.Field_015 as StatusDesc,
                     t12.Field_016 as StatusCode,
-                    t12.Field_017 as Field017,
                     t_last_op.LastOpCode,
                     t_last_op.LastOpAccount
                 FROM BUR_TBL_012 t12
@@ -2566,43 +2567,42 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
                 ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
                              OR CAST(t12.Field_005 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
-                ORDER BY t12.Field_006 ASC
+                ORDER BY t12.Field_006 ASC, t12.Field_001 ASC
             `;
             const data = await runSayanQuery(sql);
             const mapped = data.map((row: any) => {
                 const amt = parseFloat(row.Amount || 0);
-                const rawDesc = String(row.StatusDesc || '').trim();
+                const dueDateStr = String(row.DueDate || '').trim();
                 
-                // Helper to get Jalali year of cheque
-                const getDueYear = (dateStr: string): number => {
+                // Calculate days to due date relative to today
+                const getDaysToDue = (dateStr: string): number => {
                     if (!dateStr) return 0;
                     try {
                         const clean = String(dateStr).trim()
                             .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
                             .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
                         const sh = parseShamsiParts(clean);
-                        if (sh && sh.jy) return sh.jy;
-                        const match = clean.match(/^(1[34]\d\d)/);
-                        if (match) return parseInt(match[1], 10);
-                        const d = new Date(clean);
-                        if (!isNaN(d.getTime())) {
-                            const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-                            return j.jy;
+                        if (sh) {
+                            const now = new Date();
+                            const iranTime = new Date(now.getTime() + (3.5 * 60 * 60 * 1000));
+                            const curJ = jalaali.toJalaali(iranTime.getUTCFullYear(), iranTime.getUTCMonth() + 1, iranTime.getUTCDate());
+                            
+                            const curDays = (curJ.jy * 365.25) + (curJ.jm * 30.5) + curJ.jd;
+                            const dueDays = (sh.jy * 365.25) + (sh.jm * 30.5) + sh.jd;
+                            const diff = Math.round(dueDays - curDays);
+                            return diff;
                         }
                     } catch (e) {}
                     return 0;
                 };
 
-                const dueYear = getDueYear(row.DueDate);
-                
                 const lastOp = String(row.LastOpCode || '').trim();
                 const statusType = String(row.StatusType || '').trim();
                 const statusCode = String(row.StatusCode || '').trim();
                 const isActive = String(row.IsActive ?? '1').trim();
-                const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)));
-                
-                // Clean normalized string for robust matching
-                const normDesc = rawDesc
+                const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, (x: string) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x).toString());
+                const rawDesc = String(row.StatusDesc || '').trim();
+                const cleanDesc = rawDesc
                     .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
                     .replace(/ي/g, 'ی')
                     .replace(/ك/g, 'ک')
@@ -2610,82 +2610,83 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .toLowerCase()
                     .trim();
 
-                // 1. Explicitly Returned / Bounced
-                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' ||
-                                   normDesc.includes('برگشت') || 
-                                   normDesc.includes('واخواست') || 
-                                   normDesc.includes('عدم پرداخت') || 
-                                   normDesc.includes('عودت') || 
-                                   normDesc.includes('نکول');
+                // 1. Explicitly Returned (برگشتی)
+                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' || 
+                                   cleanDesc.includes('برگشت') || 
+                                   cleanDesc.includes('واخواست') || 
+                                   cleanDesc.includes('عدم پرداخت') || 
+                                   cleanDesc.includes('عودت') || 
+                                   cleanDesc.includes('نکول');
 
-                // 2. Cheques currently at bank (deposited in collection / خوابانده به حساب) -> NOT in vault
+                // 2. Deposited to Bank (خوابانده به حساب / واگذار به بانک / در جریان وصول)
                 const isAtBank = !isReturned && (
                     lastOp === '13' || lastOp === '2' ||
                     statusType === '2' ||
                     statusCode === '2' ||
-                    normDesc.includes('در جریان') ||
-                    normDesc.includes('درجریان') ||
-                    normDesc.includes('واگذار') ||
-                    normDesc.includes('واگذاری') ||
-                    normDesc.includes('خوابانده') ||
-                    normDesc.includes('کلر') ||
-                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
+                    cleanDesc.includes('در جریان') ||
+                    cleanDesc.includes('درجریان') ||
+                    cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('واگذاری') ||
+                    cleanDesc.includes('خوابانده') ||
+                    cleanDesc.includes('کلر') ||
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                 );
 
-                // 3. Explicitly Cashed / Cleared / Spent / Settled -> NOT in vault
-                const hasExplicitNotCashed = normDesc.includes('وصول نشده') || 
-                                            normDesc.includes('وصول نشد') || 
-                                            normDesc.includes('عدم وصول') || 
-                                            normDesc.includes('وصول‌نشده') || 
-                                            normDesc.includes('غیر وصول');
+                // 3. Cashed / Settled / Cleared (وصول شده / خرج شده)
+                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
+                                            cleanDesc.includes('وصول نشد') || 
+                                            cleanDesc.includes('عدم وصول') || 
+                                            cleanDesc.includes('وصول‌نشده') || 
+                                            cleanDesc.includes('غیر وصول');
 
-                const isSpentOrCashed = !isReturned && !isAtBank && (
+                const isCashed = !isReturned && !isAtBank && (
                     lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
                     statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
                     statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
-                    chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                    (!hasExplicitNotCashed && normDesc.includes('وصول') && !normDesc.includes('در جریان') && !normDesc.includes('درجریان')) ||
-                    normDesc.includes('پاس') ||
-                    normDesc.includes('تسویه') ||
-                    normDesc.includes('خرج') ||
-                    normDesc.includes('پرداخت') ||
-                    normDesc.includes('انتقال') ||
-                    normDesc.includes('واریز') ||
-                    (normDesc.includes('ملت') && normDesc.includes('وصول')) ||
-                    (normDesc.includes('بانک') && normDesc.includes('وصول') && !hasExplicitNotCashed) ||
-                    (statusType !== '' && statusType !== '1' && statusType !== '0') ||
+                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
+                    cleanDesc.includes('پاس') ||
+                    cleanDesc.includes('تسویه') ||
+                    cleanDesc.includes('خرج') ||
+                    cleanDesc.includes('پرداخت') ||
+                    cleanDesc.includes('انتقال') ||
+                    cleanDesc.includes('واریز') ||
+                    (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
+                    (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed) ||
                     isActive === '0' || isActive === 'false'
                 );
 
-                let statusGroup = 'in_hand'; // default نزد صندوق
+                let statusGroup: 'in_hand' | 'at_bank' | 'returned' | 'spent' = 'in_hand';
+                let statusLabel = 'در صندوق';
+
                 if (isReturned) {
                     statusGroup = 'returned';
+                    statusLabel = 'برگشتی';
                 } else if (isAtBank) {
                     statusGroup = 'at_bank';
-                } else if (isSpentOrCashed) {
+                    statusLabel = 'واگذار به بانک';
+                } else if (isCashed) {
                     statusGroup = 'spent';
-                } else if (dueYear > 0 && dueYear < 1404) {
-                    statusGroup = 'spent';
+                    statusLabel = 'وصول/خرج شده';
                 } else {
                     statusGroup = 'in_hand';
+                    statusLabel = 'نزد صندوق';
                 }
 
-                let finalDesc = rawDesc;
-                if (!finalDesc || finalDesc === '1' || finalDesc === '0') {
-                    if (statusGroup === 'in_hand') finalDesc = 'نزد صندوق (فعال)';
-                    else if (statusGroup === 'at_bank') finalDesc = 'واگذار به بانک (در جریان وصول)';
-                    else if (statusGroup === 'returned') finalDesc = 'برگشتی / واخواست';
-                    else if (statusGroup === 'spent') finalDesc = 'وصول / تسویه شده';
-                }
+                const chequeType = (row.StatusType === '2' || row.Field014 === '2') ? 'پرداختنی' : 'دریافتنی';
 
                 return {
                     id: row.Id,
+                    chequeType,
                     chequeNo: row.ChequeNo || 'فاقد شماره',
-                    dueDate: row.DueDate,
+                    dueDate: dueDateStr,
+                    daysToDue: getDaysToDue(dueDateStr),
                     bankName: row.BankName || 'نامشخص',
+                    branchName: row.BranchName || '',
                     drawerName: row.DrawerName || 'نامشخص',
+                    inOrderOf: row.InOrderOf || '',
                     amount: amt,
-                    statusDesc: finalDesc,
+                    status: statusLabel,
+                    statusDesc: rawDesc || statusLabel,
                     statusGroup
                 };
             });
@@ -2841,117 +2842,97 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const printDate = `${jNow.jy}/${String(jNow.jm).padStart(2, '0')}/${String(jNow.jd).padStart(2, '0')}`;
         const printTime = `${String(iranTime.getUTCHours()).padStart(2, '0')}:${String(iranTime.getUTCMinutes()).padStart(2, '0')}`;
 
-        let statusTitle = "گزارش جامع اسناد دریافتنی و چک‌های خزانه‌داری";
-        if (chequeStatusFilter === 'in_hand') statusTitle = "گزارش رسمی چک‌های نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)";
-        else if (chequeStatusFilter === 'returned') statusTitle = "گزارش رسمی چک‌های واخواست‌شده و برگشتی خزانه‌داری";
-        else if (chequeStatusFilter === 'at_bank') statusTitle = "گزارش چک‌های واگذار شده به بانک (در جریان وصول)";
-        else if (chequeStatusFilter === 'spent') statusTitle = "گزارش چک‌های وصول و خرج شده";
-
         const docHtml = `
             <!DOCTYPE html>
             <html dir="rtl" lang="fa">
             <head>
                 <meta charset="utf-8" />
-                <title>${statusTitle}</title>
+                <title>لیست برگه های چک - شرکت لپان بافت</title>
                 <style>
-                    @page { size: A4 portrait; margin: 12mm; }
+                    @page { size: A4 landscape; margin: 8mm; }
                     body {
                         font-family: Tahoma, 'Vazirmatn', Arial, sans-serif;
                         direction: rtl;
-                        color: #1e293b;
+                        color: #000;
                         background: #fff;
                         margin: 0;
-                        padding: 10px;
-                        font-size: 11px;
-                        line-height: 1.4;
-                    }
-                    .header-box {
-                        border: 2px solid #0f172a;
-                        border-radius: 8px;
-                        padding: 12px 16px;
-                        margin-bottom: 14px;
-                        background: #f8fafc;
-                    }
-                    .header-title {
-                        font-size: 16px;
-                        font-weight: bold;
-                        text-align: center;
-                        color: #0f172a;
-                        margin-bottom: 6px;
-                    }
-                    .meta-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr 1fr;
-                        gap: 8px;
+                        padding: 6px;
                         font-size: 10px;
-                        margin-top: 8px;
-                        border-top: 1px dashed #cbd5e1;
-                        padding-top: 8px;
+                        line-height: 1.3;
                     }
-                    .stats-box {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr 1fr;
-                        gap: 10px;
-                        margin-bottom: 14px;
+                    .top-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        margin-bottom: 8px;
+                        padding-bottom: 4px;
                     }
-                    .stat-card {
-                        border: 1px solid #cbd5e1;
-                        border-radius: 6px;
-                        padding: 8px 12px;
-                        background: #f1f5f9;
+                    .top-right {
+                        font-size: 9px;
+                        color: #333;
+                        line-height: 1.5;
+                        text-align: right;
+                    }
+                    .top-center {
                         text-align: center;
+                        flex: 1;
                     }
-                    .stat-val {
+                    .company-name {
                         font-size: 14px;
                         font-weight: bold;
-                        color: #1e3a8a;
-                        margin-top: 4px;
+                        color: #000;
+                        margin-bottom: 3px;
+                    }
+                    .report-title {
+                        font-size: 13px;
+                        font-weight: bold;
+                        color: #000;
+                    }
+                    .top-left {
+                        font-size: 9px;
+                        color: #333;
+                        text-align: left;
+                        line-height: 1.5;
+                        direction: ltr;
                     }
                     table {
                         width: 100%;
                         border-collapse: collapse;
-                        margin-bottom: 20px;
+                        margin-bottom: 10px;
                     }
                     th {
-                        background-color: #0f172a;
-                        color: #ffffff;
+                        background-color: #f1f5f9;
+                        color: #000;
                         font-weight: bold;
-                        padding: 7px 6px;
-                        border: 1px solid #0f172a;
-                        font-size: 10px;
-                        text-align: right;
+                        padding: 5px 4px;
+                        border: 1px solid #000;
+                        font-size: 9.5px;
+                        text-align: center;
                     }
                     td {
-                        padding: 6px;
-                        border: 1px solid #cbd5e1;
-                        font-size: 10px;
+                        padding: 4px 5px;
+                        border: 1px solid #666;
+                        font-size: 9.5px;
+                        text-align: center;
                     }
                     tr:nth-child(even) {
-                        background-color: #f8fafc;
+                        background-color: #fafafa;
                     }
                     .num-cell {
                         text-align: left;
                         direction: ltr;
-                        font-weight: bold;
                         font-family: Tahoma, monospace;
-                    }
-                    .status-tag {
-                        display: inline-block;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        font-size: 9px;
                         font-weight: bold;
-                        background: #e2e8f0;
                     }
-                    .signatures {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr 1fr;
-                        margin-top: 40px;
-                        padding-top: 20px;
-                        border-top: 1px solid #cbd5e1;
-                        text-align: center;
+                    .total-bar {
+                        border: 1px solid #000;
+                        background: #f8fafc;
+                        font-weight: bold;
+                        padding: 6px 12px;
                         font-size: 11px;
-                        font-weight: bold;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
                     }
                     @media print {
                         body { padding: 0; }
@@ -2960,68 +2941,65 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 </style>
             </head>
             <body>
-                <div class="header-box">
-                    <div class="header-title">${statusTitle}</div>
-                    <div style="text-align: center; font-size: 11px; color: #475569;">سیستم یکپارچه مالی و مدیریت خزانه‌داری کارخانه (سایان ERP)</div>
-                    <div class="meta-grid">
-                        <div><b>تاریخ گزارش:</b> ${printDate} - ${printTime}</div>
-                        <div><b>مرتب‌سازی:</b> بر اساس ${chequeSortBy === 'dueDate' ? 'تاریخ سررسید' : (chequeSortBy === 'amount' ? 'مبلغ چک' : (chequeSortBy === 'bankName' ? 'بانک صادرکننده' : 'صادرکننده'))} (${chequeSortOrder === 'asc' ? 'صعودی' : 'نزولی'})</div>
-                        <div><b>فیلتر فعال:</b> ${chequeStatusFilter === 'in_hand' ? 'فقط در صندوق (فعال)' : (chequeStatusFilter === 'returned' ? 'فقط برگشتی' : (chequeStatusFilter === 'at_bank' ? 'واگذار به بانک' : 'همه موارد'))}</div>
+                <div class="top-header">
+                    <div class="top-right">
+                        <div><b>تاریخ چاپ:</b> ${printDate} - ${printTime}</div>
+                        <div><b>تعداد چک‌ها:</b> ${list.length} فقره</div>
                     </div>
-                </div>
-
-                <div class="stats-box">
-                    <div class="stat-card">
-                        <div>تعداد کل فقره چک‌ها</div>
-                        <div class="stat-val">${list.length} فقره</div>
+                    <div class="top-center">
+                        <div class="company-name">شرکت لپان بافت</div>
+                        <div class="report-title">لیست برگه های چک</div>
                     </div>
-                    <div class="stat-card">
-                        <div>مجموع کل مبالغ (ریال)</div>
-                        <div class="stat-val">${totalAmt.toLocaleString()}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div>میانگین مبلغ هر فقره (ریال)</div>
-                        <div class="stat-val">${Math.round(totalAmt / (list.length || 1)).toLocaleString()}</div>
+                    <div class="top-left">
+                        <div>${printDate}</div>
+                        <div>www.hooshkar.com</div>
                     </div>
                 </div>
 
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 35px; text-align: center;">ردیف</th>
-                            <th style="width: 90px; text-align: center;">شماره چک</th>
-                            <th style="width: 85px; text-align: center;">تاریخ سررسید</th>
-                            <th style="width: 120px;">بانک صادرکننده</th>
-                            <th>صادرکننده / شرح چک</th>
-                            <th style="width: 100px; text-align: center;">وضعیت سند</th>
-                            <th style="width: 120px; text-align: left;">مبلغ اسمی (ریال)</th>
+                            <th style="width: 32px;">ردیف</th>
+                            <th style="width: 65px;">نوع چک</th>
+                            <th style="width: 90px;">نام بانک</th>
+                            <th style="width: 80px;">نام شعبه</th>
+                            <th style="text-align: right;">صاحب چک</th>
+                            <th style="width: 110px;">در وجه</th>
+                            <th style="width: 85px;">سریال</th>
+                            <th style="width: 75px;">تاریخ وصول</th>
+                            <th style="width: 65px;">روز تا وصول</th>
+                            <th style="width: 55px;">وضعیت</th>
+                            <th style="width: 110px; text-align: left;">مبلغ چک</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${list.map((c, idx) => `
                             <tr>
-                                <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-                                <td style="text-align: center; font-family: monospace; font-weight: bold;">${c.chequeNo}</td>
-                                <td style="text-align: center; font-weight: bold;">${formatDateToJalali(c.dueDate)}</td>
+                                <td style="font-weight: bold;">${idx + 1}</td>
+                                <td>${c.chequeType || 'دریافتنی'}</td>
                                 <td><b>${c.bankName}</b></td>
-                                <td>${c.drawerName}</td>
-                                <td style="text-align: center;"><span class="status-tag">${c.statusDesc}</span></td>
-                                <td class="num-cell" style="color: #1e3a8a;">${c.amount.toLocaleString()}</td>
+                                <td>${c.branchName || ''}</td>
+                                <td style="text-align: right; font-weight: 500;">${c.drawerName}</td>
+                                <td>${c.inOrderOf || ''}</td>
+                                <td style="font-family: Tahoma, monospace; font-weight: bold;">${c.chequeNo}</td>
+                                <td style="font-family: Tahoma, monospace; font-weight: bold;">${formatDateToJalali(c.dueDate)}</td>
+                                <td style="font-weight: bold;">${c.daysToDue ?? 0}</td>
+                                <td>${c.status || 'فعال'}</td>
+                                <td class="num-cell">${c.amount.toLocaleString()}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                     <tfoot>
-                        <tr style="background: #f1f5f9; font-weight: bold;">
-                            <td colspan="6" style="text-align: left; padding: 8px; font-size: 11px;">جمع کل اسناد دریافتنی گزارش‌شده (ریال):</td>
-                            <td class="num-cell" style="padding: 8px; font-size: 12px; color: #0f172a; border-top: 2px solid #0f172a;">${totalAmt.toLocaleString()}</td>
+                        <tr style="background: #e2e8f0; font-weight: bold; border-top: 2px solid #000;">
+                            <td colspan="10" style="text-align: left; padding: 6px 10px; font-size: 11px;">جمع کل مبالغ چک‌ها (ریال):</td>
+                            <td class="num-cell" style="padding: 6px; font-size: 11px; font-weight: bold;">${totalAmt.toLocaleString()}</td>
                         </tr>
                     </tfoot>
                 </table>
 
-                <div class="signatures">
-                    <div>امضای کارشناس خزانه‌داری</div>
-                    <div>امضای رئیس حسابداری مالی</div>
-                    <div>امضای مدیر مالی و اداری</div>
+                <div class="total-bar">
+                    <span><b>تعداد کل ردیف‌ها:</b> ${list.length} فقره چک فعال</span>
+                    <span><b>جمع کل:</b> ${totalAmt.toLocaleString()} ریال (${Math.round(totalAmt / 10).toLocaleString()} تومان)</span>
                 </div>
             </body>
             </html>
@@ -3048,12 +3026,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const headers = [
             "ردیف",
-            "شماره چک",
-            "تاریخ سررسید",
-            "بانک صادرکننده",
-            "صادرکننده / شخص",
-            "وضعیت سند",
-            "مبلغ (ریال)"
+            "نوع چک",
+            "نام بانک",
+            "نام شعبه",
+            "صاحب چک",
+            "در وجه",
+            "سریال",
+            "تاریخ وصول",
+            "روز تا وصول",
+            "وضعیت",
+            "مبلغ چک (ریال)"
         ];
 
         const rows = [headers.join(",")];
@@ -3061,11 +3043,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         list.forEach((c, idx) => {
             const row = [
                 idx + 1,
+                `"${(c.chequeType || 'دریافتنی').replace(/"/g, '""')}"`,
+                `"${(c.bankName || '').replace(/"/g, '""')}"`,
+                `"${(c.branchName || '').replace(/"/g, '""')}"`,
+                `"${(c.drawerName || '').replace(/"/g, '""')}"`,
+                `"${(c.inOrderOf || '').replace(/"/g, '""')}"`,
                 `"${(c.chequeNo || '').replace(/"/g, '""')}"`,
                 `"${formatDateToJalali(c.dueDate)}"`,
-                `"${(c.bankName || '').replace(/"/g, '""')}"`,
-                `"${(c.drawerName || '').replace(/"/g, '""')}"`,
-                `"${(c.statusDesc || '').replace(/"/g, '""')}"`,
+                c.daysToDue ?? 0,
+                `"${(c.status || 'فعال').replace(/"/g, '""')}"`,
                 c.amount || 0
             ];
             rows.push(row.join(","));
@@ -3074,7 +3060,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         // Total row
         const totalAmt = list.reduce((sum, r) => sum + r.amount, 0);
         rows.push("");
-        rows.push([`"جمع کل"`, `""`, `""`, `""`, `""`, `""`, totalAmt].join(","));
+        rows.push([`"جمع کل"`, `""`, `""`, `""`, `""`, `""`, `""`, `""`, `""`, `""`, totalAmt].join(","));
 
         const csvContent = rows.join("\n");
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -5615,16 +5601,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 <table className="w-full text-right text-xs hidden md:table">
                                     <thead className="bg-slate-900 text-white sticky top-0 z-10">
                                         <tr>
-                                            <th className="p-3.5 font-bold w-14 text-center">ردیف</th>
+                                            <th className="p-3 font-bold w-12 text-center">ردیف</th>
+                                            <th className="p-3 font-bold w-20 text-center">نوع چک</th>
+                                            <th 
+                                                onClick={() => {
+                                                    if (chequeSortBy === 'bankName') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
+                                                    else { setChequeSortBy('bankName'); setChequeSortOrder('asc'); }
+                                                }}
+                                                className="p-3 font-bold w-28 cursor-pointer hover:bg-slate-800 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>نام بانک</span>
+                                                    {chequeSortBy === 'bankName' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                                                </div>
+                                            </th>
+                                            <th className="p-3 font-bold w-24">نام شعبه</th>
+                                            <th 
+                                                onClick={() => {
+                                                    if (chequeSortBy === 'drawerName') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
+                                                    else { setChequeSortBy('drawerName'); setChequeSortOrder('asc'); }
+                                                }}
+                                                className="p-3 font-bold cursor-pointer hover:bg-slate-800 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>صاحب چک</span>
+                                                    {chequeSortBy === 'drawerName' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                                                </div>
+                                            </th>
+                                            <th className="p-3 font-bold w-28">در وجه</th>
                                             <th 
                                                 onClick={() => {
                                                     if (chequeSortBy === 'chequeNo') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
                                                     else { setChequeSortBy('chequeNo'); setChequeSortOrder('asc'); }
                                                 }}
-                                                className="p-3.5 font-bold w-36 cursor-pointer hover:bg-slate-800 transition-colors"
+                                                className="p-3 font-bold w-24 cursor-pointer hover:bg-slate-800 transition-colors text-center"
                                             >
-                                                <div className="flex items-center gap-1">
-                                                    <span>شماره چک</span>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <span>سریال</span>
                                                     {chequeSortBy === 'chequeNo' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                                 </div>
                                             </th>
@@ -5633,56 +5646,33 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     if (chequeSortBy === 'dueDate') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
                                                     else { setChequeSortBy('dueDate'); setChequeSortOrder('asc'); }
                                                 }}
-                                                className="p-3.5 font-bold w-36 cursor-pointer hover:bg-slate-800 transition-colors"
+                                                className="p-3 font-bold w-28 cursor-pointer hover:bg-slate-800 transition-colors text-center"
                                             >
-                                                <div className="flex items-center gap-1">
-                                                    <span>تاریخ سررسید</span>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <span>تاریخ وصول</span>
                                                     {chequeSortBy === 'dueDate' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                                 </div>
                                             </th>
-                                            <th 
-                                                onClick={() => {
-                                                    if (chequeSortBy === 'bankName') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
-                                                    else { setChequeSortBy('bankName'); setChequeSortOrder('asc'); }
-                                                }}
-                                                className="p-3.5 font-bold w-48 cursor-pointer hover:bg-slate-800 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-1">
-                                                    <span>بانک صادرکننده</span>
-                                                    {chequeSortBy === 'bankName' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-                                                </div>
-                                            </th>
-                                            <th 
-                                                onClick={() => {
-                                                    if (chequeSortBy === 'drawerName') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
-                                                    else { setChequeSortBy('drawerName'); setChequeSortOrder('asc'); }
-                                                }}
-                                                className="p-3.5 font-bold cursor-pointer hover:bg-slate-800 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-1">
-                                                    <span>صادرکننده / طرف حساب</span>
-                                                    {chequeSortBy === 'drawerName' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-                                                </div>
-                                            </th>
+                                            <th className="p-3 font-bold w-20 text-center">روز تا وصول</th>
+                                            <th className="p-3 font-bold w-20 text-center">وضعیت</th>
                                             <th 
                                                 onClick={() => {
                                                     if (chequeSortBy === 'amount') setChequeSortOrder(chequeSortOrder === 'asc' ? 'desc' : 'asc');
                                                     else { setChequeSortBy('amount'); setChequeSortOrder('asc'); }
                                                 }}
-                                                className="p-3.5 font-bold text-left w-44 cursor-pointer hover:bg-slate-800 transition-colors"
+                                                className="p-3 font-bold text-left w-36 cursor-pointer hover:bg-slate-800 transition-colors"
                                             >
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <span>مبلغ اسمی (ریال)</span>
+                                                    <span>مبلغ چک (ریال)</span>
                                                     {chequeSortBy === 'amount' && (chequeSortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                                 </div>
                                             </th>
-                                            <th className="p-3.5 font-bold w-44 text-center">وضعیت سند</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {filteredCheques.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="text-center py-12 text-slate-400 font-medium">
+                                                <td colSpan={11} className="text-center py-12 text-slate-400 font-medium">
                                                     <Coins className="h-10 w-10 mx-auto text-slate-300 mb-2 opacity-50" />
                                                     هیچ چکی با مشخصات و فیلترهای انتخابی یافت نشد.
                                                 </td>
@@ -5690,22 +5680,29 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                         ) : (
                                             filteredCheques.map((row, idx) => (
                                                 <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                    <td className="p-3 text-slate-400 text-center font-medium font-mono">{idx + 1}</td>
-                                                    <td className="p-3 font-mono font-bold text-slate-900">{row.chequeNo}</td>
-                                                    <td className="p-3 font-medium text-slate-600 font-mono">{formatDateToJalali(row.dueDate)}</td>
-                                                    <td className="p-3 font-bold text-slate-800">{row.bankName}</td>
-                                                    <td className="p-3 font-semibold text-slate-800">{row.drawerName}</td>
-                                                    <td className="p-3 text-left font-mono font-black text-blue-700">{formatMoney(row.amount)}</td>
-                                                    <td className="p-3 text-center">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border inline-block ${
-                                                            row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                            row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                            row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                            'bg-slate-100 text-slate-800 border-slate-300'
+                                                    <td className="p-2.5 text-slate-400 text-center font-medium font-mono">{idx + 1}</td>
+                                                    <td className="p-2.5 text-center font-semibold text-slate-600">{row.chequeType || 'دریافتنی'}</td>
+                                                    <td className="p-2.5 font-bold text-slate-800">{row.bankName}</td>
+                                                    <td className="p-2.5 text-slate-600">{row.branchName || '-'}</td>
+                                                    <td className="p-2.5 font-semibold text-slate-800">{row.drawerName}</td>
+                                                    <td className="p-2.5 text-slate-600">{row.inOrderOf || '-'}</td>
+                                                    <td className="p-2.5 font-mono font-bold text-center text-slate-900">{row.chequeNo}</td>
+                                                    <td className="p-2.5 font-medium text-center text-slate-600 font-mono">{formatDateToJalali(row.dueDate)}</td>
+                                                    <td className="p-2.5 font-bold text-center text-indigo-700 font-mono">{row.daysToDue ?? 0}</td>
+                                                    <td className="p-2.5 text-center">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black border inline-block ${
+                                                            row.statusGroup === 'returned'
+                                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                : row.statusGroup === 'at_bank'
+                                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                                : row.statusGroup === 'spent'
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                : 'bg-amber-50 text-amber-700 border-amber-200'
                                                         }`}>
-                                                            {row.statusDesc}
+                                                            {row.status}
                                                         </span>
                                                     </td>
+                                                    <td className="p-2.5 text-left font-mono font-black text-blue-700">{formatMoney(row.amount)}</td>
                                                 </tr>
                                             ))
                                         )}
@@ -5719,29 +5716,39 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <div className="text-center py-10 text-slate-400 font-medium">هیچ چکی یافت نشد. فیلترها را بررسی کنید.</div>
                                 ) : (
                                     filteredCheques.map((row, idx) => (
-                                        <div key={idx} className="p-4 space-y-3 text-xs">
+                                        <div key={idx} className="p-4 space-y-2.5 text-xs">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-[10px] text-slate-400 font-bold font-mono">#{idx + 1} | چک: {row.chequeNo}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold font-mono">#{idx + 1} | سریال: {row.chequeNo}</span>
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${
-                                                    row.statusGroup === 'spent' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                    row.statusGroup === 'returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                                                    row.statusGroup === 'at_bank' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                    'bg-slate-50 text-slate-700 border-slate-200'
+                                                    row.statusGroup === 'returned'
+                                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                        : row.statusGroup === 'at_bank'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : row.statusGroup === 'spent'
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
                                                 }`}>
-                                                    {row.statusDesc}
+                                                    {row.status}
                                                 </span>
                                             </div>
-                                            <div>
-                                                <div className="text-slate-500 font-bold">{row.bankName}</div>
-                                                <div className="text-[11px] text-slate-600 mt-0.5 font-semibold">صادرکننده: {row.drawerName}</div>
-                                            </div>
-                                            <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg font-mono">
+                                            <div className="flex justify-between items-start">
                                                 <div>
-                                                    <span className="text-[9px] text-slate-400 font-sans block">سررسید</span>
+                                                    <div className="text-slate-900 font-black text-sm">{row.drawerName}</div>
+                                                    <div className="text-[11px] text-slate-500 mt-0.5 font-semibold">بانک: {row.bankName} {row.branchName ? `(${row.branchName})` : ''}</div>
+                                                </div>
+                                                <div className="text-left">
+                                                    <span className="px-2 py-1 rounded bg-indigo-50 text-indigo-800 font-bold text-[10px]">
+                                                        {row.daysToDue ?? 0} روز تا وصول
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl font-mono">
+                                                <div>
+                                                    <span className="text-[9px] text-slate-400 font-sans block">تاریخ وصول</span>
                                                     <span className="font-bold text-slate-700 text-xs">{formatDateToJalali(row.dueDate)}</span>
                                                 </div>
                                                 <div className="text-left">
-                                                    <span className="text-[9px] text-slate-400 font-sans block">مبلغ کل</span>
+                                                    <span className="text-[9px] text-slate-400 font-sans block">مبلغ چک</span>
                                                     <span className="font-black text-blue-700 text-xs">{formatMoney(row.amount)} ریال</span>
                                                 </div>
                                             </div>
