@@ -2616,11 +2616,41 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const isAccEmpty = lastOpAcc === '' || lastOpAcc === '0' || lastOpAcc === 'null' || lastOpAccName === '';
 
+                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
+                                            cleanDesc.includes('وصول نشد') || 
+                                            cleanDesc.includes('عدم وصول') || 
+                                            cleanDesc.includes('وصول‌نشده') || 
+                                            cleanDesc.includes('غیر وصول');
+
+                // Check if the cheque is explicitly cleared, spent, returned, or at bank from its description or system status
+                const isExplicitlySettledOrOut = 
+                    (cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان') && !hasExplicitNotCashed) ||
+                    cleanDesc.includes('پاس') ||
+                    cleanDesc.includes('تسویه') ||
+                    cleanDesc.includes('خرج') ||
+                    cleanDesc.includes('پرداخت') ||
+                    cleanDesc.includes('انتقال') ||
+                    cleanDesc.includes('واریز') ||
+                    cleanDesc.includes('برگشت') || 
+                    cleanDesc.includes('واخواست') || 
+                    cleanDesc.includes('عدم پرداخت') || 
+                    cleanDesc.includes('عودت') || 
+                    cleanDesc.includes('نکول') ||
+                    cleanDesc.includes('در جریان') ||
+                    cleanDesc.includes('درجریان') ||
+                    cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('خوابانده') ||
+                    cleanDesc.includes('کلر') ||
+                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
+                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
+                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3';
+
                 // 1. In Vault / Near Box (نزد صندوق)
                 // - Either no operations registered (lastOp === '') AND status is active (IsActive not '0')
                 // - OR last operation was Receive (lastOp === '1' or '11' or '12') AND target operation location is empty (isAccEmpty)
-                const isInVault = (lastOp === '' && isActive !== '0') || 
-                                  ((lastOp === '1' || lastOp === '11' || lastOp === '12') && isAccEmpty);
+                // - AND MUST NOT have explicit settled/out markers
+                const isInVault = ((lastOp === '' && isActive !== '0') || 
+                                  ((lastOp === '1' || lastOp === '11' || lastOp === '12') && isAccEmpty)) && !isExplicitlySettledOrOut;
 
                 // 2. Explicitly Returned (برگشتی)
                 // - Either last operation was Return/Bounce (lastOp === '4' or '15' or '16') AND target operation location is empty (isAccEmpty)
@@ -2628,7 +2658,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 // - OR cleanDesc/rawDesc explicitly says returned and location is empty
                 const isReturned = !isInVault && (
                     ((lastOp === '4' || lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4') && isAccEmpty) ||
-                    ((cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول')) && isAccEmpty)
+                    ((cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول')) && isAccEmpty) ||
+                    (cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول'))
                 );
 
                 // 3. Deposited to Bank (واگذار به بانک / در جریان وصول)
@@ -2651,11 +2682,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 // - If not in vault, not at bank, and not returned, it is considered cashed/spent!
                 // - This is the correct logical default because once it leaves the vault and is not at bank, it's settled or spent.
                 // - Plus explicit conditions for Sayan status codes (14, 17, 18, 19, 3, etc.)
-                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
-                                            cleanDesc.includes('وصول نشد') || 
-                                            cleanDesc.includes('عدم وصول') || 
-                                            cleanDesc.includes('وصول‌نشده') || 
-                                            cleanDesc.includes('غیر وصول');
 
                 const isCashed = !isInVault && !isReturned && !isAtBank && (
                     lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||

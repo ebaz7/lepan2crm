@@ -4027,6 +4027,24 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                     const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
                     if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
                     if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
+                    const match = str.match(/^(\d{4})/);
+                    if (match) {
+                        const yr = parseInt(match[1], 10);
+                        if (yr >= 2025) {
+                            if (yr === 2025) {
+                                try {
+                                    const d = new Date(str);
+                                    if (!isNaN(d.getTime())) {
+                                        const sh = toShamsiFull(d.toISOString());
+                                        const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+                                        return cleanSh.startsWith('1404') || cleanSh.startsWith('1405') || cleanSh.startsWith('1406');
+                                    }
+                                } catch (e) {}
+                            }
+                            return true;
+                        }
+                        return false;
+                    }
                     return true;
                 };
 
@@ -5475,13 +5493,24 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
         if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
         if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
-        try {
-            const d = new Date(str);
-            if (!isNaN(d.getTime())) {
-                const sh = toShamsiFull(d.toISOString());
-                return sh.startsWith('1404') || sh.startsWith('1405') || sh.startsWith('1406');
+        const match = str.match(/^(\d{4})/);
+        if (match) {
+            const yr = parseInt(match[1], 10);
+            if (yr >= 2025) {
+                if (yr === 2025) {
+                    try {
+                        const d = new Date(str);
+                        if (!isNaN(d.getTime())) {
+                            const sh = toShamsiFull(d.toISOString());
+                            const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+                            return cleanSh.startsWith('1404') || cleanSh.startsWith('1405') || cleanSh.startsWith('1406');
+                        }
+                    } catch (e) {}
+                }
+                return true;
             }
-        } catch (e) {}
+            return false;
+        }
         return true;
     };
 
