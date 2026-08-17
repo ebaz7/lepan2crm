@@ -2096,8 +2096,8 @@ export const generateProductionReportPDF = async (
   dateFrom,
   dateTo,
   items = [],
-  totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, grandTotal: 0 },
-  waste = { waste_61: 0, waste_67: 0, waste_79: 0, waste_73: 0, totalWaste: 0, pct_61: 0, pct_67: 0, pct_79: 0, pct_73: 0, totalPct: 0, details: '' }
+  totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 },
+  waste = { waste_61: 0, waste_67: 0, waste_79: 0, waste_73: 0, waste_schweiter: 0, totalWaste: 0, pct_61: 0, pct_67: 0, pct_79: 0, pct_73: 0, pct_schweiter: 0, totalPct: 0, details: '' }
 ) => {
   try {
     const browser = await getBrowser();
@@ -2111,6 +2111,7 @@ export const generateProductionReportPDF = async (
         <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${item.qty_67 > 0 ? item.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
         <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${item.qty_79 > 0 ? item.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
         <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${item.qty_73 > 0 ? item.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
+        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${item.qty_schweiter > 0 ? item.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
         <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #0f172a; background-color: #f1f5f9;">${item.total > 0 ? item.total.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
       </tr>
     `).join('');
@@ -2159,20 +2160,21 @@ export const generateProductionReportPDF = async (
             <thead>
                 <tr>
                     <th colspan="2" style="background: #cbd5e1;">کالاها</th>
-                    <th colspan="5" style="background: #93c5fd;">عملیات</th>
+                    <th colspan="6" style="background: #93c5fd;">عملیات</th>
                 </tr>
                 <tr>
                     <th style="width: 8%;">واحد</th>
-                    <th style="width: 32%;">کالا</th>
-                    <th style="width: 12%;">61 سند تولید کارت POY</th>
-                    <th style="width: 12%;">67 سند تولید کارت DTY</th>
-                    <th style="width: 12%;">79 سند تولید کارت کش</th>
-                    <th style="width: 12%;">73 سند تولید کارت اسپاندکس</th>
+                    <th style="width: 28%;">کالا</th>
+                    <th style="width: 10%;">61 تولید POY</th>
+                    <th style="width: 10%;">67 تولید DTY</th>
+                    <th style="width: 10%;">79 تولید کش</th>
+                    <th style="width: 11%;">73 تولید اسپاندکس</th>
+                    <th style="width: 11%;">تولید شوایتر</th>
                     <th style="width: 12%;">جمع</th>
                 </tr>
             </thead>
             <tbody>
-                ${rowsHtml || '<tr><td colspan="7">هیچ موردی ثبت نشده است.</td></tr>'}
+                ${rowsHtml || '<tr><td colspan="8">هیچ موردی ثبت نشده است.</td></tr>'}
             </tbody>
             <tfoot>
                 <tr class="summary-row">
@@ -2181,6 +2183,7 @@ export const generateProductionReportPDF = async (
                     <td>${totals.qty_67 ? totals.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                     <td>${totals.qty_79 ? totals.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                     <td>${totals.qty_73 ? totals.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
+                    <td>${totals.qty_schweiter ? totals.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                     <td style="background: #cbd5e1; font-size: 10.5pt;">${totals.grandTotal ? totals.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                 </tr>
                 <tr class="waste-row">
@@ -2189,6 +2192,7 @@ export const generateProductionReportPDF = async (
                     <td>${waste.waste_67 ? waste.waste_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}</td>
                     <td>${waste.waste_79 ? waste.waste_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}</td>
                     <td>${waste.waste_73 ? waste.waste_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}</td>
+                    <td>${waste.waste_schweiter ? waste.waste_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}</td>
                     <td style="background: #fca5a5;">${waste.totalWaste ? waste.totalWaste.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}</td>
                 </tr>
                 <tr class="pct-row">
@@ -2197,6 +2201,7 @@ export const generateProductionReportPDF = async (
                     <td>${waste.pct_67 ? waste.pct_67.toFixed(2) : '0.00'}%</td>
                     <td>${waste.pct_79 ? waste.pct_79.toFixed(2) : '0.00'}%</td>
                     <td>${waste.pct_73 ? waste.pct_73.toFixed(2) : '0.00'}%</td>
+                    <td>${waste.pct_schweiter ? waste.pct_schweiter.toFixed(2) : '0.00'}%</td>
                     <td style="background: #fdba74;">${waste.totalPct ? waste.totalPct.toFixed(2) : '0.00'}%</td>
                 </tr>
             </tfoot>

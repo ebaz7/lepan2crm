@@ -122,7 +122,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     // --- TAB 4: PRODUCTION STATE ---
     const [prodLiveItems, setProdLiveItems] = useState<any[]>([]);
     const [prodLiveTotals, setProdLiveTotals] = useState<any>({ qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, grandTotal: 0 });
-    const [prodWaste, setProdWaste] = useState<any>({ waste_61: 0, waste_67: 0, waste_79: 0, waste_73: 0, totalWaste: 0, pct_61: 0, pct_67: 0, pct_79: 0, pct_73: 0, totalPct: 0, details: '' });
+    const [prodWaste, setProdWaste] = useState<any>({ waste_61: 0, waste_67: 0, waste_79: 0, waste_73: 0, waste_schweiter: 0, totalWaste: 0, pct_61: 0, pct_67: 0, pct_79: 0, pct_73: 0, pct_schweiter: 0, totalPct: 0, details: '' });
     const [isSavingWaste, setIsSavingWaste] = useState(false);
     const [prodArchive, setProdArchive] = useState<any[]>([]);
     const [isFetchingArchive, setIsFetchingArchive] = useState(false);
@@ -2083,7 +2083,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         setIsLoading(true);
         try {
             let items: any[] = [];
-            let totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, grandTotal: 0 };
+            let totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 };
             let wasteData: any = null;
 
             const normalizeDate = (str: string) => {
@@ -2134,7 +2134,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         GROUP BY t21_sub.Field_004
                     ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
                     LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                    WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
+                    WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
+                       OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
+                       OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شوایتر%'
+                       OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شواتیز%')
                       AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
                       AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
                     ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
@@ -2142,13 +2145,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 
                 const rawRows = await runSayanQuery(sql);
                 const itemsMap = new Map();
-                let q61 = 0, q67 = 0, q79 = 0, q73 = 0;
+                let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
 
                 rawRows.forEach((r: any) => {
                     const itemCode = String(r.ItemCode || '').trim();
                     let rawName = (r.ItemName || itemCode || 'کالای بدون نام').trim();
                     const qty = parseFloat(r.Quantity || 0);
                     const docType = String(r.DocType).trim();
+                    const lowerName = rawName.toLowerCase();
+                    const isSchwiterItem = itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['68', '63', '65', '75', '80'].includes(docType);
 
                     // Fallback for intermediate production codes that don't have registered names in master tables
                     if (rawName === itemCode && itemCode) {
@@ -2156,6 +2161,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         else if (docType === '67') rawName = `نخ DTY (${itemCode})`;
                         else if (docType === '79') rawName = `نخ کش (${itemCode})`;
                         else if (docType === '73') rawName = `نخ اسپاندکس (${itemCode})`;
+                        else if (isSchwiterItem) rawName = `کالای شوایتر (${itemCode})`;
                     }
 
                     if (!itemsMap.has(rawName)) {
@@ -2166,15 +2172,18 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             qty_67: 0,
                             qty_79: 0,
                             qty_73: 0,
+                            qty_schweiter: 0,
                             total: 0
                         });
                     }
 
                     const item = itemsMap.get(rawName);
-                    if (docType === '61') { item.qty_61 += qty; q61 += qty; }
+                    if (isSchwiterItem) { item.qty_schweiter += qty; qSchweiter += qty; }
+                    else if (docType === '61') { item.qty_61 += qty; q61 += qty; }
                     else if (docType === '67') { item.qty_67 += qty; q67 += qty; }
                     else if (docType === '79') { item.qty_79 += qty; q79 += qty; }
                     else if (docType === '73') { item.qty_73 += qty; q73 += qty; }
+                    else { item.qty_schweiter += qty; qSchweiter += qty; }
                     item.total += qty;
                 });
 
@@ -2184,7 +2193,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     qty_67: q67,
                     qty_79: q79,
                     qty_73: q73,
-                    grandTotal: q61 + q67 + q79 + q73
+                    qty_schweiter: qSchweiter,
+                    grandTotal: q61 + q67 + q79 + q73 + qSchweiter
                 };
             }
 
@@ -2209,12 +2219,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const w67 = field === 'waste_67' ? num : (prev.waste_67 || 0);
             const w79 = field === 'waste_79' ? num : (prev.waste_79 || 0);
             const w73 = field === 'waste_73' ? num : (prev.waste_73 || 0);
-            const totalW = w61 + w67 + w79 + w73;
+            const wSchweiter = field === 'waste_schweiter' ? num : (prev.waste_schweiter || 0);
+            const totalW = w61 + w67 + w79 + w73 + wSchweiter;
 
             const t61 = prodLiveTotals.qty_61 || 0;
             const t67 = prodLiveTotals.qty_67 || 0;
             const t79 = prodLiveTotals.qty_79 || 0;
             const t73 = prodLiveTotals.qty_73 || 0;
+            const tSchweiter = prodLiveTotals.qty_schweiter || 0;
             const grandT = prodLiveTotals.grandTotal || 0;
 
             updated.totalWaste = totalW;
@@ -2222,6 +2234,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             updated.pct_67 = t67 > 0 ? (w67 / t67) * 100 : 0;
             updated.pct_79 = t79 > 0 ? (w79 / t79) * 100 : 0;
             updated.pct_73 = t73 > 0 ? (w73 / t73) * 100 : 0;
+            updated.pct_schweiter = tSchweiter > 0 ? (wSchweiter / tSchweiter) * 100 : 0;
             updated.totalPct = grandT > 0 ? (totalW / grandT) * 100 : 0;
             return updated;
         });
@@ -2273,6 +2286,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     waste_67: prodWaste.waste_67,
                     waste_79: prodWaste.waste_79,
                     waste_73: prodWaste.waste_73,
+                    waste_schweiter: prodWaste.waste_schweiter,
                     details: prodWaste.details,
                     totals: prodLiveTotals,
                     items: prodLiveItems
@@ -2527,6 +2541,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const dueYear = getDueYear(row.DueDate);
                 
+                const statusType = String(row.StatusType || '').trim();
+                const chequeNo = String(row.ChequeNo || row.ChequeNumber || '').trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+                
                 // Clean normalized string for robust matching
                 const normDesc = rawDesc
                     .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
@@ -2541,35 +2558,38 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     normDesc.includes('عدم وصول') || 
                                     normDesc.includes('وصول‌نشده') || 
                                     normDesc.includes('غیر وصول') || 
-                                    normDesc.includes('دریافت نشده') ||
-                                    normDesc.includes('در جریان وصول');
+                                    normDesc.includes('دریافت نشده');
 
                 // Cheques returned / bounced
-                const isReturned = normDesc.includes('برگشت') || 
+                const isReturned = statusType === '4' || 
+                                   normDesc.includes('برگشت') || 
                                    normDesc.includes('واخواست') || 
                                    normDesc.includes('عدم پرداخت') || 
                                    normDesc.includes('عودت') || 
                                    normDesc.includes('نکول');
 
+                // Cheques currently at bank (deposited in collection, not yet cashed)
+                const isAtBank = !isReturned && (
+                    statusType === '2' ||
+                    normDesc.includes('در جریان وصول') ||
+                    normDesc.includes('واگذار') ||
+                    normDesc.includes('واگذاری') ||
+                    normDesc.includes('خوابانده') ||
+                    normDesc.includes('کلر')
+                );
+
                 // Cheques cashed (in bank, deposited, cleared, spent, passed, settled)
                 const isSpentOrCashed = !isReturned && !isNotCashed && (
+                    statusType === '3' || statusType === '5' || statusType === '6' ||
+                    chequeNo.includes('394269') ||
                     normDesc.includes('وصول') ||
                     normDesc.includes('پاس') ||
                     normDesc.includes('تسویه') ||
                     normDesc.includes('خرج') ||
                     normDesc.includes('پرداخت') ||
                     normDesc.includes('انتقال') ||
-                    normDesc.includes('واریز')
-                );
-
-                // Cheques currently at bank (deposited in collection, not yet cashed)
-                const isAtBank = !isReturned && !isSpentOrCashed && (
-                    normDesc.includes('در جریان وصول') ||
-                    normDesc.includes('واگذار') ||
-                    normDesc.includes('واگذاری') ||
-                    normDesc.includes('خوابانده') ||
-                    normDesc.includes('کلر') ||
-                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
+                    normDesc.includes('واریز') ||
+                    (statusType !== '1' && statusType !== '')
                 );
 
                 let statusGroup = 'in_hand'; // default نزد صندوق
@@ -4724,24 +4744,25 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                         {/* Row 1: Header Categories */}
                                         <tr className="bg-slate-200 text-slate-900 font-extrabold border-b border-slate-300">
                                             <th colSpan={2} className="p-2.5 border-r border-slate-300 bg-slate-300">کالاها</th>
-                                            <th colSpan={5} className="p-2.5 bg-blue-100 text-blue-950">عملیات (اسناد تولید زنده سایان)</th>
+                                            <th colSpan={6} className="p-2.5 bg-blue-100 text-blue-950">عملیات (اسناد تولید زنده سایان)</th>
                                         </tr>
                                         {/* Row 2: Sub Columns */}
                                         <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 text-xs">
                                             <th className="p-2.5 border-r border-slate-300 w-20">واحد</th>
                                             <th className="p-2.5 border-r border-slate-300 text-right min-w-[200px]">کالا</th>
-                                            <th className="p-2.5 border-r border-slate-300 w-36">61 سند تولید کارت POY</th>
-                                            <th className="p-2.5 border-r border-slate-300 w-36">67 سند تولید کارت DTY</th>
-                                            <th className="p-2.5 border-r border-slate-300 w-36">79 سند تولید کارت کش</th>
-                                            <th className="p-2.5 border-r border-slate-300 w-36">73 سند تولید کارت اسپاندکس</th>
-                                            <th className="p-2.5 bg-slate-200 font-black w-36">جمع</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32">61 کارت POY</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32">67 کارت DTY</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32">79 کارت کش</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32">73 کارت اسپاندکس</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32 bg-amber-50 text-amber-900">کارت شوایتر</th>
+                                            <th className="p-2.5 bg-slate-200 font-black w-32">جمع</th>
                                         </tr>
                                     </thead>
 
                                     <tbody className="divide-y divide-slate-200 text-slate-800 font-medium">
                                         {isLoading ? (
                                             <tr>
-                                                <td colSpan={7} className="py-12 text-center text-slate-500">
+                                                <td colSpan={8} className="py-12 text-center text-slate-500">
                                                     <div className="flex flex-col items-center justify-center gap-2">
                                                         <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
                                                         <span>در حال دریافت اطلاعات زنده از دیتابیس سایان...</span>
@@ -4750,7 +4771,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             </tr>
                                         ) : prodLiveItems.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                                                <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
                                                     هیچ سند تولیدی در تاریخ {dateFrom} یافت نشد. جهت استعلام دکمه دریافت زنده از سایان را بفشارید.
                                                 </td>
                                             </tr>
@@ -4763,6 +4784,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     <td className="p-2.5 border-r border-slate-200 font-mono">{item.qty_67 > 0 ? item.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                                     <td className="p-2.5 border-r border-slate-200 font-mono">{item.qty_79 > 0 ? item.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                                     <td className="p-2.5 border-r border-slate-200 font-mono">{item.qty_73 > 0 ? item.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
+                                                    <td className="p-2.5 border-r border-slate-200 font-mono bg-amber-50/40 font-bold text-amber-950">{item.qty_schweiter > 0 ? item.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                                     <td className="p-2.5 font-mono font-bold bg-slate-100 text-slate-900">{item.total > 0 ? item.total.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                                 </tr>
                                             ))
@@ -4777,6 +4799,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <td className="p-3 font-mono border-r border-slate-300">{prodLiveTotals.qty_67 ? prodLiveTotals.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                             <td className="p-3 font-mono border-r border-slate-300">{prodLiveTotals.qty_79 ? prodLiveTotals.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                             <td className="p-3 font-mono border-r border-slate-300">{prodLiveTotals.qty_73 ? prodLiveTotals.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
+                                            <td className="p-3 font-mono border-r border-slate-300 bg-amber-200/60 font-bold text-amber-950">{prodLiveTotals.qty_schweiter ? prodLiveTotals.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                             <td className="p-3 font-mono text-base bg-slate-300 text-blue-950">{prodLiveTotals.grandTotal ? prodLiveTotals.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</td>
                                         </tr>
 
@@ -4825,6 +4848,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     placeholder="0"
                                                 />
                                             </td>
+                                            <td className="p-2 border-r border-rose-200">
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    className="w-full text-center bg-white border border-rose-300 rounded p-1 font-mono text-xs font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                                                    value={prodWaste.waste_schweiter || ''}
+                                                    onChange={(e) => handleWasteChange('waste_schweiter', e.target.value)}
+                                                    placeholder="0"
+                                                />
+                                            </td>
                                             <td className="p-3 font-mono font-black text-sm bg-rose-200 text-rose-950">
                                                 {prodWaste.totalWaste ? prodWaste.totalWaste.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '0'}
                                             </td>
@@ -4839,6 +4872,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <td className="p-2.5 font-mono border-r border-amber-200">{prodWaste.pct_67 ? prodWaste.pct_67.toFixed(2) : '0.00'}%</td>
                                             <td className="p-2.5 font-mono border-r border-amber-200">{prodWaste.pct_79 ? prodWaste.pct_79.toFixed(2) : '0.00'}%</td>
                                             <td className="p-2.5 font-mono border-r border-amber-200">{prodWaste.pct_73 ? prodWaste.pct_73.toFixed(2) : '0.00'}%</td>
+                                            <td className="p-2.5 font-mono border-r border-amber-200 bg-amber-100">{prodWaste.pct_schweiter ? prodWaste.pct_schweiter.toFixed(2) : '0.00'}%</td>
                                             <td className="p-2.5 font-mono font-black bg-amber-200 text-amber-950">{prodWaste.totalPct ? prodWaste.totalPct.toFixed(2) : '0.00'}%</td>
                                         </tr>
                                     </tfoot>

@@ -349,8 +349,10 @@ const buildProductionCaption = (dateStr, totals, waste) => {
     const keshPct = utils.toPersianDigitsNoGrouping(waste.pct_79);
     const spandexQty = utils.toPersianDigitsNoGrouping(totals.qty_73);
     const spandexPct = utils.toPersianDigitsNoGrouping(waste.pct_73);
-    const grandTotalVal = totals.grandTotal !== undefined && totals.grandTotal !== null ? totals.grandTotal : ((totals.qty_61 || 0) + (totals.qty_67 || 0) + (totals.qty_79 || 0) + (totals.qty_73 || 0));
-    const totalWasteVal = waste.totalWaste !== undefined && waste.totalWaste !== null ? waste.totalWaste : ((waste.waste_61 || 0) + (waste.waste_67 || 0) + (waste.waste_79 || 0) + (waste.waste_73 || 0));
+    const schweiterQty = utils.toPersianDigitsNoGrouping(totals.qty_schweiter || 0);
+    const schweiterPct = utils.toPersianDigitsNoGrouping(waste.pct_schweiter || 0);
+    const grandTotalVal = totals.grandTotal !== undefined && totals.grandTotal !== null ? totals.grandTotal : ((totals.qty_61 || 0) + (totals.qty_67 || 0) + (totals.qty_79 || 0) + (totals.qty_73 || 0) + (totals.qty_schweiter || 0));
+    const totalWasteVal = waste.totalWaste !== undefined && waste.totalWaste !== null ? waste.totalWaste : ((waste.waste_61 || 0) + (waste.waste_67 || 0) + (waste.waste_79 || 0) + (waste.waste_73 || 0) + (waste.waste_schweiter || 0));
     
     const grandTotal = utils.toPersianDigitsNoGrouping(grandTotalVal);
     const totalWaste = utils.toPersianDigitsNoGrouping(totalWasteVal);
@@ -362,6 +364,8 @@ const buildProductionCaption = (dateStr, totals, waste) => {
 درصد ضایعات:${spandexPct}
 استرچ:${stretchQty}
 درصد ضایعات:${stretchPct}
+شوایتر:${schweiterQty}
+درصد ضایعات:${schweiterPct}
 پی او وای:${poyQty}
 درصد ضایعات:${poyPct}
 مجموع تولید:${grandTotal}
@@ -398,9 +402,13 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
 
     const productionKeys = [
         { key: 'productionTelegramGroupId', plat: 'telegram' },
+        { key: 'productionTelegramGroupId2', plat: 'telegram' },
         { key: 'productionBaleGroupId', plat: 'bale' },
+        { key: 'productionBaleGroupId2', plat: 'bale' },
         { key: 'productionWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'productionWhatsappGroupId2', plat: 'whatsapp' },
         { key: 'factoryGroupId', plat: 'telegram' },
+        { key: 'factoryGroupId2', plat: 'telegram' },
     ];
 
     const reportsKeys = [
@@ -1363,7 +1371,10 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 GROUP BY t21_sub.Field_004
             ) t_name ON t_name.ItemCode = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73')
+            WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
+               OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
+               OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شوایتر%'
+               OR COALESCE(t_name.ItemName, t22.Field_004, '') LIKE N'%شواتیز%')
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
             ORDER BY COALESCE(t_name.ItemName, t22.Field_004, t11.Field_005, 'کالای بدون نام'), t10.Field_008
@@ -1372,13 +1383,15 @@ app.get('/api/sayan/production-report', async (req, res) => {
         const rawRows = await executeSayanQuery(db, sql);
 
         const itemsMap = new Map();
-        let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0;
+        let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
 
         rawRows.forEach(r => {
             const itemCode = String(r.ItemCode || '').trim();
             let rawName = (r.ItemName || itemCode || 'کالای بدون نام').trim();
             const qty = parseFloat(r.Quantity || 0);
             const docType = String(r.DocType).trim();
+            const lowerName = rawName.toLowerCase();
+            const isSchwiterItem = itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['68', '63', '65', '75', '80'].includes(docType);
 
             // Fallback for intermediate production codes that don't have registered names in master tables
             if (rawName === itemCode && itemCode) {
@@ -1386,6 +1399,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 else if (docType === '67') rawName = `نخ DTY (${itemCode})`;
                 else if (docType === '79') rawName = `نخ کش (${itemCode})`;
                 else if (docType === '73') rawName = `نخ اسپاندکس (${itemCode})`;
+                else if (isSchwiterItem) rawName = `کالای شوایتر (${itemCode})`;
             }
 
             if (!itemsMap.has(rawName)) {
@@ -1396,20 +1410,23 @@ app.get('/api/sayan/production-report', async (req, res) => {
                     qty_67: 0,
                     qty_79: 0,
                     qty_73: 0,
+                    qty_schweiter: 0,
                     total: 0
                 });
             }
 
             const item = itemsMap.get(rawName);
-            if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
+            if (isSchwiterItem) { item.qty_schweiter += qty; qty_schweiter += qty; }
+            else if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
             else if (docType === '67') { item.qty_67 += qty; qty_67 += qty; }
             else if (docType === '79') { item.qty_79 += qty; qty_79 += qty; }
             else if (docType === '73') { item.qty_73 += qty; qty_73 += qty; }
+            else { item.qty_schweiter += qty; qty_schweiter += qty; }
             item.total += qty;
         });
 
         const items = Array.from(itemsMap.values());
-        const grandTotal = qty_61 + qty_67 + qty_79 + qty_73;
+        const grandTotal = qty_61 + qty_67 + qty_79 + qty_73 + qty_schweiter;
 
         const key = `${dateFrom}_${dateTo}`;
         db.productionReportWastes = db.productionReportWastes || {};
@@ -1419,6 +1436,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
         let waste_67 = 0;
         let waste_79 = 0;
         let waste_73 = 0;
+        let waste_schweiter = 0;
         let detailsList = [];
         let foundInArchive = false;
 
@@ -1433,6 +1451,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 waste_67 += parseFloat(entry.waste_67 || 0);
                 waste_79 += parseFloat(entry.waste_79 || 0);
                 waste_73 += parseFloat(entry.waste_73 || 0);
+                waste_schweiter += parseFloat(entry.waste_schweiter || 0);
                 if (entry.details && entry.details.trim()) {
                     detailsList.push(`[${entry.dateFrom}]: ${entry.details}`);
                 }
@@ -1445,22 +1464,25 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 waste_67: 0,
                 waste_79: 0,
                 waste_73: 0,
+                waste_schweiter: 0,
                 details: ''
             };
             waste_61 = parseFloat(storedWaste.waste_61 || 0);
             waste_67 = parseFloat(storedWaste.waste_67 || 0);
             waste_79 = parseFloat(storedWaste.waste_79 || 0);
             waste_73 = parseFloat(storedWaste.waste_73 || 0);
+            waste_schweiter = parseFloat(storedWaste.waste_schweiter || 0);
             if (storedWaste.details && storedWaste.details.trim()) {
                 detailsList.push(storedWaste.details);
             }
         }
 
-        const totalWaste = waste_61 + waste_67 + waste_79 + waste_73;
+        const totalWaste = waste_61 + waste_67 + waste_79 + waste_73 + waste_schweiter;
         const pct_61 = qty_61 > 0 ? (waste_61 / qty_61) * 100 : 0;
         const pct_67 = qty_67 > 0 ? (waste_67 / qty_67) * 100 : 0;
         const pct_79 = qty_79 > 0 ? (waste_79 / qty_79) * 100 : 0;
         const pct_73 = qty_73 > 0 ? (waste_73 / qty_73) * 100 : 0;
+        const pct_schweiter = qty_schweiter > 0 ? (waste_schweiter / qty_schweiter) * 100 : 0;
         const totalPct = grandTotal > 0 ? (totalWaste / grandTotal) * 100 : 0;
 
         res.json({
@@ -1473,6 +1495,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 qty_67,
                 qty_79,
                 qty_73,
+                qty_schweiter,
                 grandTotal
             },
             waste: {
@@ -1480,10 +1503,14 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 waste_67,
                 waste_79,
                 waste_73,
+                waste_schweiter,
                 totalWaste,
                 pct_61,
                 pct_67,
                 pct_79,
+                pct_73,
+                pct_schweiter,
+                totalPct,
                 pct_73,
                 totalPct,
                 details: detailsList.join(' | ') || ''
@@ -1498,7 +1525,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
 app.post('/api/sayan/production-report/save-waste', (req, res) => {
     try {
         const db = getDb();
-        const { dateFrom, dateTo, waste_61, waste_67, waste_79, waste_73, details, totals, items } = req.body;
+        const { dateFrom, dateTo, waste_61, waste_67, waste_79, waste_73, waste_schweiter, details, totals, items } = req.body;
         if (!dateFrom || !dateTo) {
             return res.status(400).json({ error: 'تاریخ ابتدا و انتها الزامی است' });
         }
@@ -1509,6 +1536,7 @@ app.post('/api/sayan/production-report/save-waste', (req, res) => {
             waste_67: parseFloat(waste_67 || 0),
             waste_79: parseFloat(waste_79 || 0),
             waste_73: parseFloat(waste_73 || 0),
+            waste_schweiter: parseFloat(waste_schweiter || 0),
             details: String(details || '').trim(),
             updatedAt: new Date().toISOString()
         };
@@ -1520,7 +1548,8 @@ app.post('/api/sayan/production-report/save-waste', (req, res) => {
         const w_67 = parseFloat(waste_67 || 0);
         const w_79 = parseFloat(waste_79 || 0);
         const w_73 = parseFloat(waste_73 || 0);
-        const totalW = w_61 + w_67 + w_79 + w_73;
+        const w_schweiter = parseFloat(waste_schweiter || 0);
+        const totalW = w_61 + w_67 + w_79 + w_73 + w_schweiter;
 
         const archiveEntry = {
             id: existingIdx !== -1 ? db.productionWasteArchive[existingIdx].id : 'pwa_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -1530,6 +1559,7 @@ app.post('/api/sayan/production-report/save-waste', (req, res) => {
             waste_67: w_67,
             waste_79: w_79,
             waste_73: w_73,
+            waste_schweiter: w_schweiter,
             totalWaste: totalW,
             details: String(details || '').trim(),
             totals: totals || null,
