@@ -2154,7 +2154,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                         GROUP BY t21_sub.Field_004
                     ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-                    WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
+                    WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70', '68', '63', '65', '75', '80') 
                        OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
                        OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
                        OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
@@ -2167,7 +2167,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 const itemsMap = new Map();
                 let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
 
-                const getKnownYarnNameByCode = (code: string, isSchweiter: boolean): string => {
+                const getKnownYarnNameByCode = (code: string, isSchweiter: boolean, docType?: string): string => {
                     const c = code.replace(/[^0-9]/g, '');
                     if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
                     if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
@@ -2181,8 +2181,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     if (c.startsWith('0101')) return 'نخ POY';
                     if (c.startsWith('0104')) return 'نخ کش';
                     if (c.startsWith('0105')) return 'نخ اسپاندکس';
-                    if (c.startsWith('0102')) return 'نخ شوایتر';
-                    if (isSchweiter) return 'کالای شوایتر';
+                    if (c.startsWith('0102') || docType === '70' || isSchweiter) return 'نخ شوایتر';
+                    if (docType === '61') return 'نخ POY';
+                    if (docType === '67') return 'نخ DTY';
+                    if (docType === '79') return 'نخ کش';
+                    if (docType === '73') return 'نخ اسپاندکس';
                     return 'کالای تولیدی';
                 };
 
@@ -2192,13 +2195,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     const qty = parseFloat(r.Quantity || 0);
                     const docType = String(r.DocType).trim();
                     const lowerName = rawName.toLowerCase();
-                    const isSchwiterItem = itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['68', '63', '65', '75', '80'].includes(docType);
+                    const isSchwiterItem = docType === '70' || itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['70', '68', '63', '65', '75', '80'].includes(docType);
 
                     const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
                     const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
                     if (isPureCode) {
-                        rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem);
+                        rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem, docType);
                     } else {
                         if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
                             rawName = `شوایتر - ${rawName}`;
@@ -4824,7 +4827,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <th className="p-2.5 border-r border-slate-300 w-32">67 کارت DTY</th>
                                             <th className="p-2.5 border-r border-slate-300 w-32">79 کارت کش</th>
                                             <th className="p-2.5 border-r border-slate-300 w-32">73 کارت اسپاندکس</th>
-                                            <th className="p-2.5 border-r border-slate-300 w-32 bg-amber-50 text-amber-900">کارت شوایتر</th>
+                                            <th className="p-2.5 border-r border-slate-300 w-32 bg-amber-50 text-amber-900">70 کارت شوایتر</th>
                                             <th className="p-2.5 bg-slate-200 font-black w-32">جمع</th>
                                         </tr>
                                     </thead>
@@ -4834,8 +4837,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <tr>
                                                 <td colSpan={8} className="py-12 text-center text-slate-500">
                                                     <div className="flex flex-col items-center justify-center gap-2">
-                                                        <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
-                                                        <span>در حال دریافت اطلاعات زنده از دیتابیس سایان...</span>
+                                                         <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+                                                         <span>در حال دریافت اطلاعات زنده از دیتابیس سایان...</span>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -4987,6 +4990,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                         <span className="text-slate-400 block text-[9px]">اسپاندکس (73)</span>
                                                         <span className="font-mono font-bold text-slate-700">{item.qty_73 > 0 ? item.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
                                                     </div>
+                                                    <div className="bg-amber-50/60 p-2 rounded-lg border border-amber-200 col-span-2">
+                                                        <span className="text-amber-800 block text-[9px] font-bold">کارت شوایتر (70)</span>
+                                                        <span className="font-mono font-bold text-amber-950">{item.qty_schweiter > 0 ? item.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    </div>
                                                 </div>
                                                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 flex justify-between items-center text-[11px]">
                                                     <span className="font-bold text-blue-900">مجموع تولید کالا</span>
@@ -5001,7 +5008,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             
                                             <div className="grid grid-cols-2 gap-2.5 text-[11px]">
                                                 <div className="bg-white/10 p-2 rounded-lg border border-white/10">
-                                                    <span className="text-slate-300 block text-[9px]">جمع کارت POY</span>
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت POY (61)</span>
                                                     <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_61 ? prodLiveTotals.qty_61.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
                                                     <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
                                                     <input
@@ -5015,7 +5022,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_61 ? prodWaste.pct_61.toFixed(2) : '0.00'}%</span>
                                                 </div>
                                                 <div className="bg-white/10 p-2 rounded-lg border border-white/10">
-                                                    <span className="text-slate-300 block text-[9px]">جمع کارت DTY</span>
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت DTY (67)</span>
                                                     <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_67 ? prodLiveTotals.qty_67.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
                                                     <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
                                                     <input
@@ -5029,7 +5036,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_67 ? prodWaste.pct_67.toFixed(2) : '0.00'}%</span>
                                                 </div>
                                                 <div className="bg-white/10 p-2 rounded-lg border border-white/10">
-                                                    <span className="text-slate-300 block text-[9px]">جمع کارت کش</span>
+                                                    <span className="text-slate-300 block text-[9px]">جمع کارت کش (79)</span>
                                                     <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_79 ? prodLiveTotals.qty_79.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
                                                     <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
                                                     <input
@@ -5043,7 +5050,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_79 ? prodWaste.pct_79.toFixed(2) : '0.00'}%</span>
                                                 </div>
                                                 <div className="bg-white/10 p-2 rounded-lg border border-white/10">
-                                                    <span className="text-slate-300 block text-[9px]">جمع اسپاندکس</span>
+                                                    <span className="text-slate-300 block text-[9px]">جمع اسپاندکس (73)</span>
                                                     <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_73 ? prodLiveTotals.qty_73.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
                                                     <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات:</div>
                                                     <input
@@ -5055,6 +5062,20 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                         placeholder="0"
                                                     />
                                                     <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_73 ? prodWaste.pct_73.toFixed(2) : '0.00'}%</span>
+                                                </div>
+                                                <div className="bg-amber-950/40 p-2 rounded-lg border border-amber-500/30 col-span-2">
+                                                    <span className="text-amber-300 block text-[9px] font-bold">جمع کارت شوایتر (70)</span>
+                                                    <span className="font-mono font-bold text-white block mt-0.5">{prodLiveTotals.qty_schweiter ? prodLiveTotals.qty_schweiter.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}</span>
+                                                    <div className="mt-2 text-[9px] text-rose-300 font-bold">ضایعات شوایتر:</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        className="w-full text-center bg-white text-slate-900 rounded p-1 font-mono text-[10px] font-bold mt-1"
+                                                        value={prodWaste.waste_schweiter || ''}
+                                                        onChange={(e) => handleWasteChange('waste_schweiter', e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="text-[9px] text-amber-300 block mt-1">خطا: {prodWaste.pct_schweiter ? prodWaste.pct_schweiter.toFixed(2) : '0.00'}%</span>
                                                 </div>
                                             </div>
                                             
@@ -5146,7 +5167,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     <th className="p-3">کل تولید (kg)</th>
                                                     <th className="p-3 text-rose-800">کل ضایعات (kg)</th>
                                                     <th className="p-3 text-amber-800">درصد ضایعات (%)</th>
-                                                    <th className="p-3">تفکیک ضایعات ۶۱ / ۶۷ / ۷۹ / ۷۳</th>
+                                                    <th className="p-3">تفکیک ضایعات ۶۱ / ۶۷ / ۷۹ / ۷۳ / ۷۰</th>
                                                     <th className="p-3 text-right max-w-xs truncate">توضیحات / علل ضایعات</th>
                                                     <th className="p-3 w-36">عملیات</th>
                                                 </tr>
@@ -5157,7 +5178,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                         (parseFloat(entry.totals?.qty_61 || 0) + 
                                                          parseFloat(entry.totals?.qty_67 || 0) + 
                                                          parseFloat(entry.totals?.qty_79 || 0) + 
-                                                         parseFloat(entry.totals?.qty_73 || 0)) || 0;
+                                                         parseFloat(entry.totals?.qty_73 || 0) +
+                                                         parseFloat(entry.totals?.qty_schweiter || 0)) || 0;
                                                     
                                                     const wastePct = totalProd > 0 ? (entry.totalWaste / totalProd) * 100 : 0;
                                                     
@@ -5176,7 +5198,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                                 {wastePct > 0 ? `${wastePct.toFixed(2)}%` : '۰.۰۰%'}
                                                             </td>
                                                             <td className="p-3 font-mono text-slate-500 text-[11px]">
-                                                                {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')}
+                                                                {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')} / {(entry.waste_schweiter || 0).toLocaleString('fa-IR')}
                                                             </td>
                                                             <td className="p-3 text-right max-w-xs truncate text-[11px] text-slate-600" title={entry.details}>
                                                                 {entry.details || '---'}
@@ -5211,7 +5233,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 (parseFloat(entry.totals?.qty_61 || 0) + 
                                                  parseFloat(entry.totals?.qty_67 || 0) + 
                                                  parseFloat(entry.totals?.qty_79 || 0) + 
-                                                 parseFloat(entry.totals?.qty_73 || 0)) || 0;
+                                                 parseFloat(entry.totals?.qty_73 || 0) +
+                                                 parseFloat(entry.totals?.qty_schweiter || 0)) || 0;
                                             
                                             const wastePct = totalProd > 0 ? (entry.totalWaste / totalProd) * 100 : 0;
                                             
@@ -5238,8 +5261,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                     </div>
 
                                                     <div className="text-[10px] text-slate-500 bg-slate-50/50 p-2 rounded-lg font-mono leading-tight">
-                                                        <span className="text-slate-400 block text-[9px] font-sans mb-0.5">تفکیک ضایعات ۶۱/۶۷/۷۹/۷۳:</span>
-                                                        {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')}
+                                                        <span className="text-slate-400 block text-[9px] font-sans mb-0.5">تفکیک ضایعات ۶۱/۶۷/۷۹/۷۳/۷۰:</span>
+                                                        {(entry.waste_61 || 0).toLocaleString('fa-IR')} / {(entry.waste_67 || 0).toLocaleString('fa-IR')} / {(entry.waste_79 || 0).toLocaleString('fa-IR')} / {(entry.waste_73 || 0).toLocaleString('fa-IR')} / {(entry.waste_schweiter || 0).toLocaleString('fa-IR')}
                                                     </div>
 
                                                     {entry.details && (

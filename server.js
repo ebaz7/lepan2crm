@@ -1391,7 +1391,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '68', '63', '65', '75', '80') 
+            WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70', '68', '63', '65', '75', '80') 
                OR LTRIM(RTRIM(t11.Field_005)) LIKE '0405%'
                OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شوایتر%'
                OR COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, '') LIKE N'%شواتیز%')
@@ -1405,7 +1405,7 @@ app.get('/api/sayan/production-report', async (req, res) => {
         const itemsMap = new Map();
         let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
 
-        const getKnownYarnNameByCode = (code, isSchweiter) => {
+        const getKnownYarnNameByCode = (code, isSchweiter, docType) => {
             const c = String(code || '').replace(/[^0-9]/g, '');
             if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
             if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
@@ -1419,8 +1419,11 @@ app.get('/api/sayan/production-report', async (req, res) => {
             if (c.startsWith('0101')) return 'نخ POY';
             if (c.startsWith('0104')) return 'نخ کش';
             if (c.startsWith('0105')) return 'نخ اسپاندکس';
-            if (c.startsWith('0102')) return 'نخ شوایتر';
-            if (isSchweiter) return 'کالای شوایتر';
+            if (c.startsWith('0102') || docType === '70' || isSchweiter) return 'نخ شوایتر';
+            if (docType === '61') return 'نخ POY';
+            if (docType === '67') return 'نخ DTY';
+            if (docType === '79') return 'نخ کش';
+            if (docType === '73') return 'نخ اسپاندکس';
             return 'کالای تولیدی';
         };
 
@@ -1430,13 +1433,13 @@ app.get('/api/sayan/production-report', async (req, res) => {
             const qty = parseFloat(r.Quantity || 0);
             const docType = String(r.DocType).trim();
             const lowerName = rawName.toLowerCase();
-            const isSchwiterItem = itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['68', '63', '65', '75', '80'].includes(docType);
+            const isSchwiterItem = docType === '70' || itemCode.startsWith('0405') || lowerName.includes('شوایتر') || lowerName.includes('شواتیز') || lowerName.includes('schweiter') || lowerName.includes('schwiter') || ['70', '68', '63', '65', '75', '80'].includes(docType);
 
             const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
             const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
 
             if (isPureCode) {
-                rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem);
+                rawName = getKnownYarnNameByCode(itemCode, isSchwiterItem, docType);
             } else {
                 if (isSchwiterItem && !rawName.includes('شوایتر') && !rawName.includes('شواتیز')) {
                     rawName = `شوایتر - ${rawName}`;
