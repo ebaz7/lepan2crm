@@ -432,7 +432,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         }
     };
 
-    const handleWarehouseSubmit = async (finalItems: any[], sayanRemittanceData?: any, attachmentDataUrl?: string) => {
+    const handleWarehouseSubmit = async (finalItems: any[], sayanRemittanceData?: any, attachmentDataUrl?: string, sayanRemittanceDocs?: any[]) => {
         if (!warehouseFinalize) return;
         const currentPermit = warehouseFinalize;
         setWarehouseFinalize(null);
@@ -459,7 +459,8 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 sayanSubCode: sayanRemittanceData?.subCode || currentPermit.sayanSubCode,
                 sayanArchiveCode: sayanRemittanceData?.archiveCode || currentPermit.sayanArchiveCode,
                 sayanSyncedAt: sayanRemittanceData ? Date.now() : currentPermit.sayanSyncedAt,
-                sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc
+                sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc,
+                sayanRemittanceDocs: sayanRemittanceDocs || currentPermit.sayanRemittanceDocs
             };
             
             await editExitPermit(updated); 

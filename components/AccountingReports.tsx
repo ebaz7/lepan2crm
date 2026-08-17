@@ -2599,10 +2599,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     return 0;
                 };
 
+                const is1404Plus = (dateStr: string): boolean => {
+                    if (!dateStr) return false;
+                    const clean = String(dateStr).trim()
+                        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+                        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
+                    
+                    if (clean.startsWith('1404') || clean.startsWith('1405') || clean.startsWith('1406') || clean.startsWith('1407')) {
+                        return true;
+                    }
+                    if (clean.startsWith('1403') || clean.startsWith('1402') || clean.startsWith('1401') || clean.startsWith('1400') || clean.startsWith('13')) {
+                        return false;
+                    }
+
+                    try {
+                        const sh = parseShamsiParts(clean);
+                        if (sh) {
+                            return sh.jy >= 1404;
+                        }
+                        const d = new Date(clean);
+                        if (!isNaN(d.getTime())) {
+                            const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                            return j.jy >= 1404;
+                        }
+                    } catch (e) {}
+                    return false;
+                };
+
+                if (!is1404Plus(dueDateStr)) {
+                    return null;
+                }
+
                 const lastOp = String(row.LastOpCode || '').trim();
                 const subOp = String(row.LastOpSubCode || '').trim();
                 const lastOpAcc = String(row.LastOpAccount || '').trim();
                 const lastOpAccName = String(row.LastOpAccountName || '').trim();
+                const statusType = String(row.StatusType || '').trim();
+                const statusCode = String(row.StatusCode || '').trim();
                 const isActive = String(row.IsActive ?? '1').trim();
                 const rawDesc = String(row.StatusDesc || '').trim();
                 const cleanDesc = rawDesc
@@ -2613,21 +2646,57 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .toLowerCase()
                     .trim();
 
-                const isCashed = cleanDesc.includes('وصول شده') || 
-                                 cleanDesc.includes('برگشتی وصول شده') || 
-                                 (lastOp === '17' && subOp === '28') || 
-                                 (lastOp === '18' && (subOp === '29' || subOp === '28' || subOp === '30'));
+                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
+                                             cleanDesc.includes('وصول نشد') || 
+                                             cleanDesc.includes('عدم وصول') || 
+                                             cleanDesc.includes('وصول‌نشده') || 
+                                             cleanDesc.includes('غیر وصول');
 
-                const isSpent = cleanDesc.includes('چک خرجی') || 
-                                (lastOp === '18' && (subOp === '31' || subOp === '33' || subOp === '34' || subOp === '36'));
+                // 1. Explicitly Returned
+                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' || 
+                                   cleanDesc.includes('برگشت') || 
+                                   cleanDesc.includes('واخواست') || 
+                                   cleanDesc.includes('عدم پرداخت') || 
+                                   cleanDesc.includes('عودت') || 
+                                   cleanDesc.includes('نکول');
 
-                const isReturned = cleanDesc.includes('برگشت به طرف حساب') || 
-                                   lastOp === '16' || 
-                                   lastOp === '15';
+                // 2. Deposited to Bank (خوابانده به حساب / واگذار به بانک)
+                const isAtBank = !isReturned && (
+                    lastOp === '13' || lastOp === '2' || lastOp === '12' || (lastOp === '17' && subOp === '24') ||
+                    statusType === '2' ||
+                    statusCode === '2' ||
+                    cleanDesc.includes('در جریان') ||
+                    cleanDesc.includes('درجریان') ||
+                    cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('واگذاری') ||
+                    cleanDesc.includes('خوابانده') ||
+                    cleanDesc.includes('کلر') ||
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                );
 
-                const isAtBank = cleanDesc.includes('به حساب خوابانده شده') || 
-                                 (lastOp === '17' && subOp === '24') || 
-                                 lastOp === '12';
+                // 3. Cashed / Settled / Spent / Cleared
+                const isCashed = !isReturned && !isAtBank && (
+                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
+                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
+                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
+                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
+                    cleanDesc.includes('پاس') ||
+                    cleanDesc.includes('تسویه') ||
+                    cleanDesc.includes('خرج') ||
+                    cleanDesc.includes('پرداخت') ||
+                    cleanDesc.includes('انتقال') ||
+                    cleanDesc.includes('واریز') ||
+                    (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
+                    (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed) ||
+                    (statusType !== '' && statusType !== '1' && statusType !== '0') ||
+                    isActive === '0' || isActive === 'false'
+                );
+
+                // 4. Spent (directly checked)
+                const isSpent = !isReturned && !isAtBank && !isCashed && (
+                    cleanDesc.includes('چک خرجی') || 
+                    (lastOp === '18' && (subOp === '31' || subOp === '33' || subOp === '34' || subOp === '36'))
+                );
 
                 let statusGroup: 'in_hand' | 'at_bank' | 'returned' | 'spent' = 'in_hand';
                 let statusLabel = 'نزد صندوق';
@@ -2669,7 +2738,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     statusDesc: rawDesc || statusLabel,
                     statusGroup
                 };
-            });
+            }).filter(Boolean);
             setChequesData(mapped);
         } catch (err: any) {
             toast.error(`خطا در واکشی اطلاعات چک‌ها: ${err.message}`);

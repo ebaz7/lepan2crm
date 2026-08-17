@@ -1884,31 +1884,73 @@ app.all(['/api/sayan/search-persons', '/api/sayan-persons/search'], async (req, 
     }
 });
 
+// Build robust conditions for matching names and remittance numbers in Sayan (taking into account Arabic/Persian character variations)
+function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
+    let matchConditions = [];
+
+    if (personCode) {
+        const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
+        if (sanitizedPersonCode) {
+            matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
+            matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
+        }
+    }
+
+    // Function to build SQL Server normalized column comparison
+    const sqlNormalize = (col) => {
+        return `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
+    };
+
+    const jsNormalize = (str) => {
+        return String(str)
+            .replace(/ي/g, 'ی')
+            .replace(/ك/g, 'ک')
+            .replace(/‌/g, ' ')
+            .replace(/أ/g, 'ا')
+            .replace(/'/g, "''")
+            .trim();
+    };
+
+    if (recipientName) {
+        const normName = jsNormalize(recipientName);
+        if (normName) {
+            matchConditions.push(`${sqlNormalize('t10.Field_029')} LIKE N'%${normName}%'`);
+            matchConditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
+            matchConditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
+        }
+    }
+
+    if (permitNumber) {
+        const normPermitNum = String(permitNumber).replace(/'/g, "''").trim();
+        if (normPermitNum) {
+            matchConditions.push(`t10.Field_006 = '${normPermitNum}'`);
+            matchConditions.push(`t10.Field_006 LIKE '%${normPermitNum}%'`);
+        }
+    }
+
+    // Also, if recipientName itself contains digits or is a number, treat it as a potential remittance number search
+    if (recipientName && /^\d+$/.test(recipientName.trim())) {
+        const cleanNum = recipientName.trim();
+        matchConditions.push(`t10.Field_006 = '${cleanNum}'`);
+        matchConditions.push(`t10.Field_006 LIKE '%${cleanNum}%'`);
+    }
+
+    return matchConditions;
+}
+
 // Lookup matching Sayan Sales Remittance (STR_TBL_010 / STR_TBL_011)
 app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
     try {
         const db = getDb();
         const { personCode, recipientName, permitDate, permitNumber } = req.body;
 
-        if (!personCode && !recipientName) {
-            return res.status(400).json({ error: 'کد شخص یا نام شخص الزامی است' });
+        if (!personCode && !recipientName && !permitNumber) {
+            return res.status(400).json({ error: 'کد شخص، نام شخص یا شماره مجوز الزامی است' });
         }
-
-        const sanitizedPersonCode = personCode ? String(personCode).replace(/'/g, "''") : '';
-        const sanitizedName = recipientName ? String(recipientName).replace(/'/g, "''") : '';
 
         // Match conditions in STR_TBL_010
         let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
-        let matchConditions = [];
-        if (sanitizedPersonCode) {
-            matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
-            matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
-        }
-        if (sanitizedName) {
-            matchConditions.push(`t10.Field_029 LIKE N'%${sanitizedName}%'`);
-            matchConditions.push(`p.Field_006 LIKE N'%${sanitizedName}%'`);
-            matchConditions.push(`p.Field_007 LIKE N'%${sanitizedName}%'`);
-        }
+        let matchConditions = getSayanMatchConditions({ personCode, recipientName, permitNumber });
         if (matchConditions.length > 0) {
             whereClauses.push(`(${matchConditions.join(' OR ')})`);
         }
@@ -2056,19 +2098,11 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
             const pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
             const rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
             
-            const sanitizedPersonCode = pCode ? String(pCode).replace(/'/g, "''") : '';
-            const sanitizedName = rName ? String(rName).replace(/'/g, "''") : '';
-
-            let matchConditions = [];
-            if (sanitizedPersonCode) {
-                matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
-                matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
-            }
-            if (sanitizedName) {
-                matchConditions.push(`t10.Field_029 LIKE N'%${sanitizedName}%'`);
-                matchConditions.push(`p.Field_006 LIKE N'%${sanitizedName}%'`);
-                matchConditions.push(`p.Field_007 LIKE N'%${sanitizedName}%'`);
-            }
+            let matchConditions = getSayanMatchConditions({ 
+                personCode: pCode, 
+                recipientName: rName, 
+                permitNumber: permit.permitNumber 
+            });
 
             if (matchConditions.length > 0) {
                 const queryHeaders = `

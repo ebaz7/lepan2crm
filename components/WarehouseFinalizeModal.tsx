@@ -10,7 +10,7 @@ import { getSettings } from '../services/storageService';
 interface Props {
   permit: ExitPermit;
   onClose: () => void;
-  onConfirm: (updatedItems: ExitPermitItem[], sayanRemittanceData?: SayanSalesRemittanceResult | null, attachmentDataUrl?: string) => void;
+  onConfirm: (updatedItems: ExitPermitItem[], sayanRemittanceData?: SayanSalesRemittanceResult | null, attachmentDataUrl?: string, sayanRemittanceDocs?: SayanSalesRemittanceResult[]) => void;
 }
 
 const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) => {
@@ -26,10 +26,65 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
 
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loadingSayan, setLoadingSayan] = useState(false);
-  const [sayanRemittance, setSayanRemittance] = useState<SayanSalesRemittanceResult | null>(permit.sayanRemittanceDoc || null);
+  
+  // Manage multiple attached remittances
+  const [attachedRemittances, setAttachedRemittances] = useState<SayanSalesRemittanceResult[]>(
+    permit.sayanRemittanceDocs || (permit.sayanRemittanceDoc ? [permit.sayanRemittanceDoc] : [])
+  );
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchingSayan, setSearchingSayan] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   const [sayanError, setSayanError] = useState<string | null>(null);
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to merge multiple Sayan sales remittances
+  const getMergedRemittance = (remittances: SayanSalesRemittanceResult[]): SayanSalesRemittanceResult | null => {
+    if (!remittances || remittances.length === 0) return null;
+    if (remittances.length === 1) return remittances[0];
+
+    const mergedItems: any[] = [];
+    let totalNetWeight = 0;
+    let totalGrossWeight = 0;
+    let totalCartons = 0;
+    let totalBobbins = 0;
+
+    remittances.forEach(rem => {
+      if (Array.isArray(rem.items)) {
+        rem.items.forEach(it => {
+          mergedItems.push({
+            ...it,
+            goodsName: `${it.goodsName} (حواله ${rem.remittanceNumber})`
+          });
+        });
+      }
+      totalNetWeight += Number(rem.totalNetWeight || 0);
+      totalGrossWeight += Number(rem.totalGrossWeight || 0);
+      totalCartons += Number(rem.totalCartons || 0);
+      totalBobbins += Number(rem.totalBobbins || 0);
+    });
+
+    return {
+      archiveCode: remittances.map(r => r.archiveCode).filter(Boolean).join('، '),
+      remittanceNumber: remittances.map(r => r.remittanceNumber).filter(Boolean).join('، '),
+      subCode: remittances.map(r => r.subCode).filter(Boolean).join('، '),
+      docDate: remittances[0].docDate,
+      shamsiDate: remittances.map(r => r.shamsiDate).filter(Boolean).join('، '),
+      personCode: remittances[0].personCode,
+      personFullName: remittances[0].personFullName,
+      personAddress: remittances[0].personAddress,
+      personPhone: remittances[0].personPhone,
+      items: mergedItems,
+      totalNetWeight: Number(totalNetWeight.toFixed(3)),
+      totalGrossWeight: Number(totalGrossWeight.toFixed(3)),
+      totalCartons,
+      totalBobbins
+    };
+  };
+
+  const sayanRemittance = getMergedRemittance(attachedRemittances);
 
   useEffect(() => {
     getSettings().then(st => {
@@ -55,7 +110,10 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
       });
 
       if (res) {
-        setSayanRemittance(res);
+        // Only set if nothing is attached yet
+        if (attachedRemittances.length === 0) {
+          setAttachedRemittances([res]);
+        }
       } else {
         setSayanError('حواله فروشی برای این مشتری در سایان یافت نشد');
       }
@@ -64,6 +122,39 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     } finally {
       setLoadingSayan(false);
     }
+  };
+
+  const handleAttachRemittance = async () => {
+    if (!searchQuery.trim()) return;
+    setSearchingSayan(true);
+    setSearchError(null);
+    try {
+      const res = await lookupSayanSalesRemittance({
+        recipientName: searchQuery.trim(),
+        permitNumber: searchQuery.trim()
+      });
+
+      if (res) {
+        if (attachedRemittances.some(r => r.remittanceNumber === res.remittanceNumber)) {
+          setSearchError(`حواله شماره ${res.remittanceNumber} قبلاً الحاق شده است`);
+        } else {
+          setAttachedRemittances([...attachedRemittances, res]);
+          setSearchQuery('');
+        }
+      } else {
+        setSearchError('حواله فروش مورد نظر در سایان یافت نشد');
+      }
+    } catch (e: any) {
+      setSearchError(e.message || 'خطا در جستجوی حواله');
+    } finally {
+      setSearchingSayan(false);
+    }
+  };
+
+  const handleDetachRemittance = (index: number) => {
+    const next = [...attachedRemittances];
+    next.splice(index, 1);
+    setAttachedRemittances(next);
   };
 
   const applySayanValuesToItems = () => {
@@ -137,7 +228,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
         deliveredWeight: Number(i.deliveredWeight)
     }));
 
-    onConfirm(finalizedItems, sayanRemittance, attachmentDataUrl);
+    onConfirm(finalizedItems, sayanRemittance, attachmentDataUrl, attachedRemittances);
   };
 
   // Prepare data for Sayan Document Rendering
@@ -193,17 +284,13 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
           
           {/* Sayan ERP Live Banner */}
           {settings?.sayanOnlineExitPermitsEnabled && (
-            <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-indigo-100">
                 <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
                   <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-mono font-bold text-xs">
                     ERP
                   </div>
-                  <span>استعلام و اتصال حواله فروش سایان:</span>
-                  <span className="text-xs text-indigo-700 font-mono">
-                    {permit.recipientName || permit.destinations?.[0]?.recipientName}
-                    {(permit.sayanPersonCode || permit.destinations?.[0]?.sayanPersonCode) && ` (کد: ${permit.sayanPersonCode || permit.destinations?.[0]?.sayanPersonCode})`}
-                  </span>
+                  <span>استعلام و اتصال حواله‌های فروش سایان:</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -213,7 +300,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                     className="text-xs bg-white text-indigo-700 border border-indigo-300 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 hover:bg-indigo-50 transition-colors shadow-2xs"
                   >
                     <RefreshCw size={14} className={loadingSayan ? "animate-spin" : ""} />
-                    {loadingSayan ? "در حال استعلام..." : "بروزرسانی از سایان"}
+                    {loadingSayan ? "در حال استعلام خودکار..." : "استعلام خودکار اولیه"}
                   </button>
                   {sayanRemittance && (
                     <button
@@ -221,38 +308,101 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                       onClick={() => setShowDocPreview(true)}
                       className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 hover:bg-indigo-700 transition-colors shadow-xs"
                     >
-                      <Eye size={14} /> مشاهده پیش‌نمایش حواله
+                      <Eye size={14} /> پیش‌نمایش حواله ادغامی
                     </button>
                   )}
                 </div>
               </div>
 
-              {sayanRemittance ? (
-                <div className="bg-white p-3.5 rounded-xl border border-indigo-100 flex items-center justify-between flex-wrap gap-3">
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                      <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>حواله فروش شماره {sayanRemittance.remittanceNumber} در سایان یافت شد</span>
-                      {sayanRemittance.shamsiDate && <span className="text-gray-500 font-mono">({sayanRemittance.shamsiDate})</span>}
-                    </div>
-                    <p className="text-[11px] text-gray-600 leading-relaxed">
-                      شامل <b>{sayanRemittance.items?.length || 0} ردیف کالا</b> | جمع وزن خالص: <b>{sayanRemittance.totalNetWeight} کیلوگرم</b> | کارتن: <b>{sayanRemittance.totalCartons}</b> | بوبین: <b>{sayanRemittance.totalBobbins}</b>
-                    </p>
+              {/* List of Attached Remittances */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-indigo-950">حواله‌های متصل شده به این مجوز:</h4>
+                {attachedRemittances.length === 0 ? (
+                  <p className="text-xs text-indigo-600/70 italic">هیچ حواله‌ای متصل نشده است. از بخش جستجوی زیر برای یافتن و الصاق حواله‌ها استفاده کنید.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {attachedRemittances.map((rem, idx) => (
+                      <div key={rem.remittanceNumber || idx} className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs text-indigo-900 font-bold">
+                            <CheckCircle2 size={14} className="text-emerald-600" />
+                            <span>حواله شماره {rem.remittanceNumber}</span>
+                            {rem.shamsiDate && <span className="text-[10px] text-gray-500 font-mono">({rem.shamsiDate})</span>}
+                          </div>
+                          <p className="text-[10px] text-gray-600">
+                            مشتری: <b>{rem.personFullName}</b> | کالا: <b>{rem.items?.length || 0} ردیف</b> | وزن: <b>{rem.totalNetWeight} kg</b>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDetachRemittance(idx)}
+                          className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-all"
+                          title="حذف اتصال"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add/Search Section */}
+              <div className="bg-white/40 p-3 rounded-xl border border-indigo-100/60 space-y-2">
+                <label className="text-[11px] font-bold text-indigo-900 block">جستجو و الصاق حواله جدید (بر اساس شماره حواله یا بخشی از نام مشتری):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="مثال: 642 یا زیلویی"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAttachRemittance(); } }}
+                    className="flex-1 text-xs border border-indigo-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-bold bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAttachRemittance}
+                    disabled={searchingSayan || !searchQuery.trim()}
+                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+                  >
+                    {searchingSayan ? (
+                      <RefreshCw size={14} className="animate-spin" />
+                    ) : (
+                      <Plus size={14} />
+                    )}
+                    {searchingSayan ? "در حال جستجو..." : "جستجو و الحاق حواله"}
+                  </button>
+                </div>
+                {searchError && (
+                  <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1 bg-amber-50 p-1.5 rounded-lg border border-amber-100 mt-1">
+                    <AlertCircle size={14} />
+                    {searchError}
+                  </p>
+                )}
+              </div>
+
+              {/* Action Button for Merged Items */}
+              {sayanRemittance && (
+                <div className="bg-indigo-600/5 p-3 rounded-xl border border-indigo-200/50 flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-[11px] text-indigo-950">
+                    جمع اقلام حواله‌های الصاقی: <b>{sayanRemittance.items?.length || 0} ردیف کالا</b> | کل وزن خالص: <b>{sayanRemittance.totalNetWeight} کیلوگرم</b> | کارتن: <b>{sayanRemittance.totalCartons}</b>
                   </div>
                   <button
                     type="button"
                     onClick={applySayanValuesToItems}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
                   >
-                    <ArrowDownToLine size={16} /> جایگذاری اقلام سایان در جدول
+                    <ArrowDownToLine size={16} /> جایگذاری و ادغام اقلام سایان در جدول کالاها
                   </button>
                 </div>
-              ) : sayanError ? (
+              )}
+
+              {sayanError && !sayanRemittance && (
                 <div className="bg-amber-50 text-amber-800 p-2.5 rounded-xl text-xs flex items-center gap-2 border border-amber-200">
                   <AlertCircle size={16} className="text-amber-600" />
                   <span>{sayanError}</span>
                 </div>
-              ) : null}
+              )}
             </div>
           )}
 

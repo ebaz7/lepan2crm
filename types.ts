@@ -598,6 +598,7 @@ export interface ExitPermit {
   sayanArchiveCode?: string;
   sayanSyncedAt?: number;
   sayanRemittanceDoc?: any;
+  sayanRemittanceDocs?: any[];
 }
 
 export interface WarehouseItem {
