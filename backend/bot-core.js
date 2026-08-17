@@ -4189,11 +4189,35 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
 
                 const vaultRows = rows.filter(r => {
                     if (!is1404PlusYear(r.DueDate)) return false;
-                    const desc = String(r.StatusDesc || '').trim();
-                    const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
-                    const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
-                    const isCashed = (desc.includes('وصول') && !desc.includes('وصول نشده')) || desc.includes('پاس') || desc.includes('تسویه');
-                    if (isAtBank || isSpent || isCashed) return false;
+                    const rawDesc = String(r.StatusDesc || '').trim();
+                    const cleanDesc = rawDesc
+                        .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
+                        .replace(/ي/g, 'ی')
+                        .replace(/ك/g, 'ک')
+                        .replace(/\s+/g, ' ')
+                        .toLowerCase()
+                        .trim();
+
+                    const isNotCashed = cleanDesc.includes('وصول نشده') || cleanDesc.includes('وصول نشد') || cleanDesc.includes('عدم وصول') || cleanDesc.includes('وصول‌نشده') || cleanDesc.includes('غیر وصول') || cleanDesc.includes('دریافت نشده');
+                    const isCashed = !isNotCashed && (
+                        cleanDesc.includes('وصول') ||
+                        cleanDesc.includes('پاس') ||
+                        cleanDesc.includes('تسویه') ||
+                        cleanDesc.includes('خرج') ||
+                        cleanDesc.includes('پرداخت') ||
+                        cleanDesc.includes('انتقال') ||
+                        cleanDesc.includes('واریز')
+                    );
+                    const isReturned = cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول');
+                    const isAtBank = !isCashed && !isReturned && (
+                        cleanDesc.includes('واگذار') ||
+                        cleanDesc.includes('خوابانده') ||
+                        cleanDesc.includes('جریان وصول') ||
+                        cleanDesc.includes('کلر') ||
+                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !isNotCashed)
+                    );
+
+                    if (isAtBank || isCashed || isReturned) return false;
                     return true;
                 });
 
@@ -5655,28 +5679,51 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 // Strictly exclude anything before 1404
                 if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
 
-                const desc = String(r.StatusDesc || '').trim();
-                const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
-                const isSpent = desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال');
-                const isCashed = (desc.includes('وصول') && !desc.includes('وصول نشده')) || desc.includes('پاس') || desc.includes('تسویه');
-                const isReturned = desc.includes('برگشت') || desc.includes('واخواست') || desc.includes('عدم پرداخت');
+                const rawDesc = String(r.StatusDesc || '').trim();
+                const cleanDesc = rawDesc
+                    .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
+                    .replace(/ي/g, 'ی')
+                    .replace(/ك/g, 'ک')
+                    .replace(/\s+/g, ' ')
+                    .toLowerCase()
+                    .trim();
+
+                const isNotCashed = cleanDesc.includes('وصول نشده') || cleanDesc.includes('وصول نشد') || cleanDesc.includes('عدم وصول') || cleanDesc.includes('وصول‌نشده') || cleanDesc.includes('غیر وصول') || cleanDesc.includes('دریافت نشده');
+                const isCashed = !isNotCashed && (
+                    cleanDesc.includes('وصول') ||
+                    cleanDesc.includes('پاس') ||
+                    cleanDesc.includes('تسویه') ||
+                    cleanDesc.includes('خرج') ||
+                    cleanDesc.includes('پرداخت') ||
+                    cleanDesc.includes('انتقال') ||
+                    cleanDesc.includes('واریز')
+                );
+                const isReturned = cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول');
+                const isAtBank = !isCashed && !isReturned && (
+                    cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('خوابانده') ||
+                    cleanDesc.includes('جریان وصول') ||
+                    cleanDesc.includes('کلر') ||
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !isNotCashed)
+                );
 
                 let matchesReportType = false;
                 if (reportType === 'returned') {
                     matchesReportType = isReturned;
                 } else if (reportType === 'not_due') {
-                    // Only active cheques with future due date
-                    matchesReportType = (!isAtBank && !isSpent && !isCashed && !isReturned) && (dueShamsi > todayShamsi);
+                    // Only active cheques in vault with future due date
+                    matchesReportType = (!isAtBank && !isCashed && !isReturned) && (dueShamsi >= todayShamsi);
                 } else if (reportType === 'overdue') {
                     // Overdue cheques in vault
-                    matchesReportType = (!isAtBank && !isSpent && !isCashed && !isReturned) && (dueShamsi < todayShamsi);
+                    matchesReportType = (!isAtBank && !isCashed && !isReturned) && (dueShamsi < todayShamsi);
                 } else if (reportType === 'vault') {
-                    matchesReportType = (!isAtBank && !isSpent && !isCashed) || (isReturned && (desc.includes('صندوق') || !isSpent));
+                    // Strictly only cheques active in vault (not at bank, not cashed, not returned)
+                    matchesReportType = (!isAtBank && !isCashed && !isReturned);
                 } else if (reportType === 'at_bank') {
                     matchesReportType = isAtBank;
                 } else {
                     // all open receivables
-                    matchesReportType = !isSpent && !isCashed;
+                    matchesReportType = !isCashed;
                 }
 
                 if (matchesReportType) {

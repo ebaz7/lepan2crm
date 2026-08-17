@@ -2503,7 +2503,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const data = await runSayanQuery(sql);
             const mapped = data.map((row: any) => {
                 const amt = parseFloat(row.Amount || 0);
-                const desc = String(row.StatusDesc || '').trim();
+                const rawDesc = String(row.StatusDesc || '').trim();
                 
                 // Helper to get Jalali year of cheque
                 const getDueYear = (dateStr: string): number => {
@@ -2527,30 +2527,59 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const dueYear = getDueYear(row.DueDate);
                 
-                // Strict categorization logic
-                const isAtBank = desc.includes('بانک') || desc.includes('کلر') || desc.includes('خوابانده') || desc.includes('واگذار') || desc.includes('جریان وصول') || desc.includes('حساب');
-                const isReturned = desc.includes('برگشت') || desc.includes('واخواست') || desc.includes('عدم پرداخت') || desc.includes('عودت');
-                const isSpentOrCashed = (desc.includes('وصول') && !desc.includes('وصول نشده')) || desc.includes('خرج') || desc.includes('پرداخت') || desc.includes('انتقال') || desc.includes('پاس') || desc.includes('تسویه');
+                // Clean normalized string for robust matching
+                const normDesc = rawDesc
+                    .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
+                    .replace(/ي/g, 'ی')
+                    .replace(/ك/g, 'ک')
+                    .replace(/\s+/g, ' ')
+                    .toLowerCase()
+                    .trim();
+
+                const isNotCashed = normDesc.includes('وصول نشده') || normDesc.includes('وصول نشد') || normDesc.includes('عدم وصول') || normDesc.includes('وصول‌نشده') || normDesc.includes('غیر وصول') || normDesc.includes('دریافت نشده');
+                
+                // Cheques cashed (in bank, deposited, cleared, spent, passed, settled)
+                const isSpentOrCashed = (!isNotCashed && (
+                    normDesc.includes('وصول') ||
+                    normDesc.includes('پاس') ||
+                    normDesc.includes('تسویه') ||
+                    normDesc.includes('خرج') ||
+                    normDesc.includes('پرداخت') ||
+                    normDesc.includes('انتقال') ||
+                    normDesc.includes('واریز')
+                )) || (dueYear > 0 && dueYear < 1404);
+
+                // Cheques returned / bounced
+                const isReturned = normDesc.includes('برگشت') || normDesc.includes('واخواست') || normDesc.includes('عدم پرداخت') || normDesc.includes('عودت') || normDesc.includes('نکول');
+
+                // Cheques currently at bank (deposited in collection, not yet cashed)
+                const isAtBank = !isSpentOrCashed && !isReturned && (
+                    normDesc.includes('واگذار') ||
+                    normDesc.includes('واگذاری') ||
+                    normDesc.includes('خوابانده') ||
+                    normDesc.includes('جریان وصول') ||
+                    normDesc.includes('کلر') ||
+                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !isNotCashed)
+                );
 
                 let statusGroup = 'in_hand'; // default نزد صندوق
                 if (isReturned) {
                     statusGroup = 'returned';
-                } else if (isAtBank) {
-                    statusGroup = 'at_bank';
                 } else if (isSpentOrCashed) {
                     statusGroup = 'spent';
+                } else if (isAtBank) {
+                    statusGroup = 'at_bank';
                 } else if (dueYear > 0 && dueYear < 1404) {
-                    // Cheques with due dates in 1403 or earlier are legacy closed/settled items
                     statusGroup = 'spent';
                 } else {
                     statusGroup = 'in_hand';
                 }
 
-                let finalDesc = desc;
-                if (!finalDesc) {
+                let finalDesc = rawDesc;
+                if (!finalDesc || finalDesc === '1' || finalDesc === '0') {
                     if (statusGroup === 'in_hand') finalDesc = 'نزد صندوق (فعال)';
                     else if (statusGroup === 'at_bank') finalDesc = 'واگذار به بانک (در جریان وصول)';
-                    else if (statusGroup === 'returned') finalDesc = 'برگشتی';
+                    else if (statusGroup === 'returned') finalDesc = 'برگشتی / واخواست';
                     else if (statusGroup === 'spent') finalDesc = 'وصول / تسویه شده';
                 }
 
