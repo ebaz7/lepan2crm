@@ -7,6 +7,7 @@ import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
 import html2canvas from 'html2canvas';
+import SayanSalesRemittanceDoc from './SayanSalesRemittanceDoc';
 
 interface Props {
   permit: ExitPermit;
@@ -303,6 +304,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
   const currentCompany = (settings?.companies || []).find(c => c.name === permit.company) || (settings?.companies || [])[0];
 
   const content = (
+    <div className="flex flex-col items-center gap-8 w-full max-w-full">
       <div id={containerId} 
         className="printable-content glass-panel mx-auto shadow-2xl relative text-gray-900 flex flex-col animate-fade-in" 
         style={{ 
@@ -312,7 +314,8 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             padding: '10mm', 
             boxSizing: 'border-box',
             margin: '0 auto',
-            backgroundColor: 'white'
+            backgroundColor: 'white',
+            pageBreakAfter: permit.sayanRemittanceDoc ? 'always' : 'auto'
         }}>
             {watermark === 'DELETED' && (<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none overflow-hidden"><div className="border-[12px] border-red-500 text-red-500 font-black text-9xl opacity-40 rotate-[-45deg] p-10 rounded-3xl whitespace-nowrap bg-white/50 backdrop-blur-[2px]">حذف شد</div></div>)}
             {watermark === 'EDITED' && (<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none overflow-hidden"><div className="border-[12px] border-orange-500 text-orange-500 font-black text-9xl opacity-40 rotate-[-45deg] p-10 rounded-3xl whitespace-nowrap bg-white/50 backdrop-blur-[2px]">اصلاحیه</div></div>)}
@@ -591,6 +594,20 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
                 نسخه چاپی سیستم
             </div>
       </div>
+
+      {permit.sayanRemittanceDoc && (
+          <div className="printable-content glass-panel mx-auto shadow-2xl relative text-gray-900 flex flex-col animate-fade-in"
+               style={{ 
+                   direction: 'rtl', 
+                   width: '210mm', 
+                   minHeight: '296mm', 
+                   backgroundColor: 'white',
+                   boxSizing: 'border-box'
+               }}>
+               <SayanSalesRemittanceDoc data={permit.sayanRemittanceDoc} />
+          </div>
+      )}
+    </div>
   );
 
   if (embed) return content;

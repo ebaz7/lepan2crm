@@ -2536,10 +2536,23 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .toLowerCase()
                     .trim();
 
-                const isNotCashed = normDesc.includes('وصول نشده') || normDesc.includes('وصول نشد') || normDesc.includes('عدم وصول') || normDesc.includes('وصول‌نشده') || normDesc.includes('غیر وصول') || normDesc.includes('دریافت نشده');
-                
+                const isNotCashed = normDesc.includes('وصول نشده') || 
+                                    normDesc.includes('وصول نشد') || 
+                                    normDesc.includes('عدم وصول') || 
+                                    normDesc.includes('وصول‌نشده') || 
+                                    normDesc.includes('غیر وصول') || 
+                                    normDesc.includes('دریافت نشده') ||
+                                    normDesc.includes('در جریان وصول');
+
+                // Cheques returned / bounced
+                const isReturned = normDesc.includes('برگشت') || 
+                                   normDesc.includes('واخواست') || 
+                                   normDesc.includes('عدم پرداخت') || 
+                                   normDesc.includes('عودت') || 
+                                   normDesc.includes('نکول');
+
                 // Cheques cashed (in bank, deposited, cleared, spent, passed, settled)
-                const isSpentOrCashed = (!isNotCashed && (
+                const isSpentOrCashed = !isReturned && !isNotCashed && (
                     normDesc.includes('وصول') ||
                     normDesc.includes('پاس') ||
                     normDesc.includes('تسویه') ||
@@ -2547,19 +2560,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     normDesc.includes('پرداخت') ||
                     normDesc.includes('انتقال') ||
                     normDesc.includes('واریز')
-                )) || (dueYear > 0 && dueYear < 1404);
-
-                // Cheques returned / bounced
-                const isReturned = normDesc.includes('برگشت') || normDesc.includes('واخواست') || normDesc.includes('عدم پرداخت') || normDesc.includes('عودت') || normDesc.includes('نکول');
+                );
 
                 // Cheques currently at bank (deposited in collection, not yet cashed)
-                const isAtBank = !isSpentOrCashed && !isReturned && (
+                const isAtBank = !isReturned && !isSpentOrCashed && (
+                    normDesc.includes('در جریان وصول') ||
                     normDesc.includes('واگذار') ||
                     normDesc.includes('واگذاری') ||
                     normDesc.includes('خوابانده') ||
-                    normDesc.includes('جریان وصول') ||
                     normDesc.includes('کلر') ||
-                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !isNotCashed)
+                    (normDesc.includes('بانک') && !normDesc.includes('صندوق') && !normDesc.includes('نزد صندوق'))
                 );
 
                 let statusGroup = 'in_hand'; // default نزد صندوق

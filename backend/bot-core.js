@@ -4198,8 +4198,21 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         .toLowerCase()
                         .trim();
 
-                    const isNotCashed = cleanDesc.includes('وصول نشده') || cleanDesc.includes('وصول نشد') || cleanDesc.includes('عدم وصول') || cleanDesc.includes('وصول‌نشده') || cleanDesc.includes('غیر وصول') || cleanDesc.includes('دریافت نشده');
-                    const isCashed = !isNotCashed && (
+                    const isNotCashed = cleanDesc.includes('وصول نشده') || 
+                                        cleanDesc.includes('وصول نشد') || 
+                                        cleanDesc.includes('عدم وصول') || 
+                                        cleanDesc.includes('وصول‌نشده') || 
+                                        cleanDesc.includes('غیر وصول') || 
+                                        cleanDesc.includes('دریافت نشده') ||
+                                        cleanDesc.includes('در جریان وصول');
+
+                    const isReturned = cleanDesc.includes('برگشت') || 
+                                       cleanDesc.includes('واخواست') || 
+                                       cleanDesc.includes('عدم پرداخت') || 
+                                       cleanDesc.includes('عودت') || 
+                                       cleanDesc.includes('نکول');
+
+                    const isCashed = !isReturned && !isNotCashed && (
                         cleanDesc.includes('وصول') ||
                         cleanDesc.includes('پاس') ||
                         cleanDesc.includes('تسویه') ||
@@ -4208,13 +4221,14 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         cleanDesc.includes('انتقال') ||
                         cleanDesc.includes('واریز')
                     );
-                    const isReturned = cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول');
-                    const isAtBank = !isCashed && !isReturned && (
+
+                    const isAtBank = !isReturned && !isCashed && (
+                        cleanDesc.includes('در جریان وصول') ||
                         cleanDesc.includes('واگذار') ||
+                        cleanDesc.includes('واگذاری') ||
                         cleanDesc.includes('خوابانده') ||
-                        cleanDesc.includes('جریان وصول') ||
                         cleanDesc.includes('کلر') ||
-                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !isNotCashed)
+                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                     );
 
                     if (isAtBank || isCashed || isReturned) return false;
@@ -5688,8 +5702,21 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     .toLowerCase()
                     .trim();
 
-                const isNotCashed = cleanDesc.includes('وصول نشده') || cleanDesc.includes('وصول نشد') || cleanDesc.includes('عدم وصول') || cleanDesc.includes('وصول‌نشده') || cleanDesc.includes('غیر وصول') || cleanDesc.includes('دریافت نشده');
-                const isCashed = !isNotCashed && (
+                const isNotCashed = cleanDesc.includes('وصول نشده') || 
+                                    cleanDesc.includes('وصول نشد') || 
+                                    cleanDesc.includes('عدم وصول') || 
+                                    cleanDesc.includes('وصول‌نشده') || 
+                                    cleanDesc.includes('غیر وصول') || 
+                                    cleanDesc.includes('دریافت نشده') ||
+                                    cleanDesc.includes('در جریان وصول');
+
+                const isReturned = cleanDesc.includes('برگشت') || 
+                                   cleanDesc.includes('واخواست') || 
+                                   cleanDesc.includes('عدم پرداخت') || 
+                                   cleanDesc.includes('عودت') || 
+                                   cleanDesc.includes('نکول');
+
+                const isCashed = !isReturned && !isNotCashed && (
                     cleanDesc.includes('وصول') ||
                     cleanDesc.includes('پاس') ||
                     cleanDesc.includes('تسویه') ||
@@ -5698,13 +5725,14 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     cleanDesc.includes('انتقال') ||
                     cleanDesc.includes('واریز')
                 );
-                const isReturned = cleanDesc.includes('برگشت') || cleanDesc.includes('واخواست') || cleanDesc.includes('عدم پرداخت') || cleanDesc.includes('عودت') || cleanDesc.includes('نکول');
-                const isAtBank = !isCashed && !isReturned && (
+
+                const isAtBank = !isReturned && !isCashed && (
+                    cleanDesc.includes('در جریان وصول') ||
                     cleanDesc.includes('واگذار') ||
+                    cleanDesc.includes('واگذاری') ||
                     cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('جریان وصول') ||
                     cleanDesc.includes('کلر') ||
-                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !isNotCashed)
+                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
                 );
 
                 let matchesReportType = false;
@@ -5728,6 +5756,12 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
 
                 if (matchesReportType) {
                     const isReturnedToBox = isReturned;
+                    let displayDesc = rawDesc;
+                    if (!displayDesc || displayDesc === '1' || displayDesc === '0') {
+                        if (isReturnedToBox) displayDesc = 'برگشتی عودت به صندوق';
+                        else if (isAtBank) displayDesc = 'واگذار به بانک (در جریان وصول)';
+                        else displayDesc = 'نزد صندوق (دریافت شده)';
+                    }
                     treasuryCheques.push({
                         id: String(r.Id || r.ChequeNo),
                         chequeNo: r.ChequeNo || String(r.Id || '-'),
@@ -5735,7 +5769,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                         bankName: r.BankName || 'نامشخص',
                         drawerName: r.DrawerName || 'نامشخص',
                         amount: parseFloat(r.Amount || 0),
-                        statusDesc: isReturnedToBox ? 'برگشتی عودت به صندوق' : (desc || 'نزد صندوق (دریافت شده)'),
+                        statusDesc: displayDesc,
                         isReturnedToBox,
                         source: 'sayan'
                     });

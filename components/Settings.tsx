@@ -6195,6 +6195,24 @@ const Settings: React.FC<SettingsProps> = ({
                     </div>
                     <div className="grid grid-cols-1 gap-4">
                       <div>
+                        <label className="flex items-center gap-2 cursor-pointer mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                          <div className="relative">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only" 
+                              checked={settings.sayanOnlineExitPermitsEnabled || false}
+                              onChange={(e) => setSettings({ ...settings, sayanOnlineExitPermitsEnabled: e.target.checked })}
+                            />
+                            <div className={`block w-10 h-6 rounded-full transition-colors ${settings.sayanOnlineExitPermitsEnabled ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
+                            <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${settings.sayanOnlineExitPermitsEnabled ? 'transform translate-x-4' : ''}`}></div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-indigo-900">فعال‌سازی یکپارچگی آنلاین حواله فروش سایان (خروج کارخانه)</div>
+                            <div className="text-xs text-indigo-700 mt-0.5">در صورت فعال بودن، در بخش خروج کارخانه و تاییدات انبار با سایان ارتباط برقرار می‌شود.</div>
+                          </div>
+                        </label>
+                      </div>
+                      <div>
                         <label className="text-xs font-black text-gray-500 block mb-1">
                           آدرس API سرور سایان (SAYAN API URL)
                         </label>

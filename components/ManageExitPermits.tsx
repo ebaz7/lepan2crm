@@ -432,19 +432,34 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         }
     };
 
-    const handleWarehouseSubmit = async (finalItems: any[]) => {
+    const handleWarehouseSubmit = async (finalItems: any[], sayanRemittanceData?: any, attachmentDataUrl?: string) => {
         if (!warehouseFinalize) return;
         const currentPermit = warehouseFinalize;
         setWarehouseFinalize(null);
         setProcessingId(currentPermit.id);
         try {
-            const updated = { 
+            const currentAttachments = [...(currentPermit.attachments || [])];
+            if (attachmentDataUrl) {
+                const docName = `حواله_فروش_سایان_${sayanRemittanceData?.remittanceNumber || currentPermit.permitNumber}.png`;
+                currentAttachments.push({
+                    fileName: docName,
+                    data: attachmentDataUrl
+                });
+            }
+
+            const updated: ExitPermit = { 
                 ...currentPermit, 
                 items: finalItems, 
                 approverWarehouse: currentUser.fullName, 
                 status: ExitPermitStatus.PENDING_SECURITY,
                 weight: finalItems.reduce((a,b)=>a+(Number(b.weight)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.weight)||0),0) : currentPermit.weight,
-                cartonCount: finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),0) : currentPermit.cartonCount
+                cartonCount: finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),0) : currentPermit.cartonCount,
+                attachments: currentAttachments,
+                sayanRemittanceNumber: sayanRemittanceData?.remittanceNumber || currentPermit.sayanRemittanceNumber,
+                sayanSubCode: sayanRemittanceData?.subCode || currentPermit.sayanSubCode,
+                sayanArchiveCode: sayanRemittanceData?.archiveCode || currentPermit.sayanArchiveCode,
+                sayanSyncedAt: sayanRemittanceData ? new Date().toISOString() : currentPermit.sayanSyncedAt,
+                sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc
             };
             
             await editExitPermit(updated); 

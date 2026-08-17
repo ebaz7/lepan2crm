@@ -5,9 +5,10 @@ import { saveExitPermit, getSettings } from '../services/storageService';
 import { generateUUID, getCurrentShamsiDate, jalaliToGregorian } from '../constants';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
-import { Save, Loader2, Truck, Package, MapPin, Hash, Plus, Trash2, Building2, User as UserIcon, Calendar, CheckSquare, ArrowLeft, GitMerge, Users, X, Paperclip } from 'lucide-react';
+import { Save, Loader2, Truck, Package, MapPin, Hash, Plus, Trash2, Building2, User as UserIcon, Calendar, CheckSquare, ArrowLeft, GitMerge, Users, X, Paperclip, Search, Database } from 'lucide-react';
 import PrintExitPermit from './PrintExitPermit';
 import html2canvas from 'html2canvas';
+import { searchSayanPersons, SayanPersonResult } from '../services/sayanExitService';
 
 const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> = ({ onSuccess, currentUser }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,7 +105,9 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
         }
     };
 
-    const handleRecipientChange = (val: string) => {
+    const [sayanSearching, setSayanSearching] = useState(false);
+
+    const handleRecipientChange = async (val: string) => {
         const d = [...destinations];
         d[0].recipientName = val;
         setDestinations(d);
@@ -114,7 +117,7 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
             const leads = botSubscribers.filter(l => (l.fullName && l.fullName.includes(val)) || (l.mobile && l.mobile.includes(val)));
             
             // Deduplicate and prioritize contacts over leads if mobile matches
-            const merged = [...contacts];
+            const merged: any[] = [...contacts];
             leads.forEach(l => {
                 const mobile = l.mobile?.replace(/^0/, '') || '';
                 const exists = merged.some(m => m.mobile?.replace(/^0/, '') === mobile);
@@ -126,11 +129,37 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
                         telegramId: l.telegramChatId || l.chatId,
                         baleId: l.baleChatId || l.chatId,
                         isLead: true
-                    } as any);
+                    });
                 }
             });
 
+            // If Sayan Online is enabled or available, query Sayan ERP persons
             setContactSuggestions(merged);
+
+            if (settings?.sayanOnlineExitPermitsEnabled) {
+                setSayanSearching(true);
+                try {
+                    const sayanPersons = await searchSayanPersons(val);
+                    if (sayanPersons && sayanPersons.length > 0) {
+                        const sayanItems = sayanPersons.map(sp => ({
+                            id: `sayan-${sp.personCode || sp.id}`,
+                            name: sp.name,
+                            mobile: sp.mobile || '',
+                            address: sp.address || '',
+                            personCode: sp.personCode,
+                            tafsiliCode: sp.tafsiliCode || sp.accountingCode,
+                            isSayan: true
+                        }));
+
+                        // Merge Sayan persons to the top
+                        setContactSuggestions([...sayanItems, ...merged]);
+                    }
+                } catch (err) {
+                    console.warn('Sayan live search error:', err);
+                } finally {
+                    setSayanSearching(false);
+                }
+            }
         } else {
             setContactSuggestions([]);
         }
@@ -139,7 +168,10 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
     const selectContact = (contact: any) => {
         const d = [...destinations];
         d[0].recipientName = contact.name;
-        d[0].phone = contact.mobile;
+        if (contact.mobile) d[0].phone = contact.mobile;
+        if (contact.address) d[0].address = contact.address;
+        if (contact.personCode) (d[0] as any).sayanPersonCode = contact.personCode;
+        if (contact.tafsiliCode) (d[0] as any).sayanTafsiliCode = contact.tafsiliCode;
         setDestinations(d);
         setContactSuggestions([]);
     };
@@ -226,6 +258,8 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
                 attachments: attachments,
                 price: items.reduce((acc, i) => acc + (Number(i.price) || 0), 0), // Kept for backwards compatibility or total
                 status: ExitPermitStatus.PENDING_CEO,
+                sayanPersonCode: destinations[0]?.sayanPersonCode,
+                sayanTafsiliCode: destinations[0]?.sayanTafsiliCode,
                 createdAt: Date.now()
             };
 
@@ -358,24 +392,56 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
                                         <GitMerge size={12}/> ادغام لیدها و مخاطبین
                                     </button>
                                 </div>
-                                <input 
-                                    className="w-full border rounded-xl p-2 text-sm glass-panel" 
-                                    placeholder="شخص یا شرکت..." 
-                                    value={destinations[0].recipientName} 
-                                    onChange={e => handleRecipientChange(e.target.value)} 
-                                />
+                                <div className="relative">
+                                    <input 
+                                        className="w-full border rounded-xl p-2 text-sm glass-panel pl-8" 
+                                        placeholder="شخص یا شرکت..." 
+                                        value={destinations[0].recipientName} 
+                                        onChange={e => handleRecipientChange(e.target.value)} 
+                                    />
+                                    {sayanSearching && (
+                                        <div className="absolute left-2.5 top-2.5 text-indigo-500 animate-spin">
+                                            <Loader2 size={16} />
+                                        </div>
+                                    )}
+                                </div>
+                                {destinations[0].sayanPersonCode && (
+                                    <div className="flex items-center gap-1.5 text-[11px] text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg font-mono">
+                                        <Database size={13} className="text-indigo-600 shrink-0" />
+                                        <span>متصل به سایان: کد {destinations[0].sayanPersonCode}</span>
+                                        {destinations[0].sayanTafsiliCode && <span>| تفصیلی: {destinations[0].sayanTafsiliCode}</span>}
+                                    </div>
+                                )}
                                 {contactSuggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 z-[100] bg-white dark:bg-gray-800 border rounded-xl shadow-xl mt-1 overflow-hidden">
+                                    <div className="absolute top-full left-0 right-0 z-[100] bg-white dark:bg-gray-800 border rounded-xl shadow-xl mt-1 max-h-64 overflow-y-auto">
                                         {contactSuggestions.map(con => (
                                             <button 
                                                 key={con.id} 
                                                 type="button"
                                                 onClick={() => selectContact(con)}
-                                                className="w-full text-right p-3 hover:bg-gray-50 border-b last:border-0 flex justify-between items-center"
+                                                className={`w-full text-right p-3 hover:bg-gray-50 border-b last:border-0 flex justify-between items-center transition-colors ${
+                                                    con.isSayan ? 'bg-indigo-50/30 hover:bg-indigo-50/70' : ''
+                                                }`}
                                             >
-                                                <span className="font-bold text-sm">{con.name}</span>
+                                                <div className="space-y-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-sm text-gray-900">{con.name}</span>
+                                                        {con.isSayan && (
+                                                            <span className="text-[9px] bg-indigo-600 text-white font-bold px-1.5 py-0.5 rounded font-mono">
+                                                                سایان ERP
+                                                            </span>
+                                                        )}
+                                                        {con.isLead && !con.isSayan && (
+                                                            <span className="text-[8px] bg-blue-50 text-blue-500 px-1 rounded">ربات</span>
+                                                        )}
+                                                    </div>
+                                                    {con.isSayan && con.personCode && (
+                                                        <div className="text-[10px] text-indigo-600 font-mono">
+                                                            کد شخص: {con.personCode} {con.tafsiliCode ? `| تفصیلی: ${con.tafsiliCode}` : ''}
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-2">
-                                                    {con.isLead && <span className="text-[8px] bg-blue-50 text-blue-500 px-1 rounded">ربات</span>}
                                                     <span className="text-xs text-gray-400 font-mono">{con.mobile}</span>
                                                 </div>
                                             </button>

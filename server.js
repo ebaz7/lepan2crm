@@ -1697,6 +1697,469 @@ app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     }
 });
 
+// ==========================================
+// SAYAN ONLINE FACTORY EXIT INTEGRATION ENDPOINTS
+// ==========================================
+
+const mapGradeCode = (code) => {
+    if (!code) return 'AA';
+    const s = String(code).trim();
+    if (s === '00011001') return 'AA';
+    if (s === '00011002') return 'A';
+    if (s === '00011003') return 'B';
+    if (s === '00011004') return 'C';
+    if (s.length < 5) return s;
+    return 'AA';
+};
+
+const mapTwistCode = (code) => {
+    if (!code) return 'Z';
+    const s = String(code).trim();
+    if (s === '00021001') return 'Z';
+    if (s === '00021002') return 'S';
+    if (s.length < 5) return s;
+    return 'Z';
+};
+
+const parseDetailNote = (note) => {
+    const result = {
+        bobbinCount: 0,
+        cartonCount: 0,
+        grossWeight: 0,
+        netWeight: 0,
+        grade: 'AA',
+        twistDirection: 'Z',
+        description: ''
+    };
+    if (!note || typeof note !== 'string') return result;
+    
+    const parts = note.split('|').map(p => p.trim());
+    for (const p of parts) {
+        if (p.includes('تعداد بوبین:')) {
+            result.bobbinCount = parseInt(p.replace('تعداد بوبین:', '').trim(), 10) || 0;
+        } else if (p.includes('تعداد کارتن:')) {
+            result.cartonCount = parseInt(p.replace('تعداد کارتن:', '').trim(), 10) || 0;
+        } else if (p.includes('وزن ناخالص:')) {
+            result.grossWeight = parseFloat(p.replace('وزن ناخالص:', '').trim()) || 0;
+        } else if (p.includes('وزن خالص:')) {
+            result.netWeight = parseFloat(p.replace('وزن خالص:', '').trim()) || 0;
+        } else if (p.includes('گرید:')) {
+            const rawG = p.replace('گرید:', '').trim();
+            result.grade = mapGradeCode(rawG);
+        } else if (p.includes('جهت تاب:')) {
+            const rawT = p.replace('جهت تاب:', '').trim();
+            result.twistDirection = mapTwistCode(rawT);
+        } else if (p.includes('توضیحات:')) {
+            const d = p.replace('توضیحات:', '').trim();
+            if (d) result.description = d;
+        }
+    }
+    return result;
+};
+
+// Search persons across Sayan ERP (GNR_TBL_001)
+app.all(['/api/sayan/search-persons', '/api/sayan-persons/search'], async (req, res) => {
+    try {
+        const db = getDb();
+        const q = String(req.query.q || req.body.q || '').trim();
+        if (!q) {
+            return res.json({ success: true, persons: [] });
+        }
+
+        const sanitized = q.replace(/'/g, "''");
+        const queryStr = `
+            SELECT TOP 35
+                Field_001 as Id,
+                Field_003 as PersonCode,
+                Field_005 as SecondaryCode,
+                RTRIM(LTRIM(COALESCE(Field_006, ''))) as FirstName,
+                RTRIM(LTRIM(COALESCE(Field_007, ''))) as LastName,
+                RTRIM(LTRIM(COALESCE(Field_008, ''))) as FatherOrDetail,
+                RTRIM(LTRIM(COALESCE(Field_009, ''))) as NationalCode,
+                RTRIM(LTRIM(COALESCE(Field_015, ''))) as Mobile,
+                RTRIM(LTRIM(COALESCE(Field_021, ''))) as AccountingCode,
+                RTRIM(LTRIM(COALESCE(Field_030, ''))) as TafsiliCode,
+                RTRIM(LTRIM(COALESCE(Field_013, ''))) as Address
+            FROM GNR_TBL_001
+            WHERE (
+                Field_006 LIKE N'%${sanitized}%' OR
+                Field_007 LIKE N'%${sanitized}%' OR
+                Field_003 LIKE '%${sanitized}%' OR
+                Field_005 LIKE '%${sanitized}%' OR
+                Field_008 LIKE N'%${sanitized}%' OR
+                Field_009 LIKE '%${sanitized}%' OR
+                Field_015 LIKE '%${sanitized}%' OR
+                Field_021 LIKE '%${sanitized}%' OR
+                Field_030 LIKE '%${sanitized}%'
+            )
+            ORDER BY Field_001 DESC
+        `;
+
+        const rows = await executeSayanQuery(db, queryStr);
+        const persons = rows.map(r => {
+            const fullName = `${r.FirstName || ''} ${r.LastName || ''}`.trim() || r.FatherOrDetail || `شخص ${r.PersonCode}`;
+            return {
+                id: String(r.Id || ''),
+                personCode: String(r.PersonCode || r.SecondaryCode || ''),
+                name: fullName,
+                firstName: r.FirstName || '',
+                lastName: r.LastName || '',
+                fatherOrDetail: r.FatherOrDetail || '',
+                nationalCode: r.NationalCode || '',
+                mobile: r.Mobile || '',
+                accountingCode: String(r.AccountingCode || r.TafsiliCode || r.PersonCode || ''),
+                tafsiliCode: String(r.TafsiliCode || ''),
+                address: r.Address || ''
+            };
+        });
+
+        res.json({ success: true, persons });
+    } catch (e) {
+        console.error("Sayan Search Persons Error:", e);
+        res.status(500).json({ error: e.message, persons: [] });
+    }
+});
+
+// Lookup matching Sayan Sales Remittance (STR_TBL_010 / STR_TBL_011)
+app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
+    try {
+        const db = getDb();
+        const { personCode, recipientName, permitDate, permitNumber } = req.body;
+
+        if (!personCode && !recipientName) {
+            return res.status(400).json({ error: 'کد شخص یا نام شخص الزامی است' });
+        }
+
+        const sanitizedPersonCode = personCode ? String(personCode).replace(/'/g, "''") : '';
+        const sanitizedName = recipientName ? String(recipientName).replace(/'/g, "''") : '';
+
+        // Match conditions in STR_TBL_010
+        let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+        let matchConditions = [];
+        if (sanitizedPersonCode) {
+            matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
+            matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
+        }
+        if (sanitizedName) {
+            matchConditions.push(`t10.Field_029 LIKE N'%${sanitizedName}%'`);
+            matchConditions.push(`p.Field_006 LIKE N'%${sanitizedName}%'`);
+            matchConditions.push(`p.Field_007 LIKE N'%${sanitizedName}%'`);
+        }
+        if (matchConditions.length > 0) {
+            whereClauses.push(`(${matchConditions.join(' OR ')})`);
+        }
+
+        const queryHeaders = `
+            SELECT TOP 10
+                t10.Field_001 as ArchiveCode,
+                t10.Field_004 as SubSystem,
+                t10.Field_005 as DocNo,
+                t10.Field_006 as RemittanceNumber,
+                t10.Field_007 as SubCode,
+                t10.Field_008 as DocDate,
+                t10.Field_009 as DocType,
+                t10.Field_010 as PersonCode,
+                t10.Field_018 as StoreId,
+                t10.Field_029 as Note,
+                COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName,
+                p.Field_013 as PersonAddress,
+                p.Field_015 as PersonPhone
+            FROM STR_TBL_010 t10
+            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            WHERE ${whereClauses.join(' AND ')}
+            ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
+        `;
+
+        const headers = await executeSayanQuery(db, queryHeaders);
+        if (!headers || headers.length === 0) {
+            return res.json({ success: false, message: 'هیچ حواله فروش مرتبطی در سایان یافت نشد' });
+        }
+
+        const h = headers[0];
+        const queryDetails = `
+            SELECT 
+                t11.Field_001 as LineId,
+                t11.Field_004 as DocNo,
+                t11.Field_005 as ItemCode,
+                COALESCE(t02.Field_003, t22.Field_004, t21.Field_004, t11.Field_005) as ItemName,
+                t11.Field_006 as NetQty,
+                t11.Field_007 as UnitPrice,
+                t11.Field_008 as TotalPrice,
+                t11.Field_031 as DetailNote,
+                t11.Field_034 as RowNo
+            FROM STR_TBL_011 t11
+            LEFT JOIN IND_TBL_021 t21 ON RTRIM(LTRIM(t21.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003))
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            WHERE t11.Field_003 = '${h.SubSystem}' AND t11.Field_004 = '${h.DocNo}' AND t11.Field_012 = '${h.StoreId}'
+            ORDER BY t11.Field_034 ASC, t11.Field_001 ASC
+        `;
+
+        const detailRows = await executeSayanQuery(db, queryDetails);
+
+        let totalNet = 0;
+        let totalGross = 0;
+        let totalCartons = 0;
+        let totalBobbins = 0;
+
+        const items = (detailRows || []).map((row, idx) => {
+            const parsed = parseDetailNote(row.DetailNote);
+            const netVal = parseFloat(row.NetQty || 0);
+            const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
+            
+            totalNet += netVal;
+            totalGross += grossVal;
+            totalCartons += parsed.cartonCount;
+            totalBobbins += parsed.bobbinCount;
+
+            return {
+                lineId: String(row.LineId || ''),
+                docNo: String(row.DocNo || ''),
+                itemCode: String(row.ItemCode || ''),
+                goodsName: String(row.ItemName || row.ItemCode || `کالا ${idx + 1}`),
+                netQty: netVal,
+                grossQty: grossVal,
+                unitPrice: parseFloat(row.UnitPrice || 0),
+                totalPrice: parseFloat(row.TotalPrice || 0),
+                cartonCount: parsed.cartonCount,
+                bobbinCount: parsed.bobbinCount,
+                grade: parsed.grade,
+                twistDirection: parsed.twistDirection,
+                description: parsed.description,
+                rowNo: parseInt(row.RowNo || (idx + 1), 10)
+            };
+        });
+
+        // Shamsi Date conversion
+        let shamsiDateStr = '';
+        if (h.DocDate) {
+            try {
+                const d = new Date(h.DocDate);
+                if (!isNaN(d.getTime())) {
+                    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                    shamsiDateStr = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+                }
+            } catch (e) {}
+        }
+
+        const remittance = {
+            archiveCode: String(h.ArchiveCode || ''),
+            subSystem: String(h.SubSystem || ''),
+            docNo: String(h.DocNo || ''),
+            remittanceNumber: String(h.RemittanceNumber || h.DocNo || ''),
+            subCode: String(h.SubCode || ''),
+            docDate: h.DocDate || '',
+            shamsiDate: shamsiDateStr,
+            docType: String(h.DocType || ''),
+            personCode: String(h.PersonCode || ''),
+            personFullName: (h.PersonFullName || recipientName || '').trim(),
+            personAddress: h.PersonAddress || '',
+            personPhone: h.PersonPhone || '',
+            storeId: String(h.StoreId || ''),
+            note: h.Note || '',
+            items,
+            totalNetWeight: parseFloat(totalNet.toFixed(3)),
+            totalGrossWeight: parseFloat(totalGross.toFixed(3)),
+            totalCartons,
+            totalBobbins
+        };
+
+        res.json({ success: true, remittance });
+    } catch (e) {
+        console.error("Sayan Remittance Lookup Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Auto-Sync and Finalize Exit Permit with Sayan Remittance
+app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.exitPermits) db.exitPermits = [];
+        const { id } = req.params;
+        const { approverWarehouse, advanceToSecurity = true, customItems, remittanceData, attachmentDataUrl } = req.body;
+
+        const idx = db.exitPermits.findIndex(p => p.id === id);
+        if (idx === -1) {
+            return res.status(404).json({ error: 'مجوز خروج مورد نظر یافت نشد' });
+        }
+
+        const permit = db.exitPermits[idx];
+        let rem = remittanceData;
+
+        // If not passed, lookup directly
+        if (!rem) {
+            const pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
+            const rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
+            
+            const sanitizedPersonCode = pCode ? String(pCode).replace(/'/g, "''") : '';
+            const sanitizedName = rName ? String(rName).replace(/'/g, "''") : '';
+
+            let matchConditions = [];
+            if (sanitizedPersonCode) {
+                matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
+                matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
+            }
+            if (sanitizedName) {
+                matchConditions.push(`t10.Field_029 LIKE N'%${sanitizedName}%'`);
+                matchConditions.push(`p.Field_006 LIKE N'%${sanitizedName}%'`);
+                matchConditions.push(`p.Field_007 LIKE N'%${sanitizedName}%'`);
+            }
+
+            if (matchConditions.length > 0) {
+                const queryHeaders = `
+                    SELECT TOP 1
+                        t10.Field_001 as ArchiveCode,
+                        t10.Field_004 as SubSystem,
+                        t10.Field_005 as DocNo,
+                        t10.Field_006 as RemittanceNumber,
+                        t10.Field_007 as SubCode,
+                        t10.Field_008 as DocDate,
+                        t10.Field_009 as DocType,
+                        t10.Field_010 as PersonCode,
+                        t10.Field_018 as StoreId,
+                        t10.Field_029 as Note,
+                        COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName
+                    FROM STR_TBL_010 t10
+                    LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+                    WHERE (t10.Field_009 IN ('12', '23', '3')) AND (${matchConditions.join(' OR ')})
+                    ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
+                `;
+                const foundHeaders = await executeSayanQuery(db, queryHeaders);
+                if (foundHeaders && foundHeaders.length > 0) {
+                    const fh = foundHeaders[0];
+                    const queryDetails = `
+                        SELECT 
+                            t11.Field_001 as LineId,
+                            t11.Field_004 as DocNo,
+                            t11.Field_005 as ItemCode,
+                            COALESCE(t02.Field_003, t22.Field_004, t21.Field_004, t11.Field_005) as ItemName,
+                            t11.Field_006 as NetQty,
+                            t11.Field_031 as DetailNote,
+                            t11.Field_034 as RowNo
+                        FROM STR_TBL_011 t11
+                        LEFT JOIN IND_TBL_021 t21 ON RTRIM(LTRIM(t21.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                        LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003))
+                        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+                        WHERE t11.Field_003 = '${fh.SubSystem}' AND t11.Field_004 = '${fh.DocNo}' AND t11.Field_012 = '${fh.StoreId}'
+                        ORDER BY t11.Field_034 ASC, t11.Field_001 ASC
+                    `;
+                    const fDetails = await executeSayanQuery(db, queryDetails);
+                    let tNet = 0, tGross = 0, tCart = 0, tBob = 0;
+                    const parsedItems = (fDetails || []).map((row, idx) => {
+                        const parsed = parseDetailNote(row.DetailNote);
+                        const netVal = parseFloat(row.NetQty || 0);
+                        const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
+                        tNet += netVal;
+                        tGross += grossVal;
+                        tCart += parsed.cartonCount;
+                        tBob += parsed.bobbinCount;
+                        return {
+                            goodsName: String(row.ItemName || row.ItemCode || `کالا ${idx + 1}`),
+                            netQty: netVal,
+                            grossQty: grossVal,
+                            cartonCount: parsed.cartonCount,
+                            bobbinCount: parsed.bobbinCount,
+                            grade: parsed.grade,
+                            twistDirection: parsed.twistDirection,
+                            description: parsed.description,
+                            itemCode: row.ItemCode
+                        };
+                    });
+
+                    let shamsi = '';
+                    if (fh.DocDate) {
+                        try {
+                            const d = new Date(fh.DocDate);
+                            const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                            shamsi = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+                        } catch (e) {}
+                    }
+
+                    rem = {
+                        archiveCode: String(fh.ArchiveCode || ''),
+                        remittanceNumber: String(fh.RemittanceNumber || fh.DocNo || ''),
+                        subCode: String(fh.SubCode || ''),
+                        shamsiDate: shamsi,
+                        personFullName: fh.PersonFullName || rName,
+                        items: parsedItems,
+                        totalNetWeight: tNet,
+                        totalGrossWeight: tGross,
+                        totalCartons: tCart,
+                        totalBobbins: tBob
+                    };
+                }
+            }
+        }
+
+        // Apply to permit
+        if (rem) {
+            permit.sayanRemittanceNumber = String(rem.remittanceNumber || '');
+            permit.sayanSubCode = String(rem.subCode || '');
+            permit.sayanArchiveCode = String(rem.archiveCode || '');
+            permit.sayanSyncedAt = Date.now();
+            permit.sayanRemittanceDoc = rem;
+
+            // Update items if available from Sayan
+            if (Array.isArray(rem.items) && rem.items.length > 0) {
+                permit.items = rem.items.map((it, i) => ({
+                    id: permit.items?.[i]?.id || `sayan-${Date.now()}-${i}`,
+                    goodsName: it.goodsName || `کالا ${i + 1}`,
+                    cartonCount: it.cartonCount || 0,
+                    weight: it.netQty || it.weight || 0,
+                    deliveredCartonCount: it.cartonCount || 0,
+                    deliveredWeight: it.netQty || it.weight || 0,
+                    grossWeight: it.grossQty || it.grossWeight || it.netQty || 0,
+                    bobbinCount: it.bobbinCount || 0,
+                    grade: it.grade || 'AA',
+                    twistDirection: it.twistDirection || 'Z',
+                    itemCode: it.itemCode || '',
+                    description: it.description || ''
+                }));
+                permit.cartonCount = rem.totalCartons || permit.items.reduce((s, x) => s + (x.cartonCount || 0), 0);
+                permit.weight = rem.totalNetWeight || permit.items.reduce((s, x) => s + (x.weight || 0), 0);
+            }
+        }
+
+        if (attachmentDataUrl) {
+            permit.attachments = permit.attachments || [];
+            const fileName = `حواله_فروش_سایان_${permit.sayanRemittanceNumber || permit.permitNumber}.png`;
+            permit.attachments = permit.attachments.filter(a => !a.fileName.includes('حواله_فروش_سایان'));
+            permit.attachments.push({
+                fileName,
+                data: attachmentDataUrl
+            });
+        }
+
+        if (approverWarehouse) {
+            permit.approverWarehouse = approverWarehouse;
+        }
+
+        if (advanceToSecurity) {
+            permit.status = 'در انتظار خروج (انتظامات)'; // PENDING_SECURITY
+        }
+
+        permit.updatedAt = Date.now();
+        db.exitPermits[idx] = permit;
+        saveDb(db);
+
+        // Background Bot Notification
+        setImmediate(async () => {
+            try {
+                const refreshedDb = getDb();
+                await notifyExitPermitStep(permit, null, approverWarehouse, null, refreshedDb, 'تایید انبار با اتصال سایان', 'WAREHOUSE');
+            } catch (err) {
+                console.error("Background notifyExitPermitStep error on sync-remittance:", err);
+            }
+        });
+
+        res.json({ success: true, permit });
+    } catch (e) {
+        console.error("Sayan Exit Permit Sync Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/users', (req, res) => {
     const db = getDb();
     res.json(db.users || []);

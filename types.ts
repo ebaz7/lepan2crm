@@ -411,6 +411,9 @@ export interface SystemSettings {
   salesContacts?: SalesContact[];
   birthdayGreetingTemplate?: BirthdayGreetingTemplate;
   
+  // SAYAN ONLINE EXIT PERMITS INTEGRATION
+  sayanOnlineExitPermitsEnabled?: boolean;
+  
   // MINI APPS
   miniAppCarPriceUrl?: string;
   miniAppCarEstimatorUrl?: string;
@@ -537,6 +540,12 @@ export interface ExitPermitItem {
   deliveredCartonCount?: number;
   deliveredWeight?: number;
   price?: number;
+  bobbinCount?: number;
+  grossWeight?: number;
+  grade?: string;
+  twistDirection?: string;
+  itemCode?: string;
+  description?: string;
 }
 
 export interface ExitPermitDestination {
@@ -544,6 +553,8 @@ export interface ExitPermitDestination {
   recipientName: string;
   address: string;
   phone: string;
+  sayanPersonCode?: string;
+  sayanTafsiliCode?: string;
 }
 
 export interface ExitPermit {
@@ -577,6 +588,13 @@ export interface ExitPermit {
   rejectedBy?: string;
   isEdit?: boolean;
   price?: number;
+  sayanPersonCode?: string;
+  sayanTafsiliCode?: string;
+  sayanRemittanceNumber?: string;
+  sayanSubCode?: string;
+  sayanArchiveCode?: string;
+  sayanSyncedAt?: number;
+  sayanRemittanceDoc?: any;
 }
 
 export interface WarehouseItem {
