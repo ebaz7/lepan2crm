@@ -3558,103 +3558,57 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             }
             session.lastFinMenu = 'SAYAN_REPORTS_MENU';
             const userKb = getSayanReportsKeyboard(user);
-            return sendFn(chatId, "🏢 *گزارشات و اطلاعات مالی ERP سایان*\n\nلطفاً یکی از گزینه‌های تخصصی زیر را انتخاب نمایید:", { reply_markup: userKb, parse_mode: 'Markdown' });
+            return sendFn(chatId, "🏢 *گزارشات و اطلاعات مالی ERP سایان*\n\nلطفاً یکی از گزینه‌های زیر را انتخاب کنید:", { reply_markup: userKb });
         }
     }
 
-    // --- SECRETARIAT ACTIONS ---
-    if (data.startsWith('SEC_')) {
-        const isSecAdmin = user && (user.role === 'admin' || user.role === 'ceo' || user.canManageSecretariatSettings);
-        const hasSecAccess = user && (isSecAdmin || user.canAccessSecretariat);
-        if (!hasSecAccess) {
-            return sendFn(chatId, "⛔ شما به دبیرخانه اداری دسترسی ندارید.");
+    // Sales logic
+    if (data === 'ACT_SEND_CO_INFO') {
+        const keyboard = [
+            [{ text: '📢 ارسال همه موارد', callback_data: 'SEND_INFO_ALL' }],
+            [{ text: '📍 آدرس و تلفن', callback_data: 'SEND_INFO_ADDR' }],
+            [{ text: '💳 اطلاعات بانکی', callback_data: 'SEND_INFO_BANK' }],
+            [{ text: '🏢 درباره شرکت', callback_data: 'SEND_INFO_ABOUT' }],
+            [{ text: '🔙 بازگشت', callback_data: 'MENU_SALES' }]
+        ];
+        return sendFn(chatId, "🏢 کدام اطلاعات را مایلید ارسال کنید؟", { reply_markup: { inline_keyboard: keyboard } });
+    }
+
+    if (data === 'SALES_BAL_DOWNLOAD_DEBTORS' || data === 'SALES_BAL_DOWNLOAD_CREDITORS') {
+        const isDebtors = data === 'SALES_BAL_DOWNLOAD_DEBTORS';
+        const rawList = await getCustomerBalancesData(db);
+        const filtered = rawList
+            .filter(b => isDebtors ? b.type === 'بدهکار' : b.type === 'بستانکار')
+            .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0));
+        
+        if (filtered.length === 0) {
+            return sendFn(chatId, `⚠️ هیچ رکوردی برای لیست ${isDebtors ? "بدهکاران" : "بستانکاران"} یافت نشد.`, { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'SALES_CUSTOMER_BALANCES' }]] } });
+        }
+        
+        sendFn(chatId, "⏳ در حال تولید فایل گزارش PDF... لطفاً منتظر بمانید.");
+        
+        const title = `گزارش مشتریان ${isDebtors ? "بدهکار" : "بستانکار"}`;
+        const columns = ['کد حسابداری', 'نام مشتری', 'مانده حساب (ریال)', 'نوع'];
+        const rows = filtered.map(b => [
+            b.accountCode || '',
+            b.name || '',
+            Number(b.balance || 0).toLocaleString('fa-IR'),
+            b.type || (Number(b.balance || 0) > 0 ? 'بدهکار' : 'بستانکار')
+        ]);
+        
+        try {
+            const pdfBuffer = await Renderer.generateReportPDF(title, columns, rows);
+            const filename = `Report_${isDebtors ? 'Debtors' : 'Creditors'}_${Date.now()}.pdf`;
+            await sendDocFn(chatId, pdfBuffer, filename, `📄 ${title}\nتعداد مشتریان: ${filtered.length}\n📅 تاریخ گزارش: ${toShamsiFull(new Date())}`);
+        } catch (err) {
+            console.error(err);
+            sendFn(chatId, "❌ متاسفانه در تولید فایل گزارش خطایی رخ داد.");
+        }
+        return;
         }
 
-        if (data === 'SEC_PENDING') {
-            const letters = db.secretariatLetters || [];
-            const pending = letters.filter(l => 
-                l.status === 'PENDING' && 
-                (l.referredTo || []).includes(user.id) && 
-                !(l.approvedBy || []).includes(user.id)
-            );
-            
-            if (pending.length === 0) {
-                return sendFn(chatId, "📥 هیچ نامه منتظر تایید یا امضایی برای شما یافت نشد.", {
-                    reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'MENU_SEC' }]] }
-                });
-            }
-            
-            await sendFn(chatId, `📥 تعداد ${pending.length} نامه منتظر اقدام شما یافت شد:`);
-            for (const l of pending) {
-                const inline_keyboard = [
-                    [
-                        { text: '📥 دریافت PDF', callback_data: `SEC_GET_PDF_${l.id}` },
-                        { text: '📥 دریافت Word', callback_data: `SEC_GET_DOC_${l.id}` }
-                    ],
-                    [{ text: '✍️ تایید و امضای واقعی', callback_data: `SEC_APPROVE_${l.id}` }]
-                ];
-                
-                const msg = `✉️ *نامه شماره ${l.letterNumber}*\n` +
-                            `📅 تاریخ: ${l.date}\n` +
-                            `👤 فرستنده: ${l.sender}\n` +
-                            `👥 گیرنده: ${l.receiver}\n` +
-                            `📝 موضوع: ${l.subject}\n` +
-                            `------------------\n` +
-                            `خلاصه: ${l.content ? l.content.slice(0, 100) + '...' : 'بدون متن'}`;
-                            
-                await sendFn(chatId, msg, { reply_markup: { inline_keyboard } });
-            }
-            return;
-        }
-
-        if (data === 'SEC_CARTABLE_LATEST') {
-            const letters = db.secretariatLetters || [];
-            const myLetters = letters.filter(l => userHasLetterAccess(user, l, db)).slice(0, 5);
-            
-            if (myLetters.length === 0) {
-                return sendFn(chatId, "📂 کارتابل شما خالی است.", {
-                    reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'MENU_SEC' }]] }
-                });
-            }
-            
-            await sendFn(chatId, `📂 آخرین نامه‌های کارتابل شما:`);
-            for (const l of myLetters) {
-                const inline_keyboard = [
-                    [
-                        { text: '📥 دریافت PDF', callback_data: `SEC_GET_PDF_${l.id}` },
-                        { text: '📥 دریافت Word', callback_data: `SEC_GET_DOC_${l.id}` }
-                    ]
-                ];
-                
-                const msg = `✉️ *نامه شماره ${l.letterNumber}*\n` +
-                            `📅 تاریخ: ${l.date}\n` +
-                            `👤 فرستنده: ${l.sender}\n` +
-                            `👥 گیرنده: ${l.receiver}\n` +
-                            `📝 موضوع: ${l.subject}\n` +
-                            `وضعیت: ${l.status === 'APPROVED' ? '✅ تایید شده' : l.status === 'REJECTED' ? '❌ رد شده' : '⏳ در حال بررسی'}`;
-                            
-                await sendFn(chatId, msg, { reply_markup: { inline_keyboard } });
-            }
-            return;
-        }
-
-        if (data === 'SEC_SEARCH') {
-            session.state = 'SEC_WAIT_SEARCH_QUERY';
-            return sendFn(chatId, "🔍 لطفا کلمه کلیدی، شماره نامه، موضوع یا فرستنده مورد نظر خود را ارسال کنید:", {
-                reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'MENU_SEC' }]] }
-            });
-        }
-
-        if (data === 'SEC_NEW_LETTER_FLOW') {
-            session.state = 'SEC_WAIT_FILE';
-            session.data = {};
-            return sendFn(chatId, "📥 لطفا فایل ضمیمه نامه اداری جدید (PDF یا Word/DOCX) را با فرمت Document ارسال کنید:", {
-                reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'MENU_SEC' }]] }
-            });
-        }
-
-        if (data.startsWith('SEC_GET_PDF_') || data.startsWith('SEC_GET_DOC_')) {
-            const isPdf = data.startsWith('SEC_GET_PDF_');
+    if (data.startsWith('SEC_GET_PDF_') || data.startsWith('SEC_GET_DOC_')) {
+        const isPdf = data.startsWith('SEC_GET_PDF_');
             const letterId = data.replace(isPdf ? 'SEC_GET_PDF_' : 'SEC_GET_DOC_', '');
             const letters = db.secretariatLetters || [];
             const letter = letters.find(l => l.id === letterId);
@@ -3761,7 +3715,6 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             session.state = 'SEC_WAIT_SENDER';
             return sendFn(chatId, `📍 بخش انتخاب شد: *${isHq ? 'دفتر مرکزی' : 'کارخانه'}*\n\n👤 لطفا نام فرستنده نامه را ارسال کنید (مثال: شرکت پارس، یا نام شخص):`);
         }
-    }
 
     // Knowledge Base logic
     if (data === 'ACT_KNOWLEDGE') {
@@ -3839,137 +3792,6 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
         return sendFn(chatId, text, { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'ACT_KNOWLEDGE' }]] } });
     }
 
-    // Sales logic
-    if (data === 'ACT_SEND_CO_INFO') {
-        const keyboard = [
-            [{ text: '📢 ارسال همه موارد', callback_data: 'SEND_INFO_ALL' }],
-            [{ text: '📍 آدرس و تلفن', callback_data: 'SEND_INFO_ADDR' }],
-            [{ text: '💳 اطلاعات بانکی', callback_data: 'SEND_INFO_BANK' }],
-            [{ text: '🏢 درباره شرکت', callback_data: 'SEND_INFO_ABOUT' }],
-            [{ text: '🔙 بازگشت', callback_data: 'MENU_SALES' }]
-        ];
-        return sendFn(chatId, "🏢 کدام اطلاعات را مایلید برای مشتری ارسال کنم؟\nپس از انتخاب، روی پیام ارسال شده ریپلای کنید و شناسه مشتری را وارد کنید.", { reply_markup: { inline_keyboard: keyboard } });
-    }
-
-    if (data.startsWith('SEND_INFO_')) {
-        const type = data.replace('SEND_INFO_', '');
-        const parts = [];
-        if (type === 'ALL' || type === 'ABOUT') if (settings.botCompanyInfo) parts.push(`ℹ️ *درباره ما:*\n${settings.botCompanyInfo}`);
-        if (type === 'ALL' || type === 'ADDR') {
-            if (settings.companyAddress) parts.push(`📍 *آدرس:*\n${settings.companyAddress}`);
-            if (settings.companyPhone) parts.push(`📞 *شماره تماس:*\n${settings.companyPhone}`);
-        }
-        if (type === 'ALL' || type === 'BANK') if (settings.companyBank) parts.push(`💳 *اطلاعات حساب:*\n${settings.companyBank}`);
-        
-        const infoMsg = parts.length > 0 ? parts.join('\n\n') : "اطلاعاتی ثبت نشده است.";
-        return sendFn(chatId, `🏢 *اطلاعات شرکت:*\n\n${infoMsg}\n\nجهت ارسال به مشتری، روی این پیام ریپلی (Reply) کرده و کد پیگیری یا شناسه مشتری را وارد کنید.`);
-    }
-
-    if (data === 'SALES_BROADCAST') {
-        if (!['admin', 'sales_manager'].includes(user.role)) return sendFn(chatId, "⛔ دسترسی ندارید.");
-        session.state = 'SALES_WAIT_BROADCAST_MSG';
-        return sendFn(chatId, "📢 پیام خود را برای ارسال به همه کاربران وارد کنید:");
-    }
-
-    if (data === 'SALES_LIST_ALL') {
-        const products = db.products || [];
-        if (products.length === 0) return sendFn(chatId, "❌ لیست قیمت در حال حاضر خالی است.");
-        let res = "📢 *لیست کامل قیمت*\n\n";
-        
-        const grouped = {};
-        products.forEach(p => {
-            const g = p.group || 'بدون گروه';
-            const sg = p.subgroup || 'سایر';
-            if (!grouped[g]) grouped[g] = {};
-            if (!grouped[g][sg]) grouped[g][sg] = [];
-            grouped[g][sg].push(p);
-        });
-
-        Object.keys(grouped).sort().forEach(g => {
-            res += `📁 *${g}*\n`;
-            Object.keys(grouped[g]).sort().forEach(sg => {
-                res += `   🔹 *${sg}*\n`;
-                grouped[g][sg].forEach(p => {
-                    const price = p.hidePrice ? "تماس" : p.price.toLocaleString();
-                    res += `      ▫️ ${p.name}: ${price}\n`;
-                });
-            });
-            res += "\n";
-        });
-        return sendFn(chatId, res, { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'MENU_SALES' }]] } });
-    }
-
-    if (data === 'SALES_SEARCH') {
-        session.state = 'SALES_WAIT_SEARCH_QUERY';
-        return sendFn(chatId, "🔎 نام کالا یا کد کالا را وارد کنید:", { reply_markup: { inline_keyboard: [[{ text: '🔙 انصراف', callback_data: 'MENU_SALES' }]] } });
-    }
-
-    if (data === 'SALES_CUSTOMER_BALANCES') {
-        const perms = settings ? getRolePermissions(user?.role, settings, user) : {};
-        const isAuthorized = user && (['admin', 'financial', 'ceo', 'manager', 'sales_manager'].includes(user.role) || perms.canViewCustomerBalances === true || hasSayanReportsAccess(user, 'balances'));
-        if (!isAuthorized) {
-            return sendFn(chatId, "⚠️ شما دسترسی به بخش مانده حساب مشتریان را ندارید.", { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'MENU_SALES' }]] } });
-        }
-        
-        session.state = 'IDLE';
-        
-        const inline_keyboard = [
-            [
-                { text: '🔴 دانلود بدهکاران (PDF)', callback_data: 'SALES_BAL_DOWNLOAD_DEBTORS' },
-                { text: '🟢 دانلود بستانکاران (PDF)', callback_data: 'SALES_BAL_DOWNLOAD_CREDITORS' }
-            ],
-            [
-                { text: '📊 دانلود بدهکاران (Excel)', callback_data: 'SALES_BAL_DOWNLOAD_DEBTORS_XLSX' },
-                { text: '📈 دانلود بستانکاران (Excel)', callback_data: 'SALES_BAL_DOWNLOAD_CREDITORS_XLSX' }
-            ],
-            [
-                { text: '🔍 جستجوی مشتری (خاص)', callback_data: 'SALES_BAL_SPECIFIC_SEARCH' }
-            ],
-            [
-                { text: '🔙 بازگشت', callback_data: session.lastFinMenu === 'MENU_REPORTS' ? 'MENU_REPORTS' : (session.lastFinMenu || 'MENU_SALES') }
-            ]
-        ];
-        
-        return sendFn(chatId, "💰 *منوی استعلام مانده حساب مشتریان*\n\nلطفاً یکی از گزینه‌های زیر را جهت عملکرد سیستم انتخاب نمایید:", { reply_markup: { inline_keyboard } });
-    }
-
-    if (data === 'SALES_BAL_SPECIFIC_SEARCH') {
-        session.state = 'FIN_WAIT_CUSTOMER_BALANCE_SEARCH';
-        return sendFn(chatId, "🔍 لطفاً نام مشتری یا کد حسابداری وی را جهت استعلام وارد نمایید:", { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'SALES_CUSTOMER_BALANCES' }]] } });
-    }
-
-    if (data === 'SALES_BAL_DOWNLOAD_DEBTORS' || data === 'SALES_BAL_DOWNLOAD_CREDITORS') {
-        const isDebtors = data === 'SALES_BAL_DOWNLOAD_DEBTORS';
-        const rawList = await getCustomerBalancesData(db);
-        const filtered = rawList
-            .filter(b => isDebtors ? b.type === 'بدهکار' : b.type === 'بستانکار')
-            .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0));
-        
-        if (filtered.length === 0) {
-            return sendFn(chatId, `⚠️ هیچ رکوردی برای لیست ${isDebtors ? "بدهکاران" : "بستانکاران"} یافت نشد.`, { reply_markup: { inline_keyboard: [[{ text: '🔙 بازگشت', callback_data: 'SALES_CUSTOMER_BALANCES' }]] } });
-        }
-        
-        sendFn(chatId, "⏳ در حال تولید فایل PDF گزارش... لطفاً شکیبا باشید.");
-        
-        const title = isDebtors ? 'گزارش مشتریان بدهکار (طلبکار از آنها)' : 'گزارش مشتریان بستانکار (بدهکار به آنها)';
-        const columns = ['کد حسابداری', 'نام مشتری', 'مانده حساب (ریال)', 'نوع'];
-        const rows = filtered.map(b => [
-            b.accountCode || '',
-            b.name || '',
-            Number(b.balance || 0).toLocaleString('fa-IR'),
-            b.type || (Number(b.balance || 0) > 0 ? 'بدهکار' : 'بستانکار')
-        ]);
-        
-        try {
-            const pdfBuffer = await Renderer.generateReportPDF(title, columns, rows);
-            const filename = `Report_${isDebtors ? 'Debtors' : 'Creditors'}_${Date.now()}.pdf`;
-            await sendDocFn(chatId, pdfBuffer, filename, `📄 ${title}\nتعداد مشتریان: ${filtered.length}\n📅 تاریخ گزارش: ${toShamsiFull(new Date())}`);
-        } catch (err) {
-            console.error(err);
-            sendFn(chatId, "❌ متاسفانه در تولید فایل گزارش خطایی رخ داد.");
-        }
-        return;
-    }
 
     if (data === 'SALES_BAL_DOWNLOAD_DEBTORS_XLSX' || data === 'SALES_BAL_DOWNLOAD_CREDITORS_XLSX') {
         const isDebtors = data === 'SALES_BAL_DOWNLOAD_DEBTORS_XLSX';
