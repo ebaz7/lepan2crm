@@ -407,7 +407,8 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
           )}
 
           {/* Table */}
-          <div className="glass-panel rounded-xl border border-gray-200/50 dark:border-white/10 shadow-sm overflow-x-auto w-full max-w-full block" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Desktop Table */}
+          <div className="hidden md:block glass-panel rounded-xl border border-gray-200/50 dark:border-white/10 shadow-sm overflow-x-auto w-full max-w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
             <table className="w-full min-w-[700px] text-sm text-center">
               <thead className="bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-200 text-gray-700 font-bold whitespace-nowrap">
                 <tr>
@@ -458,6 +459,106 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          {/* Mobile Cards View */}
+          <div className="block md:hidden space-y-4">
+            {items.map((item, idx) => (
+              <div key={item.id || idx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/40 rounded-2xl p-4 shadow-sm relative space-y-3">
+                {/* Header of Item */}
+                <div className="flex justify-between items-center pb-2 border-b border-zinc-100 dark:border-zinc-800/60">
+                  <span className="text-xs font-black text-gray-500">کالای شماره {idx + 1}</span>
+                  <button type="button" onClick={() => handleRemoveItem(idx)} className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+
+                {/* Goods Name */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400">شرح کالا:</label>
+                  <input 
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs font-black bg-zinc-50 dark:bg-zinc-900 focus:bg-white" 
+                    value={item.goodsName} 
+                    onChange={e => handleUpdateItem(idx, 'goodsName', e.target.value)} 
+                    placeholder="نام کالا"
+                  />
+                  {(item.bobbinCount || item.grade || item.twistDirection) && (
+                    <div className="text-[10px] text-gray-400 flex gap-2 flex-wrap font-bold bg-zinc-100 dark:bg-zinc-800/50 p-1.5 rounded-lg">
+                      {item.bobbinCount ? <span>بوبین: {item.bobbinCount}</span> : null}
+                      {item.grade ? <span>گرید: {item.grade}</span> : null}
+                      {item.twistDirection ? <span>تاب: {item.twistDirection}</span> : null}
+                    </div>
+                  )}
+                </div>
+
+                {/* Carton Counts (Side-by-side) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50/50 dark:bg-blue-950/10 p-2.5 rounded-xl border border-blue-100/50 dark:border-blue-900/15">
+                    <span className="text-[9px] font-bold text-blue-800 dark:text-blue-400 block mb-1">کارتن (درخواست):</span>
+                    <span className="text-sm font-black font-mono text-blue-900 dark:text-blue-300">{item.cartonCount}</span>
+                  </div>
+                  <div className="bg-green-50/50 dark:bg-green-950/10 p-2.5 rounded-xl border border-green-100/50 dark:border-green-900/15">
+                    <label className="text-[9px] font-bold text-green-800 dark:text-green-400 block mb-1">کارتن خروجی:</label>
+                    <input 
+                      type="number" 
+                      className="w-full border border-green-200 dark:border-green-800/40 rounded-lg p-1.5 text-center font-mono font-black text-green-700 bg-white dark:bg-zinc-900 text-xs focus:ring-1 focus:ring-green-500 outline-none" 
+                      value={item.deliveredCartonCount || ''} 
+                      onChange={e => handleUpdateItem(idx, 'deliveredCartonCount', e.target.value === '' ? 0 : Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Weights (Side-by-side) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50/50 dark:bg-blue-950/10 p-2.5 rounded-xl border border-blue-100/50 dark:border-blue-900/15">
+                    <span className="text-[9px] font-bold text-blue-800 dark:text-blue-400 block mb-1">وزن درخواستی (kg):</span>
+                    <span className="text-sm font-black font-mono text-blue-900 dark:text-blue-300">
+                      {Number(item.weight || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
+                    </span>
+                  </div>
+                  <div className="bg-green-50/50 dark:bg-green-950/10 p-2.5 rounded-xl border border-green-100/50 dark:border-green-900/15">
+                    <label className="text-[9px] font-bold text-green-800 dark:text-green-400 block mb-1">وزن خروجی (خالص):</label>
+                    <input 
+                      type="number" 
+                      step="0.001" 
+                      className="w-full border border-green-200 dark:border-green-800/40 rounded-lg p-1.5 text-center font-mono font-black text-green-700 bg-white dark:bg-zinc-900 text-xs focus:ring-1 focus:ring-green-500 outline-none" 
+                      value={item.deliveredWeight || ''} 
+                      onChange={e => handleUpdateItem(idx, 'deliveredWeight', e.target.value === '' ? 0 : Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Mobile Add button & totals */}
+            <div className="bg-zinc-100 dark:bg-zinc-900/60 p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/30 space-y-3">
+              <button 
+                type="button" 
+                onClick={handleAddItem} 
+                className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/20 hover:dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl text-xs flex items-center justify-center gap-1.5 font-bold border border-blue-200 dark:border-blue-900/30 transition-colors"
+              >
+                <Plus size={16}/> افزودن کالا جدید
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                <div className="space-y-1">
+                  <div className="text-gray-400 text-[10px] font-bold">جمع کل کارتن درخواستی:</div>
+                  <div className="font-black text-gray-700 dark:text-gray-300 font-mono text-sm">{totalRequestedCount}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-green-600 dark:text-green-400 text-[10px] font-bold">جمع کل کارتن خروجی:</div>
+                  <div className="font-black text-green-700 dark:text-green-400 font-mono text-sm">{totalDeliveredCount}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-gray-400 text-[10px] font-bold">جمع کل وزن درخواستی:</div>
+                  <div className="font-black text-gray-700 dark:text-gray-300 font-mono text-sm">{Number(totalRequestedWeight.toFixed(3))}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-green-600 dark:text-green-400 text-[10px] font-bold">جمع کل وزن خروجی:</div>
+                  <div className="font-black text-green-700 dark:text-green-400 font-mono text-base">{Number(totalDeliveredWeight.toFixed(3))}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

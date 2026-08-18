@@ -2599,36 +2599,48 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     return 0;
                 };
 
-                const is1404Plus = (dateStr: string): boolean => {
-                    if (!dateStr) return false;
+                const extractShamsiYear = (dateStr: string): number | null => {
+                    if (!dateStr) return null;
                     const clean = String(dateStr).trim()
                         .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
                         .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
                     
-                    if (clean.startsWith('1404') || clean.startsWith('1405') || clean.startsWith('1406') || clean.startsWith('1407')) {
-                        return true;
-                    }
-                    if (clean.startsWith('1403') || clean.startsWith('1402') || clean.startsWith('1401') || clean.startsWith('1400') || clean.startsWith('13')) {
-                        return false;
+                    const match = clean.match(/(13\d{2}|14\d{2})/);
+                    if (match) {
+                        return parseInt(match[1], 10);
                     }
 
                     try {
                         const sh = parseShamsiParts(clean);
                         if (sh) {
-                            return sh.jy >= 1404;
+                            return sh.jy < 100 ? 1400 + sh.jy : sh.jy;
                         }
                         const d = new Date(clean);
                         if (!isNaN(d.getTime())) {
                             const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-                            return j.jy >= 1404;
+                            return j.jy;
                         }
                     } catch (e) {}
-                    return false;
+                    return null;
                 };
 
-                if (!is1404Plus(dueDateStr)) {
-                    return null;
-                }
+                const getCurrentShamsiYear = (): number => {
+                    try {
+                        const now = new Date();
+                        const jToday = jalaali.toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+                        return jToday.jy;
+                    } catch (e) {}
+                    return 1405;
+                };
+
+                const is1404Plus = (dateStr: string): boolean => {
+                    const year = extractShamsiYear(dateStr);
+                    const currentYear = getCurrentShamsiYear();
+                    return year !== null && year >= (currentYear - 1);
+                };
+
+                // Move the early exit out, we will check it at the end of loop
+                const dueDateStrClean = dueDateStr;
 
                 const lastOp = String(row.LastOpCode || '').trim();
                 const subOp = String(row.LastOpSubCode || '').trim();
@@ -2652,51 +2664,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                              cleanDesc.includes('وصول‌نشده') || 
                                              cleanDesc.includes('غیر وصول');
 
-                // 1. Explicitly Returned
-                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' || 
-                                   cleanDesc.includes('برگشت') || 
-                                   cleanDesc.includes('واخواست') || 
-                                   cleanDesc.includes('عدم پرداخت') || 
-                                   cleanDesc.includes('عودت') || 
-                                   cleanDesc.includes('نکول');
-
-                // 2. Deposited to Bank (خوابانده به حساب / واگذار به بانک)
-                const isAtBank = !isReturned && (
-                    lastOp === '13' || lastOp === '2' || lastOp === '12' || (lastOp === '17' && subOp === '24') ||
-                    statusType === '2' ||
-                    statusCode === '2' ||
-                    cleanDesc.includes('در جریان') ||
-                    cleanDesc.includes('درجریان') ||
-                    cleanDesc.includes('واگذار') ||
-                    cleanDesc.includes('واگذاری') ||
-                    cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('کلر') ||
-                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
-                );
-
-                // 3. Cashed / Settled / Spent / Cleared
-                const isCashed = !isReturned && !isAtBank && (
-                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
-                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
-                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
-                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
-                    cleanDesc.includes('پاس') ||
-                    cleanDesc.includes('تسویه') ||
-                    cleanDesc.includes('خرج') ||
-                    cleanDesc.includes('پرداخت') ||
-                    cleanDesc.includes('انتقال') ||
-                    cleanDesc.includes('واریز') ||
-                    (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
-                    (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed) ||
-                    (statusType !== '' && statusType !== '1' && statusType !== '0') ||
-                    isActive === '0' || isActive === 'false'
-                );
-
-                // 4. Spent (directly checked)
-                const isSpent = !isReturned && !isAtBank && !isCashed && (
-                    cleanDesc.includes('چک خرجی') || 
-                    (lastOp === '18' && (subOp === '31' || subOp === '33' || subOp === '34' || subOp === '36'))
-                );
+                // Sayan ERP authoritative operation codes
+                // 11 = دریافت چک (نزد صندوق)
+                // 12 = واگذاری به بانک (در جریان وصول)
+                // 17 = وصول شده (وصول شده)
+                // 18 = خرج چک (خرج شده)
+                // 15, 16 = برگشتی (برگشتی)
+                // 20 = برگشت به صندوق (نزد صندوق)
 
                 let statusGroup: 'in_hand' | 'at_bank' | 'returned' | 'spent' = 'in_hand';
                 let statusLabel = 'نزد صندوق';
@@ -2704,24 +2678,82 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 if (isActive === '0' || isActive === 'false') {
                     statusGroup = 'spent';
                     statusLabel = 'غیرفعال / تسویه شده';
-                } else if (isCashed) {
+                } else if (lastOp === '17' || lastOp === '14') {
                     statusGroup = 'spent';
                     statusLabel = 'وصول شده';
-                } else if (isSpent) {
+                } else if (lastOp === '18') {
                     statusGroup = 'spent';
                     statusLabel = 'خرج شده';
-                } else if (isReturned) {
+                } else if (lastOp === '15' || lastOp === '16') {
                     statusGroup = 'returned';
                     statusLabel = 'برگشتی';
-                } else if (isAtBank) {
+                } else if (lastOp === '12' || lastOp === '13') {
                     statusGroup = 'at_bank';
                     statusLabel = 'در جریان وصول (بانک)';
-                } else {
+                } else if (lastOp === '11' || lastOp === '20') {
                     statusGroup = 'in_hand';
                     statusLabel = 'نزد صندوق (فعال)';
+                } else {
+                    // Smart Fallback to text parsing if no known op code is found
+                    const isReturned = statusType === '4' || statusCode === '4' || 
+                                       cleanDesc.includes('برگشت') || 
+                                       cleanDesc.includes('واخواست') || 
+                                       cleanDesc.includes('عدم پرداخت') || 
+                                       cleanDesc.includes('عودت') || 
+                                       cleanDesc.includes('نکول');
+
+                    const isAtBank = !isReturned && (
+                        statusType === '2' ||
+                        statusCode === '2' ||
+                        cleanDesc.includes('در جریان') ||
+                        cleanDesc.includes('درجریان') ||
+                        cleanDesc.includes('واگذار') ||
+                        cleanDesc.includes('واگذاری') ||
+                        cleanDesc.includes('خوابانده') ||
+                        cleanDesc.includes('کلر') ||
+                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                    );
+
+                    const isCashed = !isReturned && !isAtBank && (
+                        statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
+                        statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
+                        (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
+                        cleanDesc.includes('پاس') ||
+                        cleanDesc.includes('تسویه') ||
+                        cleanDesc.includes('خرج') ||
+                        cleanDesc.includes('پرداخت') ||
+                        cleanDesc.includes('انتقال') ||
+                        cleanDesc.includes('واریز') ||
+                        (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed)
+                    );
+
+                    const isSpent = !isReturned && !isAtBank && !isCashed && cleanDesc.includes('خرج');
+
+                    if (isCashed) {
+                        statusGroup = 'spent';
+                        statusLabel = 'وصول شده';
+                    } else if (isSpent) {
+                        statusGroup = 'spent';
+                        statusLabel = 'خرج شده';
+                    } else if (isReturned) {
+                        statusGroup = 'returned';
+                        statusLabel = 'برگشتی';
+                    } else if (isAtBank) {
+                        statusGroup = 'at_bank';
+                        statusLabel = 'در جریان وصول (بانک)';
+                    } else {
+                        statusGroup = 'in_hand';
+                        statusLabel = 'نزد صندوق (فعال)';
+                    }
                 }
 
                 const chequeType = (row.StatusType === '2' || row.Field014 === '2') ? 'پرداختنی' : 'دریافتنی';
+
+                // Keep active/outstanding cheques regardless of year, or keep any cheque from 1402 onwards
+                const isPermitted = is1404Plus(dueDateStr) || statusGroup !== 'spent';
+                if (!isPermitted) {
+                    return null;
+                }
 
                 return {
                     id: row.Id,

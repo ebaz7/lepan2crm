@@ -1950,10 +1950,27 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
 
         // Match conditions in STR_TBL_010
         let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
-        let matchConditions = getSayanMatchConditions({ personCode, recipientName, permitNumber });
-        if (matchConditions.length > 0) {
-            whereClauses.push(`(${matchConditions.join(' OR ')})`);
+        
+        const hasPersonAndDate = personCode && permitDate;
+        
+        if (hasPersonAndDate) {
+            // Strict Matching Mode: match registered person code BOTH in Sayan AND in factory exit together, and also match on date
+            const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
+            const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
+            // Match date within a flexible 4-day window (±3 days) to handle different entry delays, but we will sort exact match first
+            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 3`);
+        } else {
+            // Fallback to general/flexible matching conditions
+            let matchConditions = getSayanMatchConditions({ personCode, recipientName, permitNumber });
+            if (matchConditions.length > 0) {
+                whereClauses.push(`(${matchConditions.join(' OR ')})`);
+            }
         }
+
+        const orderByClause = permitDate 
+            ? `ABS(DATEDIFF(day, t10.Field_008, '${String(permitDate).replace(/'/g, "''")}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
+            : `t10.Field_008 DESC, t10.Field_001 DESC`;
 
         const queryHeaders = `
             SELECT TOP 10
@@ -1973,7 +1990,7 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
             FROM STR_TBL_010 t10
             LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
             WHERE ${whereClauses.join(' AND ')}
-            ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
+            ORDER BY ${orderByClause}
         `;
 
         const headers = await executeSayanQuery(db, queryHeaders);
@@ -2097,32 +2114,49 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
         if (!rem) {
             const pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
             const rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
+            const pDate = permit.date;
             
-            let matchConditions = getSayanMatchConditions({ 
-                personCode: pCode, 
-                recipientName: rName, 
-                permitNumber: permit.permitNumber 
-            });
+            let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+            const hasPersonAndDate = pCode && pDate;
+            
+            if (hasPersonAndDate) {
+                const sanitizedPersonCode = String(pCode).replace(/'/g, "''").trim();
+                const sanitizedDate = String(pDate).replace(/'/g, "''").trim();
+                whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
+                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 3`);
+            } else {
+                let matchConditions = getSayanMatchConditions({ 
+                    personCode: pCode, 
+                    recipientName: rName, 
+                    permitNumber: permit.permitNumber 
+                });
+                if (matchConditions.length > 0) {
+                    whereClauses.push(`(${matchConditions.join(' OR ')})`);
+                }
+            }
 
-            if (matchConditions.length > 0) {
-                const queryHeaders = `
-                    SELECT TOP 1
-                        t10.Field_001 as ArchiveCode,
-                        t10.Field_004 as SubSystem,
-                        t10.Field_005 as DocNo,
-                        t10.Field_006 as RemittanceNumber,
-                        t10.Field_007 as SubCode,
-                        t10.Field_008 as DocDate,
-                        t10.Field_009 as DocType,
-                        t10.Field_010 as PersonCode,
-                        t10.Field_018 as StoreId,
-                        t10.Field_029 as Note,
-                        COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName
-                    FROM STR_TBL_010 t10
-                    LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
-                    WHERE (t10.Field_009 IN ('12', '23', '3')) AND (${matchConditions.join(' OR ')})
-                    ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
-                `;
+            const orderByClause = pDate 
+                ? `ABS(DATEDIFF(day, t10.Field_008, '${String(pDate).replace(/'/g, "''")}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
+                : `t10.Field_008 DESC, t10.Field_001 DESC`;
+
+            const queryHeaders = `
+                SELECT TOP 1
+                    t10.Field_001 as ArchiveCode,
+                    t10.Field_004 as SubSystem,
+                    t10.Field_005 as DocNo,
+                    t10.Field_006 as RemittanceNumber,
+                    t10.Field_007 as SubCode,
+                    t10.Field_008 as DocDate,
+                    t10.Field_009 as DocType,
+                    t10.Field_010 as PersonCode,
+                    t10.Field_018 as StoreId,
+                    t10.Field_029 as Note,
+                    COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName
+                FROM STR_TBL_010 t10
+                LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+                WHERE ${whereClauses.join(' AND ')}
+                ORDER BY ${orderByClause}
+            `;
                 const foundHeaders = await executeSayanQuery(db, queryHeaders);
                 if (foundHeaders && foundHeaders.length > 0) {
                     const fh = foundHeaders[0];
@@ -2188,7 +2222,6 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                     };
                 }
             }
-        }
 
         // Apply to permit
         if (rem) {

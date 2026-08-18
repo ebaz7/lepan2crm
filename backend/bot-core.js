@@ -4023,30 +4023,53 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
             let tableRows = [];
 
             if (rows && rows.length > 0) {
-                const is1404PlusYear = (dateStr) => {
-                    if (!dateStr) return false;
-                    const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-                    if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
-                    if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
-                    const match = str.match(/^(\d{4})/);
+                const extractShamsiYear = (dateStr) => {
+                    if (!dateStr) return null;
+                    const clean = String(dateStr).trim()
+                        .replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x))
+                        .replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+                    
+                    const match = clean.match(/(13\d{2}|14\d{2})/);
                     if (match) {
-                        const yr = parseInt(match[1], 10);
-                        if (yr >= 2025) {
-                            if (yr === 2025) {
-                                try {
-                                    const d = new Date(str);
-                                    if (!isNaN(d.getTime())) {
-                                        const sh = toShamsiFull(d.toISOString());
-                                        const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-                                        return cleanSh.startsWith('1404') || cleanSh.startsWith('1405') || cleanSh.startsWith('1406');
-                                    }
-                                } catch (e) {}
-                            }
-                            return true;
-                        }
-                        return false;
+                        return parseInt(match[1], 10);
                     }
-                    return true;
+
+                    try {
+                        const d = new Date(clean);
+                        if (!isNaN(d.getTime())) {
+                            const y = d.getFullYear();
+                            const m = d.getMonth() + 1;
+                            const day = d.getDate();
+                            if (jalaali && typeof jalaali.toJalaali === 'function') {
+                                const j = jalaali.toJalaali(y, m, day);
+                                return j.jy;
+                            }
+                            const sh = toShamsiFull(d.toISOString());
+                            const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)).replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+                            const matchSh = cleanSh.match(/(13\d{2}|14\d{2})/);
+                            if (matchSh) {
+                                return parseInt(matchSh[1], 10);
+                            }
+                        }
+                    } catch (e) {}
+                    return null;
+                };
+
+                const getCurrentShamsiYear = () => {
+                    try {
+                        const now = new Date();
+                        const sh = toShamsiFull(now.toISOString());
+                        const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)).replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+                        const match = cleanSh.match(/(13\d{2}|14\d{2})/);
+                        if (match) return parseInt(match[1], 10);
+                    } catch (e) {}
+                    return 1405; // Fallback
+                };
+
+                const is1404PlusYear = (dateStr) => {
+                    const yr = extractShamsiYear(dateStr);
+                    const currentYear = getCurrentShamsiYear();
+                    return yr !== null && yr >= (currentYear - 1);
                 };
 
                 const vaultRows = rows.filter(r => {
@@ -4065,17 +4088,32 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
 
                     if (isActive === '0' || isActive === 'false') return false;
 
-                    const isCashed = cleanDesc.includes('وصول شده') || 
-                                     cleanDesc.includes('برگشتی وصول شده') || 
-                                     (lastOp === '17' && subOp === '28') || 
-                                     (lastOp === '18' && (subOp === '29' || subOp === '28' || subOp === '30'));
+                    // Sayan ERP authoritative operation codes
+                    // 11 = دریافت چک (نزد صندوق)
+                    // 12 = واگذاری به بانک (در جریان وصول)
+                    // 17 = وصول شده
+                    // 18 = خرج چک (خرج شده)
+                    // 15, 16 = برگشتی (برگشتی)
+                    // 20 = برگشت به صندوق (نزد صندوق)
 
-                    const isSpent = cleanDesc.includes('چک خرجی') || 
-                                    (lastOp === '18' && (subOp === '31' || subOp === '33' || subOp === '34' || subOp === '36'));
+                    let isCashed = false;
+                    let isSpent = false;
+                    let isReturned = false;
 
-                    const isReturned = cleanDesc.includes('برگشت به طرف حساب') || 
-                                       lastOp === '16' || 
-                                       lastOp === '15';
+                    if (lastOp === '17' || lastOp === '14') {
+                        isCashed = true;
+                    } else if (lastOp === '18') {
+                        isSpent = true;
+                    } else if (lastOp === '15' || lastOp === '16') {
+                        isReturned = true;
+                    } else {
+                        // Text parsing fallback
+                        isCashed = cleanDesc.includes('وصول شده') || 
+                                   cleanDesc.includes('برگشتی وصول شده');
+                        isSpent = cleanDesc.includes('چک خرجی') || cleanDesc.includes('خرج شده');
+                        isReturned = cleanDesc.includes('برگشت به طرف حساب') || 
+                                     cleanDesc.includes('برگشتی');
+                    }
 
                     if (isCashed || isSpent || isReturned) return false;
                     return true;
@@ -4096,9 +4134,16 @@ export const handleCallback = async (platform, chatId, userId, data, sendFn, sen
                         .toLowerCase()
                         .trim();
 
-                    const isAtBank = cleanDesc.includes('به حساب خوابانده شده') || 
-                                     (lastOp === '17' && subOp === '24') || 
-                                     lastOp === '12';
+                    let isAtBank = false;
+                    if (lastOp === '12' || lastOp === '13') {
+                        isAtBank = true;
+                    } else if (lastOp === '11' || lastOp === '20') {
+                        isAtBank = false;
+                    } else {
+                        isAtBank = cleanDesc.includes('به حساب خوابانده شده') || 
+                                   cleanDesc.includes('در جریان') || 
+                                   cleanDesc.includes('واگذار');
+                    }
 
                     let displayStatus = 'نزد صندوق (فعال)';
                     if (isAtBank) {
@@ -5521,31 +5566,52 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         };
     }
 
-    // Helper to check if a date is 1404 onwards
+    // Helper to check if a date is 1404 onwards (dynamic based on current year)
     const is1404Plus = (dateStr) => {
         if (!dateStr) return false;
-        const str = String(dateStr).trim().replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-        if (str.startsWith('1404') || str.startsWith('1405') || str.startsWith('1406')) return true;
-        if (str.startsWith('1403') || str.startsWith('1402') || str.startsWith('1401') || str.startsWith('1400') || str.startsWith('13')) return false;
-        const match = str.match(/^(\d{4})/);
+        const clean = String(dateStr).trim()
+            .replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x))
+            .replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+
+        const getCurrentShamsiYear = () => {
+            try {
+                const now = new Date();
+                const sh = toShamsiFull(now.toISOString());
+                const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)).replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+                const match = cleanSh.match(/(13\d{2}|14\d{2})/);
+                if (match) return parseInt(match[1], 10);
+            } catch (e) {}
+            return 1405; // Fallback
+        };
+
+        const currentYear = getCurrentShamsiYear();
+        const threshold = currentYear - 1;
+        
+        const match = clean.match(/(13\d{2}|14\d{2})/);
         if (match) {
             const yr = parseInt(match[1], 10);
-            if (yr >= 2025) {
-                if (yr === 2025) {
-                    try {
-                        const d = new Date(str);
-                        if (!isNaN(d.getTime())) {
-                            const sh = toShamsiFull(d.toISOString());
-                            const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
-                            return cleanSh.startsWith('1404') || cleanSh.startsWith('1405') || cleanSh.startsWith('1406');
-                        }
-                    } catch (e) {}
-                }
-                return true;
-            }
-            return false;
+            return yr >= threshold;
         }
-        return true;
+
+        try {
+            const d = new Date(clean);
+            if (!isNaN(d.getTime())) {
+                const y = d.getFullYear();
+                const m = d.getMonth() + 1;
+                const day = d.getDate();
+                if (jalaali && typeof jalaali.toJalaali === 'function') {
+                    const j = jalaali.toJalaali(y, m, day);
+                    return j.jy >= threshold;
+                }
+                const sh = toShamsiFull(d.toISOString());
+                const cleanSh = sh.replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)).replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧۸۹'.indexOf(x));
+                const matchSh = cleanSh.match(/(13\d{2}|14\d{2})/);
+                if (matchSh) {
+                    return parseInt(matchSh[1], 10) >= threshold;
+                }
+            }
+        } catch (e) {}
+        return false;
     };
 
     // Helper to format Jalali date string
@@ -5608,18 +5674,17 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     FROM BUR_TBL_012 t12
                     LEFT JOIN (
                         SELECT 
-                            t09.Field_006 as ChequeId,
-                            t09.Field_004 as LastOpCode,
-                            t09.Field_010 as LastOpAccount
+                            t09.Field_007 as ChequeId,
+                            t09.Field_023 as LastOpCode,
+                            t09.Field_012 as LastOpAccount
                         FROM BUR_TBL_009 t09
                         INNER JOIN (
-                            SELECT Field_006 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
+                            SELECT Field_007 as ChequeId, MAX(CAST(Field_001 AS INT)) as MaxOpId
                             FROM BUR_TBL_009
-                            WHERE Field_006 IS NOT NULL AND RTRIM(LTRIM(Field_006)) <> ''
-                            GROUP BY Field_006
-                        ) t_max ON t09.Field_006 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
+                            WHERE Field_007 IS NOT NULL AND RTRIM(LTRIM(Field_007)) <> ''
+                            GROUP BY Field_007
+                        ) t_max ON t09.Field_007 = t_max.ChequeId AND CAST(t09.Field_001 AS INT) = t_max.MaxOpId
                     ) t_last_op ON CAST(t12.Field_001 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
-                                 OR CAST(t12.Field_005 AS VARCHAR(50)) = CAST(t_last_op.ChequeId AS VARCHAR(50))
                     ORDER BY t12.Field_006 ASC
                 `;
                 rows = await runSayanQuery(db, sql);
@@ -5649,52 +5714,68 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     .toLowerCase()
                     .trim();
 
-                // 1. Explicitly Returned
-                const isReturned = lastOp === '15' || lastOp === '16' || statusType === '4' || statusCode === '4' || 
-                                   cleanDesc.includes('برگشت') || 
-                                   cleanDesc.includes('واخواست') || 
-                                   cleanDesc.includes('عدم پرداخت') || 
-                                   cleanDesc.includes('عودت') || 
-                                   cleanDesc.includes('نکول');
+                // Sayan ERP authoritative operation codes
+                // 11 = دریافت چک (نزد صندوق)
+                // 12 = واگذاری به بانک (در جریان وصول)
+                // 17 = وصول شده
+                // 18 = خرج چک (خرج شده)
+                // 15, 16 = برگشتی (برگشتی)
+                // 20 = برگشت به صندوق (نزد صندوق)
 
-                // 2. Deposited to Bank (خوابانده به حساب / واگذار به بانک) -> Left the vault
-                const isAtBank = !isReturned && (
-                    lastOp === '13' || lastOp === '2' ||
-                    statusType === '2' ||
-                    statusCode === '2' ||
-                    cleanDesc.includes('در جریان') ||
-                    cleanDesc.includes('درجریان') ||
-                    cleanDesc.includes('واگذار') ||
-                    cleanDesc.includes('واگذاری') ||
-                    cleanDesc.includes('خوابانده') ||
-                    cleanDesc.includes('کلر') ||
-                    (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
-                );
+                let isCashed = false;
+                let isSpent = false;
+                let isReturned = false;
+                let isAtBank = false;
 
-                // 3. Cashed / Settled / Cleared -> Left the vault
-                const hasExplicitNotCashed = cleanDesc.includes('وصول نشده') || 
-                                            cleanDesc.includes('وصول نشد') || 
-                                            cleanDesc.includes('عدم وصول') || 
-                                            cleanDesc.includes('وصول‌نشده') || 
-                                            cleanDesc.includes('غیر وصول');
+                if (isActive === '0' || isActive === 'false') {
+                    isCashed = true;
+                } else if (lastOp === '17' || lastOp === '14') {
+                    isCashed = true;
+                } else if (lastOp === '18') {
+                    isSpent = true; // both isCashed and isSpent mean "no longer active portfolio"
+                    isCashed = true;
+                } else if (lastOp === '15' || lastOp === '16') {
+                    isReturned = true;
+                } else if (lastOp === '12' || lastOp === '13') {
+                    isAtBank = true;
+                } else if (lastOp === '11' || lastOp === '20') {
+                    isAtBank = false;
+                } else {
+                    // Smart Fallback to text parsing if no known op code is found
+                    isReturned = statusType === '4' || statusCode === '4' || 
+                                 cleanDesc.includes('برگشت') || 
+                                 cleanDesc.includes('واخواست') || 
+                                 cleanDesc.includes('عدم پرداخت') || 
+                                 cleanDesc.includes('عودت') || 
+                                 cleanDesc.includes('نکول');
 
-                const isCashed = !isReturned && !isAtBank && (
-                    lastOp === '14' || lastOp === '17' || lastOp === '18' || lastOp === '19' || lastOp === '3' ||
-                    statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
-                    statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
-                    chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
-                    (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
-                    cleanDesc.includes('پاس') ||
-                    cleanDesc.includes('تسویه') ||
-                    cleanDesc.includes('خرج') ||
-                    cleanDesc.includes('پرداخت') ||
-                    cleanDesc.includes('انتقال') ||
-                    cleanDesc.includes('واریز') ||
-                    (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
-                    (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed) ||
-                    (statusType !== '' && statusType !== '1' && statusType !== '0') ||
-                    isActive === '0' || isActive === 'false'
-                );
+                    isAtBank = !isReturned && (
+                        statusType === '2' ||
+                        statusCode === '2' ||
+                        cleanDesc.includes('در جریان') ||
+                        cleanDesc.includes('درجریان') ||
+                        cleanDesc.includes('واگذار') ||
+                        cleanDesc.includes('واگذاری') ||
+                        cleanDesc.includes('خوابانده') ||
+                        cleanDesc.includes('کلر') ||
+                        (cleanDesc.includes('بانک') && !cleanDesc.includes('صندوق') && !cleanDesc.includes('نزد صندوق'))
+                    );
+
+                    isCashed = !isReturned && !isAtBank && (
+                        statusType === '3' || statusType === '5' || statusType === '6' || statusType === '7' ||
+                        statusCode === '3' || statusCode === '5' || statusCode === '6' || statusCode === '7' ||
+                        chequeNo.includes('394269') || chequeNo.includes('847057') || chequeNo.includes('501974') ||
+                        (!hasExplicitNotCashed && cleanDesc.includes('وصول') && !cleanDesc.includes('در جریان') && !cleanDesc.includes('درجریان')) ||
+                        cleanDesc.includes('پاس') ||
+                        cleanDesc.includes('تسویه') ||
+                        cleanDesc.includes('خرج') ||
+                        cleanDesc.includes('پرداخت') ||
+                        cleanDesc.includes('انتقال') ||
+                        cleanDesc.includes('واریز') ||
+                        (cleanDesc.includes('ملت') && cleanDesc.includes('وصول')) ||
+                        (cleanDesc.includes('بانک') && cleanDesc.includes('وصول') && !hasExplicitNotCashed)
+                    );
+                }
 
                 let matchesReportType = false;
                 if (reportType === 'returned') {
