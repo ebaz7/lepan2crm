@@ -5521,36 +5521,38 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
     }
 
     if (targets.length === 0) {
-        // Specifically configured cheque vault groups
-        if (settings.chequeVaultTelegramGroupId) targets.push({ platform: 'telegram', id: settings.chequeVaultTelegramGroupId });
-        if (settings.chequeVaultBaleGroupId) targets.push({ platform: 'bale', id: settings.chequeVaultBaleGroupId });
-        if (settings.chequeVaultWhatsappGroupId) targets.push({ platform: 'whatsapp', id: settings.chequeVaultWhatsappGroupId });
-        
-        // Accounting groups fallback
-        if (targets.length === 0) {
-            if (settings.botAccountingGroupIdTele || settings.botAccountingGroupId) {
-                targets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele || settings.botAccountingGroupId });
-            }
-            if (settings.botAccountingGroupIdBale) {
-                targets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
-            }
-            if (settings.botAccountingGroupIdWhatsApp) {
-                targets.push({ platform: 'whatsapp', id: settings.botAccountingGroupIdWhatsApp });
-            }
-        }
+        // Resolve Telegram target independently
+        const tgGroup = settings.chequeVaultTelegramGroupId || 
+                        settings.botAccountingGroupIdTele || 
+                        settings.botAccountingGroupId ||
+                        settings.dailySalesTelegramGroupId || 
+                        settings.botDailySalesGroupIdTele || 
+                        settings.botDailySalesGroupId || 
+                        settings.dailySalesGroupId || 
+                        settings.salesGroupId || 
+                        settings.telegramReportsGroupId || 
+                        settings.telegramGroupId || 
+                        settings.telegramChatId;
+        if (tgGroup) targets.push({ platform: 'telegram', id: tgGroup });
 
-        // Daily sales / Reports / General groups fallback
-        if (targets.length === 0) {
-            if (settings.dailySalesTelegramGroupId || settings.botDailySalesGroupIdTele || settings.botDailySalesGroupId || settings.dailySalesGroupId || settings.salesGroupId || settings.telegramReportsGroupId || settings.telegramGroupId || settings.telegramChatId) {
-                targets.push({ platform: 'telegram', id: settings.dailySalesTelegramGroupId || settings.botDailySalesGroupIdTele || settings.botDailySalesGroupId || settings.dailySalesGroupId || settings.salesGroupId || settings.telegramReportsGroupId || settings.telegramGroupId || settings.telegramChatId });
-            }
-            if (settings.dailySalesBaleGroupId || settings.botDailySalesGroupIdBale || settings.baleReportsGroupId || settings.baleGroupId || settings.baleChatId) {
-                targets.push({ platform: 'bale', id: settings.dailySalesBaleGroupId || settings.botDailySalesGroupIdBale || settings.baleReportsGroupId || settings.baleGroupId || settings.baleChatId });
-            }
-            if (settings.dailySalesWhatsappGroupId || settings.botDailySalesGroupIdWhatsApp || settings.whatsappReportsGroupId || settings.whatsappGroupId) {
-                targets.push({ platform: 'whatsapp', id: settings.dailySalesWhatsappGroupId || settings.botDailySalesGroupIdWhatsApp || settings.whatsappReportsGroupId || settings.whatsappGroupId });
-            }
-        }
+        // Resolve Bale target independently
+        const baleGroup = settings.chequeVaultBaleGroupId || 
+                          settings.botAccountingGroupIdBale ||
+                          settings.dailySalesBaleGroupId || 
+                          settings.botDailySalesGroupIdBale || 
+                          settings.baleReportsGroupId || 
+                          settings.baleGroupId || 
+                          settings.baleChatId;
+        if (baleGroup) targets.push({ platform: 'bale', id: baleGroup });
+
+        // Resolve WhatsApp target independently
+        const waGroup = settings.chequeVaultWhatsappGroupId || 
+                        settings.botAccountingGroupIdWhatsApp ||
+                        settings.dailySalesWhatsappGroupId || 
+                        settings.botDailySalesGroupIdWhatsApp || 
+                        settings.whatsappReportsGroupId || 
+                        settings.whatsappGroupId;
+        if (waGroup) targets.push({ platform: 'whatsapp', id: waGroup });
     }
 
     // Filter targets by selected platforms

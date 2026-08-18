@@ -1919,6 +1919,16 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
 
     const jsNormalize = (str) => {
         return String(str)
+            .replace(/ي/g, 'y')
+            .replace(/ك/g, 'k')
+            .replace(/‌/g, ' ')
+            .replace(/أ/g, 'ا')
+            .replace(/'/g, "''")
+            .trim();
+    };
+
+    const jsNormalizePersian = (str) => {
+        return String(str)
             .replace(/ي/g, 'ی')
             .replace(/ك/g, 'ک')
             .replace(/‌/g, ' ')
@@ -1959,10 +1969,12 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
     }
 
     if (rName) {
-        const normName = jsNormalize(rName);
+        const normName = jsNormalizePersian(rName);
         if (normName) {
             if (/^\d+$/.test(normName)) {
+                matchConditions.push(`t10.Field_005 = '${normName}'`);
                 matchConditions.push(`t10.Field_006 = '${normName}'`);
+                matchConditions.push(`t10.Field_005 LIKE '%${normName}%'`);
                 matchConditions.push(`t10.Field_006 LIKE '%${normName}%'`);
             } else {
                 matchConditions.push(`${sqlNormalize('t10.Field_029')} LIKE N'%${normName}%'`);
@@ -1975,7 +1987,9 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
     if (permitNumber) {
         const normPermitNum = String(permitNumber).replace(/'/g, "''").trim();
         if (normPermitNum) {
+            matchConditions.push(`t10.Field_005 = '${normPermitNum}'`);
             matchConditions.push(`t10.Field_006 = '${normPermitNum}'`);
+            matchConditions.push(`t10.Field_005 LIKE '%${normPermitNum}%'`);
             matchConditions.push(`t10.Field_006 LIKE '%${normPermitNum}%'`);
         }
     }
@@ -2107,7 +2121,7 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
             LEFT JOIN IND_TBL_021 t21 ON RTRIM(LTRIM(t21.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            WHERE t11.Field_003 = '${h.SubSystem}' AND t11.Field_004 = '${h.DocNo}' AND t11.Field_012 = '${h.StoreId}'
+            WHERE t11.Field_004 = '${h.DocNo}' AND t11.Field_012 = '${h.StoreId}' AND t11.Field_036 = '${h.DocType}'
             ORDER BY t11.Field_034 ASC, t11.Field_001 ASC
         `;
 
@@ -2208,6 +2222,7 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
             let pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
             let rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
             const pDate = permit.date;
+            const pNum = permit.permitNumber;
             
             if (!pCode && rName) {
                 const { cleanName, extractedCode } = extractCodeAndCleanName(rName);
@@ -2219,51 +2234,15 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
             
             let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
             
-            const sqlNormalize = (col) => {
-                return `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
-            };
-
-            const jsNormalize = (str) => {
-                return String(str)
-                    .replace(/ي/g, 'ی')
-                    .replace(/ك/g, 'ک')
-                    .replace(/‌/g, ' ')
-                    .replace(/أ/g, 'ا')
-                    .replace(/'/g, "''")
-                    .trim();
-            };
-
             if (pDate) {
                 const sanitizedDate = String(pDate).replace(/'/g, "''").trim();
                 whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
             }
 
-            if (pCode) {
-                const sCode = String(pCode).replace(/'/g, "''").trim();
-                const numericCode = parseInt(sCode, 10);
-                if (!isNaN(numericCode)) {
-                    whereClauses.push(`(
-                        RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
-                        RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
-                        RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
-                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode} OR
-                        RTRIM(LTRIM(p.Field_003)) = '${sCode}' OR
-                        RTRIM(LTRIM(p.Field_005)) = '${sCode}'
-                    )`);
-                } else {
-                    whereClauses.push(`(RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR RTRIM(LTRIM(p.Field_003)) = '${sCode}')`);
-                }
-            } else if (rName) {
-                const normName = jsNormalize(rName);
-                if (normName && !/^\d+$/.test(normName)) {
-                    const parts = normName.split(/\s+/).filter(Boolean);
-                    if (parts.length > 0) {
-                        const subParts = parts.map(part => {
-                            return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
-                        });
-                        whereClauses.push(`(${subParts.join(' AND ')})`);
-                    }
-                }
+            // Utilize robust getSayanMatchConditions
+            let matchConditions = getSayanMatchConditions({ personCode: pCode, recipientName: rName, permitNumber: pNum });
+            if (matchConditions.length > 0) {
+                whereClauses.push(`(${matchConditions.join(' OR ')})`);
             }
 
             const orderByClause = pDate 
@@ -2304,7 +2283,7 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                         LEFT JOIN IND_TBL_021 t21 ON RTRIM(LTRIM(t21.Field_004)) = RTRIM(LTRIM(t11.Field_005))
                         LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003))
                         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                        WHERE t11.Field_003 = '${fh.SubSystem}' AND t11.Field_004 = '${fh.DocNo}' AND t11.Field_012 = '${fh.StoreId}'
+                        WHERE t11.Field_004 = '${fh.DocNo}' AND t11.Field_012 = '${fh.StoreId}' AND t11.Field_036 = '${fh.DocType}'
                         ORDER BY t11.Field_034 ASC, t11.Field_001 ASC
                     `;
                     const fDetails = await executeSayanQuery(db, queryDetails);
@@ -4817,7 +4796,13 @@ async function executeReportJob(job) {
         
         const isProdJob = job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'inventory_stock';
         const isSalesJob = job.module === 'sales' || job.reportType === 'daily_sales' || job.reportType === 'sales_comparison';
-        const isChequeJob = job.module === 'accounting' || job.reportType === 'cheque_vault' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts';
+        const isChequeJob = job.module === 'accounting' || 
+            job.reportType === 'cheque_vault' || 
+            job.reportType === 'cheque_not_due' || 
+            job.reportType === 'cheque_overdue' || 
+            job.reportType === 'cheque_matured' || 
+            job.reportType === 'cheques_treasury' || 
+            job.reportType === 'cheque_alerts';
 
         const defaultTgGroup = isChequeJob
             ? (db.settings?.chequeVaultTelegramGroupId || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId)

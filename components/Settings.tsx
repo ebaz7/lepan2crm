@@ -4014,6 +4014,65 @@ const Settings: React.FC<SettingsProps> = ({
                         </button>
                       </div>
                     </div>
+
+                    <div className="md:col-span-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                      <label className="text-sm font-bold text-indigo-800 block mb-2">
+                        شناسه گروه‌های اختصاصی گزارش چک‌ها (صندوق خزانه‌داری)
+                      </label>
+                      <p className="text-[10px] text-indigo-600 mb-3 leading-relaxed font-bold">
+                        در صورت عدم تنظیم، گزارش چک‌ها به گروه‌های حسابداری فوق یا عمومی ارسال خواهد شد.
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-1">
+                            تلگرام (Chat ID)
+                          </label>
+                          <input
+                            className="w-full border rounded p-2 text-xs dir-ltr"
+                            value={settings.chequeVaultTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultTelegramGroupId: e.target.value,
+                              })
+                            }
+                            placeholder="-100..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-1">
+                            بله (شناسه)
+                          </label>
+                          <input
+                            className="w-full border rounded p-2 text-xs dir-ltr"
+                            value={settings.chequeVaultBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultBaleGroupId: e.target.value,
+                              })
+                            }
+                            placeholder="ID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 block mb-1">
+                            واتساپ (ID)
+                          </label>
+                          <input
+                            className="w-full border rounded p-2 text-xs dir-ltr"
+                            value={settings.chequeVaultWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                chequeVaultWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            placeholder="...@g.us"
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div className="mt-2">
                       <label className="text-sm font-bold text-gray-700 block mb-1">
                         حالت ارسال دستورپرداخت (بات تلگرام)
