@@ -96,18 +96,46 @@ const parseDetailNote = (note: any) => {
   return result;
 };
 
-const parseJalaliToGregorian = (jalaliStr: string) => {
-  if (!jalaliStr) return null;
-  try {
-    const clean = jalaliStr.replace(/[\/\-.]/g, '/').trim();
-    const parts = clean.split('/').map(p => parseInt(p, 10));
-    if (parts.length === 3 && parts[0] > 1300 && parts[1] >= 1 && parts[1] <= 12 && parts[2] >= 1 && parts[2] <= 31) {
-      const g = jalaali.toGregorian(parts[0], parts[1], parts[2]);
-      return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
+const parseShamsiParts = (str: string) => {
+  if (!str) return null;
+  const clean = str.trim()
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧۸۹'.indexOf(d).toString());
+  const parts = clean.split(/[\/\.\-]/).map(p => parseInt(p, 10)).filter(n => !isNaN(n));
+  if (parts.length !== 3) return null;
+
+  let jy = 0, jm = 0, jd = 0;
+  if (parts[0] >= 1300 || parts[0] === 404 || parts[0] === 405 || (parts[0] >= 100 && parts[0] < 1000)) {
+    jy = parts[0]; jm = parts[1]; jd = parts[2];
+  } else if (parts[2] >= 1300 || parts[2] === 404 || parts[2] === 405 || parts[2] >= 100) {
+    jy = parts[2]; jm = parts[1]; jd = parts[0];
+  } else {
+    if (parts[0] > 12) {
+      jd = parts[0]; jm = parts[1]; jy = parts[2];
+    } else {
+      jy = parts[2]; jm = parts[1]; jd = parts[0];
     }
-    return null;
+  }
+
+  if (jy < 100) jy += 1400;
+  else if (jy >= 100 && jy < 1000) jy += 1000;
+
+  if (jm > 12 && jd <= 12) {
+    const tmp = jm; jm = jd; jd = tmp;
+  }
+
+  return { jy, jm, jd };
+};
+
+const parseJalaliToGregorian = (jalaliStr: string) => {
+  if (!jalaliStr) return '';
+  try {
+    const res = parseShamsiParts(jalaliStr);
+    if (!res) return jalaliStr;
+    const g = jalaali.toGregorian(res.jy, res.jm, res.jd);
+    return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
   } catch {
-    return null;
+    return jalaliStr;
   }
 };
 
@@ -241,11 +269,12 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
       }
 
       const rem = remittancesMap.get(docKey)!;
-      const parsed = parseDetailNote(row.DetailNote);
-      const netVal = parseFloat(row.NetQty || 0);
+      const detailNoteStr = row.DetailNote || row.ItemNotes || '';
+      const parsed = parseDetailNote(detailNoteStr);
+      const netVal = parseFloat(row.NetQty || row.Quantity || 0);
       const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
-      const unitPrice = parseFloat(row.UnitPrice || 0);
-      const totalPrice = parseFloat(row.TotalPrice || (netVal * unitPrice) || 0);
+      const unitPrice = parseFloat(row.UnitPrice || row.Amount || 0);
+      const totalPrice = parseFloat(row.TotalPrice || row.FinalAmount || row.NetAmount || (netVal * unitPrice) || 0);
 
       rem.totalNetWeight += netVal;
       rem.totalGrossWeight += grossVal;
@@ -267,7 +296,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
         grade: parsed.grade,
         twistDirection: parsed.twistDirection,
         description: parsed.description,
-        detailNote: row.DetailNote || '',
+        detailNote: detailNoteStr,
         rowNo: parseInt(row.RowNo || (rem.items.length + 1), 10)
       });
     }
@@ -309,23 +338,20 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
         }
 
         // Date Filter
-        if (dateFrom && dateTo) {
-          const gFrom = parseJalaliToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
-          const gTo = parseJalaliToGregorian(dateTo) || (dateTo.includes('-') ? dateTo : null);
-          if (gFrom && gTo) {
-            whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gTo}T23:59:59.999Z'`);
-          }
-        } else if (dateFrom) {
-          const gFrom = parseJalaliToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
-          if (gFrom) {
-            whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z'`);
-          }
+        const gFrom = parseJalaliToGregorian(dateFrom);
+        const gTo = parseJalaliToGregorian(dateTo);
+        if (gFrom && gTo) {
+          whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gTo}T23:59:59.000Z'`);
+        } else if (gFrom) {
+          whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z'`);
         }
 
         // Store ID Filter
         if (storeId && storeId !== 'all') {
           whereClauses.push(`RTRIM(LTRIM(t10.Field_018)) = '${storeId.replace(/'/g, "''")}'`);
         }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
         const sql = `
           SELECT TOP 1000
@@ -342,47 +368,40 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
               t10.Field_037 as HeaderPayable,
               COALESCE(
                   NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
-                  NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
-                  NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
                   t10.Field_010,
                   N'طرف‌حساب نامشخص'
               ) as PersonFullName,
-              p.Field_013 as PersonAddress,
-              p.Field_015 as PersonPhone,
               t11.Field_001 as LineId,
               RTRIM(LTRIM(t11.Field_005)) as ItemCode,
               COALESCE(
-                  NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                   NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                  NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                  NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                   NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                   RTRIM(LTRIM(t11.Field_005)),
                   N'کالای بدون نام'
               ) as ItemName,
-              t11.Field_006 as NetQty,
-              t11.Field_007 as UnitPrice,
-              t11.Field_008 as TotalPrice,
+              t11.Field_006 as Quantity,
+              t11.Field_007 as Amount,
+              t11.Field_008 as Discount,
+              t11.Field_009 as NetAmount,
+              t11.Field_010 as VAT,
+              t11.Field_011 as Tax,
+              t11.Field_012 as FinalAmount,
               t11.Field_031 as DetailNote,
               t11.Field_034 as RowNo
           FROM STR_TBL_010 t10
           INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                     AND t11.Field_003 = t10.Field_004 
                                     AND t11.Field_012 = t10.Field_018
-          LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-          LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
-          LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
           LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-          LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-          LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
           LEFT JOIN (
               SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
               FROM IND_TBL_021 t21_sub
               LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
               GROUP BY t21_sub.Field_004
           ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-          WHERE ${whereClauses.join(' AND ')}
-          ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_034 ASC, t11.Field_001 ASC
+          LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+          ${whereSql}
+          ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
 
         const rawRows = await runSayanQuery(sql);

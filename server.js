@@ -2083,21 +2083,14 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 t10.Field_029 as Note,
                 t10.Field_037 as HeaderPayable,
                 COALESCE(
-                    NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
-                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
                     t10.Field_010,
                     N'طرف‌حساب نامشخص'
                 ) as PersonFullName,
-                p.Field_013 as PersonAddress,
-                p.Field_015 as PersonPhone,
                 t11.Field_001 as LineId,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
-                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                     RTRIM(LTRIM(t11.Field_005)),
                     N'کالای بدون نام'
@@ -2111,20 +2104,16 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004 
                                       AND t11.Field_012 = t10.Field_018
-            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
-            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             WHERE ${whereClauses.join(' AND ')}
-            ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_034 ASC, t11.Field_001 ASC
+            ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
 
         const rows = await executeSayanQuery(db, sql);
