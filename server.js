@@ -1951,17 +1951,52 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
         // Match conditions in STR_TBL_010
         let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
         
-        const hasPersonAndDate = personCode && permitDate;
-        
-        if (hasPersonAndDate) {
-            // Strict Matching Mode: match registered person code BOTH in Sayan AND in factory exit together, and also match on date
-            const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
+        const sqlNormalize = (col) => {
+            return `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
+        };
+
+        const jsNormalize = (str) => {
+            return String(str)
+                .replace(/ي/g, 'ی')
+                .replace(/ك/g, 'ک')
+                .replace(/‌/g, ' ')
+                .replace(/أ/g, 'ا')
+                .replace(/'/g, "''")
+                .trim();
+        };
+
+        // Determine if we are doing a general manual search or exit permit automatic lookup.
+        // If there's an exit permit date, it's an automatic lookup where we want to strictly match the person and date.
+        if (permitDate) {
             const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
-            whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
-            // Match date within a flexible 4-day window (±3 days) to handle different entry delays, but we will sort exact match first
-            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 3`);
+            // Match date within a flexible 5-day window to handle entry delays
+            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
+
+            // Strictly require matching person code or name
+            let personClauses = [];
+            if (personCode) {
+                const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
+                personClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
+            }
+            if (recipientName) {
+                const normName = jsNormalize(recipientName);
+                if (normName && !/^\d+$/.test(normName)) {
+                    // Split the name to match parts (e.g., "اصغر طاهری")
+                    const parts = normName.split(/\s+/).filter(Boolean);
+                    if (parts.length > 0) {
+                        const subParts = parts.map(part => {
+                            return `(${sqlNormalize('t10.Field_029')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
+                        });
+                        personClauses.push(`(${subParts.join(' AND ')})`);
+                    }
+                }
+            }
+
+            if (personClauses.length > 0) {
+                whereClauses.push(`(${personClauses.join(' OR ')})`);
+            }
         } else {
-            // Fallback to general/flexible matching conditions
+            // General / manual search fallback (e.g. searching in the modal search bar)
             let matchConditions = getSayanMatchConditions({ personCode, recipientName, permitNumber });
             if (matchConditions.length > 0) {
                 whereClauses.push(`(${matchConditions.join(' OR ')})`);
