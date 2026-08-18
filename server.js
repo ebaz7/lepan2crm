@@ -2081,7 +2081,6 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 t10.Field_010 as PersonCode,
                 t10.Field_018 as StoreId,
                 t10.Field_029 as Note,
-                t10.Field_037 as HeaderPayable,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
                     t10.Field_010,
@@ -2096,8 +2095,6 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                     N'کالای بدون نام'
                 ) as ItemName,
                 t11.Field_006 as NetQty,
-                t11.Field_007 as UnitPrice,
-                t11.Field_008 as TotalPrice,
                 t11.Field_031 as DetailNote,
                 t11.Field_034 as RowNo
             FROM STR_TBL_010 t10
@@ -2160,11 +2157,11 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                     docTypeLabel,
                     personCode: String(row.PersonCode || ''),
                     personFullName: String(row.PersonFullName || '').trim(),
-                    personAddress: String(row.PersonAddress || '').trim(),
-                    personPhone: String(row.PersonPhone || '').trim(),
+                    personAddress: '',
+                    personPhone: '',
                     storeId: String(row.StoreId || ''),
                     note: String(row.Note || '').trim(),
-                    headerPayable: parseFloat(row.HeaderPayable || 0),
+                    headerPayable: 0,
                     items: [],
                     totalNetWeight: 0,
                     totalGrossWeight: 0,
@@ -2178,8 +2175,8 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
             const parsed = parseDetailNote(row.DetailNote);
             const netVal = parseFloat(row.NetQty || 0);
             const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
-            const unitPrice = parseFloat(row.UnitPrice || 0);
-            const totalPrice = parseFloat(row.TotalPrice || (netVal * unitPrice) || 0);
+            const unitPrice = 0;
+            const totalPrice = 0;
 
             rem.totalNetWeight += netVal;
             rem.totalGrossWeight += grossVal;

@@ -12,6 +12,7 @@ import {
   Package, 
   Boxes, 
   User, 
+  Users,
   ArrowUpDown, 
   ChevronDown, 
   ChevronUp, 
@@ -254,11 +255,11 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
           docTypeLabel,
           personCode: String(row.PersonCode || ''),
           personFullName: String(row.PersonFullName || '').trim() || 'طرف‌حساب نامشخص',
-          personAddress: String(row.PersonAddress || '').trim(),
-          personPhone: String(row.PersonPhone || '').trim(),
+          personAddress: '',
+          personPhone: '',
           storeId: String(row.StoreId || ''),
           note: String(row.Note || '').trim(),
-          headerPayable: parseFloat(row.HeaderPayable || 0),
+          headerPayable: 0,
           items: [],
           totalNetWeight: 0,
           totalGrossWeight: 0,
@@ -273,8 +274,8 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
       const parsed = parseDetailNote(detailNoteStr);
       const netVal = parseFloat(row.NetQty || row.Quantity || 0);
       const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
-      const unitPrice = parseFloat(row.UnitPrice || row.Amount || 0);
-      const totalPrice = parseFloat(row.TotalPrice || row.FinalAmount || row.NetAmount || (netVal * unitPrice) || 0);
+      const unitPrice = 0;
+      const totalPrice = 0;
 
       rem.totalNetWeight += netVal;
       rem.totalGrossWeight += grossVal;
@@ -314,7 +315,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
       totalGrossWeight: parseFloat(remittancesList.reduce((s, r) => s + r.totalGrossWeight, 0).toFixed(3)),
       totalCartons: remittancesList.reduce((s, r) => s + r.totalCartons, 0),
       totalBobbins: remittancesList.reduce((s, r) => s + r.totalBobbins, 0),
-      totalAmount: remittancesList.reduce((s, r) => s + r.totalAmount, 0),
+      totalAmount: 0,
       uniqueCustomersCount: new Set(remittancesList.map(r => r.personCode || r.personFullName)).size
     };
 
@@ -365,7 +366,6 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
               RTRIM(LTRIM(t10.Field_010)) as PersonCode,
               RTRIM(LTRIM(t10.Field_018)) as StoreId,
               t10.Field_029 as Note,
-              t10.Field_037 as HeaderPayable,
               COALESCE(
                   NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
                   t10.Field_010,
@@ -379,13 +379,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
                   RTRIM(LTRIM(t11.Field_005)),
                   N'کالای بدون نام'
               ) as ItemName,
-              t11.Field_006 as Quantity,
-              t11.Field_007 as Amount,
-              t11.Field_008 as Discount,
-              t11.Field_009 as NetAmount,
-              t11.Field_010 as VAT,
-              t11.Field_011 as Tax,
-              t11.Field_012 as FinalAmount,
+              t11.Field_006 as NetQty,
               t11.Field_031 as DetailNote,
               t11.Field_034 as RowNo
           FROM STR_TBL_010 t10
@@ -400,7 +394,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
               GROUP BY t21_sub.Field_004
           ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
           LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-          ${whereSql}
+          \${whereSql}
           ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
 
@@ -506,10 +500,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
       'وزن ناخالص (kg)': r.totalGrossWeight,
       'تعداد کارتن': r.totalCartons,
       'تعداد بوبین': r.totalBobbins,
-      'مبلغ کل (ریال)': r.totalAmount || r.headerPayable || 0,
-      'توضیحات': r.note || '',
-      'آدرس خریدار': r.personAddress || '',
-      'شماره تماس': r.personPhone || ''
+      'توضیحات': r.note || ''
     }));
 
     // Sheet 2: Line Items
@@ -529,8 +520,6 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
           'تعداد بوبین': i.bobbinCount || 0,
           'گرید': i.grade || 'AA',
           'جهت تاب': i.twistDirection || 'Z',
-          'فی واحد (ریال)': i.unitPrice || 0,
-          'مبلغ کل ردیف (ریال)': i.totalPrice || 0,
           'شرح ردیف': i.description || i.detailNote || ''
         });
       });
@@ -819,16 +808,16 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-zinc-800/60 dark:to-zinc-800/30 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm col-span-2 sm:col-span-1">
-            <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 mb-1">
-              <span className="text-xs font-bold">مبلغ کل اسناد</span>
-              <Package size={16} />
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-950/40 dark:to-indigo-900/20 p-3.5 rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-sm col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-300 mb-1">
+              <span className="text-xs font-bold">تعداد خریداران متمایز</span>
+              <Users size={16} />
             </div>
-            <div className="text-sm sm:text-lg font-black text-slate-800 dark:text-slate-100 font-mono truncate">
-              {summary.totalAmount > 0 ? (summary.totalAmount / 10).toLocaleString('fa-IR') : '---'} <span className="text-[10px] font-normal text-slate-500">تومان</span>
+            <div className="text-lg sm:text-2xl font-black text-slate-800 dark:text-slate-100 font-mono">
+              {summary.uniqueCustomersCount.toLocaleString('fa-IR')} <span className="text-xs font-normal text-slate-500">شخص</span>
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-              مجموع ارزش فاکتورهای فروش
+              تعداد اشخاص و مشتریان طرف‌حساب
             </div>
           </div>
 
