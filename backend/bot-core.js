@@ -5456,27 +5456,69 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
 
     const platforms = Array.isArray(selectedPlatforms) && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
 
-    // Collect targets
+    // Collect and normalize targets
     let targets = [];
-    if (customTargets && customTargets.length > 0) {
-        targets = customTargets;
-    } else {
-        if (settings.chequeVaultTelegramGroupId) targets.push({ platform: 'telegram', id: settings.chequeVaultTelegramGroupId });
-        if (settings.chequeVaultBaleGroupId) targets.push({ platform: 'bale', id: settings.chequeVaultBaleGroupId });
-        if (settings.chequeVaultWhatsappGroupId) targets.push({ platform: 'whatsapp', id: settings.chequeVaultWhatsappGroupId });
-        
-        // Fallbacks if not set specifically
-        if (targets.length === 0) {
-            if (settings.botAccountingGroupIdTele) targets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele });
-            if (settings.botAccountingGroupIdBale) targets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
-            if (settings.telegramGroupId) targets.push({ platform: 'telegram', id: settings.telegramGroupId });
-            if (settings.baleGroupId) targets.push({ platform: 'bale', id: settings.baleGroupId });
+    if (customTargets) {
+        if (Array.isArray(customTargets) && customTargets.length > 0) {
+            targets = customTargets;
+        } else if (typeof customTargets === 'object') {
+            // Support { telegram: '...', bale: '...', whatsapp: '...' }
+            if (customTargets.telegram && typeof customTargets.telegram === 'string' && customTargets.telegram.trim()) {
+                targets.push({ platform: 'telegram', id: customTargets.telegram.trim() });
+            }
+            if (customTargets.bale && typeof customTargets.bale === 'string' && customTargets.bale.trim()) {
+                targets.push({ platform: 'bale', id: customTargets.bale.trim() });
+            }
+            if (customTargets.whatsapp && typeof customTargets.whatsapp === 'string' && customTargets.whatsapp.trim()) {
+                targets.push({ platform: 'whatsapp', id: customTargets.whatsapp.trim() });
+            }
         }
     }
 
     if (targets.length === 0) {
+        // Specifically configured cheque vault groups
+        if (settings.chequeVaultTelegramGroupId) targets.push({ platform: 'telegram', id: settings.chequeVaultTelegramGroupId });
+        if (settings.chequeVaultBaleGroupId) targets.push({ platform: 'bale', id: settings.chequeVaultBaleGroupId });
+        if (settings.chequeVaultWhatsappGroupId) targets.push({ platform: 'whatsapp', id: settings.chequeVaultWhatsappGroupId });
+        
+        // Accounting groups fallback
+        if (targets.length === 0) {
+            if (settings.botAccountingGroupIdTele || settings.botAccountingGroupId) {
+                targets.push({ platform: 'telegram', id: settings.botAccountingGroupIdTele || settings.botAccountingGroupId });
+            }
+            if (settings.botAccountingGroupIdBale) {
+                targets.push({ platform: 'bale', id: settings.botAccountingGroupIdBale });
+            }
+            if (settings.botAccountingGroupIdWhatsApp) {
+                targets.push({ platform: 'whatsapp', id: settings.botAccountingGroupIdWhatsApp });
+            }
+        }
+
+        // Daily sales / Reports / General groups fallback
+        if (targets.length === 0) {
+            if (settings.dailySalesTelegramGroupId || settings.botDailySalesGroupIdTele || settings.botDailySalesGroupId || settings.dailySalesGroupId || settings.salesGroupId || settings.telegramReportsGroupId || settings.telegramGroupId || settings.telegramChatId) {
+                targets.push({ platform: 'telegram', id: settings.dailySalesTelegramGroupId || settings.botDailySalesGroupIdTele || settings.botDailySalesGroupId || settings.dailySalesGroupId || settings.salesGroupId || settings.telegramReportsGroupId || settings.telegramGroupId || settings.telegramChatId });
+            }
+            if (settings.dailySalesBaleGroupId || settings.botDailySalesGroupIdBale || settings.baleReportsGroupId || settings.baleGroupId || settings.baleChatId) {
+                targets.push({ platform: 'bale', id: settings.dailySalesBaleGroupId || settings.botDailySalesGroupIdBale || settings.baleReportsGroupId || settings.baleGroupId || settings.baleChatId });
+            }
+            if (settings.dailySalesWhatsappGroupId || settings.botDailySalesGroupIdWhatsApp || settings.whatsappReportsGroupId || settings.whatsappGroupId) {
+                targets.push({ platform: 'whatsapp', id: settings.dailySalesWhatsappGroupId || settings.botDailySalesGroupIdWhatsApp || settings.whatsappReportsGroupId || settings.whatsappGroupId });
+            }
+        }
+    }
+
+    // Filter targets by selected platforms
+    targets = targets.filter(t => t && t.id && platforms.includes(t.platform));
+
+    if (targets.length === 0) {
         console.warn("[Treasury Cheques Report] No target groups configured for cheque vault report.");
-        return { count: 0, sent: false, error: 'شناسه گروه مقصد چک‌ها در تنظیمات ثبت نشده است.' };
+        return { 
+            count: 0, 
+            sent: false, 
+            results: [],
+            error: 'شناسه گروه مقصد چک‌ها در تنظیمات سیستم یا پنجره ارسال ثبت نشده است. لطفاً در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» شناسه گروه حسابداری یا خزانه‌داری را ثبت کنید یا در پنجره ارسال، شناسه اختصاصی وارد فرمایید.' 
+        };
     }
 
     // Helper to check if a date is 1404 onwards
@@ -5930,7 +5972,14 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
 
         try {
             if (target.platform === 'telegram') {
-                await tgModule.sendBotMessage(cleanId, msg, { parse_mode: 'Markdown' });
+                try {
+                    await tgModule.sendBotMessage(cleanId, msg, { parse_mode: 'Markdown' });
+                } catch (tgErr) {
+                    // Fallback to plain text if Markdown parsing fails
+                    console.warn(`[Telegram Cheques Send] Markdown parse failed for ${cleanId}, retrying plain text:`, tgErr.message);
+                    await tgModule.sendBotMessage(cleanId, msg.replace(/[*_`]/g, ''));
+                }
+
                 if (pdfBuffer) {
                     await tgModule.sendBotDocument(cleanId, pdfBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 ${reportTitleText} (${todayShamsi})`);
                 }
@@ -5974,11 +6023,21 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         }
     }
 
+    const isSuccess = sentCount > 0;
+    const failedTargets = sendDetails.filter(d => !d.success);
+    const errorMsg = !isSuccess 
+        ? (failedTargets.length > 0 ? failedTargets.map(f => `${f.platform}: ${f.error}`).join(' | ') : 'ارسال به هیچ پیام‌رسانی با موفقیت انجام نشد.')
+        : undefined;
+
     return {
+        success: isSuccess,
+        sent: isSuccess,
         count: treasuryCheques.length,
         totalAmount,
-        sent: sentCount > 0,
         successfulSends: sentCount,
-        sendDetails
+        results: sendDetails,
+        sendDetails,
+        error: errorMsg,
+        message: isSuccess ? `گزارش چک‌ها با موفقیت ارسال شد (${sentCount} ارسال موفق).` : errorMsg
     };
 };

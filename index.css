@@ -682,11 +682,18 @@ html.dark.has-preset-bg-cyan-cosmic .text-gray-400 {
   font-display: swap;
 }
 
-html, body, #root {
-  max-width: 100vw;
-  overflow-x: hidden !important;
-  position: relative;
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
   width: 100%;
+  max-width: 100vw;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: none !important;
+  position: fixed;
+  inset: 0;
 }
 
 body {
@@ -694,14 +701,38 @@ body {
   background: var(--app-bg);
   background-attachment: fixed;
   color: var(--text-primary);
-  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile PWA */
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: none !important;
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Disable text selection highlight for app-like feel */
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
   transition: background 0.3s ease, color 0.3s ease;
-  min-height: 100vh;
+  touch-action: pan-y pinch-zoom;
+}
+
+#root {
+  height: 100%;
+  height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Glassmorphism Global Restyling for generic util classes */
@@ -1036,12 +1067,18 @@ td {
   50% { opacity: 0.85; transform: scale(0.97); }
 }
 
-/* Safe Area Utilities for Mobile */
+/* Safe Area Utilities for Mobile & iOS */
 .safe-pb {
-  padding-bottom: env(safe-area-inset-bottom) !important;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
 }
 .safe-pt {
-  padding-top: env(safe-area-inset-top) !important;
+  padding-top: max(12px, env(safe-area-inset-top, 12px)) !important;
+}
+.safe-pl {
+  padding-left: max(0px, env(safe-area-inset-left, 0px)) !important;
+}
+.safe-pr {
+  padding-right: max(0px, env(safe-area-inset-right, 0px)) !important;
 }
 
 .print-only-element {

@@ -16,7 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
 import { sendNotification, clearAllActiveNotifications } from '../services/notificationService';
 import { downloadAndOpenFile, checkFileExists } from '../services/fileService';
-import { resolveImageUrl } from '../services/apiService';
+import { resolveImageUrl, apiCall } from '../services/apiService';
 
 interface ChatRoomProps { 
     currentUser: User | null; 
@@ -624,13 +624,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     // --- Helpers ---
     const getUnreadCount = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
         if (!currentUser || !currentUser.username) return 0;
+        const currentU = currentUser.username.toLowerCase();
         return messages.filter(m => {
-            if (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase()) return false;
-            const isRead = m.readBy?.includes(currentUser.username);
+            if (!m.senderUsername || m.senderUsername.toLowerCase() === currentU) return false;
+            const isRead = m.readBy?.some(u => u.toLowerCase() === currentU);
             if (isRead) return false;
             
-            if (type === 'private') {
-                return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase());
+            if (type === 'public') {
+                return !m.recipient && !m.groupId;
+            } else if (type === 'private') {
+                return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU);
             } else if (type === 'group' || type === 'task_group') {
                 return m.groupId === channelId;
             }
@@ -640,9 +643,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
     const getLastMessage = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
         if (!currentUser || !currentUser.username) return null;
+        const currentU = currentUser.username.toLowerCase();
         const relevant = displayMessages.filter(m => {
             if (type === 'public') return !m.recipient && !m.groupId;
-            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase()) || (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase() && m.recipient?.toLowerCase() === channelId?.toLowerCase());
+            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU) || (m.senderUsername?.toLowerCase() === currentU && m.recipient?.toLowerCase() === channelId?.toLowerCase());
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
             return false;
         });
@@ -650,12 +654,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     const markAsRead = async (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+        if (!currentUser || !currentUser.username) return;
+        const currentU = currentUser.username.toLowerCase();
         const unreadMsgs = messages.filter(m => {
-            if (m.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase()) return false;
-            if (m.readBy?.includes(currentUser.username)) return false;
+            if (!m.senderUsername || m.senderUsername.toLowerCase() === currentU) return false;
+            if (m.readBy?.some(u => u.toLowerCase() === currentU)) return false;
             
             if (type === 'public') return !m.recipient && !m.groupId;
-            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentUser.username?.toLowerCase());
+            if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU);
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
             return false;
         });
@@ -664,19 +670,82 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         clearAllActiveNotifications().catch(console.error);
 
         if (unreadMsgs.length > 0) {
-            const updatedIds = new Set(unreadMsgs.map(m => m.id));
-            setMessages(prev => prev.map(m => updatedIds.has(m.id) ? { ...m, readBy: [...(m.readBy || []), currentUser.username] } : m));
+            const updatedIds = unreadMsgs.map(m => m.id);
+            const updatedIdsSet = new Set(updatedIds);
+            setMessages(prev => prev.map(m => updatedIdsSet.has(m.id) ? { ...m, readBy: [...(m.readBy || []), currentUser.username] } : m));
             
             if (onMessagesRead) {
-                onMessagesRead(unreadMsgs.map(m => m.id));
+                onMessagesRead(updatedIds);
             }
 
-            for (const msg of unreadMsgs) {
-                const reads = msg.readBy || [];
-                if (!reads.includes(currentUser.username)) {
-                    await updateMessage({ ...msg, readBy: [...reads, currentUser.username] });
+            try {
+                await apiCall('/chat/read-batch', 'POST', { username: currentUser.username, messageIds: updatedIds });
+            } catch (e) {
+                console.error("Batch read error:", e);
+                for (const msg of unreadMsgs) {
+                    const reads = msg.readBy || [];
+                    if (!reads.includes(currentUser.username)) {
+                        await updateMessage({ ...msg, readBy: [...reads, currentUser.username] });
+                    }
                 }
             }
+        }
+    };
+
+    const handleMarkAllAsRead = async () => {
+        if (!currentUser?.username) return;
+        try {
+            await apiCall('/chat/read-all', 'POST', { username: currentUser.username, channelId: 'all' });
+            setMessages(prev => prev.map(m => {
+                const reads = m.readBy || [];
+                return reads.includes(currentUser.username) ? m : { ...m, readBy: [...reads, currentUser.username] };
+            }));
+            if (onMessagesRead) {
+                onMessagesRead(messages.map(m => m.id));
+            }
+            clearAllActiveNotifications().catch(console.error);
+        } catch (e) {
+            console.error("Mark all read failed:", e);
+        }
+    };
+
+    const handleDeleteGroup = async (groupId: string, isTaskGroup: boolean = false, groupName: string = '') => {
+        if (!currentUser) return;
+        const isAdmin = currentUser.role === UserRole.ADMIN;
+        const currentU = currentUser.username.toLowerCase();
+        const grp = isTaskGroup ? taskGroups.find(g => g.id === groupId) : groups.find(g => g.id === groupId);
+        const isCreator = grp?.createdBy?.toLowerCase() === currentU;
+        const isGroupAdmin = !isTaskGroup && ((grp as any)?.admins || []).some((a: string) => a.toLowerCase() === currentU);
+
+        if (!isAdmin && !isCreator && !isGroupAdmin) {
+            alert('شما اجازه حذف این گروه را ندارید.');
+            return;
+        }
+
+        const confirmMsg = isAdmin && !isCreator 
+            ? `آیا مطمئنید که می‌خواهید گروه «${groupName || grp?.name || 'انتخاب شده'}» را به عنوان مدیر سیستم به صورت دائمی حذف کنید؟ تمامی پیام‌ها و تسک‌های مربوطه حذف خواهند شد.`
+            : `آیا از حذف و انحلال گروه «${groupName || grp?.name || 'انتخاب شده'}» اطمینان دارید؟`;
+
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            if (isTaskGroup) {
+                await deleteTaskGroup(groupId);
+                setTaskGroups(prev => prev.filter(g => g.id !== groupId));
+            } else {
+                await deleteGroup(groupId);
+                setGroups(prev => prev.filter(g => g.id !== groupId));
+            }
+            setMessages(prev => prev.filter(m => m.groupId !== groupId));
+            if (activeChannel?.id === groupId) {
+                setActiveChannel(null);
+            }
+            setShowGroupInfo(null);
+            await loadMeta();
+            onRefresh();
+        } catch (e) {
+            console.error("Delete group error:", e);
+            alert("خطا در حذف گروه");
         }
     };
 
@@ -712,6 +781,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         const safeGroups = Array.isArray(groups) ? groups : [];
         const safeTaskGroups = Array.isArray(taskGroups) ? taskGroups : [];
         const currentUsername = currentUser?.username || '';
+        const currentU = currentUsername.toLowerCase();
+        const isAdmin = currentUser?.role === UserRole.ADMIN;
 
         if (activeTab === 'ALL') {
             // 1. Public Channel
@@ -725,7 +796,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             // 2. Groups (with avatars)
             safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
-                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
+                const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
                 if (isMember || last || term) {
                     list.push({
                         type: 'group', id: g.id, name: g.name,
@@ -738,7 +809,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             // 3. Task Groups (with avatars)
             safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
-                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
+                const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
                 if (isMember || last || term) {
                     list.push({
                         type: 'task_group', id: g.id, name: g.name,
@@ -750,7 +821,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
             // 4. Private chats
             safeUsers.forEach(u => {
-                if (currentUsername && u.username?.toLowerCase() === currentUsername.toLowerCase()) return;
+                if (currentUsername && u.username?.toLowerCase() === currentU) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
@@ -764,8 +835,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             // If empty, add some users for accessibility
             if (list.length <= 1 && !term) {
                  safeUsers.slice(0, 10).forEach(u => {
-                     if (currentUsername && u.username === currentUsername) return;
-                     if (!list.find(i => i.id === u.username)) {
+                     if (currentUsername && u.username?.toLowerCase() === currentU) return;
+                     if (!list.find(i => i.id?.toLowerCase() === u.username?.toLowerCase())) {
                           list.push({
                              type: 'private', id: u.username, name: u.fullName,
                              avatar: u.avatar || null, isOnline: false,
@@ -782,10 +853,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 lastMsg: lastPub, unread: getUnreadCount('public', 'public')
             });
 
-            // Include ALL groups that I am a member of or created
+            // Include ALL groups that I am a member of, created, or if Admin
             safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
-                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
+                const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
                 if (isMember || last || term) {
                     list.push({
                         type: 'group', id: g.id, name: g.name,
@@ -795,11 +866,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 }
             });
 
-            // Include task groups too if they have messages or match search
+            // Include task groups too if they have messages, match search, or if Admin
             safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
-                const isMember = (Array.isArray(g.members) && g.members.includes(currentUsername)) || g.createdBy === currentUsername;
-                if (last || (isMember && term)) {
+                const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
+                if (last || isMember || term) {
                     list.push({
                         type: 'task_group', id: g.id, name: g.name,
                         avatar: g.avatar || null, isOnline: false,
@@ -810,7 +881,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
             // Include all users for direct messaging in CHATS tab
             safeUsers.forEach(u => {
-                if (currentUsername && u.username?.toLowerCase() === currentUsername.toLowerCase()) return;
+                if (currentUsername && u.username?.toLowerCase() === currentU) return;
                 const last = getLastMessage(u.username, 'private');
                 const isOnline = u.lastSeen ? (Date.now() - u.lastSeen) < 5 * 60 * 1000 : false;
                 
@@ -824,8 +895,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             // If list is still very empty (just Public), add some frequent users or just all users for accessibility
             if (list.length <= 1 && !term) {
                  safeUsers.slice(0, 10).forEach(u => {
-                     if (currentUsername && u.username === currentUsername) return;
-                     if (!list.find(i => i.id === u.username)) {
+                     if (currentUsername && u.username?.toLowerCase() === currentU) return;
+                     if (!list.find(i => i.id?.toLowerCase() === u.username?.toLowerCase())) {
                           list.push({
                              type: 'private', id: u.username, name: u.fullName,
                              avatar: resolveImageUrl(u.avatar), isOnline: false,
@@ -1496,11 +1567,21 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                         </div>
                         {(activeTab === 'GROUPS' || activeTab === 'TASKS') && <button onClick={() => {
                             setShowGroupModal(activeTab === 'TASKS' ? 'task_group' : 'group');
-                        }} className="mr-2 text-blue-600 bg-blue-50 p-1.5 rounded-full shrink-0"><Plus size={16}/></button>}
+                        }} className="mr-2 text-blue-600 bg-blue-50 p-1.5 rounded-full shrink-0" title="ایجاد گروه جدید"><Plus size={16}/></button>}
                     </div>
-                    <div className="relative">
-                        <input className="w-full glass-panel border rounded-xl pl-8 pr-3 py-2 text-sm bg-white dark:bg-white/5" placeholder="جستجو..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                        <Search size={16} className="absolute left-2.5 top-2.5 text-gray-400"/>
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                            <input className="w-full glass-panel border rounded-xl pl-8 pr-3 py-2 text-xs bg-white dark:bg-white/5" placeholder="جستجو در گفتگوها..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            <Search size={15} className="absolute left-2.5 top-2.5 text-gray-400"/>
+                        </div>
+                        <button 
+                            onClick={handleMarkAllAsRead} 
+                            className="px-2.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[11px] font-bold whitespace-nowrap transition-colors flex items-center gap-1 shrink-0"
+                            title="علامت‌گذاری تمام پیام‌ها به عنوان خوانده شده"
+                        >
+                            <CheckCheck size={14}/>
+                            <span>خواندن همه</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1551,7 +1632,21 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
                                         {item.type === 'task_group' ? 'لیست تسک‌ها...' : item.lastMsg ? (item.lastMsg.audioUrl ? '🎤 پیام صوتی' : item.lastMsg.attachment ? '📎 فایل' : item.lastMsg.message) : 'پیامی نیست'}
                                     </p>
-                                    {item.unread > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold shadow-sm animate-pulse">{item.unread}</span>}
+                                    <div className="flex items-center gap-1.5">
+                                        {item.unread > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold shadow-sm animate-pulse">{item.unread}</span>}
+                                        {((item.type === 'group' || item.type === 'task_group') && (currentUser?.role === UserRole.ADMIN)) && (
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteGroup(item.id, item.type === 'task_group', item.name);
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-all"
+                                                title="حذف گروه توسط ادمین"
+                                            >
+                                                <Trash2 size={14}/>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1632,21 +1727,36 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     </span>
                                 </div>
                             </div>
-                            {activeChannel.type !== 'task_group' && (
-                                <div className="flex gap-2">
-                                    <button onClick={() => onRefresh()} className="p-2 hover:bg-gray-100 rounded-full text-blue-600" title="بروزرسانی"><RefreshCw size={20} className={isUploading ? 'animate-spin' : ''}/></button>
-                                    {selectionMode ? (
-                                        <div className="flex gap-2 animate-fade-in">
-                                            <button onClick={() => setShowForwardModal(true)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100" title="فوروارد"><Forward size={18}/></button>
-                                            <button onClick={() => handleDelete(false)} className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100" title="حذف برای من"><Trash2 size={18}/></button>
-                                            <button onClick={() => handleDelete(true)} className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100" title="حذف دو طرفه"><Trash2 size={18}/></button>
-                                            <button onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => setShowInnerSearch(!showInnerSearch)} className={`p-2 rounded-full ${showInnerSearch ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}><Search size={20}/></button>
-                                    )}
-                                </div>
-                            )}
+                            <div className="flex items-center gap-1">
+                                {(activeChannel.type === 'group' || activeChannel.type === 'task_group') && (currentUser?.role === UserRole.ADMIN || groups.find(g=>g.id===activeChannel.id)?.createdBy?.toLowerCase() === currentUser?.username?.toLowerCase() || taskGroups.find(g=>g.id===activeChannel.id)?.createdBy?.toLowerCase() === currentUser?.username?.toLowerCase()) && (
+                                    <button 
+                                        onClick={() => {
+                                            const isTask = activeChannel.type === 'task_group';
+                                            const grpName = isTask ? taskGroups.find(g=>g.id===activeChannel.id)?.name : groups.find(g=>g.id===activeChannel.id)?.name;
+                                            handleDeleteGroup(activeChannel.id, isTask, grpName || '');
+                                        }} 
+                                        className="p-2 hover:bg-red-50 text-red-600 rounded-full transition-colors" 
+                                        title={currentUser?.role === UserRole.ADMIN ? "حذف گروه توسط ادمین" : "حذف و انحلال گروه"}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
+                                {activeChannel.type !== 'task_group' && (
+                                    <div className="flex gap-2">
+                                        <button onClick={() => onRefresh()} className="p-2 hover:bg-gray-100 rounded-full text-blue-600" title="بروزرسانی"><RefreshCw size={20} className={isUploading ? 'animate-spin' : ''}/></button>
+                                        {selectionMode ? (
+                                            <div className="flex gap-2 animate-fade-in">
+                                                <button onClick={() => setShowForwardModal(true)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100" title="فوروارد"><Forward size={18}/></button>
+                                                <button onClick={() => handleDelete(false)} className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100" title="حذف برای من"><Trash2 size={18}/></button>
+                                                <button onClick={() => handleDelete(true)} className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100" title="حذف دو طرفه"><Trash2 size={18}/></button>
+                                                <button onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setShowInnerSearch(!showInnerSearch)} className={`p-2 rounded-full ${showInnerSearch ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}><Search size={20}/></button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {activeChannel.type === 'task_group' ? (
@@ -2385,18 +2495,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         <UserPlus size={18}/> افزودن عضو جدید
                                     </button>
                                     <button onClick={() => { 
-                                        if(confirm('گروه حذف شود؟')) { 
-                                            if (showGroupInfo.isTaskGroup) {
-                                                deleteTaskGroup(showGroupInfo.id);
-                                            } else {
-                                                deleteGroup(showGroupInfo.id); 
-                                            }
-                                            setShowGroupInfo(null); 
-                                            setActiveChannel(null); 
-                                            onRefresh(); 
-                                        } 
+                                        handleDeleteGroup(showGroupInfo.id, !!showGroupInfo.isTaskGroup, showGroupInfo.name);
                                     }} className="w-full bg-red-50 text-red-600 p-3 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
-                                        <Trash2 size={18}/> حذف و انحلال گروه
+                                        <Trash2 size={18}/> حذف و انحلال گروه {currentUser.role === UserRole.ADMIN ? '(توسط ادمین)' : ''}
                                     </button>
                                 </div>
                             )}

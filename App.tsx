@@ -27,9 +27,9 @@ import SayanReports from './components/SayanReports';
 import SecretariatModule from './components/SecretariatModule';
 import { ChequeReceiptModule } from './components/ChequeReceiptModule';
 import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
-import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements } from './services/storageService'; 
+import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements, getGroups, getTaskGroups } from './services/storageService'; 
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
-import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement } from './types';
+import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup } from './types';
 import { Loader2, Bell, X, MessageSquare, AlertTriangle, FileWarning, CreditCard, BellRing } from 'lucide-react';
 import { generateUUID, parsePersianDate, formatCurrency } from './constants';
 import { apiCall, getLocalData, LS_KEYS, getServerHost } from './services/apiService'; 
@@ -227,6 +227,12 @@ function App() {
   });
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try { const item = localStorage.getItem('app_data_chat'); return item ? JSON.parse(item) : []; } catch { return []; }
+  }); 
+  const [appGroups, setAppGroups] = useState<ChatGroup[]>(() => {
+    try { const item = localStorage.getItem('app_data_groups'); return item ? JSON.parse(item) : []; } catch { return []; }
+  });
+  const [appTaskGroups, setAppTaskGroups] = useState<TaskGroup[]>(() => {
+    try { const item = localStorage.getItem('app_data_task_groups'); return item ? JSON.parse(item) : []; } catch { return []; }
   }); 
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -858,7 +864,7 @@ function App() {
         }).catch(err => console.error("Settings load error", err));
 
         // Load Heavy Data & Notifications in Parallel
-        const [ordersData, messagesData, announcementsData, notifsData] = await Promise.all([
+        const [ordersData, messagesData, announcementsData, notifsData, groupsData, taskGroupsData] = await Promise.all([
             getOrders(),
             getMessages(),
             getSystemAnnouncements(),
@@ -873,8 +879,13 @@ function App() {
                     readBy: n.read ? [currentUser!.username] : [],
                     url: n.url
                 }));
-            })
+            }),
+            getGroups().catch(() => []),
+            getTaskGroups().catch(() => [])
         ]);
+        
+        if (Array.isArray(groupsData)) setAppGroups(groupsData);
+        if (Array.isArray(taskGroupsData)) setAppTaskGroups(taskGroupsData);
         
         // --- SAFE GUARD & DEEP SANITIZATION ---
         const safeOrders = Array.isArray(ordersData) ? ordersData.map(o => ({
@@ -1202,15 +1213,26 @@ function App() {
   const handleGoToPurchaseApprovals = () => { setPurchaseInitialTab('REQUESTS'); setActiveTab('purchase'); };
 
   const unreadChatCount = useMemo(() => {
-      if (!currentUser) return 0;
+      if (!currentUser || !currentUser.username) return 0;
+      const currentU = currentUser.username.toLowerCase();
+      const isManager = [UserRole.ADMIN, UserRole.MANAGER, UserRole.CEO].includes(currentUser.role as UserRole);
+
       return chatMessages.filter(m => {
-          if (m.senderUsername === currentUser.username) return false;
-          if (m.readBy?.includes(currentUser.username)) return false;
-          if (m.groupId) return true;
-          if (m.recipient && m.recipient !== currentUser.username) return false;
+          if (!m.senderUsername || m.senderUsername.toLowerCase() === currentU) return false;
+          if (m.readBy?.some(u => u.toLowerCase() === currentU)) return false;
+          
+          if (m.recipient) {
+              return m.recipient.toLowerCase() === currentU;
+          }
+          if (m.groupId) {
+              const grp = appGroups.find(g => g.id === m.groupId) || appTaskGroups.find(g => g.id === m.groupId);
+              if (!grp) return false; // Orphaned/deleted group messages are not counted as unread
+              return isManager || (Array.isArray(grp.members) && grp.members.some(mem => mem.toLowerCase() === currentU)) || grp.createdBy?.toLowerCase() === currentU;
+          }
+          // Public message:
           return true;
       }).length;
-  }, [chatMessages, currentUser]);
+  }, [chatMessages, currentUser, appGroups, appTaskGroups]);
 
   const toastStyle = useMemo(() => {
      if (!toast || !toast.title) return null;

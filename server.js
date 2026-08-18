@@ -2659,6 +2659,58 @@ app.get('/api/chat', (req, res) => {
     res.json(getDb().messages || []);
 });
 
+app.post('/api/chat/read-batch', (req, res) => {
+    const db = getDb();
+    const { username, messageIds } = req.body;
+    if (!username || !Array.isArray(messageIds)) {
+        return res.status(400).json({ error: 'Username and messageIds required' });
+    }
+    const idSet = new Set(messageIds);
+    let changed = false;
+    (db.messages || []).forEach(m => {
+        if (idSet.has(m.id)) {
+            if (!m.readBy) m.readBy = [];
+            if (!m.readBy.includes(username)) {
+                m.readBy.push(username);
+                changed = true;
+            }
+        }
+    });
+    if (changed) saveDb(db);
+    res.json({ success: true, count: messageIds.length });
+});
+
+app.post('/api/chat/read-all', (req, res) => {
+    const db = getDb();
+    const { username, channelId, type } = req.body;
+    if (!username) return res.status(400).json({ error: 'Username required' });
+    
+    let changed = false;
+    (db.messages || []).forEach(m => {
+        if (m.senderUsername?.toLowerCase() === username.toLowerCase()) return;
+        if (m.readBy?.includes(username)) return;
+
+        let shouldMark = false;
+        if (!channelId || channelId === 'all') {
+            shouldMark = true;
+        } else if (type === 'public' || channelId === 'public') {
+            shouldMark = (!m.recipient && !m.groupId);
+        } else if (type === 'private') {
+            shouldMark = (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === username.toLowerCase());
+        } else if (type === 'group' || type === 'task_group') {
+            shouldMark = (m.groupId === channelId);
+        }
+
+        if (shouldMark) {
+            if (!m.readBy) m.readBy = [];
+            m.readBy.push(username);
+            changed = true;
+        }
+    });
+    if (changed) saveDb(db);
+    res.json({ success: true });
+});
+
 app.get('/api/tickets', (req, res) => {
     res.json(getDb().tickets || []);
 });
@@ -3868,12 +3920,25 @@ app.post('/api/exit-permits/:id/bot-notify', async (req, res) => {
 app.get('/api/groups', (req, res) => res.json(getDb().groups || []));
 app.post('/api/groups', (req, res) => { const db = getDb(); if(!db.groups) db.groups=[]; db.groups.push(req.body); saveDb(db); res.json(db.groups); });
 app.put('/api/groups/:id', (req, res) => { const db = getDb(); const idx = db.groups.findIndex(g => g.id === req.params.id); if(idx > -1) { db.groups[idx] = { ...db.groups[idx], ...req.body }; saveDb(db); res.json(db.groups); } else res.status(404).send('Not Found'); });
-app.delete('/api/groups/:id', (req, res) => { const db = getDb(); db.groups = db.groups.filter(g => g.id !== req.params.id); saveDb(db); res.json(db.groups); });
+app.delete('/api/groups/:id', (req, res) => { 
+    const db = getDb(); 
+    db.groups = (db.groups || []).filter(g => g.id !== req.params.id); 
+    if (db.messages) db.messages = db.messages.filter(m => m.groupId !== req.params.id);
+    saveDb(db); 
+    res.json(db.groups); 
+});
 
 app.get('/api/task-groups', (req, res) => res.json(getDb().taskGroups || []));
 app.post('/api/task-groups', (req, res) => { const db = getDb(); if(!db.taskGroups) db.taskGroups=[]; db.taskGroups.push(req.body); saveDb(db); res.json(db.taskGroups); });
 app.put('/api/task-groups/:id', (req, res) => { const db = getDb(); const idx = db.taskGroups.findIndex(g => g.id === req.params.id); if(idx > -1) { db.taskGroups[idx] = { ...db.taskGroups[idx], ...req.body }; saveDb(db); res.json(db.taskGroups); } else res.status(404).send('Not Found'); });
-app.delete('/api/task-groups/:id', (req, res) => { const db = getDb(); db.taskGroups = db.taskGroups.filter(g => g.id !== req.params.id); saveDb(db); res.json(db.taskGroups); });
+app.delete('/api/task-groups/:id', (req, res) => { 
+    const db = getDb(); 
+    db.taskGroups = (db.taskGroups || []).filter(g => g.id !== req.params.id); 
+    if (db.messages) db.messages = db.messages.filter(m => m.groupId !== req.params.id);
+    if (db.tasks) db.tasks = db.tasks.filter(t => t.groupId !== req.params.id);
+    saveDb(db); 
+    res.json(db.taskGroups); 
+});
 
 app.get('/api/tasks', (req, res) => res.json(getDb().tasks || []));
 app.post('/api/tasks', (req, res) => { 

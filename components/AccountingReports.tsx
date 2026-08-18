@@ -3163,9 +3163,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'خطا در ارسال به بات');
+            if (!res.ok || data.sent === false) {
+                throw new Error(data.error || 'خطا در ارسال به بات - لطفاً شناسه گروه مقصد را در پنجره یا تنظیمات بررسی نمایید.');
+            }
 
-            const platformsSuccess = (data.results || []).filter((r: any) => r.success).map((r: any) => r.platform).join(', ');
+            const platformsSuccess = (data.results || data.sendDetails || [])
+                .filter((r: any) => r.success)
+                .map((r: any) => r.platform === 'telegram' ? 'تلگرام' : r.platform === 'bale' ? 'بله' : 'واتساپ')
+                .join('، ');
+
             toast.success(`گزارش چک‌ها با موفقیت به پیام‌رسان‌های (${platformsSuccess || 'مقصد'}) ارسال گردید.`);
             setIsChequeBotModalOpen(false);
         } catch (err: any) {
@@ -6282,6 +6288,56 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <span>📊 پیوست فایل اکسل (Excel/CSV)</span>
                                         </div>
                                     </label>
+                                </div>
+                            </div>
+
+                            {/* Target Group IDs Override */}
+                            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="font-black text-slate-700 text-xs flex items-center gap-1.5">
+                                        <span>🎯 شناسه گروه/کانال مقصد (اختیاری جهت ارسال اختصاصی):</span>
+                                    </label>
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                        در صورت خالی بودن، از گروه‌های پیش‌فرض تنظیمات استفاده می‌شود
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {chequeBotSelectedPlatforms.includes('telegram') && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">شناسه تلگرام:</label>
+                                            <input
+                                                type="text"
+                                                placeholder={settings?.chequeVaultTelegramGroupId || settings?.botAccountingGroupIdTele || settings?.telegramGroupId || "-100..."}
+                                                value={chequeBotCustomGroupTele}
+                                                onChange={(e) => setChequeBotCustomGroupTele(e.target.value)}
+                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                            />
+                                        </div>
+                                    )}
+                                    {chequeBotSelectedPlatforms.includes('bale') && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">شناسه بله:</label>
+                                            <input
+                                                type="text"
+                                                placeholder={settings?.chequeVaultBaleGroupId || settings?.botAccountingGroupIdBale || settings?.baleGroupId || "ID..."}
+                                                value={chequeBotCustomGroupBale}
+                                                onChange={(e) => setChequeBotCustomGroupBale(e.target.value)}
+                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                            />
+                                        </div>
+                                    )}
+                                    {chequeBotSelectedPlatforms.includes('whatsapp') && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">شناسه واتساپ:</label>
+                                            <input
+                                                type="text"
+                                                placeholder={settings?.chequeVaultWhatsappGroupId || settings?.botAccountingGroupIdWhatsApp || "...@g.us"}
+                                                value={chequeBotCustomGroupWa}
+                                                onChange={(e) => setChequeBotCustomGroupWa(e.target.value)}
+                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-green-500"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
