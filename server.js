@@ -1990,6 +1990,86 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
 }
 
 // Lookup matching Sayan Sales Remittance (STR_TBL_010 / STR_TBL_011)
+// Explore endpoint to return a list of matching headers for debugging and manual search
+app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
+    try {
+        const { query } = req.body;
+        const db = getDb();
+        if (!db.settings?.sayanApiUrl) {
+            return res.json({ success: false, message: 'تنظیمات ارتباط با سایان ثبت نشده است.' });
+        }
+
+        let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+        
+        if (query && query.trim()) {
+            const sanitized = String(query).replace(/'/g, "''").trim();
+            const numericVal = parseInt(sanitized, 10);
+            
+            const jsNormalize = (str) => {
+                return String(str).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').replace(/أ/g, 'ا').replace(/'/g, "''").trim();
+            };
+            const normName = jsNormalize(sanitized);
+
+            const sqlNormalize = (col) => {
+                return `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
+            };
+
+            let conditions = [];
+            // Match DocNo or RemittanceNumber
+            conditions.push(`RTRIM(LTRIM(t10.Field_005)) LIKE N'%${sanitized}%'`);
+            conditions.push(`RTRIM(LTRIM(t10.Field_006)) LIKE N'%${sanitized}%'`);
+            // Match Person Code
+            conditions.push(`RTRIM(LTRIM(t10.Field_010)) LIKE N'%${sanitized}%'`);
+            if (!isNaN(numericVal)) {
+                conditions.push(`TRY_CAST(t10.Field_010 AS INT) = ${numericVal}`);
+                conditions.push(`RTRIM(LTRIM(p.Field_003)) = '${sanitized}'`);
+            }
+            // Match Name
+            if (normName && !/^\d+$/.test(normName)) {
+                const parts = normName.split(/\s+/).filter(Boolean);
+                if (parts.length > 0) {
+                    const subParts = parts.map(part => {
+                        return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
+                    });
+                    conditions.push(`(${subParts.join(' AND ')})`);
+                }
+            } else {
+                conditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
+                conditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
+            }
+
+            whereClauses.push(`(${conditions.join(' OR ')})`);
+        }
+
+        const sql = `
+            SELECT TOP 20
+                t10.Field_001 as ArchiveCode,
+                t10.Field_004 as SubSystem,
+                t10.Field_005 as DocNo,
+                t10.Field_006 as RemittanceNumber,
+                t10.Field_008 as DocDate,
+                t10.Field_009 as DocType,
+                t10.Field_010 as PersonCode,
+                t10.Field_018 as StoreId,
+                COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName,
+                p.Field_013 as PersonAddress
+            FROM STR_TBL_010 t10
+            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            WHERE ${whereClauses.join(' AND ')}
+            ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
+        `;
+
+        const { executeSayanQuery } = await import('./backend/sayan.js').catch(e => require('./backend/sayan.js'));
+        const headers = await executeSayanQuery(db, sql);
+        
+        res.json({ success: true, headers: headers || [] });
+    } catch (e) {
+        console.error("Explore Remittances Error:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// Automatic Strict Match Endpoint
 app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
     try {
         const db = getDb();
@@ -2021,7 +2101,13 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
 
         let matchConditions = getSayanMatchConditions({ personCode: pCode, recipientName: rName, permitNumber });
         if (matchConditions.length > 0) {
-            whereClauses.push(...matchConditions);
+            if (permitDate) {
+                // Strict match: ALL provided constraints (Person AND Number) must match
+                whereClauses.push(...matchConditions);
+            } else {
+                // Manual loose search: ANY of the provided constraints can match
+                whereClauses.push(`(${matchConditions.join(' OR ')})`);
+            }
         }
 
         const orderByClause = permitDate 
