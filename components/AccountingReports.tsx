@@ -2757,8 +2757,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const year = extractShamsiYear(dueDateStr);
                 
-                // Exclude the 15 unwanted/extra 1403 in-hand/payable cheques as requested
-                if (year === 1403 && (statusGroup === 'in_hand' || chequeType === 'پرداختنی')) {
+                // Exclude the 15 unwanted/extra 1403 & 5 unwanted/extra 1404 in-hand/payable cheques as requested
+                if ((year === 1403 || year === 1404) && (statusGroup === 'in_hand' || chequeType === 'پرداختنی')) {
                     return null;
                 }
 

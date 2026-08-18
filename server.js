@@ -1885,16 +1885,32 @@ app.all(['/api/sayan/search-persons', '/api/sayan-persons/search'], async (req, 
 });
 
 // Build robust conditions for matching names and remittance numbers in Sayan (taking into account Arabic/Persian character variations)
+// Helper to extract 3-6 digit person code from recipientName and clean the name
+function extractCodeAndCleanName(name) {
+    if (!name) return { cleanName: '', extractedCode: null };
+    // Match any 3 to 6 digit sequence
+    const match = String(name).match(/\b\d{3,6}\b/);
+    const extractedCode = match ? match[0] : null;
+    let cleanName = String(name);
+    if (extractedCode) {
+        cleanName = cleanName.replace(extractedCode, '');
+    }
+    cleanName = cleanName
+        .replace(/کد\s+مشتری/gi, '')
+        .replace(/کد/gi, '')
+        .replace(/مشتری/gi, '')
+        .replace(/با/gi, '')
+        .replace(/نام/gi, '')
+        .replace(/گیرنده/gi, '')
+        .replace(/[\-\:\(\)]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return { cleanName, extractedCode };
+}
+
+// Build robust conditions for matching names and remittance numbers in Sayan (taking into account Arabic/Persian character variations)
 function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
     let matchConditions = [];
-
-    if (personCode) {
-        const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
-        if (sanitizedPersonCode) {
-            matchConditions.push(`t10.Field_010 = '${sanitizedPersonCode}'`);
-            matchConditions.push(`t10.Field_029 LIKE '%${sanitizedPersonCode}%'`);
-        }
-    }
 
     // Function to build SQL Server normalized column comparison
     const sqlNormalize = (col) => {
@@ -1911,12 +1927,48 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
             .trim();
     };
 
-    if (recipientName) {
-        const normName = jsNormalize(recipientName);
+    let pCode = personCode;
+    let rName = recipientName;
+    if (!pCode && rName) {
+        const { cleanName, extractedCode } = extractCodeAndCleanName(rName);
+        if (extractedCode) {
+            pCode = extractedCode;
+            rName = cleanName;
+        }
+    }
+
+    if (pCode) {
+        const sCode = String(pCode).replace(/'/g, "''").trim();
+        const numericCode = parseInt(sCode, 10);
+        if (!isNaN(numericCode)) {
+            matchConditions.push(`(
+                RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
+                RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
+                RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
+                TRY_CAST(t10.Field_010 AS INT) = ${numericCode} OR
+                RTRIM(LTRIM(p.Field_003)) = '${sCode}' OR
+                RTRIM(LTRIM(p.Field_005)) = '${sCode}'
+            )`);
+        } else {
+            matchConditions.push(`(
+                RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR
+                RTRIM(LTRIM(p.Field_003)) = '${sCode}'
+            )`);
+        }
+        matchConditions.push(`t10.Field_029 LIKE '%${sCode}%'`);
+    }
+
+    if (rName) {
+        const normName = jsNormalize(rName);
         if (normName) {
-            matchConditions.push(`${sqlNormalize('t10.Field_029')} LIKE N'%${normName}%'`);
-            matchConditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
-            matchConditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
+            if (/^\d+$/.test(normName)) {
+                matchConditions.push(`t10.Field_006 = '${normName}'`);
+                matchConditions.push(`t10.Field_006 LIKE '%${normName}%'`);
+            } else {
+                matchConditions.push(`${sqlNormalize('t10.Field_029')} LIKE N'%${normName}%'`);
+                matchConditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
+                matchConditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
+            }
         }
     }
 
@@ -1926,13 +1978,6 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
             matchConditions.push(`t10.Field_006 = '${normPermitNum}'`);
             matchConditions.push(`t10.Field_006 LIKE '%${normPermitNum}%'`);
         }
-    }
-
-    // Also, if recipientName itself contains digits or is a number, treat it as a potential remittance number search
-    if (recipientName && /^\d+$/.test(recipientName.trim())) {
-        const cleanNum = recipientName.trim();
-        matchConditions.push(`t10.Field_006 = '${cleanNum}'`);
-        matchConditions.push(`t10.Field_006 LIKE '%${cleanNum}%'`);
     }
 
     return matchConditions;
@@ -1965,31 +2010,39 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
                 .trim();
         };
 
+        let pCode = personCode;
+        let rName = recipientName;
+        if (!pCode && rName) {
+            const { cleanName, extractedCode } = extractCodeAndCleanName(rName);
+            if (extractedCode) {
+                pCode = extractedCode;
+                rName = cleanName;
+            }
+        }
+
         // If there's a permitDate, it's an automatic lookup where we want STRICT matching of customer and date
         if (permitDate) {
             const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
             // Match date within a ±5 day window
             whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
 
-            if (personCode) {
-                // Sayan Person Code is extremely reliable. If it's provided, strictly match on it!
-                // Support potential leading zeros (e.g. 2902 vs 02902)
-                const sCode = String(personCode).replace(/'/g, "''").trim();
+            if (pCode) {
+                const sCode = String(pCode).replace(/'/g, "''").trim();
                 const numericCode = parseInt(sCode, 10);
                 if (!isNaN(numericCode)) {
                     whereClauses.push(`(
                         RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
                         RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
                         RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
-                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode}
+                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode} OR
+                        RTRIM(LTRIM(p.Field_003)) = '${sCode}' OR
+                        RTRIM(LTRIM(p.Field_005)) = '${sCode}'
                     )`);
                 } else {
-                    whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sCode}'`);
+                    whereClauses.push(`(RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR RTRIM(LTRIM(p.Field_003)) = '${sCode}')`);
                 }
-            } else if (recipientName) {
-                // If there's no code, match on the buyer's actual name in GNR_TBL_001.
-                // Do NOT match t10.Field_029 (Note) during automatic lookup because Note often contains driver names instead of the buyer's name.
-                const normName = jsNormalize(recipientName);
+            } else if (rName) {
+                const normName = jsNormalize(rName);
                 if (normName && !/^\d+$/.test(normName)) {
                     const parts = normName.split(/\s+/).filter(Boolean);
                     if (parts.length > 0) {
@@ -2002,7 +2055,7 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
             }
         } else {
             // General / manual search fallback (e.g. searching in the modal search bar)
-            let matchConditions = getSayanMatchConditions({ personCode, recipientName, permitNumber });
+            let matchConditions = getSayanMatchConditions({ personCode: pCode, recipientName: rName, permitNumber });
             if (matchConditions.length > 0) {
                 whereClauses.push(`(${matchConditions.join(' OR ')})`);
             }
@@ -2152,9 +2205,17 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
 
         // If not passed, lookup directly
         if (!rem) {
-            const pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
-            const rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
+            let pCode = permit.sayanPersonCode || (permit.destinations?.[0]?.sayanPersonCode);
+            let rName = permit.recipientName || (permit.destinations?.[0]?.recipientName);
             const pDate = permit.date;
+            
+            if (!pCode && rName) {
+                const { cleanName, extractedCode } = extractCodeAndCleanName(rName);
+                if (extractedCode) {
+                    pCode = extractedCode;
+                    rName = cleanName;
+                }
+            }
             
             let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
             
@@ -2185,10 +2246,12 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                         RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
                         RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
                         RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
-                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode}
+                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode} OR
+                        RTRIM(LTRIM(p.Field_003)) = '${sCode}' OR
+                        RTRIM(LTRIM(p.Field_005)) = '${sCode}'
                     )`);
                 } else {
-                    whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sCode}'`);
+                    whereClauses.push(`(RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR RTRIM(LTRIM(p.Field_003)) = '${sCode}')`);
                 }
             } else if (rName) {
                 const normName = jsNormalize(rName);
