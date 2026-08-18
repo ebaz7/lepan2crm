@@ -3992,27 +3992,7 @@ const Settings: React.FC<SettingsProps> = ({
                         </div>
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-blue-100/60 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSendManualChequesVault}
-                          disabled={sendingManualCheques}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                        >
-                          <Send size={14} />
-                          <span>{sendingManualCheques ? "در حال ارسال..." : "ارسال دستی لیست چک‌های صندوق به گروه‌ها"}</span>
-                        </button>
 
-                        <button
-                          type="button"
-                          onClick={handleSendManualChequesMatured}
-                          disabled={sendingManualChequesMatured}
-                          className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                        >
-                          <Send size={14} />
-                          <span>{sendingManualChequesMatured ? "در حال ارسال..." : "ارسال دستی چک‌های سررسید امروز به گروه‌ها"}</span>
-                        </button>
-                      </div>
                     </div>
 
                     <div className="md:col-span-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
