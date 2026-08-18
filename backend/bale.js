@@ -226,9 +226,12 @@ export const sendBotDocument = (chatId, buffer, name, caption) => {
     }
     if (!botToken) return Promise.reject(new Error("ربات بله غیرفعال است. لطفاً توکن ربات بله را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
+    const contentType = name && name.endsWith('.xlsx')
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : (name && name.endsWith('.csv') ? 'text/csv' : 'application/pdf');
     const form = new FormData();
     form.append('chat_id', chatId);
-    form.append('document', buffer, { filename: name || 'document.pdf' });
+    form.append('document', buffer, { filename: name || 'document.pdf', contentType });
     form.append('caption', safeCaption || '');
     return callApi('sendDocument', form, true);
 };

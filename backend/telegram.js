@@ -151,7 +151,10 @@ export const sendBotDocument = async (chatId, buffer, name, caption) => {
     }
     if (!bot) return Promise.reject(new Error("ربات تلگرام غیرفعال است. لطفاً توکن ربات تلگرام را در «تنظیمات سیستم ⚙️ -> تب ربات‌ها» وارد نمایید."));
     const safeCaption = caption && caption.length > 1000 ? caption.slice(0, 995) + '...' : caption;
-    return bot.sendDocument(chatId, buffer, { caption: safeCaption }, { filename: name || 'document.pdf', contentType: 'application/pdf' });
+    const contentType = name && name.endsWith('.xlsx')
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : (name && name.endsWith('.csv') ? 'text/csv' : 'application/pdf');
+    return bot.sendDocument(chatId, buffer, { caption: safeCaption }, { filename: name || 'document.pdf', contentType });
 };
 
 export const deleteBotMessage = async (chatId, messageId) => {

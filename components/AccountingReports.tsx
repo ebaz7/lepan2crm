@@ -3194,14 +3194,23 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 title: chequeBotCustomTitle.trim() || undefined
             };
 
+            const todayShamsiStr = formatDateToJalali(new Date().toISOString());
+            let targetedCheques: any[] = [];
             if (targetScope === 'filtered') {
-                const currentFiltered = getFilteredCheques();
-                if (currentFiltered.length === 0) {
-                    toast.error("لیست فیلترشده جاری خالی است!");
-                    setIsSendingChequesBot(false);
-                    return;
-                }
-                payload.customCheques = currentFiltered;
+                targetedCheques = getFilteredCheques();
+            } else if (targetScope === 'returned') {
+                targetedCheques = chequesData.filter(c => c.statusGroup === 'returned' || String(c.statusDesc || '').includes('برگشت') || c.isReturnedToBox);
+            } else if (targetScope === 'matured') {
+                targetedCheques = chequesData.filter(c => (c.statusGroup === 'in_hand' || !c.statusGroup) && (formatDateToJalali(c.dueDate) === todayShamsiStr || String(c.dueDate).startsWith(todayShamsiStr)));
+            } else {
+                // vault / in_hand
+                targetedCheques = chequesData.filter(c => c.statusGroup === 'in_hand' || !c.statusGroup || c.statusType === '1' || c.statusType === 'دریافتی');
+            }
+
+            if (targetedCheques && targetedCheques.length > 0) {
+                payload.customCheques = targetedCheques;
+            } else if (chequesData && chequesData.length > 0) {
+                payload.customCheques = chequesData;
             }
 
             const res = await fetch(getEffectiveApiUrl('/api/sayan/cheques-report/send'), {
@@ -3212,7 +3221,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             const data = await res.json();
             if (!res.ok || data.sent === false) {
-                throw new Error(data.error || 'خطا در ارسال به بات - لطفاً شناسه گروه مقصد را در پنجره یا تنظیمات بررسی نمایید.');
+                throw new Error(data.error || 'خطا در ارسال به بات - لطفاً شناسه گروه مقصد یا توکن ربات را در تنظیمات یا پنجره ارسال بررسی نمایید.');
             }
 
             const platformsSuccess = (data.results || data.sendDetails || [])
@@ -5415,6 +5424,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 <button
                                     onClick={() => {
                                         setChequeBotTargetType(chequeStatusFilter === 'returned' ? 'returned' : (chequeStatusFilter === 'in_hand' ? 'vault' : 'filtered'));
+                                        const teleFallback = settings?.chequeVaultTelegramGroupId || settings?.botAccountingGroupIdTele || settings?.botAccountingGroupId || settings?.telegramReportsGroupId || settings?.dailySalesTelegramGroupId || settings?.telegramGroupId || settings?.defaultWarehouseGroup || '';
+                                        const baleFallback = settings?.chequeVaultBaleGroupId || settings?.botAccountingGroupIdBale || settings?.baleReportsGroupId || settings?.dailySalesBaleGroupId || settings?.baleGroupId || '';
+                                        const waFallback = settings?.chequeVaultWhatsappGroupId || settings?.botAccountingGroupIdWhatsApp || settings?.whatsappReportsGroupId || settings?.dailySalesWhatsappGroupId || settings?.whatsappGroupId || '';
+                                        if (!chequeBotCustomGroupTele && teleFallback) setChequeBotCustomGroupTele(teleFallback);
+                                        if (!chequeBotCustomGroupBale && baleFallback) setChequeBotCustomGroupBale(baleFallback);
+                                        if (!chequeBotCustomGroupWa && waFallback) setChequeBotCustomGroupWa(waFallback);
                                         setIsChequeBotModalOpen(true);
                                     }}
                                     className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 cursor-pointer"

@@ -5532,8 +5532,19 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                         settings.salesGroupId || 
                         settings.telegramReportsGroupId || 
                         settings.telegramGroupId || 
+                        settings.defaultWarehouseGroup ||
+                        settings.exitPermitNotificationGroup ||
+                        settings.exitPermitFirstGroupConfig?.telegramGroupId ||
+                        settings.exitPermitSecondGroupConfig?.telegramGroupId ||
+                        settings.exitPermitThirdGroupConfig?.telegramGroupId ||
+                        settings.purchaseTelegramGroup ||
+                        settings.productionTelegramGroupId ||
+                        settings.productionTelegramGroupId2 ||
+                        settings.botBijakGroupId ||
+                        settings.dailyExitReportDedicatedTelegramId ||
+                        settings.telegramAdminId ||
                         settings.telegramChatId;
-        if (tgGroup) targets.push({ platform: 'telegram', id: tgGroup });
+        if (tgGroup) targets.push({ platform: 'telegram', id: String(tgGroup).trim() });
 
         // Resolve Bale target independently
         const baleGroup = settings.chequeVaultBaleGroupId || 
@@ -5542,8 +5553,16 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                           settings.botDailySalesGroupIdBale || 
                           settings.baleReportsGroupId || 
                           settings.baleGroupId || 
+                          settings.dailyExitReportDedicatedBaleId ||
+                          settings.exitPermitFirstGroupConfig?.baleGroupId ||
+                          settings.exitPermitSecondGroupConfig?.baleGroupId ||
+                          settings.exitPermitThirdGroupConfig?.baleGroupId ||
+                          settings.purchaseBaleGroup ||
+                          settings.productionBaleGroupId ||
+                          settings.productionBaleGroupId2 ||
+                          settings.botBijakGroupIdBale ||
                           settings.baleChatId;
-        if (baleGroup) targets.push({ platform: 'bale', id: baleGroup });
+        if (baleGroup) targets.push({ platform: 'bale', id: String(baleGroup).trim() });
 
         // Resolve WhatsApp target independently
         const waGroup = settings.chequeVaultWhatsappGroupId || 
@@ -5551,8 +5570,16 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                         settings.dailySalesWhatsappGroupId || 
                         settings.botDailySalesGroupIdWhatsApp || 
                         settings.whatsappReportsGroupId || 
-                        settings.whatsappGroupId;
-        if (waGroup) targets.push({ platform: 'whatsapp', id: waGroup });
+                        settings.whatsappGroupId ||
+                        settings.dailyExitReportDedicatedWhatsappId ||
+                        settings.exitPermitFirstGroupConfig?.whatsappGroupId ||
+                        settings.exitPermitSecondGroupConfig?.whatsappGroupId ||
+                        settings.exitPermitThirdGroupConfig?.whatsappGroupId ||
+                        settings.purchaseWhatsappGroup ||
+                        settings.productionWhatsappGroupId ||
+                        settings.productionWhatsappGroupId2 ||
+                        settings.botBijakGroupIdWhatsApp;
+        if (waGroup) targets.push({ platform: 'whatsapp', id: String(waGroup).trim() });
     }
 
     // Filter targets by selected platforms
@@ -5993,63 +6020,71 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
 
     // Generate PDF if needed
     let pdfBuffer = null;
-    if (attachPdf) {
-        const title = `${reportTitleText} - ${todayShamsi}`;
-        const columns = ['ردیف', 'شماره چک', 'سررسید', 'صادرکننده / طرف حساب', 'بانک و شعبه', 'مبلغ (ریال)', 'وضعیت سند'];
-        const tableRows = treasuryCheques.map((c, idx) => [
-            (idx + 1).toLocaleString('fa-IR'),
-            c.chequeNo,
-            c.dueDate,
-            c.drawerName,
-            c.bankName,
-            Math.round(c.amount).toLocaleString('fa-IR'),
-            c.computedStatus || c.statusDesc
-        ]);
-        tableRows.push([
-            'جمع کل',
-            '-',
-            '-',
-            '-',
-            '-',
-            Math.round(totalAmount).toLocaleString('fa-IR'),
-            `${treasuryCheques.length.toLocaleString('fa-IR')} فقره`
-        ]);
-        pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
-    }
-
-    // Generate Excel if needed
-    let excelBuffer = null;
-    if (attachExcel) {
-        const wsData = [
-            [`${reportTitleText} - تاریخ گزارش: ${todayShamsi}`],
-            [`مجموع کل: ${Math.round(totalAmount).toLocaleString('fa-IR')} ریال | تعداد: ${treasuryCheques.length} فقره | سورت: ${sortLabel}`],
-            [],
-            ['ردیف', 'شماره چک', 'تاریخ سررسید', 'صادرکننده / طرف حساب', 'بانک صادرکننده', 'مبلغ اسمی (ریال)', 'وضعیت سند']
-        ];
-        treasuryCheques.forEach((c, idx) => {
-            wsData.push([
-                idx + 1,
+    if (attachPdf && treasuryCheques.length > 0) {
+        try {
+            const title = `${reportTitleText} - ${todayShamsi}`;
+            const columns = ['ردیف', 'شماره چک', 'سررسید', 'صادرکننده / طرف حساب', 'بانک و شعبه', 'مبلغ (ریال)', 'وضعیت سند'];
+            const tableRows = treasuryCheques.map((c, idx) => [
+                (idx + 1).toLocaleString('fa-IR'),
                 c.chequeNo,
                 c.dueDate,
                 c.drawerName,
                 c.bankName,
-                c.amount,
-                c.statusDesc
+                Math.round(c.amount).toLocaleString('fa-IR'),
+                c.computedStatus || c.statusDesc
             ]);
-        });
-        wsData.push([
-            'جمع کل',
-            '',
-            '',
-            '',
-            '',
-            totalAmount,
-            `${treasuryCheques.length} فقره`
-        ]);
-        const wb = xlsx.utils.book_new();
-        const ws = xlsx.utils.aoa_to_sheet(wsData);
-        xlsx.utils.book_append_sheet(wb, ws, 'چک‌ها و اسناد');
-        excelBuffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+            tableRows.push([
+                'جمع کل',
+                '-',
+                '-',
+                '-',
+                '-',
+                Math.round(totalAmount).toLocaleString('fa-IR'),
+                `${treasuryCheques.length.toLocaleString('fa-IR')} فقره`
+            ]);
+            pdfBuffer = await Renderer.generateReportPDF(title, columns, tableRows, true);
+        } catch (pdfErr) {
+            console.error("[Treasury Cheques Report] PDF Generation failed, continuing with text/excel:", pdfErr.message);
+        }
+    }
+
+    // Generate Excel if needed
+    let excelBuffer = null;
+    if (attachExcel && treasuryCheques.length > 0) {
+        try {
+            const wsData = [
+                [`${reportTitleText} - تاریخ گزارش: ${todayShamsi}`],
+                [`مجموع کل: ${Math.round(totalAmount).toLocaleString('fa-IR')} ریال | تعداد: ${treasuryCheques.length} فقره | سورت: ${sortLabel}`],
+                [],
+                ['ردیف', 'شماره چک', 'تاریخ سررسید', 'صادرکننده / طرف حساب', 'بانک صادرکننده', 'مبلغ اسمی (ریال)', 'وضعیت سند']
+            ];
+            treasuryCheques.forEach((c, idx) => {
+                wsData.push([
+                    idx + 1,
+                    c.chequeNo,
+                    c.dueDate,
+                    c.drawerName,
+                    c.bankName,
+                    c.amount,
+                    c.statusDesc
+                ]);
+            });
+            wsData.push([
+                'جمع کل',
+                '',
+                '',
+                '',
+                '',
+                totalAmount,
+                `${treasuryCheques.length} فقره`
+            ]);
+            const wb = xlsx.utils.book_new();
+            const ws = xlsx.utils.aoa_to_sheet(wsData);
+            xlsx.utils.book_append_sheet(wb, ws, 'چک‌ها و اسناد');
+            excelBuffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        } catch (excelErr) {
+            console.error("[Treasury Cheques Report] Excel Generation failed:", excelErr.message);
+        }
     }
 
     const baleModule = await import('./bale.js');
@@ -6076,38 +6111,62 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 }
 
                 if (pdfBuffer) {
-                    await tgModule.sendBotDocument(cleanId, pdfBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 ${reportTitleText} (${todayShamsi})`);
+                    try {
+                        await tgModule.sendBotDocument(cleanId, pdfBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 ${reportTitleText} (${todayShamsi})`);
+                    } catch (e) {
+                        console.warn("[Telegram Cheques] Failed to send PDF:", e.message);
+                    }
                 }
                 if (excelBuffer) {
-                    await tgModule.sendBotDocument(cleanId, excelBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`, `📊 فایل اکسل ${reportTitleText} (${todayShamsi})`);
+                    try {
+                        await tgModule.sendBotDocument(cleanId, excelBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`, `📊 فایل اکسل ${reportTitleText} (${todayShamsi})`);
+                    } catch (e) {
+                        console.warn("[Telegram Cheques] Failed to send Excel:", e.message);
+                    }
                 }
                 sentCount++;
                 sendDetails.push({ target: target.id, platform: 'telegram', success: true });
             } else if (target.platform === 'bale') {
                 await baleModule.sendBotMessage(cleanId, msg);
                 if (pdfBuffer) {
-                    await baleModule.sendBotDocument(cleanId, pdfBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 ${reportTitleText}`);
+                    try {
+                        await baleModule.sendBotDocument(cleanId, pdfBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`, `📄 ${reportTitleText}`);
+                    } catch (e) {
+                        console.warn("[Bale Cheques] Failed to send PDF:", e.message);
+                    }
                 }
                 if (excelBuffer) {
-                    await baleModule.sendBotDocument(cleanId, excelBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`, `📊 فایل اکسل ${reportTitleText}`);
+                    try {
+                        await baleModule.sendBotDocument(cleanId, excelBuffer, `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`, `📊 فایل اکسل ${reportTitleText}`);
+                    } catch (e) {
+                        console.warn("[Bale Cheques] Failed to send Excel:", e.message);
+                    }
                 }
                 sentCount++;
                 sendDetails.push({ target: target.id, platform: 'bale', success: true });
             } else if (target.platform === 'whatsapp') {
                 await whatsapp.sendMessage(cleanId, msg);
                 if (pdfBuffer) {
-                    await whatsapp.sendMessage(cleanId, `📄 ${reportTitleText}`, {
-                        data: pdfBuffer.toString('base64'),
-                        mimeType: 'application/pdf',
-                        filename: `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`
-                    });
+                    try {
+                        await whatsapp.sendMessage(cleanId, `📄 ${reportTitleText}`, {
+                            data: pdfBuffer.toString('base64'),
+                            mimeType: 'application/pdf',
+                            filename: `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.pdf`
+                        });
+                    } catch (e) {
+                        console.warn("[WhatsApp Cheques] Failed to send PDF:", e.message);
+                    }
                 }
                 if (excelBuffer) {
-                    await whatsapp.sendMessage(cleanId, `📊 فایل اکسل ${reportTitleText}`, {
-                        data: excelBuffer.toString('base64'),
-                        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        filename: `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`
-                    });
+                    try {
+                        await whatsapp.sendMessage(cleanId, `📊 فایل اکسل ${reportTitleText}`, {
+                            data: excelBuffer.toString('base64'),
+                            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            filename: `${filePrefix}_${todayShamsi.replace(/\//g, '-')}.xlsx`
+                        });
+                    } catch (e) {
+                        console.warn("[WhatsApp Cheques] Failed to send Excel:", e.message);
+                    }
                 }
                 sentCount++;
                 sendDetails.push({ target: target.id, platform: 'whatsapp', success: true });
