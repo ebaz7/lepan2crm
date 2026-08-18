@@ -5897,6 +5897,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         currentUser={currentUser}
                         defaultDateFrom={dateFrom}
                         defaultDateTo={dateTo}
+                        runSayanQuery={runSayanQuery}
                     />
                 )}
             </div>

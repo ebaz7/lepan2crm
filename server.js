@@ -1997,8 +1997,12 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
 app.all('/api/sayan/sales-remittances', async (req, res) => {
     try {
         const db = getDb();
-        if (!db.settings?.sayanApiUrl) {
-            return res.json({ success: false, message: 'تنظیمات ارتباط با سایان ثبت نشده است.', remittances: [] });
+        const settings = db.settings || {};
+        const sayanUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+        const sayanKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+        if (!sayanUrl || !sayanKey) {
+            return res.json({ success: false, message: 'تنظیمات آدرس API یا کلید امنیتی سایان در بخش تنظیمات سیستم ثبت نشده است.', remittances: [] });
         }
 
         const dateFrom = req.query.dateFrom || req.body.dateFrom;
@@ -2104,7 +2108,9 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 t11.Field_031 as DetailNote,
                 t11.Field_034 as RowNo
             FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                      AND t11.Field_003 = t10.Field_004 
+                                      AND t11.Field_012 = t10.Field_018
             LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
             LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))

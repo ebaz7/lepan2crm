@@ -36,13 +36,87 @@ interface SayanRemittancesTabProps {
   currentUser?: any;
   defaultDateFrom?: string;
   defaultDateTo?: string;
+  runSayanQuery?: (queryStr: string) => Promise<any[]>;
 }
+
+// Helpers for detail note parsing and code mappings
+const mapGradeCode = (code: any) => {
+  if (!code) return 'AA';
+  const s = String(code).trim();
+  if (s === '00011001') return 'AA';
+  if (s === '00011002') return 'A';
+  if (s === '00011003') return 'B';
+  if (s === '00011004') return 'C';
+  if (s.length < 5) return s;
+  return 'AA';
+};
+
+const mapTwistCode = (code: any) => {
+  if (!code) return 'Z';
+  const s = String(code).trim();
+  if (s === '00021001') return 'Z';
+  if (s === '00021002') return 'S';
+  if (s.length < 5) return s;
+  return 'Z';
+};
+
+const parseDetailNote = (note: any) => {
+  const result = {
+    bobbinCount: 0,
+    cartonCount: 0,
+    grossWeight: 0,
+    netWeight: 0,
+    grade: 'AA',
+    twistDirection: 'Z',
+    description: ''
+  };
+  if (!note || typeof note !== 'string') return result;
+
+  const parts = note.split('|').map(p => p.trim());
+  for (const p of parts) {
+    if (p.includes('تعداد بوبین:')) {
+      result.bobbinCount = parseInt(p.replace('تعداد بوبین:', '').trim(), 10) || 0;
+    } else if (p.includes('تعداد کارتن:')) {
+      result.cartonCount = parseInt(p.replace('تعداد کارتن:', '').trim(), 10) || 0;
+    } else if (p.includes('وزن ناخالص:')) {
+      result.grossWeight = parseFloat(p.replace('وزن ناخالص:', '').trim()) || 0;
+    } else if (p.includes('وزن خالص:')) {
+      result.netWeight = parseFloat(p.replace('وزن خالص:', '').trim()) || 0;
+    } else if (p.includes('گرید:')) {
+      const rawG = p.replace('گرید:', '').trim();
+      result.grade = mapGradeCode(rawG);
+    } else if (p.includes('جهت تاب:')) {
+      const rawT = p.replace('جهت تاب:', '').trim();
+      result.twistDirection = mapTwistCode(rawT);
+    } else if (p.includes('توضیحات:')) {
+      const d = p.replace('توضیحات:', '').trim();
+      if (d) result.description = d;
+    }
+  }
+  return result;
+};
+
+const parseJalaliToGregorian = (jalaliStr: string) => {
+  if (!jalaliStr) return null;
+  try {
+    const clean = jalaliStr.replace(/[\/\-.]/g, '/').trim();
+    const parts = clean.split('/').map(p => parseInt(p, 10));
+    if (parts.length === 3 && parts[0] > 1300 && parts[1] >= 1 && parts[1] <= 12 && parts[2] >= 1 && parts[2] <= 31) {
+      const g = jalaali.toGregorian(parts[0], parts[1], parts[2]);
+      return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
 
 export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
   settings,
   currentUser,
   defaultDateFrom,
-  defaultDateTo
+  defaultDateTo,
+  runSayanQuery
 }) => {
   // Current Jalali Date Helper
   const getTodayJalaliStr = () => {
@@ -110,28 +184,232 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
     }
   };
 
-  // Load Data
+  // Convert raw DB query rows to structured remittance objects
+  const processRawRows = (rows: any[]): { remittances: SayanSalesRemittanceResult[], summary: SayanSalesRemittanceSummary } => {
+    const remittancesMap = new Map<string, SayanSalesRemittanceResult>();
+    const persianDays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+
+    for (const row of rows) {
+      const docKey = `${String(row.DocNo || row.ArchiveCode)}_${String(row.StoreId || '')}_${String(row.DocType || '')}`;
+      if (!remittancesMap.has(docKey)) {
+        let shamsiDateStr = '';
+        let dayOfWeek = '';
+        if (row.DocDate) {
+          try {
+            const d = new Date(row.DocDate);
+            if (!isNaN(d.getTime())) {
+              const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+              shamsiDateStr = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+              dayOfWeek = persianDays[d.getDay()];
+            }
+          } catch (e) {}
+        }
+
+        const docTypeStr = String(row.DocType || '').trim();
+        let docTypeLabel = 'حواله فروش';
+        if (docTypeStr === '12') docTypeLabel = 'حواله فروش';
+        else if (docTypeStr === '23') docTypeLabel = 'حواله خروج';
+        else if (docTypeStr === '3') docTypeLabel = 'حواله انبار';
+        else if (docTypeStr === '13') docTypeLabel = 'برگشت از فروش';
+        else if (docTypeStr === '10') docTypeLabel = 'رسید انبار';
+
+        remittancesMap.set(docKey, {
+          archiveCode: String(row.ArchiveCode || ''),
+          subSystem: String(row.SubSystem || ''),
+          docNo: String(row.DocNo || ''),
+          remittanceNumber: String(row.RemittanceNumber || row.DocNo || ''),
+          subCode: String(row.SubCode || ''),
+          docDate: row.DocDate || '',
+          shamsiDate: shamsiDateStr,
+          dayOfWeek,
+          docType: docTypeStr,
+          docTypeLabel,
+          personCode: String(row.PersonCode || ''),
+          personFullName: String(row.PersonFullName || '').trim() || 'طرف‌حساب نامشخص',
+          personAddress: String(row.PersonAddress || '').trim(),
+          personPhone: String(row.PersonPhone || '').trim(),
+          storeId: String(row.StoreId || ''),
+          note: String(row.Note || '').trim(),
+          headerPayable: parseFloat(row.HeaderPayable || 0),
+          items: [],
+          totalNetWeight: 0,
+          totalGrossWeight: 0,
+          totalCartons: 0,
+          totalBobbins: 0,
+          totalAmount: 0
+        });
+      }
+
+      const rem = remittancesMap.get(docKey)!;
+      const parsed = parseDetailNote(row.DetailNote);
+      const netVal = parseFloat(row.NetQty || 0);
+      const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
+      const unitPrice = parseFloat(row.UnitPrice || 0);
+      const totalPrice = parseFloat(row.TotalPrice || (netVal * unitPrice) || 0);
+
+      rem.totalNetWeight += netVal;
+      rem.totalGrossWeight += grossVal;
+      rem.totalCartons += parsed.cartonCount;
+      rem.totalBobbins += parsed.bobbinCount;
+      rem.totalAmount += totalPrice;
+
+      rem.items.push({
+        lineId: String(row.LineId || ''),
+        docNo: String(row.DocNo || ''),
+        itemCode: String(row.ItemCode || ''),
+        goodsName: String(row.ItemName || row.ItemCode || `کالا ${rem.items.length + 1}`),
+        netQty: parseFloat(netVal.toFixed(3)),
+        grossQty: parseFloat(grossVal.toFixed(3)),
+        unitPrice,
+        totalPrice,
+        cartonCount: parsed.cartonCount,
+        bobbinCount: parsed.bobbinCount,
+        grade: parsed.grade,
+        twistDirection: parsed.twistDirection,
+        description: parsed.description,
+        detailNote: row.DetailNote || '',
+        rowNo: parseInt(row.RowNo || (rem.items.length + 1), 10)
+      });
+    }
+
+    const remittancesList = Array.from(remittancesMap.values()).map(r => {
+      r.totalNetWeight = parseFloat(r.totalNetWeight.toFixed(3));
+      r.totalGrossWeight = parseFloat(r.totalGrossWeight.toFixed(3));
+      r.itemsCount = r.items.length;
+      return r;
+    });
+
+    const summaryData: SayanSalesRemittanceSummary = {
+      totalRemittances: remittancesList.length,
+      totalNetWeight: parseFloat(remittancesList.reduce((s, r) => s + r.totalNetWeight, 0).toFixed(3)),
+      totalGrossWeight: parseFloat(remittancesList.reduce((s, r) => s + r.totalGrossWeight, 0).toFixed(3)),
+      totalCartons: remittancesList.reduce((s, r) => s + r.totalCartons, 0),
+      totalBobbins: remittancesList.reduce((s, r) => s + r.totalBobbins, 0),
+      totalAmount: remittancesList.reduce((s, r) => s + r.totalAmount, 0),
+      uniqueCustomersCount: new Set(remittancesList.map(r => r.personCode || r.personFullName)).size
+    };
+
+    return { remittances: remittancesList, summary: summaryData };
+  };
+
+  // Load Data with runSayanQuery or backend fallback
   const loadRemittances = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetchSayanSalesRemittances({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        search: search || undefined,
-        docType: docType || undefined,
-        storeId: storeId !== 'all' ? storeId : undefined,
-        limit: 1000
-      });
+      if (runSayanQuery) {
+        // Direct Query via Sayan Proxy
+        const whereClauses: string[] = [];
 
-      if (res.success) {
-        setRemittances(res.remittances || []);
-        setSummary(res.summary || null);
+        // DocType Filter
+        if (docType && docType !== 'all') {
+          whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${docType.replace(/'/g, "''")}'`);
+        } else {
+          whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')`);
+        }
+
+        // Date Filter
+        if (dateFrom && dateTo) {
+          const gFrom = parseJalaliToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
+          const gTo = parseJalaliToGregorian(dateTo) || (dateTo.includes('-') ? dateTo : null);
+          if (gFrom && gTo) {
+            whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gTo}T23:59:59.999Z'`);
+          }
+        } else if (dateFrom) {
+          const gFrom = parseJalaliToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
+          if (gFrom) {
+            whereClauses.push(`t10.Field_008 >= '${gFrom}T00:00:00.000Z'`);
+          }
+        }
+
+        // Store ID Filter
+        if (storeId && storeId !== 'all') {
+          whereClauses.push(`RTRIM(LTRIM(t10.Field_018)) = '${storeId.replace(/'/g, "''")}'`);
+        }
+
+        const sql = `
+          SELECT TOP 1000
+              t10.Field_001 as ArchiveCode,
+              t10.Field_004 as SubSystem,
+              t10.Field_005 as DocNo,
+              t10.Field_006 as RemittanceNumber,
+              t10.Field_007 as SubCode,
+              t10.Field_008 as DocDate,
+              RTRIM(LTRIM(t10.Field_009)) as DocType,
+              RTRIM(LTRIM(t10.Field_010)) as PersonCode,
+              RTRIM(LTRIM(t10.Field_018)) as StoreId,
+              t10.Field_029 as Note,
+              t10.Field_037 as HeaderPayable,
+              COALESCE(
+                  NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
+                  NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
+                  NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
+                  t10.Field_010,
+                  N'طرف‌حساب نامشخص'
+              ) as PersonFullName,
+              p.Field_013 as PersonAddress,
+              p.Field_015 as PersonPhone,
+              t11.Field_001 as LineId,
+              RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+              COALESCE(
+                  NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                  NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                  NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                  NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                  NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                  RTRIM(LTRIM(t11.Field_005)),
+                  N'کالای بدون نام'
+              ) as ItemName,
+              t11.Field_006 as NetQty,
+              t11.Field_007 as UnitPrice,
+              t11.Field_008 as TotalPrice,
+              t11.Field_031 as DetailNote,
+              t11.Field_034 as RowNo
+          FROM STR_TBL_010 t10
+          INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                    AND t11.Field_003 = t10.Field_004 
+                                    AND t11.Field_012 = t10.Field_018
+          LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+          LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+          LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+          LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+          LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+          LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+          LEFT JOIN (
+              SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+              FROM IND_TBL_021 t21_sub
+              LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+              GROUP BY t21_sub.Field_004
+          ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+          WHERE ${whereClauses.join(' AND ')}
+          ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_034 ASC, t11.Field_001 ASC
+        `;
+
+        const rawRows = await runSayanQuery(sql);
+        const { remittances: processedList, summary: summaryObj } = processRawRows(rawRows || []);
+        setRemittances(processedList);
+        setSummary(summaryObj);
       } else {
-        setError(res.message || 'خطا در دریافت حواله‌های فروش سایان');
+        // Fallback to backend API endpoint
+        const res = await fetchSayanSalesRemittances({
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          search: search || undefined,
+          docType: docType || undefined,
+          storeId: storeId !== 'all' ? storeId : undefined,
+          limit: 1000
+        });
+
+        if (res.success) {
+          setRemittances(res.remittances || []);
+          setSummary(res.summary || null);
+        } else {
+          setError(res.message || 'خطا در دریافت حواله‌های فروش سایان');
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'خطای شبکه در ارتباط با سرور');
+      console.error('Error loading remittances:', err);
+      setError(err.message || 'خطا در برقراری ارتباط با دیتابیس سایان');
     } finally {
       setIsLoading(false);
     }
