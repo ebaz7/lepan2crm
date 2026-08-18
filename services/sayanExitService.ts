@@ -28,7 +28,18 @@ export interface SayanSalesRemittanceItem {
   grade?: string;
   twistDirection?: string;
   description?: string;
+  detailNote?: string;
   rowNo?: number;
+}
+
+export interface SayanSalesRemittanceSummary {
+  totalRemittances: number;
+  totalNetWeight: number;
+  totalGrossWeight: number;
+  totalCartons: number;
+  totalBobbins: number;
+  totalAmount: number;
+  uniqueCustomersCount: number;
 }
 
 export interface SayanSalesRemittanceResult {
@@ -39,19 +50,66 @@ export interface SayanSalesRemittanceResult {
   subCode?: string;
   docDate: string;
   shamsiDate: string;
+  dayOfWeek?: string;
   docType?: string;
+  docTypeLabel?: string;
   personCode: string;
   personFullName: string;
   personAddress?: string;
   personPhone?: string;
   storeId?: string;
   note?: string;
+  headerPayable?: number;
   items: SayanSalesRemittanceItem[];
+  itemsCount?: number;
   totalNetWeight: number;
   totalGrossWeight: number;
   totalCartons: number;
   totalBobbins: number;
+  totalAmount?: number;
 }
+
+/**
+ * Fetch all Sayan Sales Remittances with filters
+ */
+export const fetchSayanSalesRemittances = async (filters: {
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  docType?: string;
+  personCode?: string;
+  storeId?: string;
+  limit?: number;
+}): Promise<{ success: boolean; remittances: SayanSalesRemittanceResult[]; summary?: SayanSalesRemittanceSummary; message?: string }> => {
+  try {
+    const res = await apiCall<{
+      success: boolean;
+      remittances: SayanSalesRemittanceResult[];
+      summary?: SayanSalesRemittanceSummary;
+      message?: string;
+    }>('/sayan/sales-remittances', 'POST', filters);
+
+    if (res && res.success) {
+      return {
+        success: true,
+        remittances: res.remittances || [],
+        summary: res.summary
+      };
+    }
+    return {
+      success: false,
+      remittances: [],
+      message: res?.message || 'خطا در دریافت حواله‌های فروش سایان'
+    };
+  } catch (err: any) {
+    console.error('fetchSayanSalesRemittances error:', err);
+    return {
+      success: false,
+      remittances: [],
+      message: err.message || 'خطای شبکه در ارتباط با سرور'
+    };
+  }
+};
 
 /**
  * Search persons in Sayan ERP (GNR_TBL_001)

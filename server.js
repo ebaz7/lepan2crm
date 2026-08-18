@@ -1989,6 +1989,257 @@ function getSayanMatchConditions({ personCode, recipientName, permitNumber }) {
     return groups;
 }
 
+// ==========================================
+// SAYAN SALES REMITTANCES (حواله‌های فروش و انبار)
+// ==========================================
+
+// Complete Sayan Sales Remittances List & Explorer Endpoint
+app.all('/api/sayan/sales-remittances', async (req, res) => {
+    try {
+        const db = getDb();
+        if (!db.settings?.sayanApiUrl) {
+            return res.json({ success: false, message: 'تنظیمات ارتباط با سایان ثبت نشده است.', remittances: [] });
+        }
+
+        const dateFrom = req.query.dateFrom || req.body.dateFrom;
+        const dateTo = req.query.dateTo || req.body.dateTo;
+        const search = String(req.query.search || req.body.search || '').trim();
+        const docType = String(req.query.docType || req.body.docType || 'all').trim();
+        const personCode = String(req.query.personCode || req.body.personCode || '').trim();
+        const storeId = String(req.query.storeId || req.body.storeId || '').trim();
+        const limit = Math.min(parseInt(req.query.limit || req.body.limit || '500', 10), 2000);
+
+        let whereClauses = [];
+
+        // DocType Filter
+        if (docType && docType !== 'all') {
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${docType.replace(/'/g, "''")}'`);
+        } else {
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')`);
+        }
+
+        // Date Range Filter
+        if (dateFrom && dateTo) {
+            const gregFrom = parseJalaliStrToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
+            const gregTo = parseJalaliStrToGregorian(dateTo) || (dateTo.includes('-') ? dateTo : null);
+            if (gregFrom && gregTo) {
+                whereClauses.push(`t10.Field_008 >= '${gregFrom}T00:00:00.000Z' AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'`);
+            }
+        } else if (dateFrom) {
+            const gregFrom = parseJalaliStrToGregorian(dateFrom) || (dateFrom.includes('-') ? dateFrom : null);
+            if (gregFrom) {
+                whereClauses.push(`t10.Field_008 >= '${gregFrom}T00:00:00.000Z'`);
+            }
+        }
+
+        // Person Code Filter
+        if (personCode) {
+            const sanitizedPerson = personCode.replace(/'/g, "''");
+            whereClauses.push(`(RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPerson}' OR RTRIM(LTRIM(p.Field_003)) = '${sanitizedPerson}' OR RTRIM(LTRIM(p.Field_005)) = '${sanitizedPerson}')`);
+        }
+
+        // Store ID Filter
+        if (storeId && storeId !== 'all') {
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_018)) = '${storeId.replace(/'/g, "''")}'`);
+        }
+
+        // Search Query (Multi-field fuzzy search)
+        if (search) {
+            const sanitized = search.replace(/'/g, "''");
+            const sqlNormalize = (col) => `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
+            const jsNorm = String(search).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').replace(/أ/g, 'ا').replace(/'/g, "''").trim();
+            
+            const searchConds = [
+                `RTRIM(LTRIM(t10.Field_005)) LIKE N'%${sanitized}%'`,
+                `RTRIM(LTRIM(t10.Field_006)) LIKE N'%${sanitized}%'`,
+                `RTRIM(LTRIM(t10.Field_010)) LIKE N'%${sanitized}%'`,
+                `${sqlNormalize('p.Field_006')} LIKE N'%${jsNorm}%'`,
+                `${sqlNormalize('p.Field_007')} LIKE N'%${jsNorm}%'`,
+                `${sqlNormalize('p.Field_002')} LIKE N'%${jsNorm}%'`,
+                `${sqlNormalize('t07.Field_006')} LIKE N'%${jsNorm}%'`,
+                `RTRIM(LTRIM(t11.Field_005)) LIKE N'%${sanitized}%'`,
+                `${sqlNormalize('s04.Field_003')} LIKE N'%${jsNorm}%'`,
+                `${sqlNormalize('t22.Field_004')} LIKE N'%${jsNorm}%'`,
+                `${sqlNormalize('t10.Field_029')} LIKE N'%${jsNorm}%'`
+            ];
+            whereClauses.push(`(${searchConds.join(' OR ')})`);
+        }
+
+        const sql = `
+            SELECT TOP ${limit}
+                t10.Field_001 as ArchiveCode,
+                t10.Field_004 as SubSystem,
+                t10.Field_005 as DocNo,
+                t10.Field_006 as RemittanceNumber,
+                t10.Field_007 as SubCode,
+                t10.Field_008 as DocDate,
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
+                t10.Field_010 as PersonCode,
+                t10.Field_018 as StoreId,
+                t10.Field_029 as Note,
+                t10.Field_037 as HeaderPayable,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
+                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
+                    NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
+                    t10.Field_010,
+                    N'طرف‌حساب نامشخص'
+                ) as PersonFullName,
+                p.Field_013 as PersonAddress,
+                p.Field_015 as PersonPhone,
+                t11.Field_001 as LineId,
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
+                ) as ItemName,
+                t11.Field_006 as NetQty,
+                t11.Field_007 as UnitPrice,
+                t11.Field_008 as TotalPrice,
+                t11.Field_031 as DetailNote,
+                t11.Field_034 as RowNo
+            FROM STR_TBL_010 t10
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005
+            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            WHERE ${whereClauses.join(' AND ')}
+            ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_034 ASC, t11.Field_001 ASC
+        `;
+
+        const rows = await executeSayanQuery(db, sql);
+        
+        // Group line items by Header (DocNo)
+        const remittancesMap = new Map();
+        
+        const persianDays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+
+        for (const row of rows) {
+            const docKey = String(row.DocNo || row.ArchiveCode);
+            if (!remittancesMap.has(docKey)) {
+                let shamsiDateStr = '';
+                let dayOfWeek = '';
+                if (row.DocDate) {
+                    try {
+                        const d = new Date(row.DocDate);
+                        if (!isNaN(d.getTime())) {
+                            const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                            shamsiDateStr = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+                            dayOfWeek = persianDays[d.getDay()];
+                        }
+                    } catch (e) {}
+                }
+
+                const docTypeStr = String(row.DocType || '').trim();
+                let docTypeLabel = 'حواله فروش';
+                if (docTypeStr === '12') docTypeLabel = 'حواله فروش';
+                else if (docTypeStr === '23') docTypeLabel = 'حواله خروج';
+                else if (docTypeStr === '3') docTypeLabel = 'حواله انبار';
+                else if (docTypeStr === '13') docTypeLabel = 'برگشت از فروش';
+                else if (docTypeStr === '10') docTypeLabel = 'رسید انبار';
+
+                remittancesMap.set(docKey, {
+                    archiveCode: String(row.ArchiveCode || ''),
+                    subSystem: String(row.SubSystem || ''),
+                    docNo: String(row.DocNo || ''),
+                    remittanceNumber: String(row.RemittanceNumber || row.DocNo || ''),
+                    subCode: String(row.SubCode || ''),
+                    docDate: row.DocDate || '',
+                    shamsiDate: shamsiDateStr,
+                    dayOfWeek,
+                    docType: docTypeStr,
+                    docTypeLabel,
+                    personCode: String(row.PersonCode || ''),
+                    personFullName: String(row.PersonFullName || '').trim(),
+                    personAddress: String(row.PersonAddress || '').trim(),
+                    personPhone: String(row.PersonPhone || '').trim(),
+                    storeId: String(row.StoreId || ''),
+                    note: String(row.Note || '').trim(),
+                    headerPayable: parseFloat(row.HeaderPayable || 0),
+                    items: [],
+                    totalNetWeight: 0,
+                    totalGrossWeight: 0,
+                    totalCartons: 0,
+                    totalBobbins: 0,
+                    totalAmount: 0
+                });
+            }
+
+            const rem = remittancesMap.get(docKey);
+            const parsed = parseDetailNote(row.DetailNote);
+            const netVal = parseFloat(row.NetQty || 0);
+            const grossVal = parsed.grossWeight > 0 ? parsed.grossWeight : netVal;
+            const unitPrice = parseFloat(row.UnitPrice || 0);
+            const totalPrice = parseFloat(row.TotalPrice || (netVal * unitPrice) || 0);
+
+            rem.totalNetWeight += netVal;
+            rem.totalGrossWeight += grossVal;
+            rem.totalCartons += parsed.cartonCount;
+            rem.totalBobbins += parsed.bobbinCount;
+            rem.totalAmount += totalPrice;
+
+            rem.items.push({
+                lineId: String(row.LineId || ''),
+                docNo: String(row.DocNo || ''),
+                itemCode: String(row.ItemCode || ''),
+                goodsName: String(row.ItemName || row.ItemCode || `کالا ${rem.items.length + 1}`),
+                netQty: parseFloat(netVal.toFixed(3)),
+                grossQty: parseFloat(grossVal.toFixed(3)),
+                unitPrice,
+                totalPrice,
+                cartonCount: parsed.cartonCount,
+                bobbinCount: parsed.bobbinCount,
+                grade: parsed.grade,
+                twistDirection: parsed.twistDirection,
+                description: parsed.description,
+                detailNote: row.DetailNote || '',
+                rowNo: parseInt(row.RowNo || (rem.items.length + 1), 10)
+            });
+        }
+
+        const remittances = Array.from(remittancesMap.values()).map(r => {
+            r.totalNetWeight = parseFloat(r.totalNetWeight.toFixed(3));
+            r.totalGrossWeight = parseFloat(r.totalGrossWeight.toFixed(3));
+            r.itemsCount = r.items.length;
+            return r;
+        });
+
+        // Calculate Overview Summary
+        const summary = {
+            totalRemittances: remittances.length,
+            totalNetWeight: parseFloat(remittances.reduce((s, r) => s + r.totalNetWeight, 0).toFixed(3)),
+            totalGrossWeight: parseFloat(remittances.reduce((s, r) => s + r.totalGrossWeight, 0).toFixed(3)),
+            totalCartons: remittances.reduce((s, r) => s + r.totalCartons, 0),
+            totalBobbins: remittances.reduce((s, r) => s + r.totalBobbins, 0),
+            totalAmount: remittances.reduce((s, r) => s + r.totalAmount, 0),
+            uniqueCustomersCount: new Set(remittances.map(r => r.personCode || r.personFullName)).size
+        };
+
+        res.json({
+            success: true,
+            remittances,
+            summary
+        });
+    } catch (e) {
+        console.error("Fetch Sayan Sales Remittances Error:", e);
+        res.status(500).json({ success: false, message: e.message, remittances: [] });
+    }
+});
+
 // Lookup matching Sayan Sales Remittance (STR_TBL_010 / STR_TBL_011)
 // Explore endpoint to return a list of matching headers for debugging and manual search
 app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
@@ -1999,7 +2250,7 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
             return res.json({ success: false, message: 'تنظیمات ارتباط با سایان ثبت نشده است.' });
         }
 
-        let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+        let whereClauses = ["RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')"];
         
         if (query && query.trim()) {
             const sanitized = String(query).replace(/'/g, "''").trim();
@@ -2029,32 +2280,41 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
                 const parts = normName.split(/\s+/).filter(Boolean);
                 if (parts.length > 0) {
                     const subParts = parts.map(part => {
-                        return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
+                        return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_002')} LIKE N'%${part}%' OR ${sqlNormalize('t07.Field_006')} LIKE N'%${part}%')`;
                     });
                     conditions.push(`(${subParts.join(' AND ')})`);
                 }
             } else {
                 conditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
                 conditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
+                conditions.push(`${sqlNormalize('p.Field_002')} LIKE N'%${normName}%'`);
+                conditions.push(`${sqlNormalize('t07.Field_006')} LIKE N'%${normName}%'`);
             }
 
             whereClauses.push(`(${conditions.join(' OR ')})`);
         }
 
         const sql = `
-            SELECT TOP 20
+            SELECT TOP 30
                 t10.Field_001 as ArchiveCode,
                 t10.Field_004 as SubSystem,
                 t10.Field_005 as DocNo,
                 t10.Field_006 as RemittanceNumber,
                 t10.Field_008 as DocDate,
-                t10.Field_009 as DocType,
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
                 t10.Field_010 as PersonCode,
                 t10.Field_018 as StoreId,
-                COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
+                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
+                    NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
+                    t10.Field_010,
+                    N'طرف‌حساب نامشخص'
+                ) as PersonFullName,
                 p.Field_013 as PersonAddress
             FROM STR_TBL_010 t10
             LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             WHERE ${whereClauses.join(' AND ')}
             ORDER BY t10.Field_008 DESC, t10.Field_001 DESC
         `;
@@ -2080,7 +2340,7 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
         }
 
         // Match conditions in STR_TBL_010
-        let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+        let whereClauses = ["RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')"];
         
         let pCode = personCode;
         let rName = recipientName;
@@ -2095,8 +2355,8 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
         // If there's a permitDate, it's an automatic lookup where we want STRICT matching of customer and date
         if (permitDate) {
             const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
-            // Match date within a ±5 day window
-            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
+            // Match date within a ±7 day window
+            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 7`);
         }
 
         let matchConditions = getSayanMatchConditions({ personCode: pCode, recipientName: rName, permitNumber });
@@ -2122,15 +2382,22 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
                 t10.Field_006 as RemittanceNumber,
                 t10.Field_007 as SubCode,
                 t10.Field_008 as DocDate,
-                t10.Field_009 as DocType,
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
                 t10.Field_010 as PersonCode,
                 t10.Field_018 as StoreId,
                 t10.Field_029 as Note,
-                COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, '') as PersonFullName,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
+                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
+                    NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
+                    t10.Field_010,
+                    N'طرف‌حساب نامشخص'
+                ) as PersonFullName,
                 p.Field_013 as PersonAddress,
                 p.Field_015 as PersonPhone
             FROM STR_TBL_010 t10
             LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
             WHERE ${whereClauses.join(' AND ')}
             ORDER BY ${orderByClause}
         `;
@@ -2145,18 +2412,34 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
             SELECT 
                 t11.Field_001 as LineId,
                 t11.Field_004 as DocNo,
-                t11.Field_005 as ItemCode,
-                COALESCE(t02.Field_003, t22.Field_004, t21.Field_004, t11.Field_005) as ItemName,
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    NULLIF(RTRIM(LTRIM(t02.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
+                ) as ItemName,
                 t11.Field_006 as NetQty,
                 t11.Field_007 as UnitPrice,
                 t11.Field_008 as TotalPrice,
                 t11.Field_031 as DetailNote,
                 t11.Field_034 as RowNo
             FROM STR_TBL_011 t11
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_021 t21 ON RTRIM(LTRIM(t21.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003))
+            LEFT JOIN IND_TBL_002 t02 ON RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t21.Field_003)) OR RTRIM(LTRIM(t02.Field_008)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            WHERE t11.Field_004 = '${h.DocNo}' AND t11.Field_012 = '${h.StoreId}' AND t11.Field_036 = '${h.DocType}'
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            WHERE t11.Field_004 = '${h.DocNo}'
             ORDER BY t11.Field_034 ASC, t11.Field_001 ASC
         `;
 

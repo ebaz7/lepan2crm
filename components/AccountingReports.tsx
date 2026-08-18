@@ -33,7 +33,8 @@ import {
     Sparkles,
     CheckCircle2,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    Truck
 } from 'lucide-react';
 import * as jalaali from 'jalaali-js';
 import { 
@@ -50,6 +51,7 @@ import {
 } from 'recharts';
 import { getRolePermissions } from '../services/authService';
 import SayanSalesDashboard from './sales/SayanSalesDashboard';
+import SayanRemittancesTab from './SayanRemittancesTab';
 import { UserRole } from '../types';
 import { getServerHost } from '../services/apiService';
 
@@ -72,6 +74,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const isSalesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanSales === true;
     const isProductionAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanProduction === true;
     const isChequesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanCheques === true;
+    const isRemittancesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanSales === true || (perms as any).canManageExitPermits === true || (perms as any).canCreateExitPermit === true;
 
     // Default to the first allowed tab
     const [activeTab, setActiveTab] = useState(() => {
@@ -3408,6 +3411,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         <span className="truncate">لیست چک‌ها</span>
                     </button>
                 )}
+                {isRemittancesAllowed && (
+                    <button 
+                        onClick={() => setActiveTab('remittances')} 
+                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'remittances' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    >
+                        <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="truncate">حواله‌های فروش (خروج کالا)</span>
+                    </button>
+                )}
             </div>
 
             {/* TAB CONTENT PANEL */}
@@ -5876,6 +5888,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* 6. SAYAN SALES REMITTANCES TAB */}
+                {activeTab === 'remittances' && (
+                    <SayanRemittancesTab
+                        settings={settings}
+                        currentUser={currentUser}
+                        defaultDateFrom={dateFrom}
+                        defaultDateTo={dateTo}
+                    />
                 )}
             </div>
 
