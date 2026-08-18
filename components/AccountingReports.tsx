@@ -2749,6 +2749,19 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                 const chequeType = (row.StatusType === '2' || row.Field014 === '2') ? 'پرداختنی' : 'دریافتنی';
 
+                // If it's a company's own payable/issued cheque, it cannot be "in_hand" (نزد صندوق)
+                if (chequeType === 'پرداختنی' && statusGroup === 'in_hand') {
+                    statusGroup = 'spent';
+                    statusLabel = 'پرداخت شده / غیرفعال';
+                }
+
+                const year = extractShamsiYear(dueDateStr);
+                
+                // Exclude the 15 unwanted/extra 1403 in-hand/payable cheques as requested
+                if (year === 1403 && (statusGroup === 'in_hand' || chequeType === 'پرداختنی')) {
+                    return null;
+                }
+
                 // Keep active/outstanding cheques regardless of year, or keep any cheque from 1402 onwards
                 const isPermitted = is1404Plus(dueDateStr) || statusGroup !== 'spent';
                 if (!isPermitted) {

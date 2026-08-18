@@ -1965,35 +1965,40 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
                 .trim();
         };
 
-        // Determine if we are doing a general manual search or exit permit automatic lookup.
-        // If there's an exit permit date, it's an automatic lookup where we want to strictly match the person and date.
+        // If there's a permitDate, it's an automatic lookup where we want STRICT matching of customer and date
         if (permitDate) {
             const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
-            // Match date within a flexible 5-day window to handle entry delays
+            // Match date within a ±5 day window
             whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
 
-            // Strictly require matching person code or name
-            let personClauses = [];
             if (personCode) {
-                const sanitizedPersonCode = String(personCode).replace(/'/g, "''").trim();
-                personClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
-            }
-            if (recipientName) {
+                // Sayan Person Code is extremely reliable. If it's provided, strictly match on it!
+                // Support potential leading zeros (e.g. 2902 vs 02902)
+                const sCode = String(personCode).replace(/'/g, "''").trim();
+                const numericCode = parseInt(sCode, 10);
+                if (!isNaN(numericCode)) {
+                    whereClauses.push(`(
+                        RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
+                        RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
+                        RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
+                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode}
+                    )`);
+                } else {
+                    whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sCode}'`);
+                }
+            } else if (recipientName) {
+                // If there's no code, match on the buyer's actual name in GNR_TBL_001.
+                // Do NOT match t10.Field_029 (Note) during automatic lookup because Note often contains driver names instead of the buyer's name.
                 const normName = jsNormalize(recipientName);
                 if (normName && !/^\d+$/.test(normName)) {
-                    // Split the name to match parts (e.g., "اصغر طاهری")
                     const parts = normName.split(/\s+/).filter(Boolean);
                     if (parts.length > 0) {
                         const subParts = parts.map(part => {
-                            return `(${sqlNormalize('t10.Field_029')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
+                            return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
                         });
-                        personClauses.push(`(${subParts.join(' AND ')})`);
+                        whereClauses.push(`(${subParts.join(' AND ')})`);
                     }
                 }
-            }
-
-            if (personClauses.length > 0) {
-                whereClauses.push(`(${personClauses.join(' OR ')})`);
             }
         } else {
             // General / manual search fallback (e.g. searching in the modal search bar)
@@ -2152,21 +2157,49 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
             const pDate = permit.date;
             
             let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
-            const hasPersonAndDate = pCode && pDate;
             
-            if (hasPersonAndDate) {
-                const sanitizedPersonCode = String(pCode).replace(/'/g, "''").trim();
+            const sqlNormalize = (col) => {
+                return `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
+            };
+
+            const jsNormalize = (str) => {
+                return String(str)
+                    .replace(/ي/g, 'ی')
+                    .replace(/ك/g, 'ک')
+                    .replace(/‌/g, ' ')
+                    .replace(/أ/g, 'ا')
+                    .replace(/'/g, "''")
+                    .trim();
+            };
+
+            if (pDate) {
                 const sanitizedDate = String(pDate).replace(/'/g, "''").trim();
-                whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPersonCode}'`);
-                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 3`);
-            } else {
-                let matchConditions = getSayanMatchConditions({ 
-                    personCode: pCode, 
-                    recipientName: rName, 
-                    permitNumber: permit.permitNumber 
-                });
-                if (matchConditions.length > 0) {
-                    whereClauses.push(`(${matchConditions.join(' OR ')})`);
+                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
+            }
+
+            if (pCode) {
+                const sCode = String(pCode).replace(/'/g, "''").trim();
+                const numericCode = parseInt(sCode, 10);
+                if (!isNaN(numericCode)) {
+                    whereClauses.push(`(
+                        RTRIM(LTRIM(t10.Field_010)) = '${sCode}' OR 
+                        RTRIM(LTRIM(t10.Field_010)) = '0${sCode}' OR 
+                        RTRIM(LTRIM(t10.Field_010)) = '00${sCode}' OR
+                        TRY_CAST(t10.Field_010 AS INT) = ${numericCode}
+                    )`);
+                } else {
+                    whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sCode}'`);
+                }
+            } else if (rName) {
+                const normName = jsNormalize(rName);
+                if (normName && !/^\d+$/.test(normName)) {
+                    const parts = normName.split(/\s+/).filter(Boolean);
+                    if (parts.length > 0) {
+                        const subParts = parts.map(part => {
+                            return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%')`;
+                        });
+                        whereClauses.push(`(${subParts.join(' AND ')})`);
+                    }
                 }
             }
 
