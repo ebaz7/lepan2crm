@@ -5670,12 +5670,14 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                         t12.Field_016 as StatusCode,
                         t12.Field_017 as Field017,
                         t_last_op.LastOpCode,
+                        t_last_op.LastOpSubCode,
                         t_last_op.LastOpAccount
                     FROM BUR_TBL_012 t12
                     LEFT JOIN (
                         SELECT 
                             t09.Field_007 as ChequeId,
                             t09.Field_023 as LastOpCode,
+                            t09.Field_005 as LastOpSubCode,
                             t09.Field_012 as LastOpAccount
                         FROM BUR_TBL_009 t09
                         INNER JOIN (
@@ -5701,6 +5703,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 if (!is1404Plus(dueShamsi) && !is1404Plus(r.DueDate)) return;
 
                 const lastOp = String(r.LastOpCode || '').trim();
+                const subOp = String(r.LastOpSubCode || '').trim();
                 const statusType = String(r.StatusType || '').trim();
                 const statusCode = String(r.StatusCode || '').trim();
                 const isActive = String(r.IsActive ?? '1').trim();
@@ -5731,6 +5734,8 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     isCashed = true;
                 } else if (lastOp === '17' || lastOp === '14') {
                     isCashed = true;
+                } else if (lastOp === '18' && subOp === '30') {
+                    isReturned = true;
                 } else if (lastOp === '18') {
                     isSpent = true; // both isCashed and isSpent mean "no longer active portfolio"
                     isCashed = true;
@@ -5786,6 +5791,9 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                 } else if (reportType === 'overdue') {
                     // Overdue cheques in vault
                     matchesReportType = (!isAtBank && !isCashed && !isReturned) && (dueShamsi < todayShamsi);
+                } else if (reportType === 'matured') {
+                    // Active cheques in vault matured today
+                    matchesReportType = (!isAtBank && !isCashed && !isReturned) && (dueShamsi === todayShamsi);
                 } else if (reportType === 'vault') {
                     // Strictly only cheques active in vault (not at bank, not cashed, not returned)
                     matchesReportType = (!isAtBank && !isCashed && !isReturned);
@@ -5832,6 +5840,8 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
                     let matchesStatus = false;
                     if (reportType === 'returned') {
                         matchesStatus = status === 'returned_to_box';
+                    } else if (reportType === 'matured') {
+                        matchesStatus = status === 'box' && (dueShamsi === todayShamsi);
                     } else if (reportType === 'not_due') {
                         matchesStatus = status === 'box' && (dueShamsi > todayShamsi);
                     } else if (reportType === 'overdue') {
@@ -5924,6 +5934,8 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
             ? 'گزارش چک‌های واگذارشده به بانک (در جریان وصول)'
             : reportType === 'not_due'
             ? 'گزارش چک‌های سررسید نشده خزانه‌داری (اسناد آتی)'
+            : reportType === 'matured'
+            ? 'گزارش چک‌های سررسید شده امروز خزانه‌داری'
             : reportType === 'all'
             ? 'گزارش جامع اسناد و چک‌های دریافتنی'
             : 'گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری'
@@ -5938,7 +5950,7 @@ export const sendTreasuryChequesReport = async (db, customTargets = null, select
         : (sortOrder === 'desc' ? 'تاریخ سررسید (دور به نزدیک)' : 'تاریخ سررسید (نزدیک به دور)');
 
     // Format text message
-    let msg = `${reportType === 'returned' ? '🔴' : '🏛️'} *${reportTitleText}*\n`;
+    let msg = `${reportType === 'returned' ? '🔴' : (reportType === 'matured' ? '🔔' : '🏛️')} *${reportTitleText}*\n`;
     msg += `📅 *تاریخ گزارش:* ${todayShamsi} | 🔢 *مرتب‌سازی:* ${sortLabel}\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `💎 *تعداد کل چک‌ها:* ${treasuryCheques.length.toLocaleString('fa-IR')} فقره\n`;

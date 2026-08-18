@@ -11,7 +11,7 @@ export interface ReportDeliveryJob {
   id: string;
   title: string;
   module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr';
-  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'custom';
+  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'cheque_not_due' | 'cheque_overdue' | 'cheque_matured' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
   destinationGroup?: string;
   telegramGroup?: string;
@@ -45,6 +45,7 @@ const REPORT_TYPE_OPTIONS = [
   { value: 'cheque_vault', label: '🏛️ گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
   { value: 'cheque_not_due', label: '⏳ فقط چک‌های سررسید نشده نزد صندوق (اسناد آتی)' },
   { value: 'cheque_overdue', label: '⚠️ فقط چک‌های سررسید گذشته / معوق نزد صندوق (پیگیری فوری)' },
+  { value: 'cheque_matured', label: '🔔 فقط چک‌های سررسید شده امروز نزد صندوق (ارسال خودکار روزانه)' },
   { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی' },
   { value: 'customer_balances', label: 'گزارش مانده حساب و تراز مشتریان (تفضیل‌ها)' },
   { value: 'inventory_stock', label: 'گزارش موجودی و گردش کالای انبار' },

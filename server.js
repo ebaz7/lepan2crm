@@ -4852,11 +4852,12 @@ async function executeReportJob(job) {
             customTargets.push({ platform: 'whatsapp', id: waGroup });
         }
 
-        if (job.reportType === 'cheque_vault' || job.reportType === 'cheque_not_due' || job.reportType === 'cheque_overdue' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts') {
+        if (job.reportType === 'cheque_vault' || job.reportType === 'cheque_not_due' || job.reportType === 'cheque_overdue' || job.reportType === 'cheque_matured' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts') {
             // Send Vault Cheques Report matching Sayan ERP criteria
             let rType = 'vault';
             if (job.reportType === 'cheque_not_due') rType = 'not_due';
             else if (job.reportType === 'cheque_overdue') rType = 'overdue';
+            else if (job.reportType === 'cheque_matured') rType = 'matured';
             
             const res = await sendTreasuryChequesReport(db, customTargets.length > 0 ? customTargets : null, job.botPlatforms, {
                 attachPdf: job.attachPdf ?? true,

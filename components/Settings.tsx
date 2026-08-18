@@ -231,13 +231,15 @@ const Settings: React.FC<SettingsProps> = ({
   const [sendingManualSalesToday, setSendingManualSalesToday] = useState(false);
   const [sendingManualSalesYesterday, setSendingManualSalesYesterday] = useState(false);
   const [sendingManualCheques, setSendingManualCheques] = useState(false);
+  const [sendingManualChequesMatured, setSendingManualChequesMatured] = useState(false);
 
   const handleSendManualChequesVault = async () => {
     setSendingManualCheques(true);
     try {
       const data = await apiCall<{ success: boolean; message?: string; error?: string; count?: number }>('/sayan/cheques-report/send-vault', 'POST', {
         attachPdf: settings.chequeVaultAttachPdf ?? true,
-        attachExcel: settings.chequeVaultAttachExcel ?? true
+        attachExcel: settings.chequeVaultAttachExcel ?? true,
+        reportType: 'vault'
       });
       if (data && data.success) {
         alert(`✅ ${data.message || `گزارش چک‌های نزد صندوق خزانه‌داری با موفقیت به گروه‌ها ارسال گردید (${data.count || 0} فقره چک).`}`);
@@ -248,6 +250,26 @@ const Settings: React.FC<SettingsProps> = ({
       alert(`❌ خطا در برقراری ارتباط با سرور: ${e.message || e}`);
     } finally {
       setSendingManualCheques(false);
+    }
+  };
+
+  const handleSendManualChequesMatured = async () => {
+    setSendingManualChequesMatured(true);
+    try {
+      const data = await apiCall<{ success: boolean; message?: string; error?: string; count?: number }>('/sayan/cheques-report/send-vault', 'POST', {
+        attachPdf: settings.chequeVaultAttachPdf ?? true,
+        attachExcel: settings.chequeVaultAttachExcel ?? true,
+        reportType: 'matured'
+      });
+      if (data && data.success) {
+        alert(`✅ ${data.message || `گزارش چک‌های سررسید شده امروز خزانه‌داری با موفقیت به گروه‌ها ارسال گردید (${data.count || 0} فقره چک).`}`);
+      } else {
+        alert(`❌ خطا در ارسال گزارش چک‌ها: ${data?.error || 'پاسخ ناموفق از سرور'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ خطا در برقراری ارتباط با سرور: ${e.message || e}`);
+    } finally {
+      setSendingManualChequesMatured(false);
     }
   };
 
@@ -3968,6 +3990,28 @@ const Settings: React.FC<SettingsProps> = ({
                             placeholder="...@g.us"
                           />
                         </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-blue-100/60 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSendManualChequesVault}
+                          disabled={sendingManualCheques}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                        >
+                          <Send size={14} />
+                          <span>{sendingManualCheques ? "در حال ارسال..." : "ارسال دستی لیست چک‌های صندوق به گروه‌ها"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSendManualChequesMatured}
+                          disabled={sendingManualChequesMatured}
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                        >
+                          <Send size={14} />
+                          <span>{sendingManualChequesMatured ? "در حال ارسال..." : "ارسال دستی چک‌های سررسید امروز به گروه‌ها"}</span>
+                        </button>
                       </div>
                     </div>
                     <div className="mt-2">

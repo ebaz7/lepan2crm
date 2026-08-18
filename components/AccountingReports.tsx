@@ -150,7 +150,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     // Cheques Bot Manual Dispatch Modal
     const [isChequeBotModalOpen, setIsChequeBotModalOpen] = useState(false);
     const [isSendingChequesBot, setIsSendingChequesBot] = useState(false);
-    const [chequeBotTargetType, setChequeBotTargetType] = useState<'vault' | 'returned' | 'filtered'>('vault');
+    const [chequeBotTargetType, setChequeBotTargetType] = useState<'vault' | 'returned' | 'matured' | 'filtered'>('vault');
     const [chequeBotSelectedPlatforms, setChequeBotSelectedPlatforms] = useState<('telegram' | 'bale' | 'whatsapp')[]>(['telegram', 'bale']);
     const [chequeBotAttachPdf, setChequeBotAttachPdf] = useState(true);
     const [chequeBotAttachExcel, setChequeBotAttachExcel] = useState(true);
@@ -2681,9 +2681,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 } else if (lastOp === '17' || lastOp === '14') {
                     statusGroup = 'spent';
                     statusLabel = 'وصول شده';
+                } else if (lastOp === '18' && subOp === '30') {
+                    statusGroup = 'returned';
+                    statusLabel = 'برگشتی';
                 } else if (lastOp === '18') {
                     statusGroup = 'spent';
-                    statusLabel = 'خرج شده';
+                    statusLabel = subOp === '31' ? 'عودت به صاحب چک' : 'خرج شده';
                 } else if (lastOp === '15' || lastOp === '16') {
                     statusGroup = 'returned';
                     statusLabel = 'برگشتی';
@@ -3169,7 +3172,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // Send Cheques to Telegram / Bale / WhatsApp Bot
-    const handleSendChequesToBot = async (scope?: 'vault' | 'returned' | 'filtered') => {
+    const handleSendChequesToBot = async (scope?: 'vault' | 'returned' | 'matured' | 'filtered') => {
         const targetScope = scope || chequeBotTargetType;
         setIsSendingChequesBot(true);
         try {
@@ -6179,65 +6182,87 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                         {/* Modal Body */}
                         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs">
-                            {/* Target Scope Selection */}
-                            <div>
-                                <label className="font-black text-slate-800 text-xs block mb-2">نوع و دامنه گزارش ارسالی:</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setChequeBotTargetType('vault')}
-                                        className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
-                                            chequeBotTargetType === 'vault'
-                                                ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 font-black shadow-xs'
-                                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs">🏛️ چک‌های صندوق</span>
-                                            {chequeBotTargetType === 'vault' && <Check className="w-4 h-4 text-blue-600" />}
-                                        </div>
-                                        <div className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                                            فقط چک‌های نزد صندوق خزانه‌داری (۱۴۰۴ به بعد)
-                                        </div>
-                                    </button>
+                            {(() => {
+                                const todayShamsiStr = formatDateToJalali(new Date().toISOString());
+                                return (
+                                    <>
+                                        {/* Target Scope Selection */}
+                                        <div>
+                                            <label className="font-black text-slate-800 text-xs block mb-2">نوع و دامنه گزارش ارسالی:</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChequeBotTargetType('vault')}
+                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                                        chequeBotTargetType === 'vault'
+                                                            ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 font-black shadow-xs'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px]">🏛️ چک‌های صندوق</span>
+                                                        {chequeBotTargetType === 'vault' && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                                                    </div>
+                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
+                                                        فقط چک‌های نزد صندوق خزانه‌داری
+                                                    </div>
+                                                </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setChequeBotTargetType('returned')}
-                                        className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
-                                            chequeBotTargetType === 'returned'
-                                                ? 'bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 text-rose-950 font-black shadow-xs'
-                                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs">🔴 چک‌های برگشتی</span>
-                                            {chequeBotTargetType === 'returned' && <Check className="w-4 h-4 text-rose-600" />}
-                                        </div>
-                                        <div className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                                            فقط اسناد برگشتی و واخواست‌شده جهت پیگیری
-                                        </div>
-                                    </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChequeBotTargetType('returned')}
+                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                                        chequeBotTargetType === 'returned'
+                                                            ? 'bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 text-rose-950 font-black shadow-xs'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px]">🔴 چک‌های برگشتی</span>
+                                                        {chequeBotTargetType === 'returned' && <Check className="w-3.5 h-3.5 text-rose-600" />}
+                                                    </div>
+                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
+                                                        اسناد برگشتی و واخواست‌شده جهت پیگیری
+                                                    </div>
+                                                </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setChequeBotTargetType('filtered')}
-                                        className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
-                                            chequeBotTargetType === 'filtered'
-                                                ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-black shadow-xs'
-                                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs">🎯 لیست فیلترشده فعلی</span>
-                                            {chequeBotTargetType === 'filtered' && <Check className="w-4 h-4 text-emerald-600" />}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChequeBotTargetType('matured')}
+                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                                        chequeBotTargetType === 'matured'
+                                                            ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 text-amber-950 font-black shadow-xs'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px]">🔔 سررسید شده امروز</span>
+                                                        {chequeBotTargetType === 'matured' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                                                    </div>
+                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
+                                                        چک‌های صندوق سررسید امروز {todayShamsiStr}
+                                                    </div>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChequeBotTargetType('filtered')}
+                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                                                        chequeBotTargetType === 'filtered'
+                                                            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-black shadow-xs'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px]">🎯 لیست فیلترشده فعلی</span>
+                                                        {chequeBotTargetType === 'filtered' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                                                    </div>
+                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
+                                                        دقیقاً {filteredCheques.length} فقره مطابق جدول و سورت جاری
+                                                    </div>
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                                            دقیقاً {filteredCheques.length} فقره مطابق جدول و سورت جاری
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
 
                             {/* Platforms Selection */}
                             <div>
@@ -6409,7 +6434,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <span className="text-sm font-black text-blue-950 font-mono">
                                         {chequeBotTargetType === 'filtered' 
                                             ? filteredCheques.length 
-                                            : (chequeBotTargetType === 'returned' ? chequesData.filter(c => c.statusGroup === 'returned').length : chequesData.filter(c => c.statusGroup === 'in_hand').length)
+                                            : (chequeBotTargetType === 'returned' 
+                                                ? chequesData.filter(c => c.statusGroup === 'returned').length 
+                                                : (chequeBotTargetType === 'matured'
+                                                    ? chequesData.filter(c => c.statusGroup === 'in_hand' && formatDateToJalali(c.dueDate) === todayShamsiStr).length
+                                                    : chequesData.filter(c => c.statusGroup === 'in_hand').length))
                                         } فقره چک
                                     </span>
                                 </div>
@@ -6421,11 +6450,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 ? filteredCheques.reduce((s, c) => s + c.amount, 0)
                                                 : (chequeBotTargetType === 'returned'
                                                     ? chequesData.filter(c => c.statusGroup === 'returned').reduce((s, c) => s + c.amount, 0)
-                                                    : chequesData.filter(c => c.statusGroup === 'in_hand').reduce((s, c) => s + c.amount, 0))
+                                                    : (chequeBotTargetType === 'matured'
+                                                        ? chequesData.filter(c => c.statusGroup === 'in_hand' && formatDateToJalali(c.dueDate) === todayShamsiStr).reduce((s, c) => s + c.amount, 0)
+                                                        : chequesData.filter(c => c.statusGroup === 'in_hand').reduce((s, c) => s + c.amount, 0)))
                                         )} ریال
                                     </span>
                                 </div>
                             </div>
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         {/* Modal Footer */}

@@ -95,7 +95,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     }).catch(console.error);
   }, []);
 
-  const fetchSayanRemittance = async () => {
+  const fetchSayanRemittance = async (forceOverwrite = false) => {
     setLoadingSayan(true);
     setSayanError(null);
     try {
@@ -110,8 +110,8 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
       });
 
       if (res) {
-        // Only set if nothing is attached yet
-        if (attachedRemittances.length === 0) {
+        // Only set if nothing is attached yet, or if forced to overwrite
+        if (forceOverwrite || attachedRemittances.length === 0) {
           setAttachedRemittances([res]);
         }
       } else {
@@ -295,7 +295,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fetchSayanRemittance}
+                    onClick={() => fetchSayanRemittance(true)}
                     disabled={loadingSayan}
                     className="text-xs bg-white text-indigo-700 border border-indigo-300 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 hover:bg-indigo-50 transition-colors shadow-2xs"
                   >
