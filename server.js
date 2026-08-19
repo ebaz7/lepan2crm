@@ -2105,7 +2105,11 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
 
         // DocType Filter
         if (docType && docType !== 'all') {
-            whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${docType.replace(/'/g, "''")}'`);
+            if (docType === 'all_exit') {
+                whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) IN ('12', '23')`);
+            } else {
+                whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${docType.replace(/'/g, "''")}'`);
+            }
         } else {
             whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')`);
         }
@@ -2420,10 +2424,12 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
         }
 
         // Match conditions in STR_TBL_010
-        let targetDocType = docType || 'all'; // Default to 'all' to look up all sales and exit remittances (12, 23, 3, 13)
+        let targetDocType = docType || 'all_exit'; // Default to 'all_exit' to look up only sales and exit remittances (12, 23)
         let whereClauses = [];
         if (targetDocType === 'all') {
             whereClauses.push("RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')");
+        } else if (targetDocType === 'all_exit') {
+            whereClauses.push("RTRIM(LTRIM(t10.Field_009)) IN ('12', '23')");
         } else {
             whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${targetDocType.replace(/'/g, "''")}'`);
         }
@@ -2636,7 +2642,7 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                 }
             }
             
-            let whereClauses = ["t10.Field_009 IN ('12', '23', '3')"];
+            let whereClauses = ["t10.Field_009 IN ('12', '23')"];
             
             if (pDate) {
                 const sanitizedDate = String(pDate).replace(/'/g, "''").trim();

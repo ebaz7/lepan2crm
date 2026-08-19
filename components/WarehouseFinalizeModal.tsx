@@ -52,7 +52,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
 
   const [dateFrom, setDateFrom] = useState<string>(getMonthStartJalaliStr());
   const [dateTo, setDateTo] = useState<string>(getTodayJalaliStr());
-  const [docType, setDocType] = useState<string>('all');
+  const [docType, setDocType] = useState<string>('all_exit');
   const [searchResults, setSearchResults] = useState<SayanSalesRemittanceResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -151,43 +151,119 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     setLoadingSayan(true);
     setSayanError(null);
     try {
-      const personCode = permit.sayanPersonCode || permit.destinations?.[0]?.sayanPersonCode;
-      const recipientName = permit.recipientName || permit.destinations?.[0]?.recipientName;
+      const personCode = permit.sayanPersonCode ? String(permit.sayanPersonCode) : (permit.destinations?.[0]?.sayanPersonCode ? String(permit.destinations?.[0]?.sayanPersonCode) : '');
+      const recipientName = permit.recipientName || permit.destinations?.[0]?.recipientName || '';
+      const permitNumberStr = permit.permitNumber ? String(permit.permitNumber) : '';
 
-      const res = await lookupSayanSalesRemittance({
-        personCode,
-        recipientName,
-        permitDate: permit.date,
-        permitNumber: permit.permitNumber,
-        docType: 'all' // Query all related sales and exit remittances (matching Sayan reports)
+      let detectedTerm = '';
+      if (personCode && personCode.trim() !== '' && personCode !== '0' && personCode !== '---') {
+        detectedTerm = personCode.trim();
+      } else if (recipientName && recipientName.trim() !== '') {
+        detectedTerm = recipientName.replace(/\(.*\)/g, '').trim();
+      } else if (permitNumberStr && permitNumberStr.trim() !== '') {
+        detectedTerm = permitNumberStr.trim();
+      }
+
+      setSearchQuery(detectedTerm);
+
+      // Perform deep automatic checking using fetchSayanSalesRemittances with relaxed date parameters
+      const response = await fetchSayanSalesRemittances({
+        dateFrom: '', // relaxed date from
+        dateTo: '', // relaxed date to
+        search: detectedTerm,
+        docType: 'all_exit' // restricted only to sales (23) and exit (12)
       });
 
-      if (res) {
-        // Only set if nothing is attached yet, or if forced to overwrite
-        if (forceOverwrite || attachedRemittances.length === 0) {
-          setAttachedRemittances([res]);
+      if (response && response.success && response.remittances && response.remittances.length > 0) {
+        const list = response.remittances;
+        setSearchResults(list);
+        setHasSearched(true);
 
-          // Automatically apply Sayan values to items so supervisor doesn't have to manually click
-          if (res.items && res.items.length > 0) {
-            const newItems: ExitPermitItem[] = res.items.map((it, idx) => ({
-              id: generateUUID(),
-              goodsName: it.goodsName || `کالا ${idx + 1}`,
-              cartonCount: it.cartonCount || 0,
-              weight: it.netQty || 0,
-              deliveredCartonCount: it.cartonCount || 0,
-              deliveredWeight: it.netQty || 0,
-              grossWeight: it.grossQty || it.netQty || 0,
-              bobbinCount: it.bobbinCount || 0,
-              grade: it.grade || 'AA',
-              twistDirection: it.twistDirection || 'Z',
-              itemCode: it.itemCode || '',
-              description: it.description || ''
-            }));
-            setItems(newItems);
+        if (forceOverwrite || attachedRemittances.length === 0) {
+          let toAttach: SayanSalesRemittanceResult[] = [];
+          if (list.length === 1) {
+            toAttach = [list[0]];
+          } else {
+            // Match Sayan Person Code if we have a match
+            const matchCode = personCode ? personCode.trim() : '';
+            if (matchCode) {
+              toAttach = list.filter(r => r.personCode && String(r.personCode).trim() === matchCode);
+            }
+            // Match Name
+            if (toAttach.length === 0 && recipientName) {
+              const cleanRecipient = recipientName.replace(/\s+/g, '');
+              toAttach = list.filter(r => r.personFullName && r.personFullName.replace(/\s+/g, '').includes(cleanRecipient));
+            }
+            // Fallback to first if still empty
+            if (toAttach.length === 0) {
+              toAttach = [list[0]];
+            }
+          }
+
+          if (toAttach.length > 0) {
+            setAttachedRemittances(toAttach);
+
+            const merged = getMergedRemittance(toAttach);
+            if (merged && merged.items && merged.items.length > 0) {
+              const newItems: ExitPermitItem[] = merged.items.map((it, idx) => ({
+                id: generateUUID(),
+                goodsName: it.goodsName || `کالا ${idx + 1}`,
+                cartonCount: it.cartonCount || 0,
+                weight: it.netQty || 0,
+                deliveredCartonCount: it.cartonCount || 0,
+                deliveredWeight: it.netQty || 0,
+                grossWeight: it.grossQty || it.netQty || 0,
+                bobbinCount: it.bobbinCount || 0,
+                grade: it.grade || 'AA',
+                twistDirection: it.twistDirection || 'Z',
+                itemCode: it.itemCode || '',
+                description: it.description || ''
+              }));
+              setItems(newItems);
+            }
           }
         }
       } else {
-        setSayanError('حواله فروش/خروج مرتبط برای این مشتری در سایان یافت نشد');
+        // Fallback check by Factory Exit Permit Number if we haven't searched for it yet
+        if (permitNumberStr && permitNumberStr.trim() !== '' && detectedTerm !== permitNumberStr.trim()) {
+          setSearchQuery(permitNumberStr.trim());
+          const fallbackRes = await fetchSayanSalesRemittances({
+            dateFrom: '',
+            dateTo: '',
+            search: permitNumberStr.trim(),
+            docType: 'all_exit'
+          });
+
+          if (fallbackRes && fallbackRes.success && fallbackRes.remittances && fallbackRes.remittances.length > 0) {
+            setSearchResults(fallbackRes.remittances);
+            setHasSearched(true);
+
+            if (forceOverwrite || attachedRemittances.length === 0) {
+              setAttachedRemittances([fallbackRes.remittances[0]]);
+              const merged = fallbackRes.remittances[0];
+              if (merged.items && merged.items.length > 0) {
+                const newItems: ExitPermitItem[] = merged.items.map((it, idx) => ({
+                  id: generateUUID(),
+                  goodsName: it.goodsName || `کالا ${idx + 1}`,
+                  cartonCount: it.cartonCount || 0,
+                  weight: it.netQty || 0,
+                  deliveredCartonCount: it.cartonCount || 0,
+                  deliveredWeight: it.netQty || 0,
+                  grossWeight: it.grossQty || it.netQty || 0,
+                  bobbinCount: it.bobbinCount || 0,
+                  grade: it.grade || 'AA',
+                  twistDirection: it.twistDirection || 'Z',
+                  itemCode: it.itemCode || '',
+                  description: it.description || ''
+                }));
+                setItems(newItems);
+              }
+            }
+            return;
+          }
+        }
+
+        setSayanError('سیستم موفق به یافتن خودکار حواله متناظر در سایان نشد. لطفاً از کادر جستجوی زیر به صورت دستی استعلام بگیرید.');
       }
     } catch (e: any) {
       setSayanError(e.message || 'خطا در ارتباط با سایان');
@@ -476,11 +552,9 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                       onChange={e => setDocType(e.target.value)}
                       className="w-full text-xs border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-bold bg-white"
                     >
-                      <option value="all">همه اسناد خروج (12, 23, 3, 13)</option>
+                      <option value="all_exit">همه اسناد خروج (فروش ۲۳ و خروج ۱۲)</option>
                       <option value="23">فقط حواله فروش (۲۳)</option>
-                      <option value="12">سایر حواله‌ها (۱۲)</option>
-                      <option value="3">حواله انبار / مصرف (۳)</option>
-                      <option value="13">برگشت از فروش (۱۳)</option>
+                      <option value="12">فقط حواله خروج (۱۲)</option>
                     </select>
                   </div>
 
