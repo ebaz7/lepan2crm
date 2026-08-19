@@ -2131,7 +2131,7 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
         // Person Code Filter
         if (personCode) {
             const sanitizedPerson = personCode.replace(/'/g, "''");
-            whereClauses.push(`(RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPerson}' OR RTRIM(LTRIM(p.Field_003)) = '${sanitizedPerson}' OR RTRIM(LTRIM(p.Field_005)) = '${sanitizedPerson}')`);
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_010)) = '${sanitizedPerson}'`);
         }
 
         // Store ID Filter
@@ -2143,18 +2143,14 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
         if (search) {
             const sanitized = search.replace(/'/g, "''");
             const sqlNormalize = (col) => `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${col}, ''), N'ي', N'ی'), N'ك', N'ک'), N'‌', N' '), N'أ', N'ا')`;
-            const jsNorm = String(search).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/‌/g, ' ').replace(/أ/g, 'ا').replace(/'/g, "''").trim();
+            const jsNorm = String(search).replace(/ي/g, 'y').replace(/ك/g, 'k').replace(/‌/g, ' ').replace(/أ/g, 'a').replace(/'/g, "''").trim();
             
             const searchConds = [
                 `RTRIM(LTRIM(t10.Field_005)) LIKE N'%${sanitized}%'`,
                 `RTRIM(LTRIM(t10.Field_006)) LIKE N'%${sanitized}%'`,
                 `RTRIM(LTRIM(t10.Field_010)) LIKE N'%${sanitized}%'`,
-                `${sqlNormalize('p.Field_006')} LIKE N'%${jsNorm}%'`,
-                `${sqlNormalize('p.Field_007')} LIKE N'%${jsNorm}%'`,
-                `${sqlNormalize('p.Field_002')} LIKE N'%${jsNorm}%'`,
                 `${sqlNormalize('t07.Field_006')} LIKE N'%${jsNorm}%'`,
                 `RTRIM(LTRIM(t11.Field_005)) LIKE N'%${sanitized}%'`,
-                `${sqlNormalize('s04.Field_003')} LIKE N'%${jsNorm}%'`,
                 `${sqlNormalize('t22.Field_004')} LIKE N'%${jsNorm}%'`,
                 `${sqlNormalize('t10.Field_029')} LIKE N'%${jsNorm}%'`
             ];
@@ -2201,8 +2197,6 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 GROUP BY t21_sub.Field_004
             ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
             LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             WHERE ${whereClauses.join(' AND ')}
             ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
