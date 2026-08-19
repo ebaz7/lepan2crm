@@ -2201,6 +2201,8 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 GROUP BY t21_sub.Field_004
             ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
             LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
+            LEFT JOIN GNR_TBL_001 p ON p.Field_003 = t10.Field_010 OR p.Field_005 = t10.Field_010
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             WHERE ${whereClauses.join(' AND ')}
             ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
