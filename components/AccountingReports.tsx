@@ -135,6 +135,17 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [prodGrouping, setProdGrouping] = useState<'group' | 'item' | 'date'>('group');
     const [prodSearch, setProdSearch] = useState('');
 
+    // --- PRODUCTION COMPARISON STATE ---
+    const [prodCompareMode, setProdCompareMode] = useState(false);
+    const [prodCompareDateFromB, setProdCompareDateFromB] = useState('');
+    const [prodCompareDateToB, setProdCompareDateToB] = useState('');
+    const [prodCompareDataA, setProdCompareDataA] = useState<any[]>([]);
+    const [prodCompareDataB, setProdCompareDataB] = useState<any[]>([]);
+    const [prodCompareTotalsA, setProdCompareTotalsA] = useState<any>({ qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 });
+    const [prodCompareTotalsB, setProdCompareTotalsB] = useState<any>({ qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 });
+    const [isSendingProdCompareBot, setIsSendingProdCompareBot] = useState(false);
+    const [prodCompareGroupBy, setProdCompareGroupBy] = useState<'group' | 'item'>('group');
+
     // --- TAB 5: CHEQUES STATE ---
     const [chequesData, setChequesData] = useState<any[]>([]);
     const [chequeStatusFilter, setChequeStatusFilter] = useState('in_hand'); // Default to in_hand (vault cheques)
@@ -2006,6 +2017,217 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
+    const applyProdQuickComparePreset = (type: 'prev_year' | 'prev_season') => {
+        try {
+            const partsFrom = dateFrom.split('/');
+            const partsTo = dateTo.split('/');
+            if (partsFrom.length === 3 && partsTo.length === 3) {
+                const yFrom = parseInt(partsFrom[0]);
+                const mFrom = parseInt(partsFrom[1]);
+                const dFrom = parseInt(partsFrom[2]);
+
+                const yTo = parseInt(partsTo[0]);
+                const mTo = parseInt(partsTo[1]);
+                const dTo = parseInt(partsTo[2]);
+
+                if (type === 'prev_year') {
+                    setProdCompareDateFromB(`${yFrom - 1}/${String(mFrom).padStart(2, '0')}/${String(dFrom).padStart(2, '0')}`);
+                    setProdCompareDateToB(`${yTo - 1}/${String(mTo).padStart(2, '0')}/${String(dTo).padStart(2, '0')}`);
+                    toast.success('بازه دوم به همسان سال قبل تغییر یافت. دکمه دریافت زنده را بزنید.');
+                } else if (type === 'prev_season') {
+                    let prevMFrom = mFrom - 3;
+                    let prevYFrom = yFrom;
+                    if (prevMFrom < 1) { prevMFrom += 12; prevYFrom--; }
+
+                    let prevMTo = mTo - 3;
+                    let prevYTo = yTo;
+                    if (prevMTo < 1) { prevMTo += 12; prevYTo--; }
+
+                    setProdCompareDateFromB(`${prevYFrom}/${String(prevMFrom).padStart(2, '0')}/${String(dFrom).padStart(2, '0')}`);
+                    setProdCompareDateToB(`${prevYTo}/${String(prevMTo).padStart(2, '0')}/${String(dTo).padStart(2, '0')}`);
+                    toast.success('بازه دوم به فصل قبل تغییر یافت. دکمه دریافت زنده را بزنید.');
+                }
+            }
+        } catch {
+            toast.error('امکان محاسبه بازه خودکار وجود ندارد.');
+        }
+    };
+
+    // Prepare comparative production data
+    const getProdComparisonData = () => {
+        const groups: { [key: string]: {
+            name: string;
+            qty_61_A: number; qty_67_A: number; qty_79_A: number; qty_73_A: number; qty_schweiter_A: number; totalA: number;
+            qty_61_B: number; qty_67_B: number; qty_79_B: number; qty_73_B: number; qty_schweiter_B: number; totalB: number;
+        } } = {};
+
+        const initGroup = (key: string, label: string) => {
+            if (!groups[key]) {
+                groups[key] = {
+                    name: label,
+                    qty_61_A: 0, qty_67_A: 0, qty_79_A: 0, qty_73_A: 0, qty_schweiter_A: 0, totalA: 0,
+                    qty_61_B: 0, qty_67_B: 0, qty_79_B: 0, qty_73_B: 0, qty_schweiter_B: 0, totalB: 0
+                };
+            }
+        };
+
+        prodCompareDataA.forEach(row => {
+            const key = row.name || 'نامشخص';
+            initGroup(key, key);
+            const g = groups[key];
+            g.qty_61_A += row.qty_61 || 0;
+            g.qty_67_A += row.qty_67 || 0;
+            g.qty_79_A += row.qty_79 || 0;
+            g.qty_73_A += row.qty_73 || 0;
+            g.qty_schweiter_A += row.qty_schweiter || 0;
+            g.totalA += row.total || 0;
+        });
+
+        prodCompareDataB.forEach(row => {
+            const key = row.name || 'نامشخص';
+            initGroup(key, key);
+            const g = groups[key];
+            g.qty_61_B += row.qty_61 || 0;
+            g.qty_67_B += row.qty_67 || 0;
+            g.qty_79_B += row.qty_79 || 0;
+            g.qty_73_B += row.qty_73 || 0;
+            g.qty_schweiter_B += row.qty_schweiter || 0;
+            g.totalB += row.total || 0;
+        });
+
+        return Object.values(groups);
+    };
+
+    const handlePrintComparativeProduction = () => {
+        const title = `گزارش مقایسه‌ای آمار تولید کارخانه (${dateFrom} تا ${dateTo} در مقایسه با ${prodCompareDateFromB} تا ${prodCompareDateToB})`;
+        const data = getProdComparisonData();
+
+        let sumA = 0, sumB = 0;
+        data.forEach(r => {
+            sumA += r.totalA || 0;
+            sumB += r.totalB || 0;
+        });
+
+        const totalDiff = sumA - sumB;
+        const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
+
+        const rowsHtml = data.map((item, idx) => {
+            const diff = (item.totalA || 0) - (item.totalB || 0);
+            const diffPct = item.totalB ? (diff / item.totalB) * 100 : 0;
+            const pctText = item.totalB ? `${diffPct > 0 ? '+' : ''}${diffPct.toFixed(1)}%` : '-';
+            const pctColor = diff > 0 ? '#15803d' : (diff < 0 ? '#b91c1c' : '#475569');
+
+            return `
+                <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; font-size: 9.5pt;">
+                    <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${item.name}</td>
+                    <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.totalA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.totalB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${diff >= 0 ? '#15803d' : '#b91c1c'};">${diff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${pctColor};">${pctText}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const docHtml = `
+            <html dir="rtl" lang="fa">
+            <head>
+                <meta charset="UTF-8">
+                <title>${title}</title>
+                <style>
+                    body { font-family: 'Tahoma', sans-serif; margin: 20px; color: #0f172a; direction: rtl; }
+                    .header-box { border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; background-color: #f8fafc; margin-bottom: 20px; }
+                    .title { font-size: 14pt; font-weight: bold; text-align: center; color: #1e3a8a; margin-bottom: 10px; }
+                    .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                    .table th, .table td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
+                    .table th { background-color: #f1f5f9; font-weight: bold; }
+                    .summary-row { background-color: #e2e8f0; font-weight: bold; }
+                    .footer { margin-top: 40px; text-align: center; font-size: 8pt; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header-box">
+                    <div class="title">${title}</div>
+                    <div style="display: flex; justify-content: space-between; font-size: 9.5pt;">
+                        <div><strong>بازه اول (A):</strong> ${dateFrom} تا ${dateTo}</div>
+                        <div><strong>بازه دوم (B):</strong> ${prodCompareDateFromB} تا ${prodCompareDateToB}</div>
+                    </div>
+                </div>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: right;">نام کالا / گروه کالا</th>
+                            <th>بازه اول (A) (kg)</th>
+                            <th>بازه دوم (B) (kg)</th>
+                            <th>تفاضل (A - B) (kg)</th>
+                            <th>درصد تغییر</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        <tr class="summary-row">
+                            <td style="text-align: right;">جمع کل تولید مقایسه‌ای</td>
+                            <td>${sumA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                            <td>${sumB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                            <td style="color: ${totalDiff >= 0 ? '#15803d' : '#b91c1c'};">${totalDiff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                            <td style="color: ${totalDiff >= 0 ? '#15803d' : '#b91c1c'};">${sumB ? `${totalDiffPct > 0 ? '+' : ''}${totalDiffPct.toFixed(1)}%` : '-'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    <p>سامانه مدیریت هوشمند و گزارشات مالی کارخانه سایان ERP - پایش مقایسه‌ای آمار تولید</p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(docHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    };
+
+    const handleSendComparativeProductionBot = async () => {
+        setIsSendingProdCompareBot(true);
+        try {
+            const data = getProdComparisonData();
+            const res = await fetch(getEffectiveApiUrl('/api/sayan/production-report/send-compare-bot'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dateFromA: dateFrom,
+                    dateToA: dateTo,
+                    dateFromB: prodCompareDateFromB,
+                    dateToB: prodCompareDateToB,
+                    items: data.map(item => ({
+                        name: item.name,
+                        totalA: item.totalA,
+                        totalB: item.totalB
+                    }))
+                })
+            });
+
+            const resJson = await res.json();
+            if (res.ok && resJson.success) {
+                toast.success(resJson.message);
+            } else {
+                toast.error(resJson.error || 'خطا در ارسال گزارش مقایسه‌ای به بات');
+            }
+        } catch (err: any) {
+            console.error("send comparative production bot error:", err);
+            toast.error("خطا در ارسال گزارش به بات: " + err.message);
+        } finally {
+            setIsSendingProdCompareBot(false);
+        }
+    };
+
     // Prepare chart comparison data grouped by Product Group or Detailed Item Name
     const getComparisonChartData = () => {
         const groups: { [key: string]: { 
@@ -2080,15 +2302,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // ==========================================
+    // ==========================================
     // TAB 4: PRODUCTION (گزارش آمار کل تولید و ضایعات سایان)
     // ==========================================
     const fetchProduction = async () => {
         setIsLoading(true);
         try {
-            let items: any[] = [];
-            let totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 };
-            let wasteData: any = null;
-
             const normalizeDate = (str: string) => {
                 if (!str) return '';
                 return String(str).trim()
@@ -2097,149 +2316,169 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     .replace(/-/g, '/');
             };
 
-            const cleanDateFrom = normalizeDate(dateFrom);
-            const cleanDateTo = normalizeDate(dateTo) || cleanDateFrom;
+            const getKnownYarnNameByCode = (code: string, docType?: string): string => {
+                const c = code.replace(/[^0-9]/g, '');
+                if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
+                if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
+                if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
+                if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
+                if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
+                if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
+                if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
+                if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
+                if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
+                if (c.startsWith('0101')) return 'نخ POY';
+                if (c.startsWith('0104')) return 'نخ کش';
+                if (c.startsWith('0105')) return 'نخ اسپاندکس';
+                if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
+                if (docType === '61') return 'نخ POY';
+                if (docType === '67') return 'نخ DTY';
+                if (docType === '79') return 'نخ کش';
+                if (docType === '73') return 'نخ اسپاندکس';
+                return 'کالای تولیدی';
+            };
 
-            try {
-                const url = `/api/sayan/production-report?dateFrom=${encodeURIComponent(cleanDateFrom)}&dateTo=${encodeURIComponent(cleanDateTo)}`;
-                const res = await fetch(getEffectiveApiUrl(url));
-                const data = await res.json();
-                if (data.success) {
-                    items = data.items || [];
-                    totals = data.totals || totals;
-                    wasteData = data.waste;
+            const fetchSingleRange = async (from: string, to: string) => {
+                let items: any[] = [];
+                let totals = { qty_61: 0, qty_67: 0, qty_79: 0, qty_73: 0, qty_schweiter: 0, grandTotal: 0 };
+                let wasteData: any = null;
+
+                try {
+                    const url = `/api/sayan/production-report?dateFrom=${encodeURIComponent(from)}&dateTo=${encodeURIComponent(to)}`;
+                    const res = await fetch(getEffectiveApiUrl(url));
+                    const data = await res.json();
+                    if (data.success) {
+                        items = data.items || [];
+                        totals = data.totals || totals;
+                        wasteData = data.waste;
+                    }
+                } catch (err) {
+                    console.warn("Backend production-report endpoint error:", err);
                 }
-            } catch (err) {
-                console.warn("Backend production-report endpoint warning, falling back to direct sayan-proxy:", err);
+
+                if (items.length === 0) {
+                    const gregFrom = jalaliToGregorianStr(from);
+                    const gregTo = jalaliToGregorianStr(to);
+
+                    const sql = `
+                        SELECT 
+                            t10.Field_001 as DocId,
+                            t10.Field_008 as Date,
+                            RTRIM(LTRIM(t10.Field_009)) as DocType,
+                            RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                            COALESCE(
+                                NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                                NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                                NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                                NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                                NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                                NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                                RTRIM(LTRIM(t11.Field_005)),
+                                N'کالای بدون نام'
+                            ) as ItemName,
+                            t11.Field_006 as Quantity
+                        FROM STR_TBL_010 t10
+                        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                                  AND t11.Field_003 = t10.Field_004
+                                                  AND t11.Field_012 = t10.Field_018
+                        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+                        LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+                        LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                        LEFT JOIN (
+                            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                            FROM IND_TBL_021 t21_sub
+                            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                            GROUP BY t21_sub.Field_004
+                        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+                        LEFT JOIN (
+                            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                            FROM IND_TBL_021 t21_sub
+                            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                            LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                            LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                            GROUP BY t21_sub.Field_004
+                        ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+                        WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
+                          AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
+                          AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
+                        ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
+                    `;
+
+                    const rawRows = await runSayanQuery(sql);
+                    const itemsMap = new Map();
+                    let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
+
+                    rawRows.forEach((r: any) => {
+                        const itemCode = String(r.ItemCode || '').trim();
+                        let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
+                        const qty = parseFloat(r.Quantity || 0);
+                        const docType = String(r.DocType || '').trim();
+
+                        const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
+                        const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
+
+                        if (isPureCode) {
+                            rawName = getKnownYarnNameByCode(itemCode, docType);
+                        }
+
+                        if (!itemsMap.has(rawName)) {
+                            itemsMap.set(rawName, {
+                                name: rawName,
+                                unit: 'کیلوگرم',
+                                qty_61: 0,
+                                qty_67: 0,
+                                qty_79: 0,
+                                qty_73: 0,
+                                qty_schweiter: 0,
+                                total: 0
+                            });
+                        }
+
+                        const item = itemsMap.get(rawName);
+                        if (docType === '61') { item.qty_61 += qty; q61 += qty; }
+                        else if (docType === '67') { item.qty_67 += qty; q67 += qty; }
+                        else if (docType === '79') { item.qty_79 += qty; q79 += qty; }
+                        else if (docType === '73') { item.qty_73 += qty; q73 += qty; }
+                        else if (docType === '70') { item.qty_schweiter += qty; qSchweiter += qty; }
+                        item.total += qty;
+                    });
+
+                    items = Array.from(itemsMap.values());
+                    totals = {
+                        qty_61: q61,
+                        qty_67: q67,
+                        qty_79: q79,
+                        qty_73: q73,
+                        qty_schweiter: qSchweiter,
+                        grandTotal: q61 + q67 + q79 + q73 + qSchweiter
+                    };
+                }
+
+                return { items, totals, wasteData };
+            };
+
+            const cleanDateFromA = normalizeDate(dateFrom);
+            const cleanDateToA = normalizeDate(dateTo) || cleanDateFromA;
+
+            const resA = await fetchSingleRange(cleanDateFromA, cleanDateToA);
+            setProdLiveItems(resA.items);
+            setProdLiveTotals(resA.totals);
+            setProdCompareDataA(resA.items);
+            setProdCompareTotalsA(resA.totals);
+
+            if (resA.wasteData) {
+                setProdWaste(resA.wasteData);
             }
 
-            // Direct sayan-proxy query fallback if backend endpoint returned no items or couldn't reach Sayan
-            if (items.length === 0) {
-                const gregFrom = jalaliToGregorianStr(cleanDateFrom);
-                const gregTo = jalaliToGregorianStr(cleanDateTo);
-
-                const sql = `
-                    SELECT 
-                        t10.Field_001 as DocId,
-                        t10.Field_008 as Date,
-                        RTRIM(LTRIM(t10.Field_009)) as DocType,
-                        RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                        COALESCE(
-                            NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                            NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                            NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
-                            NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
-                            NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
-                            RTRIM(LTRIM(t11.Field_005)),
-                            N'کالای بدون نام'
-                        ) as ItemName,
-                        t11.Field_006 as Quantity
-                    FROM STR_TBL_010 t10
-                    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                              AND t11.Field_003 = t10.Field_004
-                                              AND t11.Field_012 = t10.Field_018
-                    LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-                    LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                    LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-                    LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-                    LEFT JOIN (
-                        SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                        FROM IND_TBL_021 t21_sub
-                        LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                        GROUP BY t21_sub.Field_004
-                    ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-                    LEFT JOIN (
-                        SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                        FROM IND_TBL_021 t21_sub
-                        LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                        LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
-                        LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
-                        GROUP BY t21_sub.Field_004
-                    ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-                    WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
-                      AND t10.Field_008 >= '${gregFrom}T00:00:00.000Z'
-                      AND t10.Field_008 <= '${gregTo}T23:59:59.999Z'
-                    ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
-                `;
-                
-                const rawRows = await runSayanQuery(sql);
-                const itemsMap = new Map();
-                let q61 = 0, q67 = 0, q79 = 0, q73 = 0, qSchweiter = 0;
-
-                const getKnownYarnNameByCode = (code: string, docType?: string): string => {
-                    const c = code.replace(/[^0-9]/g, '');
-                    if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
-                    if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
-                    if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
-                    if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
-                    if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
-                    if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
-                    if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
-                    if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
-                    if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
-                    if (c.startsWith('0101')) return 'نخ POY';
-                    if (c.startsWith('0104')) return 'نخ کش';
-                    if (c.startsWith('0105')) return 'نخ اسپاندکس';
-                    if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
-                    if (docType === '61') return 'نخ POY';
-                    if (docType === '67') return 'نخ DTY';
-                    if (docType === '79') return 'نخ کش';
-                    if (docType === '73') return 'نخ اسپاندکس';
-                    return 'کالای تولیدی';
-                };
-
-                rawRows.forEach((r: any) => {
-                    const itemCode = String(r.ItemCode || '').trim();
-                    let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
-                    const qty = parseFloat(r.Quantity || 0);
-                    const docType = String(r.DocType || '').trim();
-
-                    const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
-                    const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
-
-                    if (isPureCode) {
-                        rawName = getKnownYarnNameByCode(itemCode, docType);
-                    }
-
-                    if (!itemsMap.has(rawName)) {
-                        itemsMap.set(rawName, {
-                            name: rawName,
-                            unit: 'کیلوگرم',
-                            qty_61: 0,
-                            qty_67: 0,
-                            qty_79: 0,
-                            qty_73: 0,
-                            qty_schweiter: 0,
-                            total: 0
-                        });
-                    }
-
-                    const item = itemsMap.get(rawName);
-                    if (docType === '61') { item.qty_61 += qty; q61 += qty; }
-                    else if (docType === '67') { item.qty_67 += qty; q67 += qty; }
-                    else if (docType === '79') { item.qty_79 += qty; q79 += qty; }
-                    else if (docType === '73') { item.qty_73 += qty; q73 += qty; }
-                    else if (docType === '70') { item.qty_schweiter += qty; qSchweiter += qty; }
-                    item.total += qty;
-                });
-
-                items = Array.from(itemsMap.values());
-                totals = {
-                    qty_61: q61,
-                    qty_67: q67,
-                    qty_79: q79,
-                    qty_73: q73,
-                    qty_schweiter: qSchweiter,
-                    grandTotal: q61 + q67 + q79 + q73 + qSchweiter
-                };
+            if (prodCompareMode && prodCompareDateFromB && prodCompareDateToB) {
+                const cleanDateFromB = normalizeDate(prodCompareDateFromB);
+                const cleanDateToB = normalizeDate(prodCompareDateToB) || cleanDateFromB;
+                const resB = await fetchSingleRange(cleanDateFromB, cleanDateToB);
+                setProdCompareDataB(resB.items);
+                setProdCompareTotalsB(resB.totals);
             }
 
-            setProdLiveItems(items);
-            setProdLiveTotals(totals);
-            if (wasteData) {
-                setProdWaste(wasteData);
-            }
         } catch (e: any) {
             console.error("fetchProduction Error:", e);
             toast.error("خطا در دریافت آمار تولید: " + e.message);
@@ -4845,6 +5084,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
+                                    onClick={() => setProdCompareMode(!prodCompareMode)}
+                                    className={`font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all ${prodCompareMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                                >
+                                    <TrendingUp className="h-4 w-4" />
+                                    {prodCompareMode ? 'غیرفعال‌سازی مقایسه' : 'مقایسه دوره‌ای تولید'}
+                                </button>
+
+                                <button
                                     onClick={fetchProduction}
                                     disabled={isLoading}
                                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
@@ -4853,65 +5100,245 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     دریافت زنده از سایان
                                 </button>
 
-                                <button
-                                    onClick={handleSaveWaste}
-                                    disabled={isSavingWaste}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
-                                >
-                                    <Save className="h-4 w-4" />
-                                    ذخیره مقادیر ضایعات
-                                </button>
+                                {!prodCompareMode && (
+                                    <button
+                                        onClick={handleSaveWaste}
+                                        disabled={isSavingWaste}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        ذخیره مقادیر ضایعات
+                                    </button>
+                                )}
 
                                 <button
-                                    onClick={() => window.print()}
+                                    onClick={prodCompareMode ? handlePrintComparativeProduction : () => window.print()}
                                     className="bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
                                 >
                                     <Printer className="h-4 w-4" />
-                                    چاپ / PDF
+                                    {prodCompareMode ? 'چاپ مقایسه‌ای' : 'چاپ / PDF'}
                                 </button>
 
-                                <button
-                                    onClick={handleExportExcel}
-                                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
-                                >
-                                    <Download className="h-4 w-4" />
-                                    خروجی اکسل
-                                </button>
+                                {!prodCompareMode && (
+                                    <button
+                                        onClick={handleExportExcel}
+                                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        خروجی اکسل
+                                    </button>
+                                )}
 
                                 <button
-                                    onClick={handleSendBotReport}
-                                    disabled={isSendingBot}
+                                    onClick={prodCompareMode ? handleSendComparativeProductionBot : handleSendBotReport}
+                                    disabled={prodCompareMode ? isSendingProdCompareBot : isSendingBot}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
                                 >
                                     <Send className="h-4 w-4" />
-                                    {isSendingBot ? 'در حال ارسال...' : 'ارسال به گروه‌های تلگرام / بله'}
+                                    {prodCompareMode 
+                                        ? (isSendingProdCompareBot ? 'در حال ارسال...' : 'ارسال مقایسه به بات')
+                                        : (isSendingBot ? 'در حال ارسال...' : 'ارسال به گروه‌های تلگرام / بله')
+                                    }
                                 </button>
                             </div>
                         </div>
 
                         {/* Top Filters & Stats */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <span className="text-xs font-bold text-slate-700">ملاک تاریخ گزارش:</span>
-                                <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-900">
-                                    <span>از: {dateFrom || '---'}</span>
-                                    <span>تا: {dateTo || '---'}</span>
-                                </div>
-                                <span className="text-[11px] text-slate-500">(می‌توانید تاریخ را در نوار بالای صفحه تغییر داده و دکمه دریافت زنده را بزنید)</span>
-                            </div>
+                        {prodCompareMode ? (
+                            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-200 space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-indigo-900 block">بازه اول (A):</label>
+                                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-900 shadow-sm">
+                                            <span>از: {dateFrom || '---'}</span>
+                                            <span>تا: {dateTo || '---'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 block">(تنظیم شده در نوار بالای صفحه)</span>
+                                    </div>
 
-                            <div className="flex items-center gap-4 text-xs font-bold">
-                                <div className="bg-blue-50 text-blue-900 px-3 py-1.5 rounded-lg border border-blue-200">
-                                    تولید کل: {prodLiveTotals.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-indigo-900 block">بازه دوم (B):</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="از تاریخ (مثال: 1402/01/01)"
+                                                value={prodCompareDateFromB}
+                                                onChange={(e) => setProdCompareDateFromB(e.target.value)}
+                                                className="bg-white px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-950 shadow-sm focus:ring-1 focus:ring-indigo-500 outline-none w-full text-center"
+                                            />
+                                            <span className="text-xs text-slate-400 font-bold">تا</span>
+                                            <input
+                                                type="text"
+                                                placeholder="تا تاریخ"
+                                                value={prodCompareDateToB}
+                                                onChange={(e) => setProdCompareDateToB(e.target.value)}
+                                                className="bg-white px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-950 shadow-sm focus:ring-1 focus:ring-indigo-500 outline-none w-full text-center"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-xs font-bold text-slate-600">میانبرهای بازه مقایسه‌ای:</span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => applyProdQuickComparePreset('prev_year')}
+                                                className="bg-white hover:bg-blue-50 text-blue-800 border border-blue-200 rounded text-[11px] px-2.5 py-1 font-bold transition-all shadow-xs cursor-pointer w-full text-center"
+                                            >
+                                                همسان سال قبل (پارسال)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyProdQuickComparePreset('prev_season')}
+                                                className="bg-white hover:bg-blue-50 text-blue-800 border border-blue-200 rounded text-[11px] px-2.5 py-1 font-bold transition-all shadow-xs cursor-pointer w-full text-center"
+                                            >
+                                                فصل قبل
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="bg-rose-50 text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200">
-                                    ضایعات کل: {prodWaste.totalWaste.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg ({prodWaste.totalPct.toFixed(2)}%)
+
+                                <div className="flex flex-wrap items-center justify-between border-t border-indigo-100 pt-3 gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-indigo-900">نوع دسته‌بندی گزارش:</span>
+                                        <div className="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300">
+                                            <button
+                                                onClick={() => setProdCompareGroupBy('group')}
+                                                className={`text-[11px] font-bold px-3 py-1 rounded-md transition-all ${prodCompareGroupBy === 'group' ? 'bg-white text-indigo-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                                            >
+                                                گروه کالا
+                                            </button>
+                                            <button
+                                                onClick={() => setProdCompareGroupBy('item')}
+                                                className={`text-[11px] font-bold px-3 py-1 rounded-md transition-all ${prodCompareGroupBy === 'item' ? 'bg-white text-indigo-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                                            >
+                                                نام دقیق کالا
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 text-xs font-bold">
+                                        <div className="bg-blue-50 text-blue-900 px-3 py-1.5 rounded-lg border border-blue-200">
+                                            تولید بازه اول (A): {prodCompareTotalsA.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                                        </div>
+                                        <div className="bg-indigo-50 text-indigo-900 px-3 py-1.5 rounded-lg border border-indigo-200">
+                                            تولید بازه دوم (B): {prodCompareTotalsB.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                                        </div>
+                                        {prodCompareTotalsB.grandTotal > 0 && (
+                                            <div className={`px-3 py-1.5 rounded-lg border ${((prodCompareTotalsA.grandTotal - prodCompareTotalsB.grandTotal) >= 0) ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-rose-50 text-rose-900 border-rose-200'}`}>
+                                                درصد تغییر: {(((prodCompareTotalsA.grandTotal - prodCompareTotalsB.grandTotal) / prodCompareTotalsB.grandTotal) * 100).toFixed(1)}%
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-xs font-bold text-slate-700">ملاک تاریخ گزارش:</span>
+                                    <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-900">
+                                        <span>از: {dateFrom || '---'}</span>
+                                        <span>تا: {dateTo || '---'}</span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-500">(می‌توانید تاریخ را در نوار بالای صفحه تغییر داده و دکمه دریافت زنده را بزنید)</span>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-xs font-bold">
+                                    <div className="bg-blue-50 text-blue-900 px-3 py-1.5 rounded-lg border border-blue-200">
+                                        تولید کل: {prodLiveTotals.grandTotal.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg
+                                    </div>
+                                    <div className="bg-rose-50 text-rose-900 px-3 py-1.5 rounded-lg border border-rose-200">
+                                        ضایعات کل: {prodWaste.totalWaste.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg ({prodWaste.totalPct.toFixed(2)}%)
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Main Production & Waste Table matching user screenshot format */}
-                        <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
+                        {prodCompareMode ? (
+                            <div className="border border-indigo-200 rounded-xl overflow-hidden shadow-sm bg-white mb-6">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-center text-xs sm:text-sm border-collapse">
+                                        <thead>
+                                            <tr className="bg-indigo-900 text-white font-extrabold border-b border-indigo-950 text-xs">
+                                                <th className="p-3 border-r border-indigo-950 text-right min-w-[200px]">نام کالا / گروه کالا</th>
+                                                <th className="p-3 border-r border-indigo-950 w-44">بازه اول (A) (kg)</th>
+                                                <th className="p-3 border-r border-indigo-950 w-44">بازه دوم (B) (kg)</th>
+                                                <th className="p-3 border-r border-indigo-950 w-44">تفاضل (A - B) (kg)</th>
+                                                <th className="p-3 w-44">درصد تغییر</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 text-slate-800 font-medium text-xs">
+                                            {isLoading ? (
+                                                <tr>
+                                                    <td colSpan={5} className="py-12 text-center text-slate-500">
+                                                        <div className="flex flex-col items-center justify-center gap-2">
+                                                            <RefreshCw className="h-6 w-6 animate-spin text-indigo-600" />
+                                                            <span>در حال دریافت اطلاعات زنده و محاسبه مقایسه‌ای...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : getProdComparisonData().length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                                                        داده‌ای برای دوره‌های انتخاب شده جهت مقایسه یافت نشد.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                <>
+                                                    {getProdComparisonData().map((row, idx) => {
+                                                        const diff = (row.totalA || 0) - (row.totalB || 0);
+                                                        const diffPct = row.totalB ? (diff / row.totalB) * 100 : 0;
+                                                        const pctText = row.totalB ? `${diff > 0 ? '+' : ''}${diffPct.toFixed(1)}%` : '-';
+                                                        const pctColor = diff > 0 ? 'text-emerald-700 font-extrabold' : (diff < 0 ? 'text-rose-700 font-extrabold' : 'text-slate-600');
+
+                                                        return (
+                                                            <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-indigo-50/20 transition-colors`}>
+                                                                <td className="p-3 border-r border-slate-200 text-right font-bold text-slate-900 pr-4">{row.name}</td>
+                                                                <td className="p-3 border-r border-slate-200 font-mono">{(row.totalA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                                                                <td className="p-3 border-r border-slate-200 font-mono">{(row.totalB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                                                                <td className={`p-3 border-r border-slate-200 font-mono font-bold ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {diff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                                                </td>
+                                                                <td className={`p-3 font-mono font-bold ${pctColor}`}>{pctText}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                    
+                                                    {/* Total Row */}
+                                                    <tr className="bg-slate-200 text-slate-900 font-extrabold text-xs border-t-2 border-slate-400">
+                                                        <td className="p-3 text-right pr-4 font-black">جمع کل تولید مقایسه‌ای</td>
+                                                        <td className="p-3 font-mono font-black">
+                                                            {getProdComparisonData().reduce((sum, r) => sum + (r.totalA || 0), 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                                        </td>
+                                                        <td className="p-3 font-mono font-black">
+                                                            {getProdComparisonData().reduce((sum, r) => sum + (r.totalB || 0), 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                                        </td>
+                                                        {(() => {
+                                                            const totalA = getProdComparisonData().reduce((sum, r) => sum + (r.totalA || 0), 0);
+                                                            const totalB = getProdComparisonData().reduce((sum, r) => sum + (r.totalB || 0), 0);
+                                                            const diff = totalA - totalB;
+                                                            const diffPct = totalB ? (diff / totalB) * 100 : 0;
+                                                            return (
+                                                                <>
+                                                                    <td className={`p-3 font-mono font-black ${diff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                                        {diff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                                                    </td>
+                                                                    <td className={`p-3 font-mono font-black ${diff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                                        {totalB ? `${diff > 0 ? '+' : ''}${diffPct.toFixed(1)}%` : '-'}
+                                                                    </td>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </tr>
+                                                </>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
                             {/* Desktop View */}
                             <div className="overflow-x-auto hidden md:block">
                                 <table className="w-full text-center text-xs sm:text-sm border-collapse">
@@ -5200,8 +5627,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 )}
                             </div>
                         </div>
+                    )}
 
-                        {/* Waste Details Notes */}
+                        {!prodCompareMode && (
+                            <>
+                                {/* Waste Details Notes */}
                         <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                             <label className="block text-xs font-bold text-slate-800">
                                 📝 جزئیات و توضیحات ضایعات (این توضیحات در کپشن زیر PDF ارسالی به گروه قرار خواهد گرفت):
@@ -5395,6 +5825,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 </>
                             )}
                         </div>
+                            </>
+                        )}
                     </div>
                 )}
 

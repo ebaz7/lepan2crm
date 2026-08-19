@@ -138,6 +138,7 @@ export const lookupSayanSalesRemittance = async (params: {
   recipientName?: string;
   permitDate?: string;
   permitNumber?: number | string;
+  docType?: string;
 }): Promise<SayanSalesRemittanceResult | null> => {
   try {
     const res = await apiCall<{ success: boolean; remittance?: SayanSalesRemittanceResult; error?: string }>(

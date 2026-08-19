@@ -4243,6 +4243,63 @@ const Settings: React.FC<SettingsProps> = ({
                           />
                         </div>
                       </div>
+
+                      <h4 className="font-bold text-sm text-indigo-800 pt-2 border-t border-dashed">
+                        📊 تنظیمات گروه پایش و مقایسه تولید (جدید)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه تلگرام مقایسه آمار تولید
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.productionCompareTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                productionCompareTelegramGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="-100..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه بله مقایسه آمار تولید
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.productionCompareBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                productionCompareBaleGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="ID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه واتساپ مقایسه آمار تولید
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.productionCompareWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                productionCompareWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">

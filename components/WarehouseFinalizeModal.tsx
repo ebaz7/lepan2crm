@@ -106,16 +106,36 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
         personCode,
         recipientName,
         permitDate: permit.date,
-        permitNumber: permit.permitNumber
+        permitNumber: permit.permitNumber,
+        docType: '23' // Strictly lookup final sales remittance (23)
       });
 
       if (res) {
         // Only set if nothing is attached yet, or if forced to overwrite
         if (forceOverwrite || attachedRemittances.length === 0) {
           setAttachedRemittances([res]);
+
+          // Automatically apply Sayan values to items so supervisor doesn't have to manually click
+          if (res.items && res.items.length > 0) {
+            const newItems: ExitPermitItem[] = res.items.map((it, idx) => ({
+              id: generateUUID(),
+              goodsName: it.goodsName || `کالا ${idx + 1}`,
+              cartonCount: it.cartonCount || 0,
+              weight: it.netQty || 0,
+              deliveredCartonCount: it.cartonCount || 0,
+              deliveredWeight: it.netQty || 0,
+              grossWeight: it.grossQty || it.netQty || 0,
+              bobbinCount: it.bobbinCount || 0,
+              grade: it.grade || 'AA',
+              twistDirection: it.twistDirection || 'Z',
+              itemCode: it.itemCode || '',
+              description: it.description || ''
+            }));
+            setItems(newItems);
+          }
         }
       } else {
-        setSayanError('حواله فروشی برای این مشتری در سایان یافت نشد');
+        setSayanError('حواله فروش (۲۳) برای این مشتری در سایان یافت نشد');
       }
     } catch (e: any) {
       setSayanError(e.message || 'خطا در ارتباط با سایان');
@@ -131,7 +151,8 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     try {
       const res = await lookupSayanSalesRemittance({
         recipientName: searchQuery.trim(),
-        permitNumber: searchQuery.trim()
+        permitNumber: searchQuery.trim(),
+        docType: '23' // Target final sales remittance
       });
 
       if (res) {

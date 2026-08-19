@@ -163,7 +163,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
   const [dateFrom, setDateFrom] = useState<string>(defaultDateFrom || getMonthStartJalaliStr());
   const [dateTo, setDateTo] = useState<string>(defaultDateTo || getTodayJalaliStr());
   const [search, setSearch] = useState<string>('');
-  const [docType, setDocType] = useState<string>('all');
+  const [docType, setDocType] = useState<string>('23');
   const [storeId, setStoreId] = useState<string>('all');
   
   const [remittances, setRemittances] = useState<SayanSalesRemittanceResult[]>([]);
@@ -236,8 +236,8 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
 
         const docTypeStr = String(row.DocType || '').trim();
         let docTypeLabel = 'حواله فروش';
-        if (docTypeStr === '12') docTypeLabel = 'حواله فروش';
-        else if (docTypeStr === '23') docTypeLabel = 'حواله خروج';
+        if (docTypeStr === '23') docTypeLabel = 'حواله فروش';
+        else if (docTypeStr === '12') docTypeLabel = 'سایر حواله‌ها (۱۲)';
         else if (docTypeStr === '3') docTypeLabel = 'حواله انبار';
         else if (docTypeStr === '13') docTypeLabel = 'برگشت از فروش';
         else if (docTypeStr === '10') docTypeLabel = 'رسید انبار';
@@ -676,9 +676,9 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
               onChange={(e) => setDocType(e.target.value)}
               className="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
+              <option value="23">فقط حواله فروش (۲۳)</option>
               <option value="all">همه اسناد خروج (12, 23, 3, 13)</option>
-              <option value="12">فقط حواله فروش (12)</option>
-              <option value="23">حواله خروج انبار (23)</option>
+              <option value="12">سایر حواله‌ها (12)</option>
               <option value="3">حواله انبار / مصرف (3)</option>
               <option value="13">برگشت از فروش (13)</option>
             </select>

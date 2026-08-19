@@ -2232,3 +2232,115 @@ export const generateProductionReportPDF = async (
   }
 };
 
+// 6. Production Compare Report PDF
+export const generateProductionCompareReportPDF = async (
+  title,
+  dateFromA,
+  dateToA,
+  dateFromB,
+  dateToB,
+  items = []
+) => {
+  try {
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+
+    const rowsHtml = items.map((item, idx) => {
+      const diff = (item.totalA || 0) - (item.totalB || 0);
+      const diffPct = item.totalB ? (diff / item.totalB) * 100 : 0;
+      const pctText = item.totalB ? `${diffPct > 0 ? '+' : ''}${diffPct.toFixed(1)}%` : '-';
+      const pctColor = diff > 0 ? '#15803d' : (diff < 0 ? '#b91c1c' : '#475569');
+
+      return `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; font-size: 9.5pt;">
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #1e293b;">${item.name}</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.totalA || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.totalB || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${diff >= 0 ? '#15803d' : '#b91c1c'};">${diff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${pctColor};">${pctText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const sumA = items.reduce((sum, item) => sum + (item.totalA || 0), 0);
+    const sumB = items.reduce((sum, item) => sum + (item.totalB || 0), 0);
+    const totalDiff = sumA - sumB;
+    const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
+
+    const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="fa">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page { size: A4 portrait; margin: 10mm; }
+            body { font-family: 'Tahoma', 'IRANSans', sans-serif; margin: 0; padding: 10px; color: #0f172a; direction: rtl; }
+            .header-table { width: 100%; margin-bottom: 15px; border-collapse: collapse; }
+            .header-box { border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 9.5pt; background: #f8fafc; }
+            .title { font-size: 14pt; font-weight: 800; text-align: center; color: #1e3a8a; }
+            .report-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 9.5pt; }
+            .report-table th, .report-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; }
+            .report-table th { background-color: #f1f5f9; color: #0f172a; font-weight: 800; }
+            .summary-row { background-color: #e2e8f0; font-weight: bold; font-size: 10pt; }
+            .footer { margin-top: 30px; text-align: center; font-size: 8pt; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        </style>
+    </head>
+    <body>
+        <table class="header-table">
+            <tr>
+                <td style="width: 45%;">
+                    <div class="header-box">
+                        <div><strong>بازه اول (A):</strong> ${dateFromA} تا ${dateToA}</div>
+                        <div><strong>بازه دوم (B):</strong> ${dateFromB} تا ${dateToB}</div>
+                    </div>
+                </td>
+                <td style="width: 55%; text-align: left;" class="title">
+                    ${title || 'گزارش مقایسه‌ای آمار تولید (سایان ERP)'}
+                </td>
+            </tr>
+        </table>
+
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th style="text-align: right;">نام کالا / گروه کالا</th>
+                    <th>بازه اول (A) (kg)</th>
+                    <th>بازه دوم (B) (kg)</th>
+                    <th>تفاضل (A - B) (kg)</th>
+                    <th>درصد تغییر</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+                <tr class="summary-row">
+                    <td style="text-align: right; padding-right: 12px;">جمع کل تولید مقایسه‌ای</td>
+                    <td>${sumA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td>${sumB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td style="color: ${totalDiff >= 0 ? '#15803d' : '#b91c1c'};">${totalDiff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td style="color: ${totalDiff >= 0 ? '#15803d' : '#b91c1c'};">${sumB ? `${totalDiffPct > 0 ? '+' : ''}${totalDiffPct.toFixed(1)}%` : '-'}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <p>این گزارش به صورت خودکار توسط سیستم مقایسه‌ای آمار تولید سایان ERP تولید شده است.</p>
+        </div>
+    </body>
+    </html>
+    `;
+
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({
+      format: 'A4',
+      portrait: true,
+      printBackground: true,
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
+    });
+    await page.close();
+    return pdf;
+  } catch (e) {
+    console.error("Generate Production Compare Report PDF Error:", e);
+    throw e;
+  }
+};
+

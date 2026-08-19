@@ -411,6 +411,12 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
         { key: 'factoryGroupId2', plat: 'telegram' },
     ];
 
+    const productionCompareKeys = [
+        { key: 'productionCompareTelegramGroupId', plat: 'telegram' },
+        { key: 'productionCompareBaleGroupId', plat: 'bale' },
+        { key: 'productionCompareWhatsappGroupId', plat: 'whatsapp' },
+    ];
+
     const reportsKeys = [
         { key: 'reportsGroupId', plat: 'telegram' },
         { key: 'telegramReportsGroupId', plat: 'telegram' },
@@ -432,12 +438,14 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     let keysToUse = [];
     if (category === 'production') {
         keysToUse = productionKeys;
+    } else if (category === 'production_compare') {
+        keysToUse = productionCompareKeys;
     } else if (category === 'sales') {
         keysToUse = salesKeys;
     } else if (category === 'accounting') {
         keysToUse = accountingKeys;
     } else {
-        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...reportsKeys, ...generalKeys];
+        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...reportsKeys, ...generalKeys];
     }
 
     keysToUse.forEach(({ key, plat }) => {
@@ -1702,6 +1710,86 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
     }
 });
 
+app.post('/api/sayan/production-report/send-compare-bot', async (req, res) => {
+    try {
+        const db = getDb();
+        const { dateFromA, dateToA, dateFromB, dateToB, items } = req.body;
+
+        if (!dateFromA || !items) {
+            return res.status(400).json({ error: 'اطلاعات گزارش کامل نیست' });
+        }
+
+        const title = `گزارش مقایسه‌ای آمار تولید سایان`;
+        const Renderer = await import('./backend/renderer.js');
+        const pdfBuffer = await Renderer.generateProductionCompareReportPDF(title, dateFromA, dateToA, dateFromB, dateToB, items);
+
+        // Build elegant caption
+        const sumA = items.reduce((sum, item) => sum + (item.totalA || 0), 0);
+        const sumB = items.reduce((sum, item) => sum + (item.totalB || 0), 0);
+        const totalDiff = sumA - sumB;
+        const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
+
+        let caption = `📊 *گزارش مقایسه‌ای آمار تولید کارخانه*
+
+📅 *بازه اول (A):* ${dateFromA} تا ${dateToA}
+📅 *بازه دوم (B):* ${dateFromB} تا ${dateToB}
+
+📈 *خلاصه آمار تولید:*
+🔹 مجموع تولید بازه اول (A): ${sumA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+🔸 مجموع تولید بازه دوم (B): ${sumB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+📊 تفاضل تولید (A - B): ${totalDiff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+📉 درصد تغییر: ${sumB ? `${totalDiffPct > 0 ? '+' : ''}${totalDiffPct.toFixed(1)}%` : '-'}
+
+📎 جزئیات کامل ردیف‌های تولیدی در فایل PDF ضمیمه ارسال گردید.`;
+
+        const filename = `Production_Compare_Report_${dateFromA.replace(/[\/\\]/g, '-')}.pdf`;
+        const uniqueTargets = collectBotTargets(db, { category: 'production_compare' });
+
+        if (uniqueTargets.length === 0) {
+            return res.status(400).json({ error: 'هیچ شناسه گروه مقایسه آمار تولید (تلگرام، بله یا واتساپ) در تنظیمات سیستم یافت نشد. لطفاً در تنظیمات سیستم شناسه گروه مقایسه آمار تولید را وارد نمایید.' });
+        }
+
+        let sentCount = 0;
+        let lastError = null;
+        for (const target of uniqueTargets) {
+            try {
+                if (target.platform === 'telegram') {
+                    await telegram.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    sentCount++;
+                } else if (target.platform === 'bale') {
+                    await bale.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    sentCount++;
+                } else if (target.platform === 'whatsapp') {
+                    const wa = await safeImport('./backend/whatsapp.js');
+                    if (wa && wa.sendMessage) {
+                        await wa.sendMessage(target.id, caption, {
+                            data: pdfBuffer.toString('base64'),
+                            mimeType: 'application/pdf',
+                            filename: filename
+                        });
+                        sentCount++;
+                    }
+                }
+            } catch (err) {
+                lastError = err.message;
+                console.error(`[Send Production Compare Report] Failed for ${target.platform}:${target.id}:`, err.message);
+            }
+        }
+
+        if (sentCount === 0) {
+            return res.status(400).json({ error: `ارسال گزارش مقایسه‌ای ناموفق بود: ${lastError || 'خطای ناشناخته در اتصال به ربات'}` });
+        }
+
+        res.json({
+            success: true,
+            message: `گزارش مقایسه‌ای با موفقیت به ${sentCount} گروه / چت در بات‌ها ارسال شد.`
+        });
+    } catch (e) {
+        console.error("Send Production Compare Report Bot Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     try {
         const db = getDb();
@@ -2138,8 +2226,8 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
 
                 const docTypeStr = String(row.DocType || '').trim();
                 let docTypeLabel = 'حواله فروش';
-                if (docTypeStr === '12') docTypeLabel = 'حواله فروش';
-                else if (docTypeStr === '23') docTypeLabel = 'حواله خروج';
+                if (docTypeStr === '23') docTypeLabel = 'حواله فروش';
+                else if (docTypeStr === '12') docTypeLabel = 'سایر حواله‌ها (۱۲)';
                 else if (docTypeStr === '3') docTypeLabel = 'حواله انبار';
                 else if (docTypeStr === '13') docTypeLabel = 'برگشت از فروش';
                 else if (docTypeStr === '10') docTypeLabel = 'رسید انبار';
@@ -2325,14 +2413,20 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
 app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
     try {
         const db = getDb();
-        const { personCode, recipientName, permitDate, permitNumber } = req.body;
+        const { personCode, recipientName, permitDate, permitNumber, docType } = req.body;
 
         if (!personCode && !recipientName && !permitNumber) {
             return res.status(400).json({ error: 'کد شخص، نام شخص یا شماره مجوز الزامی است' });
         }
 
         // Match conditions in STR_TBL_010
-        let whereClauses = ["RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')"];
+        let targetDocType = docType || '23'; // Default to 23 (حواله فروش) for lookup if not specified
+        let whereClauses = [];
+        if (targetDocType === 'all') {
+            whereClauses.push("RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')");
+        } else {
+            whereClauses.push(`RTRIM(LTRIM(t10.Field_009)) = '${targetDocType.replace(/'/g, "''")}'`);
+        }
         
         let pCode = personCode;
         let rName = recipientName;

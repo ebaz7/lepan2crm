@@ -402,6 +402,9 @@ export interface SystemSettings {
   productionTelegramGroupId2?: string;
   productionBaleGroupId2?: string;
   productionWhatsappGroupId2?: string;
+  productionCompareTelegramGroupId?: string;
+  productionCompareBaleGroupId?: string;
+  productionCompareWhatsappGroupId?: string;
   
   salesNotificationUsers?: { username: string; platforms: string[]; name?: string }[]; // Usernames and their active platforms (telegram, bale)
   salesContactMessage?: string;
