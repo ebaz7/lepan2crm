@@ -394,7 +394,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
               GROUP BY t21_sub.Field_004
           ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
           LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
-          \${whereSql}
+          ${whereSql}
           ORDER BY t10.Field_008 DESC, t10.Field_005 DESC
         `;
 

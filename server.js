@@ -3397,7 +3397,13 @@ app.post('/api/settings', async (req, res) => {
     db.settings = { ...(db.settings || {}), ...req.body };
     saveDb(db);
     
-    // Automatically re-initialize bots on settings save
+    // Automatically re-initialize bots and schedule cron jobs on settings save
+    try {
+        setupDailyReports();
+    } catch (e) {
+        console.error("Failed to run setupDailyReports from settings save:", e);
+    }
+
     try {
         if (db.settings.telegramBotToken) {
             const tg = await safeImport('./backend/telegram.js');
@@ -5055,6 +5061,89 @@ function setupDailyReports() {
                 }
             ];
             saveDb(db);
+        } else {
+            // Dynamically synchronize existing default jobs with the settings page fields
+            let modified = false;
+            
+            const salesTime = settings.dailySalesSendTime || '19:00';
+            const [salesHour, salesMin] = salesTime.split(':').map(x => parseInt(x, 10) || 0);
+
+            const chequeTime = settings.chequeVaultSendTime || '09:00';
+            const [chequeHour, chequeMin] = chequeTime.split(':').map(x => parseInt(x, 10) || 0);
+
+            db.reportDeliveryJobs.forEach(job => {
+                if (job.id === 'job_daily_sales_custom' || job.id === 'job_daily_comparison_custom') {
+                    if (job.sendTime !== salesTime || job.sendHour !== salesHour || job.sendMinute !== salesMin) {
+                        job.sendTime = salesTime;
+                        job.sendHour = salesHour;
+                        job.sendMinute = salesMin;
+                        job.cronExpression = `${salesMin} ${salesHour} * * *`;
+                        modified = true;
+                    }
+                    const salesEnabled = settings.dailySalesAutoSendEnabled ?? true;
+                    if (job.enabled !== salesEnabled) {
+                        job.enabled = salesEnabled;
+                        modified = true;
+                    }
+                    const tgGroup = settings.dailySalesTelegramGroupId || settings.telegramGroupId || '';
+                    if (job.telegramGroup !== tgGroup) {
+                        job.telegramGroup = tgGroup;
+                        modified = true;
+                    }
+                    const bGroup = settings.dailySalesBaleGroupId || '';
+                    if (job.baleGroup !== bGroup) {
+                        job.baleGroup = bGroup;
+                        modified = true;
+                    }
+                    const wGroup = settings.dailySalesWhatsAppGroupId || '';
+                    if (job.whatsappGroup !== wGroup) {
+                        job.whatsappGroup = wGroup;
+                        modified = true;
+                    }
+                } else if (job.id === 'job_cheques_treasury_vault') {
+                    if (job.sendTime !== chequeTime || job.sendHour !== chequeHour || job.sendMinute !== chequeMin) {
+                        job.sendTime = chequeTime;
+                        job.sendHour = chequeHour;
+                        job.sendMinute = chequeMin;
+                        job.cronExpression = `${chequeMin} ${chequeHour} * * *`;
+                        modified = true;
+                    }
+                    const chequesEnabled = settings.chequeVaultAutoSendEnabled ?? true;
+                    if (job.enabled !== chequesEnabled) {
+                        job.enabled = chequesEnabled;
+                        modified = true;
+                    }
+                    const tgGroup = settings.chequeVaultTelegramGroupId || settings.botAccountingGroupIdTele || '';
+                    if (job.telegramGroup !== tgGroup) {
+                        job.telegramGroup = tgGroup;
+                        modified = true;
+                    }
+                    const bGroup = settings.chequeVaultBaleGroupId || '';
+                    if (job.baleGroup !== bGroup) {
+                        job.baleGroup = bGroup;
+                        modified = true;
+                    }
+                    const wGroup = settings.chequeVaultWhatsappGroupId || '';
+                    if (job.whatsappGroup !== wGroup) {
+                        job.whatsappGroup = wGroup;
+                        modified = true;
+                    }
+                    const attachP = settings.chequeVaultAttachPdf ?? true;
+                    if (job.attachPdf !== attachP) {
+                        job.attachPdf = attachP;
+                        modified = true;
+                    }
+                    const attachE = settings.chequeVaultAttachExcel ?? true;
+                    if (job.attachExcel !== attachE) {
+                        job.attachExcel = attachE;
+                        modified = true;
+                    }
+                }
+            });
+
+            if (modified) {
+                saveDb(db);
+            }
         }
 
         // Register cron triggers for all enabled jobs in Asia/Tehran timezone
