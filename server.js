@@ -2420,7 +2420,7 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
         }
 
         // Match conditions in STR_TBL_010
-        let targetDocType = docType || '23'; // Default to 23 (حواله فروش) for lookup if not specified
+        let targetDocType = docType || 'all'; // Default to 'all' to look up all sales and exit remittances (12, 23, 3, 13)
         let whereClauses = [];
         if (targetDocType === 'all') {
             whereClauses.push("RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')");

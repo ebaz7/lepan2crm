@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ExitPermit, ExitPermitItem, SystemSettings } from '../types';
-import { Save, X, Package, Calculator, Plus, Trash2, RefreshCw, CheckCircle2, FileText, ArrowDownToLine, Eye, AlertCircle } from 'lucide-react';
+import { Save, X, Package, Calculator, Plus, Trash2, RefreshCw, CheckCircle2, FileText, ArrowDownToLine, Eye, AlertCircle, Filter, Search } from 'lucide-react';
 import { generateUUID } from '../constants';
-import { lookupSayanSalesRemittance, SayanSalesRemittanceResult, captureElementToDataUrl } from '../services/sayanExitService';
+import { lookupSayanSalesRemittance, fetchSayanSalesRemittances, SayanSalesRemittanceResult, captureElementToDataUrl } from '../services/sayanExitService';
 import SayanSalesRemittanceDoc, { SayanRemittanceData } from './SayanSalesRemittanceDoc';
 import { getSettings } from '../services/storageService';
+import * as jalaali from 'jalaali-js';
 
 interface Props {
   permit: ExitPermit;
@@ -35,6 +36,57 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
   const [searchQuery, setSearchQuery] = useState('');
   const [searchingSayan, setSearchingSayan] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  // Shamsi Date Helpers for Sayan Reports Style
+  const getTodayJalaliStr = () => {
+    const d = new Date();
+    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+  };
+
+  const getMonthStartJalaliStr = () => {
+    const d = new Date();
+    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    return `${j.jy}/${String(j.jm).padStart(2, '0')}/01`;
+  };
+
+  const [dateFrom, setDateFrom] = useState<string>(getMonthStartJalaliStr());
+  const [dateTo, setDateTo] = useState<string>(getTodayJalaliStr());
+  const [docType, setDocType] = useState<string>('all');
+  const [searchResults, setSearchResults] = useState<SayanSalesRemittanceResult[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const setQuickDate = (type: 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all') => {
+    const now = new Date();
+    const jToday = jalaali.toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const todayStr = `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+
+    if (type === 'today') {
+      setDateFrom(todayStr);
+      setDateTo(todayStr);
+    } else if (type === 'yesterday') {
+      const yest = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const jYest = jalaali.toJalaali(yest.getFullYear(), yest.getMonth() + 1, yest.getDate());
+      const yestStr = `${jYest.jy}/${String(jYest.jm).padStart(2, '0')}/${String(jYest.jd).padStart(2, '0')}`;
+      setDateFrom(yestStr);
+      setDateTo(yestStr);
+    } else if (type === 'week') {
+      const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const jWeek = jalaali.toJalaali(lastWeek.getFullYear(), lastWeek.getMonth() + 1, lastWeek.getDate());
+      const weekStr = `${jWeek.jy}/${String(jWeek.jm).padStart(2, '0')}/${String(jWeek.jd).padStart(2, '0')}`;
+      setDateFrom(weekStr);
+      setDateTo(todayStr);
+    } else if (type === 'month') {
+      setDateFrom(`${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/01`);
+      setDateTo(todayStr);
+    } else if (type === 'year') {
+      setDateFrom(`${jToday.jy}/01/01`);
+      setDateTo(todayStr);
+    } else if (type === 'all') {
+      setDateFrom('');
+      setDateTo('');
+    }
+  };
 
   const [sayanError, setSayanError] = useState<string | null>(null);
   const [showDocPreview, setShowDocPreview] = useState(false);
@@ -107,7 +159,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
         recipientName,
         permitDate: permit.date,
         permitNumber: permit.permitNumber,
-        docType: '23' // Strictly lookup final sales remittance (23)
+        docType: 'all' // Query all related sales and exit remittances (matching Sayan reports)
       });
 
       if (res) {
@@ -135,7 +187,7 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
           }
         }
       } else {
-        setSayanError('حواله فروش (۲۳) برای این مشتری در سایان یافت نشد');
+        setSayanError('حواله فروش/خروج مرتبط برای این مشتری در سایان یافت نشد');
       }
     } catch (e: any) {
       setSayanError(e.message || 'خطا در ارتباط با سایان');
@@ -145,31 +197,37 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
   };
 
   const handleAttachRemittance = async () => {
-    if (!searchQuery.trim()) return;
     setSearchingSayan(true);
     setSearchError(null);
+    setHasSearched(true);
     try {
-      const res = await lookupSayanSalesRemittance({
-        recipientName: searchQuery.trim(),
-        permitNumber: searchQuery.trim(),
-        docType: '23' // Target final sales remittance
+      const response = await fetchSayanSalesRemittances({
+        dateFrom,
+        dateTo,
+        search: searchQuery.trim(),
+        docType
       });
 
-      if (res) {
-        if (attachedRemittances.some(r => r.remittanceNumber === res.remittanceNumber)) {
-          setSearchError(`حواله شماره ${res.remittanceNumber} قبلاً الحاق شده است`);
-        } else {
-          setAttachedRemittances([...attachedRemittances, res]);
-          setSearchQuery('');
-        }
+      if (response && response.success) {
+        setSearchResults(response.remittances || []);
       } else {
-        setSearchError('حواله فروش مورد نظر در سایان یافت نشد');
+        setSearchError(response.message || 'خطا در دریافت اطلاعات از سایان');
+        setSearchResults([]);
       }
     } catch (e: any) {
-      setSearchError(e.message || 'خطا در جستجوی حواله');
+      setSearchError(e.message || 'خطا در ارتباط با سایان');
+      setSearchResults([]);
     } finally {
       setSearchingSayan(false);
     }
+  };
+
+  const handleAttachRemittanceFromList = (rem: SayanSalesRemittanceResult) => {
+    if (attachedRemittances.some(r => r.remittanceNumber === rem.remittanceNumber)) {
+      setSearchError(`حواله شماره ${rem.remittanceNumber} قبلاً الحاق شده است`);
+      return;
+    }
+    setAttachedRemittances([...attachedRemittances, rem]);
   };
 
   const handleDetachRemittance = (index: number) => {
@@ -368,37 +426,164 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
                 )}
               </div>
 
-              {/* Add/Search Section */}
-              <div className="bg-white/40 p-3 rounded-xl border border-indigo-100/60 space-y-2">
-                <label className="text-[11px] font-bold text-indigo-900 block">جستجو و الصاق حواله جدید (بر اساس شماره حواله یا بخشی از نام مشتری):</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="مثال: 642 یا زیلویی"
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAttachRemittance(); } }}
-                    className="flex-1 text-xs border border-indigo-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-bold bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAttachRemittance}
-                    disabled={searchingSayan || !searchQuery.trim()}
-                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-                  >
-                    {searchingSayan ? (
-                      <RefreshCw size={14} className="animate-spin" />
-                    ) : (
-                      <Plus size={14} />
-                    )}
-                    {searchingSayan ? "در حال جستجو..." : "جستجو و الحاق حواله"}
-                  </button>
+              {/* Add/Search Section (Sayan Reports Style) */}
+              <div className="bg-white/90 p-4 rounded-xl border border-indigo-100/80 space-y-3 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-2 gap-2">
+                  <h5 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                    <Filter size={14} /> فیلترهای استعلام و جستجوی حواله‌ها در سایان (مشابه بخش گزارشات):
+                  </h5>
+                  {/* Quick Dates */}
+                  <div className="flex flex-wrap gap-1 text-[10px] font-bold text-gray-500">
+                    <button type="button" onClick={() => setQuickDate('today')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">امروز</button>
+                    <button type="button" onClick={() => setQuickDate('yesterday')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">دیروز</button>
+                    <button type="button" onClick={() => setQuickDate('week')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">۷ روز اخیر</button>
+                    <button type="button" onClick={() => setQuickDate('month')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">ماه جاری</button>
+                    <button type="button" onClick={() => setQuickDate('year')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">کل سال</button>
+                    <button type="button" onClick={() => setQuickDate('all')} className="px-2 py-0.5 rounded bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 transition-all">همه</button>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  {/* Date From */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">از تاریخ (شمسی):</label>
+                    <input
+                      type="text"
+                      placeholder="مثلاً ۱۴۰۳/۱۱/۰۱"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="w-full text-xs border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  {/* Date To */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">تا تاریخ (شمسی):</label>
+                    <input
+                      type="text"
+                      placeholder="مثلاً ۱۴۰۳/۱۱/۳۰"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="w-full text-xs border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  {/* DocType */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">نوع سند:</label>
+                    <select
+                      value={docType}
+                      onChange={e => setDocType(e.target.value)}
+                      className="w-full text-xs border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-bold bg-white"
+                    >
+                      <option value="all">همه اسناد خروج (12, 23, 3, 13)</option>
+                      <option value="23">فقط حواله فروش (۲۳)</option>
+                      <option value="12">سایر حواله‌ها (۱۲)</option>
+                      <option value="3">حواله انبار / مصرف (۳)</option>
+                      <option value="13">برگشت از فروش (۱۳)</option>
+                    </select>
+                  </div>
+
+                  {/* Search Input */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 mb-1">نام خریدار یا شماره حواله:</label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="جستجو در فیلدها..."
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAttachRemittance(); } }}
+                        className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 font-bold bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAttachRemittance}
+                        disabled={searchingSayan}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 text-xs"
+                      >
+                        {searchingSayan ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Search size={14} />
+                        )}
+                        <span>{searchingSayan ? "..." : "جستجو"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {searchError && (
                   <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1 bg-amber-50 p-1.5 rounded-lg border border-amber-100 mt-1">
                     <AlertCircle size={14} />
                     {searchError}
                   </p>
+                )}
+
+                {/* Search Results list of remittances inside Sayan banner */}
+                {hasSearched && (
+                  <div className="border-t border-gray-100 pt-3 space-y-2">
+                    <h6 className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
+                      🔍 نتایج جستجو در سایان ({searchResults.length} حواله یافت شد):
+                    </h6>
+                    {searchResults.length === 0 ? (
+                      <p className="text-xs text-amber-600 italic bg-amber-50/50 p-3 rounded-lg border border-dashed border-amber-100">هیچ حواله‌ای منطبق با فیلترها و عبارت جستجوی بالا یافت نشد.</p>
+                    ) : (
+                      <div className="overflow-x-auto border border-gray-100 rounded-xl max-h-60">
+                        <table className="w-full text-xs text-center border-collapse">
+                          <thead className="bg-gray-50 text-gray-700 font-bold sticky top-0">
+                            <tr className="border-b border-gray-100">
+                              <th className="p-2 w-16">شماره حواله</th>
+                              <th className="p-2 w-20">تاریخ سند</th>
+                              <th className="p-2 text-right">خریدار / مشتری</th>
+                              <th className="p-2 w-28">نوع سند</th>
+                              <th className="p-2 w-20">وزن خالص (kg)</th>
+                              <th className="p-2 w-20">اقلام</th>
+                              <th className="p-2 w-24">عملیات اتصال</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {searchResults.map((rem) => {
+                              const isAttached = attachedRemittances.some(r => r.remittanceNumber === rem.remittanceNumber);
+                              return (
+                                <tr key={rem.remittanceNumber} className="hover:bg-slate-50">
+                                  <td className="p-2 font-mono font-bold text-indigo-900">{rem.remittanceNumber}</td>
+                                  <td className="p-2 font-mono">{rem.shamsiDate || rem.docDate}</td>
+                                  <td className="p-2 text-right font-bold text-gray-800">{rem.personFullName}</td>
+                                  <td className="p-2">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      rem.docType === '23' ? 'bg-emerald-50 text-emerald-700' :
+                                      rem.docType === '12' ? 'bg-blue-50 text-blue-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {rem.docTypeLabel || rem.docType}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 font-mono font-bold">{rem.totalNetWeight?.toLocaleString('fa-IR')}</td>
+                                  <td className="p-2 text-gray-500">{rem.items?.length || 0} ردیف</td>
+                                  <td className="p-2">
+                                    {isAttached ? (
+                                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-lg font-bold flex items-center justify-center gap-1">
+                                        <CheckCircle2 size={12} /> متصل شده
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAttachRemittanceFromList(rem)}
+                                        className="bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white px-2.5 py-0.5 rounded-lg font-bold text-[10px] transition-all flex items-center justify-center gap-1 mx-auto"
+                                      >
+                                        <Plus size={12} /> الحاق حواله
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
