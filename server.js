@@ -1357,7 +1357,17 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
             currentYearDateTo = new Date().toISOString().split('T')[0];
         }
 
-        const getWarehouseInventoryForDate = async (targetDate) => {
+        let lastYearDateFrom = req.query.lastYearDateFrom;
+        if (lastYearDateFrom && !/^\d{4}-\d{2}-\d{2}$/.test(lastYearDateFrom)) {
+            lastYearDateFrom = undefined;
+        }
+        let currentYearDateFrom = req.query.currentYearDateFrom;
+        if (currentYearDateFrom && !/^\d{4}-\d{2}-\d{2}$/.test(currentYearDateFrom)) {
+            currentYearDateFrom = undefined;
+        }
+
+        const getWarehouseInventoryForDate = async (targetDate, fromDate) => {
+            const dateFromFilter = fromDate ? `AND t10.Field_008 >= '${fromDate}T00:00:00.000Z'` : '';
             const sqlStockAndNames = `
                 WITH GroupedStock AS (
                     SELECT 
@@ -1372,6 +1382,7 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                               AND t11.Field_003 = t10.Field_004 
                                               AND t11.Field_012 = t10.Field_018
                     WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                      ${dateFromFilter}
                       AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
                     GROUP BY t11.Field_005
                 )
@@ -1438,6 +1449,7 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                           AND t11.Field_003 = t10.Field_004 
                                           AND t11.Field_012 = t10.Field_018
                 WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                  ${dateFromFilter}
                   AND t11.Field_031 LIKE N'%تعداد کارتن:%'
                   AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
                 GROUP BY t11.Field_005
@@ -1472,8 +1484,8 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
         };
 
         const [lastYearStock, currentStock] = await Promise.all([
-            getWarehouseInventoryForDate(lastYearDateTo),
-            getWarehouseInventoryForDate(currentYearDateTo)
+            getWarehouseInventoryForDate(lastYearDateTo, lastYearDateFrom),
+            getWarehouseInventoryForDate(currentYearDateTo, currentYearDateFrom)
         ]);
 
         res.json({

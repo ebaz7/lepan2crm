@@ -78,8 +78,45 @@ export const WarehouseOverviewTab: React.FC = () => {
     const [report2Jalali, setReport2Jalali] = useState("۱۴۰۵/۰۵/۳۱");
     const [report2Miladi, setReport2Miladi] = useState("2026-08-22");
 
+    const [cumulativeFromLastYear, setCumulativeFromLastYear] = useState<boolean>(true);
+
     // Search filter for Sayan items
     const [itemFilterText, setItemFilterText] = useState("");
+
+    // Helper to extract Jalali year
+    const getJalaliYear = (jalaliStr: string) => {
+        const clean = String(jalaliStr || '').trim()
+            .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+            .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+        const match = clean.match(/^(\d{4})/);
+        return match ? parseInt(match[1]) : 1404;
+    };
+
+    // Helper to approximate Gregorian start date of Jalali year
+    const getJalaliYearStartMiladi = (year: number) => {
+        if (year === 1403) return '2024-03-20';
+        if (year === 1404) return '2025-03-21';
+        if (year === 1405) return '2026-03-21';
+        if (year === 1406) return '2027-03-21';
+        return `${year + 1121}-03-21`;
+    };
+
+    // Helper to fetch Sayan warehouse inventory using dynamic start and end dates
+    const fetchSayanData = async (r1Miladi: string, r2Miladi: string, r1Jalali: string, r2Jalali: string, isCumulative: boolean) => {
+        const y1 = getJalaliYear(r1Jalali);
+        const y2 = getJalaliYear(r2Jalali);
+        
+        const r1From = getJalaliYearStartMiladi(y1);
+        const r2From = isCumulative ? getJalaliYearStartMiladi(y1) : getJalaliYearStartMiladi(y2);
+        
+        const url = `/api/sayan/warehouse-inventory?lastYearDateFrom=${r1From}&lastYearDateTo=${r1Miladi}&currentYearDateFrom=${r2From}&currentYearDateTo=${r2Miladi}`;
+        const sayanRes = await fetch(url);
+        const sayanData = await sayanRes.json();
+        if (sayanData.success) {
+            setSayanLastYear(sayanData.lastYearStock || []);
+            setSayanCurrent(sayanData.currentStock || []);
+        }
+    };
 
     // Load everything on mount
     useEffect(() => {
@@ -181,16 +218,19 @@ export const WarehouseOverviewTab: React.FC = () => {
                         setReport2Miladi(dbData.meta.report2Miladi);
                         r2Date = dbData.meta.report2Miladi;
                     }
+
+                    if (dbData.meta.cumulativeFromLastYear !== undefined) {
+                        setCumulativeFromLastYear(dbData.meta.cumulativeFromLastYear);
+                    }
                 }
             }
 
             // 2. Fetch Sayan Live stock with correct dates
-            const sayanRes = await fetch(`/api/sayan/warehouse-inventory?lastYearDateTo=${r1Date}&currentYearDateTo=${r2Date}`);
-            const sayanData = await sayanRes.json();
-            if (sayanData.success) {
-                setSayanLastYear(sayanData.lastYearStock || []);
-                setSayanCurrent(sayanData.currentStock || []);
-            }
+            const finalR1Jalali = dbData?.meta?.report1Jalali || (activeYearLabel === "1405" ? "۱۴۰۴/۱۲/۲۹" : "۱۴۰۳/۱۲/۳۰");
+            const finalR2Jalali = dbData?.meta?.report2Jalali || (activeYearLabel === "1405" ? "۱۴۰۵/۰۵/۳۱" : "۱۴۰۴/۰۸/۲۲");
+            const finalCumulative = dbData?.meta?.cumulativeFromLastYear !== undefined ? dbData.meta.cumulativeFromLastYear : true;
+
+            await fetchSayanData(r1Date, r2Date, finalR1Jalali, finalR2Jalali, finalCumulative);
         } catch (err) {
             console.error("Failed to load warehouse overview data", err);
         } finally {
@@ -273,7 +313,8 @@ export const WarehouseOverviewTab: React.FC = () => {
                     report1Miladi,
                     report2Label,
                     report2Jalali,
-                    report2Miladi
+                    report2Miladi,
+                    cumulativeFromLastYear
                 }
             };
 
@@ -306,13 +347,9 @@ export const WarehouseOverviewTab: React.FC = () => {
             // First save overrides and config
             await handleSave(true);
 
-            // Refetch live stock with newly updated Miladi dates
-            const sayanRes = await fetch(`/api/sayan/warehouse-inventory?lastYearDateTo=${report1Miladi}&currentYearDateTo=${report2Miladi}`);
-            const sayanData = await sayanRes.json();
-            if (sayanData.success) {
-                setSayanLastYear(sayanData.lastYearStock || []);
-                setSayanCurrent(sayanData.currentStock || []);
-            }
+            // Refetch live stock with newly updated Miladi dates & cumulative configurations
+            await fetchSayanData(report1Miladi, report2Miladi, report1Jalali, report2Jalali, cumulativeFromLastYear);
+            
             setShowSettings(false);
             alert("تنظیمات با موفقیت ذخیره شد و به عنوان پیش‌فرض دائم گزارش ثبت گردید.");
         } catch (err) {
@@ -330,6 +367,7 @@ export const WarehouseOverviewTab: React.FC = () => {
         { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
         { code: '0405', name: 'پلی استر شوایتر' },
         { code: '0407', name: 'نایلون' },
+        { code: '0108', name: 'نایلون' },
         { code: '0103', name: 'dty با پلی استر' }
     ];
 
@@ -340,7 +378,6 @@ export const WarehouseOverviewTab: React.FC = () => {
         { code: '0105', name: 'لاکرا' },
         { code: '0106', name: 'پلی استر اسپان' },
         { code: '0107', name: 'مستربچ' },
-        { code: '0108', name: 'نایلون' },
         { code: '0408', name: 'نخ ملت' },
         { code: '0409', name: 'الیاف' },
         { code: '0410', name: 'FDY' }
@@ -1037,6 +1074,23 @@ export const WarehouseOverviewTab: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Cumulative balance option */}
+                    <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                            <h5 className="font-extrabold text-xs text-blue-900">محاسبه مانده تجمعی سال قبل در ستون سال جاری (۱۴۰۵)</h5>
+                            <p className="text-[10px] text-slate-500 font-medium">در صورت فعال بودن، مانده واقعی سال ۱۴۰۵ از ابتدای سال ۱۴۰۴ تا امروز محاسبه می‌شود (تضمین نمایش دقیق موجودی بر اساس تراکنش‌های تجمعی).</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer select-none">
+                            <input 
+                                type="checkbox" 
+                                checked={cumulativeFromLastYear} 
+                                onChange={(e) => setCumulativeFromLastYear(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 pt-4">
