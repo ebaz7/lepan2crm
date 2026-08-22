@@ -1374,7 +1374,7 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                         t11.Field_005 as ItemCode,
                         SUM(CASE 
                             WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '24', '26', '29', '40', '44', '46', '83') THEN t11.Field_006 
-                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '84', '62', '68', '71', '74', '80') THEN -t11.Field_006 
+                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN -t11.Field_006 
                             ELSE 0 
                         END) as StockQty
                     FROM STR_TBL_011 t11
@@ -1434,7 +1434,7 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                     PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
                                 ) as float
                             )
-                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '84', '62', '68', '71', '74', '80') THEN
+                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN
                             -TRY_CAST(
                                 LEFT(
                                     LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
