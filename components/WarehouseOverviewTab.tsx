@@ -323,6 +323,29 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
+    // Sayan Group definitions (predefined 4-digit prefixes)
+    const MANUFACTURED_GROUPS = [
+        { code: '0401', name: 'اسپاندکس (کاور)' },
+        { code: '0402', name: 'کش' },
+        { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
+        { code: '0405', name: 'پلی استر شوایتر' },
+        { code: '0407', name: 'نایلون' },
+        { code: '0408', name: 'نخ ملت' },
+        { code: '0409', name: 'الیاف' },
+        { code: '0410', name: 'FDY' }
+    ];
+
+    const RAW_MATERIAL_GROUPS = [
+        { code: '0101', name: 'چیپس' },
+        { code: '0102', name: 'POY' },
+        { code: '0103', name: 'dty با پلی استر' },
+        { code: '0104', name: 'لاستیک' },
+        { code: '0105', name: 'لاکرا' },
+        { code: '0106', name: 'پلی استر اسپان' },
+        { code: '0107', name: 'مستربچ' },
+        { code: '0108', name: 'نایلون' }
+    ];
+
     // Helper function to classify Sayan items based on keywords and database group name
     const classifyItem = (r: any): 'lycra' | 'spun' | 'rubber' | 'melt' | 'nylon' | 'chips' | 'oil' | 'yarn' => {
         const code = String(r.itemCode || r.ItemCode || '');
@@ -358,36 +381,69 @@ export const WarehouseOverviewTab: React.FC = () => {
         return 'yarn';
     };
 
-    // Helper function to get all child items of a manufactured group name across both periods
-    const getGroupChildItems = (groupName: string) => {
-        const map: Record<string, { itemName: string; itemCode: string }> = {};
+    // Helper function to get all groups for a section dynamically, falling back to discovered ones if not predefined
+    const getSectionGroups = (sectionPrefix: string, predefinedGroups: { code: string; name: string }[]) => {
+        const set = new Set<string>();
+        predefinedGroups.forEach(g => set.add(g.code));
+
         sayanLastYear.forEach(r => {
-            if (classifyItem(r) === 'yarn') {
-                const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
-                if (rGroup === groupName) {
-                    const code = r.itemCode || r.ItemCode || '';
-                    const name = r.itemName || code || 'کالای بدون نام';
-                    map[code || name] = { itemName: name, itemCode: code };
-                }
+            const code = String(r.itemCode || r.ItemCode || '');
+            if (code.startsWith(sectionPrefix) && code.length >= 4) {
+                set.add(code.substring(0, 4));
             }
         });
         sayanCurrent.forEach(r => {
-            if (classifyItem(r) === 'yarn') {
-                const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
-                if (rGroup === groupName) {
-                    const code = r.itemCode || r.ItemCode || '';
-                    const name = r.itemName || code || 'کالای بدون نام';
-                    map[code || name] = { itemName: name, itemCode: code };
-                }
+            const code = String(r.itemCode || r.ItemCode || '');
+            if (code.startsWith(sectionPrefix) && code.length >= 4) {
+                set.add(code.substring(0, 4));
+            }
+        });
+
+        const list = Array.from(set).map(prefix => {
+            const predefined = predefinedGroups.find(g => g.code === prefix);
+            if (predefined) return predefined;
+
+            let discoveredName = '';
+            const found = [...sayanCurrent, ...sayanLastYear].find(r => {
+                const c = String(r.itemCode || r.ItemCode || '');
+                return c.startsWith(prefix) && (r.groupName || r.itemName);
+            });
+            if (found) {
+                discoveredName = found.groupName || found.itemName || '';
+            }
+            return {
+                code: prefix,
+                name: discoveredName || `گروه ${prefix}`
+            };
+        });
+
+        return list.sort((a, b) => a.code.localeCompare(b.code));
+    };
+
+    // Helper function to get all child items of a group prefix across both periods
+    const getGroupChildItems = (groupCode: string) => {
+        const map: Record<string, { itemName: string; itemCode: string }> = {};
+        sayanLastYear.forEach(r => {
+            const code = String(r.itemCode || r.ItemCode || '');
+            if (code.startsWith(groupCode)) {
+                const name = r.itemName || code || 'کالای بدون نام';
+                map[code] = { itemName: name, itemCode: code };
+            }
+        });
+        sayanCurrent.forEach(r => {
+            const code = String(r.itemCode || r.ItemCode || '');
+            if (code.startsWith(groupCode)) {
+                const name = r.itemName || code || 'کالای بدون نام';
+                map[code] = { itemName: name, itemCode: code };
             }
         });
         return Object.values(map).sort((a, b) => a.itemName.localeCompare(b.itemName));
     };
 
-    const toggleGroup = (groupName: string) => {
+    const toggleGroup = (groupCode: string) => {
         setExpandedGroups(prev => ({
             ...prev,
-            [groupName]: !prev[groupName]
+            [groupCode]: !prev[groupCode]
         }));
     };
 
@@ -404,72 +460,43 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
-    // Aligned list of Manufactured Yarn Groups (All unique yarn groups across both periods)
+    // Aligned list of Manufactured Yarn Groups (Starting with 04)
     const alignedYarns = useMemo(() => {
-        const set = new Set<string>();
-        sayanLastYear.forEach(r => {
-            if (classifyItem(r) === 'yarn') {
-                set.add(r.groupName || r.itemName || 'سایر نخ‌ها');
-            }
-        });
-        sayanCurrent.forEach(r => {
-            if (classifyItem(r) === 'yarn') {
-                set.add(r.groupName || r.itemName || 'سایر نخ‌ها');
-            }
-        });
-        return Array.from(set).filter(g => itemCategories[g] !== 'other').sort();
+        const groups = getSectionGroups('04', MANUFACTURED_GROUPS);
+        return groups.filter(g => itemCategories[g.code] !== 'other');
     }, [sayanLastYear, sayanCurrent, itemCategories]);
 
-    // Aligned list of Imported & Raw Items, categorized
+    // Aligned list of Raw Material Groups (Starting with 01)
     const alignedImported = useMemo(() => {
-        const map: Record<string, { itemName: string; category: string; itemCode: string }> = {};
-        
-        sayanLastYear.forEach(r => {
-            const cat = classifyItem(r);
-            if (cat !== 'yarn') {
-                const key = r.itemName || r.itemCode;
-                map[key] = { itemName: r.itemName, category: cat, itemCode: r.itemCode };
-            }
-        });
-        sayanCurrent.forEach(r => {
-            const cat = classifyItem(r);
-            if (cat !== 'yarn') {
-                const key = r.itemName || r.itemCode;
-                map[key] = { itemName: r.itemName, category: cat, itemCode: r.itemCode };
-            }
-        });
-
-        return Object.values(map)
-            .filter(item => itemCategories[item.itemName] !== 'other')
-            .sort((a, b) => {
-                if (a.category !== b.category) {
-                    return a.category.localeCompare(b.category);
-                }
-                return a.itemName.localeCompare(b.itemName);
-            });
+        const groups = getSectionGroups('01', RAW_MATERIAL_GROUPS);
+        return groups.filter(g => itemCategories[g.code] !== 'other');
     }, [sayanLastYear, sayanCurrent, itemCategories]);
 
     // Filters based on search input
     const filteredYarns = useMemo(() => {
         if (!itemFilterText.trim()) return alignedYarns;
-        return alignedYarns.filter(g => g.includes(itemFilterText.trim()));
+        const search = itemFilterText.trim().toLowerCase();
+        return alignedYarns.filter(g => 
+            g.name.toLowerCase().includes(search) || 
+            g.code.toLowerCase().includes(search)
+        );
     }, [alignedYarns, itemFilterText]);
 
     const filteredImported = useMemo(() => {
         if (!itemFilterText.trim()) return alignedImported;
-        return alignedImported.filter(item => 
-            item.itemName.includes(itemFilterText.trim()) || 
-            getCategoryPersianLabel(item.category).includes(itemFilterText.trim())
+        const search = itemFilterText.trim().toLowerCase();
+        return alignedImported.filter(g => 
+            g.name.toLowerCase().includes(search) || 
+            g.code.toLowerCase().includes(search)
         );
     }, [alignedImported, itemFilterText]);
 
     // Retrieve Sayan direct stock quantities for yarn groups or individual items
-    const getSayanGroupSum = (groupName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
+    const getSayanGroupSum = (groupCode: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
         const list = isLastYear ? sayanLastYear : sayanCurrent;
         return list.reduce((sum, r) => {
-            const cat = classifyItem(r);
-            const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
-            if (cat === 'yarn' && rGroup === groupName) {
+            const code = String(r.itemCode || r.ItemCode || '');
+            if (code.startsWith(groupCode)) {
                 const qty = field === 'weight' ? Math.abs(r.stockQty || 0) : Math.abs(r.cartonsQty || 0);
                 return sum + qty;
             }
@@ -477,9 +504,9 @@ export const WarehouseOverviewTab: React.FC = () => {
         }, 0);
     };
 
-    const getSayanItemValue = (itemName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
+    const getSayanItemValue = (itemCode: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
         const list = isLastYear ? sayanLastYear : sayanCurrent;
-        const found = list.find(r => r.itemName === itemName);
+        const found = list.find(r => String(r.itemCode || r.ItemCode || '') === itemCode);
         if (found) {
             return field === 'weight' ? Math.abs(found.stockQty || 0) : Math.abs(found.cartonsQty || 0);
         }
@@ -488,13 +515,22 @@ export const WarehouseOverviewTab: React.FC = () => {
 
     // Smart value getter supporting local overrides with Sayan database fallback
     const getItemValue = (
-        itemName: string, 
+        itemKey: string, 
         isLastYear: boolean, 
         field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars',
         isGroup = false
     ): any => {
         const overrides = isLastYear ? lastYearOverrides : currentOverrides;
-        const itemOverride = overrides[itemName];
+        
+        let itemOverride = overrides[itemKey];
+        if (!itemOverride) {
+            // Backward compatibility: check if there's an override under the item's Persian name
+            const allItems = [...sayanLastYear, ...sayanCurrent];
+            const foundItem = allItems.find(r => String(r.itemCode || r.ItemCode || '') === itemKey);
+            if (foundItem && foundItem.itemName) {
+                itemOverride = overrides[foundItem.itemName];
+            }
+        }
 
         if (itemOverride && itemOverride[field] !== undefined && itemOverride[field] !== '') {
             return itemOverride[field];
@@ -503,9 +539,9 @@ export const WarehouseOverviewTab: React.FC = () => {
         // Sayan fallback for weight and cartons
         if (field === 'weight' || field === 'cartons') {
             if (isGroup) {
-                return getSayanGroupSum(itemName, isLastYear, field);
+                return getSayanGroupSum(itemKey, isLastYear, field);
             } else {
-                return getSayanItemValue(itemName, isLastYear, field);
+                return getSayanItemValue(itemKey, isLastYear, field);
             }
         }
 
@@ -555,8 +591,8 @@ export const WarehouseOverviewTab: React.FC = () => {
     const allActiveFactoryItems = alignedYarns;
 
     const calculateTotalSayanSum = (isLastYear: boolean, field: 'cartons' | 'weight' | 'containers' | 'dollars') => {
-        const sumYarns = alignedYarns.reduce((sum, item) => sum + getItemValue(item, isLastYear, field, true), 0);
-        const sumImported = alignedImported.reduce((sum, item) => sum + getItemValue(item.itemName, isLastYear, field, false), 0);
+        const sumYarns = alignedYarns.reduce((sum, item) => sum + getItemValue(item.code, isLastYear, field, true), 0);
+        const sumImported = alignedImported.reduce((sum, item) => sum + getItemValue(item.code, isLastYear, field, true), 0);
         return sumYarns + sumImported;
     };
 
@@ -677,22 +713,11 @@ export const WarehouseOverviewTab: React.FC = () => {
     };
 
     const renderTableBody = (isLastYear: boolean) => {
-        // Group filteredImported by category
-        const categoriesMap: Record<string, typeof filteredImported> = {};
-        filteredImported.forEach(item => {
-            if (!categoriesMap[item.category]) {
-                categoriesMap[item.category] = [];
-            }
-            categoriesMap[item.category].push(item);
-        });
-
-        const activeCategories = Object.keys(categoriesMap).sort();
-
         return (
             <tbody className="divide-y divide-slate-100">
-                {/* 1. MANUFACTURED YARNS */}
+                {/* 1. MANUFACTURED GOODS */}
                 <tr className="bg-slate-50 text-slate-700 font-extrabold text-right">
-                    <td colSpan={7} className="py-2 px-3 text-[11px] text-blue-900 bg-blue-50 border-y border-blue-100">
+                    <td colSpan={7} className="py-2.5 px-3 text-[11px] text-blue-900 bg-blue-50/80 border-y border-blue-100/60 font-bold">
                         ۱. کالاهای تولیدی (ادغام شده در سطح گروه کالا)
                     </td>
                 </tr>
@@ -701,16 +726,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                         <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                     </tr>
                 ) : (
-                    filteredYarns.map((groupName, idx) => {
-                        const isExpanded = !!expandedGroups[groupName];
-                        const childItems = getGroupChildItems(groupName);
+                    filteredYarns.map((group, idx) => {
+                        const isExpanded = !!expandedGroups[group.code];
+                        const childItems = getGroupChildItems(group.code);
 
                         return (
-                            <React.Fragment key={`group-wrapper-${isLastYear ? 'ly' : 'curr'}-${idx}`}>
-                                <tr className="hover:bg-slate-50 text-slate-700 border-b border-slate-100">
+                            <React.Fragment key={`group-yarn-${isLastYear ? 'ly' : 'curr'}-${group.code}`}>
+                                <tr className="hover:bg-slate-50 text-slate-700 border-b border-slate-100 transition-colors">
                                     <td 
-                                        className="py-2.5 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition-colors"
-                                        onClick={() => toggleGroup(groupName)}
+                                        className="py-2.5 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition-colors select-none"
+                                        onClick={() => toggleGroup(group.code)}
                                     >
                                         <span className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-slate-100 transition-colors">
                                             {isExpanded ? (
@@ -719,14 +744,15 @@ export const WarehouseOverviewTab: React.FC = () => {
                                                 <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                                             )}
                                         </span>
-                                        <span>{groupName}</span>
-                                        <span className="text-[10px] text-slate-400 font-normal mr-1 select-none">({childItems.length} کالا)</span>
+                                        <span className="font-mono text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold mr-1">{group.code}</span>
+                                        <span className="font-bold text-slate-900">{group.name}</span>
+                                        <span className="text-[10px] text-slate-400 font-normal mr-1">({childItems.length} کالا)</span>
                                     </td>
                                     <td className="py-2 px-1">
                                         {isEditMode ? (
                                             <select
-                                                value={getItemCategory(groupName)}
-                                                onChange={(e) => handleCategoryChange(groupName, e.target.value as any)}
+                                                value={getItemCategory(group.code)}
+                                                onChange={(e) => handleCategoryChange(group.code, e.target.value as any)}
                                                 className="text-[10px] p-1 border rounded bg-white text-slate-700 focus:outline-none"
                                             >
                                                 <option value="raw">تولیدی (نمایش)</option>
@@ -736,31 +762,31 @@ export const WarehouseOverviewTab: React.FC = () => {
                                             <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">تولیدی</span>
                                         )}
                                     </td>
-                                    <td className="py-2 px-2">{renderCell(groupName, isLastYear, 'proforma', 'text', true)}</td>
-                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(groupName, isLastYear, 'cartons', 'number', true)}</td>
-                                    <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(groupName, isLastYear, 'weight', 'number', true)}</td>
-                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(groupName, isLastYear, 'containers', 'number', true)}</td>
-                                    <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(groupName, isLastYear, 'dollars', 'dollar', true)}</td>
+                                    <td className="py-2 px-2">{renderCell(group.code, isLastYear, 'proforma', 'text', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(group.code, isLastYear, 'cartons', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(group.code, isLastYear, 'weight', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(group.code, isLastYear, 'containers', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(group.code, isLastYear, 'dollars', 'dollar', true)}</td>
                                 </tr>
                                 
                                 {isExpanded && childItems.map((child, cIdx) => (
                                     <tr 
-                                        key={`child-${isLastYear ? 'ly' : 'curr'}-${groupName}-${cIdx}`} 
-                                        className="bg-slate-50/30 hover:bg-slate-100/50 transition-colors text-slate-600 text-[11px] border-b border-dashed border-slate-100/80"
+                                        key={`child-yarn-${isLastYear ? 'ly' : 'curr'}-${group.code}-${child.itemCode}`} 
+                                        className="bg-slate-50/40 hover:bg-slate-100/60 transition-colors text-slate-600 text-[11px] border-b border-dashed border-slate-100/80"
                                     >
                                         <td className="py-2 px-3 pr-8 text-right font-normal text-slate-700 flex items-center gap-1.5">
                                             <span className="text-slate-300 font-bold select-none">↳</span>
                                             <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded mr-1 select-all">{child.itemCode}</span>
-                                            <span className="font-medium text-slate-800">{child.itemName}</span>
+                                            <span className="font-semibold text-slate-800">{child.itemName}</span>
                                         </td>
                                         <td className="py-2 px-1">
                                             <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold select-none">کالا</span>
                                         </td>
-                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'proforma', 'text', false)}</td>
-                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'cartons', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-semibold text-slate-700">{renderCell(child.itemName, isLastYear, 'weight', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'containers', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-semibold text-slate-600">{renderCell(child.itemName, isLastYear, 'dollars', 'dollar', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'proforma', 'text', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'cartons', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-700">{renderCell(child.itemCode, isLastYear, 'weight', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'containers', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-600">{renderCell(child.itemCode, isLastYear, 'dollars', 'dollar', false)}</td>
                                     </tr>
                                 ))}
                             </React.Fragment>
@@ -770,47 +796,76 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                 {/* 2. IMPORTED & RAW MATERIALS */}
                 <tr className="bg-slate-50 text-slate-700 font-extrabold text-right">
-                    <td colSpan={7} className="py-2 px-3 text-[11px] text-teal-900 bg-teal-50 border-y border-teal-100">
-                        ۲. مواد اولیه وارداتی و کمکی (تفکیک شده با جزئیات)
+                    <td colSpan={7} className="py-2.5 px-3 text-[11px] text-teal-900 bg-teal-50/80 border-y border-teal-100/60 font-bold">
+                        ۲. مواد اولیه وارداتی و کمکی (تفکیک شده بر اساس گروه کالا)
                     </td>
                 </tr>
-                {activeCategories.length === 0 ? (
+                {filteredImported.length === 0 ? (
                     <tr>
                         <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                     </tr>
                 ) : (
-                    activeCategories.map(cat => {
-                        const items = categoriesMap[cat] || [];
-                        const catLabel = getCategoryPersianLabel(cat);
+                    filteredImported.map((group, idx) => {
+                        const isExpanded = !!expandedGroups[group.code];
+                        const childItems = getGroupChildItems(group.code);
+
                         return (
-                            <React.Fragment key={`cat-sec-${cat}`}>
-                                <tr className="bg-slate-100/50 text-slate-600 font-bold text-right">
-                                    <td colSpan={7} className="py-1 px-3 text-[10px] text-slate-500 font-semibold border-b border-slate-100">
-                                        📁 {catLabel}
-                                    </td>
-                                </tr>
-                                {items.map((item, idx) => (
-                                    <tr key={`imp-${isLastYear ? 'ly' : 'curr'}-${cat}-${idx}`} className="hover:bg-slate-50 text-slate-700">
-                                        <td className="py-2 px-3 text-right font-medium text-slate-800 pr-6">{item.itemName}</td>
-                                        <td className="py-2 px-1">
-                                            {isEditMode ? (
-                                                <select
-                                                    value={getItemCategory(item.itemName)}
-                                                    onChange={(e) => handleCategoryChange(item.itemName, e.target.value as any)}
-                                                    className="text-[10px] p-1 border rounded bg-white text-slate-700 focus:outline-none"
-                                                >
-                                                    <option value="raw">وارداتی (نمایش)</option>
-                                                    <option value="other">پنهان کردن</option>
-                                                </select>
+                            <React.Fragment key={`group-imp-${isLastYear ? 'ly' : 'curr'}-${group.code}`}>
+                                <tr className="hover:bg-slate-50 text-slate-700 border-b border-slate-100 transition-colors">
+                                    <td 
+                                        className="py-2.5 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-teal-600 transition-colors select-none"
+                                        onClick={() => toggleGroup(group.code)}
+                                    >
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-slate-100 transition-colors">
+                                            {isExpanded ? (
+                                                <ChevronDown className="w-3.5 h-3.5 text-teal-600" />
                                             ) : (
-                                                <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded font-bold">وارداتی</span>
+                                                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                                             )}
+                                        </span>
+                                        <span className="font-mono text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded font-bold mr-1">{group.code}</span>
+                                        <span className="font-bold text-slate-900">{group.name}</span>
+                                        <span className="text-[10px] text-slate-400 font-normal mr-1">({childItems.length} کالا)</span>
+                                    </td>
+                                    <td className="py-2 px-1">
+                                        {isEditMode ? (
+                                            <select
+                                                value={getItemCategory(group.code)}
+                                                onChange={(e) => handleCategoryChange(group.code, e.target.value as any)}
+                                                className="text-[10px] p-1 border rounded bg-white text-slate-700 focus:outline-none"
+                                            >
+                                                <option value="raw">وارداتی (نمایش)</option>
+                                                <option value="other">پنهان کردن</option>
+                                            </select>
+                                        ) : (
+                                            <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded font-bold">وارداتی</span>
+                                        )}
+                                    </td>
+                                    <td className="py-2 px-2">{renderCell(group.code, isLastYear, 'proforma', 'text', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(group.code, isLastYear, 'cartons', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(group.code, isLastYear, 'weight', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(group.code, isLastYear, 'containers', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(group.code, isLastYear, 'dollars', 'dollar', true)}</td>
+                                </tr>
+                                
+                                {isExpanded && childItems.map((child, cIdx) => (
+                                    <tr 
+                                        key={`child-imp-${isLastYear ? 'ly' : 'curr'}-${group.code}-${child.itemCode}`} 
+                                        className="bg-slate-50/40 hover:bg-slate-100/60 transition-colors text-slate-600 text-[11px] border-b border-dashed border-slate-100/80"
+                                    >
+                                        <td className="py-2 px-3 pr-8 text-right font-normal text-slate-700 flex items-center gap-1.5">
+                                            <span className="text-slate-300 font-bold select-none">↳</span>
+                                            <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded mr-1 select-all">{child.itemCode}</span>
+                                            <span className="font-semibold text-slate-800">{child.itemName}</span>
                                         </td>
-                                        <td className="py-2 px-2">{renderCell(item.itemName, isLastYear, 'proforma', 'text', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-medium">{renderCell(item.itemName, isLastYear, 'cartons', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item.itemName, isLastYear, 'weight', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-medium">{renderCell(item.itemName, isLastYear, 'containers', 'number', false)}</td>
-                                        <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item.itemName, isLastYear, 'dollars', 'dollar', false)}</td>
+                                        <td className="py-2 px-1">
+                                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold select-none">کالا</span>
+                                        </td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'proforma', 'text', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'cartons', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-700">{renderCell(child.itemCode, isLastYear, 'weight', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemCode, isLastYear, 'containers', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-600">{renderCell(child.itemCode, isLastYear, 'dollars', 'dollar', false)}</td>
                                     </tr>
                                 ))}
                             </React.Fragment>
