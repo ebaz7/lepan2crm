@@ -1337,6 +1337,144 @@ app.post('/api/sayan-proxy', async (req, res) => {
     }
 });
 
+app.get('/api/sayan/warehouse-inventory', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const sayanUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+        const sayanKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+        if (!sayanUrl || !sayanKey) {
+            return res.json({ success: false, message: 'تنظیمات آدرس API یا کلید امنیتی سایان ثبت نشده است.', lastYearStock: [], currentStock: [] });
+        }
+
+        // 1. Last Year Ending Stock (Up to 1403/12/30 -> 2025-03-20)
+        const sqlLastYear = `
+            SELECT 
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    RTRIM(LTRIM(t11.Field_005))
+                ) as ItemName,
+                t11.Field_031 as DetailNote,
+                CASE 
+                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN t11.Field_006 
+                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
+                    ELSE 0 
+                END as NetQty,
+                RTRIM(LTRIM(t10.Field_009)) as DocType
+            FROM STR_TBL_011 t11
+            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                      AND t11.Field_003 = t10.Field_004 
+                                      AND t11.Field_012 = t10.Field_018
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            WHERE t10.Field_008 <= '2025-03-20T23:59:59.000Z'
+        `;
+
+        // 2. Current Stock (Up to Now)
+        const sqlCurrent = `
+            SELECT 
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    RTRIM(LTRIM(t11.Field_005))
+                ) as ItemName,
+                t11.Field_031 as DetailNote,
+                CASE 
+                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN t11.Field_006 
+                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
+                    ELSE 0 
+                END as NetQty,
+                RTRIM(LTRIM(t10.Field_009)) as DocType
+            FROM STR_TBL_011 t11
+            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                      AND t11.Field_003 = t10.Field_004 
+                                      AND t11.Field_012 = t10.Field_018
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+        `;
+
+        let lastYearRows = [];
+        let currentRows = [];
+
+        try {
+            lastYearRows = await executeSayanQuery(db, sqlLastYear);
+        } catch (e) {
+            console.error("Last Year stock query error:", e);
+        }
+
+        try {
+            currentRows = await executeSayanQuery(db, sqlCurrent);
+        } catch (e) {
+            console.error("Current stock query error:", e);
+        }
+
+        const aggregateStock = (rows) => {
+            const map = {};
+            const parseCartonsFromNote = (note) => {
+                if (!note) return 0;
+                const match = note.match(/تعداد کارتن:\s*(\d+)/);
+                if (match) return parseInt(match[1], 10);
+                return 0;
+            };
+
+            rows.forEach(r => {
+                const name = r.ItemName || 'کالای بدون نام';
+                const qty = parseFloat(r.NetQty || 0);
+                
+                let cartons = 0;
+                if (r.DetailNote) {
+                    const parsed = parseCartonsFromNote(r.DetailNote);
+                    if (parsed > 0) {
+                        const isStockIn = ['10', '13'].includes(r.DocType);
+                        cartons = isStockIn ? parsed : -parsed;
+                    }
+                }
+
+                if (!map[name]) {
+                    map[name] = { itemName: name, stockQty: 0, cartonsQty: 0 };
+                }
+                map[name].stockQty += qty;
+                map[name].cartonsQty += cartons;
+            });
+
+            return Object.values(map);
+        };
+
+        res.json({
+            success: true,
+            lastYearStock: aggregateStock(lastYearRows),
+            currentStock: aggregateStock(currentRows)
+        });
+    } catch (err) {
+        console.error("Warehouse Inventory Fetch Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در دریافت موجودی از سایان' });
+    }
+});
+
+app.get('/api/warehouse-overview/data', (req, res) => {
+    try {
+        const db = getDb();
+        res.json(db.warehouseOverview || {});
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/warehouse-overview/data', (req, res) => {
+    try {
+        const db = getDb();
+        db.warehouseOverview = req.body;
+        saveDb(db);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/sayan/production-report', async (req, res) => {
     try {
         const db = getDb();

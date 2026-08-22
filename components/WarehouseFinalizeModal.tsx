@@ -151,28 +151,59 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
     setLoadingSayan(true);
     setSayanError(null);
     try {
-      const personCode = permit.sayanPersonCode ? String(permit.sayanPersonCode) : (permit.destinations?.[0]?.sayanPersonCode ? String(permit.destinations?.[0]?.sayanPersonCode) : '');
-      const recipientName = permit.recipientName || permit.destinations?.[0]?.recipientName || '';
-      const permitNumberStr = permit.permitNumber ? String(permit.permitNumber) : '';
+      // Helper function to clean up recipient name from driver info, parenthesis, plates etc.
+      const cleanRecipientName = (name: string) => {
+        if (!name) return '';
+        return name
+          .replace(/\(.*?\)/g, '') // Remove parenthesis and contents
+          .replace(/راننده\s*:.*/g, '') // Remove driver prefix
+          .replace(/کامیون\s*:.*/g, '')
+          .replace(/پلاک\s*:.*/g, '')
+          .replace(/شماره\s*:.*/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
 
-      let detectedTerm = '';
-      if (personCode && personCode.trim() !== '' && personCode !== '0' && personCode !== '---') {
-        detectedTerm = personCode.trim();
-      } else if (recipientName && recipientName.trim() !== '') {
-        detectedTerm = recipientName.replace(/\(.*\)/g, '').trim();
-      } else if (permitNumberStr && permitNumberStr.trim() !== '') {
-        detectedTerm = permitNumberStr.trim();
+      const personCode = permit.sayanPersonCode ? String(permit.sayanPersonCode).trim() : (permit.destinations?.[0]?.sayanPersonCode ? String(permit.destinations?.[0]?.sayanPersonCode).trim() : '');
+      const hasPersonCode = personCode && personCode !== '0' && personCode !== '---' && personCode !== 'null' && personCode !== 'undefined';
+      
+      const recipientName = permit.recipientName || permit.destinations?.[0]?.recipientName || '';
+      const cleanName = cleanRecipientName(recipientName);
+
+      // Set search query field to the clean customer name (or person code as fallback) so manual searches are easy
+      setSearchQuery(cleanName || personCode);
+
+      let response = null;
+
+      // 1. First priority: Query by specific Person Code if available in Sayan
+      if (hasPersonCode) {
+        response = await fetchSayanSalesRemittances({
+          dateFrom: '',
+          dateTo: '',
+          personCode,
+          docType: 'all_exit'
+        });
       }
 
-      setSearchQuery(detectedTerm);
+      // 2. Second priority / Fallback: Query by clean recipient/customer name if no personCode or no match found
+      if ((!response || !response.success || !response.remittances || response.remittances.length === 0) && cleanName) {
+        response = await fetchSayanSalesRemittances({
+          dateFrom: '',
+          dateTo: '',
+          search: cleanName,
+          docType: 'all_exit'
+        });
+      }
 
-      // Perform deep automatic checking using fetchSayanSalesRemittances with relaxed date parameters
-      const response = await fetchSayanSalesRemittances({
-        dateFrom: '', // relaxed date from
-        dateTo: '', // relaxed date to
-        search: detectedTerm,
-        docType: 'all_exit' // restricted only to sales (23) and exit (12)
-      });
+      // 3. Last resort fallback: Query by raw customer name
+      if ((!response || !response.success || !response.remittances || response.remittances.length === 0) && recipientName && recipientName !== cleanName) {
+        response = await fetchSayanSalesRemittances({
+          dateFrom: '',
+          dateTo: '',
+          search: recipientName,
+          docType: 'all_exit'
+        });
+      }
 
       if (response && response.success && response.remittances && response.remittances.length > 0) {
         const list = response.remittances;
@@ -180,90 +211,30 @@ const WarehouseFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm })
         setHasSearched(true);
 
         if (forceOverwrite || attachedRemittances.length === 0) {
-          let toAttach: SayanSalesRemittanceResult[] = [];
-          if (list.length === 1) {
-            toAttach = [list[0]];
-          } else {
-            // Match Sayan Person Code if we have a match
-            const matchCode = personCode ? personCode.trim() : '';
-            if (matchCode) {
-              toAttach = list.filter(r => r.personCode && String(r.personCode).trim() === matchCode);
-            }
-            // Match Name
-            if (toAttach.length === 0 && recipientName) {
-              const cleanRecipient = recipientName.replace(/\s+/g, '');
-              toAttach = list.filter(r => r.personFullName && r.personFullName.replace(/\s+/g, '').includes(cleanRecipient));
-            }
-            // Fallback to first if still empty
-            if (toAttach.length === 0) {
-              toAttach = [list[0]];
-            }
-          }
+          // Select the latest recorded one (list[0] is guaranteed to be the latest because the server sorts by DocDate DESC)
+          const latestRemittance = list[0];
+          setAttachedRemittances([latestRemittance]);
 
-          if (toAttach.length > 0) {
-            setAttachedRemittances(toAttach);
-
-            const merged = getMergedRemittance(toAttach);
-            if (merged && merged.items && merged.items.length > 0) {
-              const newItems: ExitPermitItem[] = merged.items.map((it, idx) => ({
-                id: generateUUID(),
-                goodsName: it.goodsName || `کالا ${idx + 1}`,
-                cartonCount: it.cartonCount || 0,
-                weight: it.netQty || 0,
-                deliveredCartonCount: it.cartonCount || 0,
-                deliveredWeight: it.netQty || 0,
-                grossWeight: it.grossQty || it.netQty || 0,
-                bobbinCount: it.bobbinCount || 0,
-                grade: it.grade || 'AA',
-                twistDirection: it.twistDirection || 'Z',
-                itemCode: it.itemCode || '',
-                description: it.description || ''
-              }));
-              setItems(newItems);
-            }
+          if (latestRemittance.items && latestRemittance.items.length > 0) {
+            const newItems: ExitPermitItem[] = latestRemittance.items.map((it, idx) => ({
+              id: generateUUID(),
+              goodsName: it.goodsName || `کالا ${idx + 1}`,
+              cartonCount: it.cartonCount || 0,
+              weight: it.netQty || 0,
+              deliveredCartonCount: it.cartonCount || 0,
+              deliveredWeight: it.netQty || 0,
+              grossWeight: it.grossQty || it.netQty || 0,
+              bobbinCount: it.bobbinCount || 0,
+              grade: it.grade || 'AA',
+              twistDirection: it.twistDirection || 'Z',
+              itemCode: it.itemCode || '',
+              description: it.description || ''
+            }));
+            setItems(newItems);
           }
         }
       } else {
-        // Fallback check by Factory Exit Permit Number if we haven't searched for it yet
-        if (permitNumberStr && permitNumberStr.trim() !== '' && detectedTerm !== permitNumberStr.trim()) {
-          setSearchQuery(permitNumberStr.trim());
-          const fallbackRes = await fetchSayanSalesRemittances({
-            dateFrom: '',
-            dateTo: '',
-            search: permitNumberStr.trim(),
-            docType: 'all_exit'
-          });
-
-          if (fallbackRes && fallbackRes.success && fallbackRes.remittances && fallbackRes.remittances.length > 0) {
-            setSearchResults(fallbackRes.remittances);
-            setHasSearched(true);
-
-            if (forceOverwrite || attachedRemittances.length === 0) {
-              setAttachedRemittances([fallbackRes.remittances[0]]);
-              const merged = fallbackRes.remittances[0];
-              if (merged.items && merged.items.length > 0) {
-                const newItems: ExitPermitItem[] = merged.items.map((it, idx) => ({
-                  id: generateUUID(),
-                  goodsName: it.goodsName || `کالا ${idx + 1}`,
-                  cartonCount: it.cartonCount || 0,
-                  weight: it.netQty || 0,
-                  deliveredCartonCount: it.cartonCount || 0,
-                  deliveredWeight: it.netQty || 0,
-                  grossWeight: it.grossQty || it.netQty || 0,
-                  bobbinCount: it.bobbinCount || 0,
-                  grade: it.grade || 'AA',
-                  twistDirection: it.twistDirection || 'Z',
-                  itemCode: it.itemCode || '',
-                  description: it.description || ''
-                }));
-                setItems(newItems);
-              }
-            }
-            return;
-          }
-        }
-
-        setSayanError('سیستم موفق به یافتن خودکار حواله متناظر در سایان نشد. لطفاً از کادر جستجوی زیر به صورت دستی استعلام بگیرید.');
+        setSayanError('سیستم موفق به یافتن خودکار حواله فروش/خروج مرتبط با این مشتری بر اساس نام یا کد شخص در سایان نشد. لطفاً از کادر جستجوی زیر استفاده کنید.');
       }
     } catch (e: any) {
       setSayanError(e.message || 'خطا در ارتباط با سایان');
