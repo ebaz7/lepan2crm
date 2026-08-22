@@ -1357,167 +1357,129 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
             currentYearDateTo = new Date().toISOString().split('T')[0];
         }
 
-        // 1. Last Year Ending Stock
-        const sqlLastYear = `
-            SELECT 
-                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                COALESCE(
-                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
-                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
-                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
-                    RTRIM(LTRIM(t11.Field_005)),
-                    N'کالای بدون نام'
-                ) as ItemName,
-                t11.Field_031 as DetailNote,
-                CASE 
-                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN t11.Field_006 
-                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
-                    ELSE 0 
-                END as NetQty,
-                RTRIM(LTRIM(t10.Field_009)) as DocType,
-                t_group.GroupName,
-                t_group.SubGroupName
-            FROM STR_TBL_011 t11
-            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
-                                      AND t11.Field_003 = t10.Field_004 
-                                      AND t11.Field_012 = t10.Field_018
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
-                       MIN(t02_sub.Field_003) as SubGroupName,
-                       MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
-                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE t10.Field_008 <= '${lastYearDateTo}T23:59:59.000Z'
-        `;
+        const getWarehouseInventoryForDate = async (targetDate) => {
+            const sqlStockAndNames = `
+                WITH GroupedStock AS (
+                    SELECT 
+                        t11.Field_005 as ItemCode,
+                        SUM(CASE 
+                            WHEN t10.Field_009 IN ('10', '13') THEN t11.Field_006 
+                            WHEN t10.Field_009 IN ('3', '12', '23') THEN -t11.Field_006 
+                            ELSE 0 
+                        END) as StockQty
+                    FROM STR_TBL_011 t11
+                    INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                              AND t11.Field_003 = t10.Field_004 
+                                              AND t11.Field_012 = t10.Field_018
+                    WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                      AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
+                    GROUP BY t11.Field_005
+                )
+                SELECT 
+                    gs.ItemCode,
+                    gs.StockQty,
+                    COALESCE(
+                        NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                        NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                        NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                        NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                        NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                        NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                        RTRIM(LTRIM(gs.ItemCode)),
+                        N'کالای بدون نام'
+                    ) as ItemName,
+                    t_group.GroupName,
+                    t_group.SubGroupName
+                FROM GroupedStock gs
+                LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(gs.ItemCode))
+                LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(gs.ItemCode))
+                LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(gs.ItemCode))
+                LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(gs.ItemCode))
+                LEFT JOIN (
+                    SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                    FROM IND_TBL_021 t21_sub
+                    LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                    GROUP BY t21_sub.Field_004
+                ) t_name ON RTRIM(LTRIM(gs.ItemCode)) = RTRIM(LTRIM(t_name.ItemCode))
+                LEFT JOIN (
+                    SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
+                           MIN(t02_sub.Field_003) as SubGroupName,
+                           MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                    FROM IND_TBL_021 t21_sub
+                    LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                    LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                    LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                    GROUP BY t21_sub.Field_004
+                ) t_group ON RTRIM(LTRIM(gs.ItemCode)) = RTRIM(LTRIM(t_group.ItemCode))
+            `;
 
-        // 2. Current Stock (Up to specified current date)
-        const sqlCurrent = `
-            SELECT 
-                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                COALESCE(
-                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
-                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
-                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
-                    RTRIM(LTRIM(t11.Field_005)),
-                    N'کالای بدون نام'
-                ) as ItemName,
-                t11.Field_031 as DetailNote,
-                CASE 
-                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN t11.Field_006 
-                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
-                    ELSE 0 
-                END as NetQty,
-                RTRIM(LTRIM(t10.Field_009)) as DocType,
-                t_group.GroupName,
-                t_group.SubGroupName
-            FROM STR_TBL_011 t11
-            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
-                                      AND t11.Field_003 = t10.Field_004 
-                                      AND t11.Field_012 = t10.Field_018
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
-                       MIN(t02_sub.Field_003) as SubGroupName,
-                       MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
-                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE t10.Field_008 <= '${currentYearDateTo}T23:59:59.000Z'
-        `;
+            const sqlCartonsOnly = `
+                SELECT 
+                    t11.Field_005 as ItemCode,
+                    SUM(CASE 
+                        WHEN t10.Field_009 IN ('10', '13') THEN
+                            TRY_CAST(
+                                LEFT(
+                                    LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
+                                    PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
+                                ) as float
+                            )
+                        WHEN t10.Field_009 IN ('3', '12', '23') THEN
+                            -TRY_CAST(
+                                LEFT(
+                                    LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
+                                    PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
+                                ) as float
+                            )
+                        ELSE 0
+                    END) as CartonsQty
+                FROM STR_TBL_011 t11
+                INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                          AND t11.Field_003 = t10.Field_004 
+                                          AND t11.Field_012 = t10.Field_018
+                WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                  AND t11.Field_031 LIKE N'%تعداد کارتن:%'
+                  AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
+                GROUP BY t11.Field_005
+            `;
 
-        let lastYearRows = [];
-        let currentRows = [];
+            const [resStock, resCartons] = await Promise.all([
+                executeSayanQuery(db, sqlStockAndNames),
+                executeSayanQuery(db, sqlCartonsOnly)
+            ]);
 
-        try {
-            lastYearRows = await executeSayanQuery(db, sqlLastYear);
-        } catch (e) {
-            console.error("Last Year stock query error:", e);
-        }
+            const stockRows = resStock || [];
+            const cartonRows = resCartons || [];
 
-        try {
-            currentRows = await executeSayanQuery(db, sqlCurrent);
-        } catch (e) {
-            console.error("Current stock query error:", e);
-        }
-
-        const aggregateStock = (rows) => {
-            const map = {};
-            const parseCartonsFromNote = (note) => {
-                if (!note) return 0;
-                const match = note.match(/تعداد کارتن:\s*(\d+)/);
-                if (match) return parseInt(match[1], 10);
-                return 0;
-            };
-
-            rows.forEach(r => {
-                const name = r.ItemName || 'کالای بدون نام';
-                const qty = parseFloat(r.NetQty || 0);
-                
-                let cartons = 0;
-                if (r.DetailNote) {
-                    const parsed = parseCartonsFromNote(r.DetailNote);
-                    if (parsed > 0) {
-                        const isStockIn = ['10', '13'].includes(r.DocType);
-                        cartons = isStockIn ? parsed : -parsed;
-                    }
+            const cartonsMap = {};
+            cartonRows.forEach(r => {
+                if (r.ItemCode) {
+                    cartonsMap[r.ItemCode.trim()] = parseFloat(r.CartonsQty || 0);
                 }
-
-                // Create a unique key per item code or name
-                const key = r.ItemCode || name;
-
-                if (!map[key]) {
-                    map[key] = { 
-                        itemCode: r.ItemCode || '',
-                        itemName: name, 
-                        groupName: r.GroupName || 'سایر گروه‌ها',
-                        subGroupName: r.SubGroupName || '',
-                        stockQty: 0, 
-                        cartonsQty: 0 
-                    };
-                }
-                map[key].stockQty += qty;
-                map[key].cartonsQty += cartons;
             });
 
-            return Object.values(map);
+            return stockRows.map(r => {
+                const itemCodeTrimmed = r.ItemCode ? r.ItemCode.trim() : '';
+                return {
+                    itemCode: itemCodeTrimmed,
+                    itemName: r.ItemName ? r.ItemName.trim() : 'کالای بدون نام',
+                    groupName: r.GroupName ? r.GroupName.trim() : 'سایر گروه‌ها',
+                    subGroupName: r.SubGroupName ? r.SubGroupName.trim() : '',
+                    stockQty: parseFloat(r.StockQty || 0),
+                    cartonsQty: cartonsMap[itemCodeTrimmed] || 0
+                };
+            });
         };
+
+        const [lastYearStock, currentStock] = await Promise.all([
+            getWarehouseInventoryForDate(lastYearDateTo),
+            getWarehouseInventoryForDate(currentYearDateTo)
+        ]);
 
         res.json({
             success: true,
-            lastYearStock: aggregateStock(lastYearRows),
-            currentStock: aggregateStock(currentRows)
+            lastYearStock,
+            currentStock
         });
     } catch (err) {
         console.error("Warehouse Inventory Fetch Error:", err);

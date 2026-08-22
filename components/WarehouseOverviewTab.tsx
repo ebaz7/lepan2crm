@@ -330,20 +330,20 @@ export const WarehouseOverviewTab: React.FC = () => {
         { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
         { code: '0405', name: 'پلی استر شوایتر' },
         { code: '0407', name: 'نایلون' },
-        { code: '0408', name: 'نخ ملت' },
-        { code: '0409', name: 'الیاف' },
-        { code: '0410', name: 'FDY' }
+        { code: '0103', name: 'dty با پلی استر' }
     ];
 
     const RAW_MATERIAL_GROUPS = [
         { code: '0101', name: 'چیپس' },
         { code: '0102', name: 'POY' },
-        { code: '0103', name: 'dty با پلی استر' },
         { code: '0104', name: 'لاستیک' },
         { code: '0105', name: 'لاکرا' },
         { code: '0106', name: 'پلی استر اسپان' },
         { code: '0107', name: 'مستربچ' },
-        { code: '0108', name: 'نایلون' }
+        { code: '0108', name: 'نایلون' },
+        { code: '0408', name: 'نخ ملت' },
+        { code: '0409', name: 'الیاف' },
+        { code: '0410', name: 'FDY' }
     ];
 
     // Helper function to classify Sayan items based on keywords and database group name
@@ -382,19 +382,33 @@ export const WarehouseOverviewTab: React.FC = () => {
     };
 
     // Helper function to get all groups for a section dynamically, falling back to discovered ones if not predefined
-    const getSectionGroups = (sectionPrefix: string, predefinedGroups: { code: string; name: string }[]) => {
+    const getSectionGroups = (isProduction: boolean, predefinedGroups: { code: string; name: string }[]) => {
         const set = new Set<string>();
         predefinedGroups.forEach(g => set.add(g.code));
 
+        const otherPredefined = isProduction ? RAW_MATERIAL_GROUPS : MANUFACTURED_GROUPS;
+        const otherPredefinedCodes = new Set(otherPredefined.map(g => g.code));
+
+        const matchesSection = (code: string) => {
+            const prefix4 = code.substring(0, 4);
+            if (set.has(prefix4)) return true;
+            if (otherPredefinedCodes.has(prefix4)) return false;
+            if (isProduction) {
+                return code.startsWith('04');
+            } else {
+                return code.startsWith('01');
+            }
+        };
+
         sayanLastYear.forEach(r => {
             const code = String(r.itemCode || r.ItemCode || '');
-            if (code.startsWith(sectionPrefix) && code.length >= 4) {
+            if (code.length >= 4 && matchesSection(code)) {
                 set.add(code.substring(0, 4));
             }
         });
         sayanCurrent.forEach(r => {
             const code = String(r.itemCode || r.ItemCode || '');
-            if (code.startsWith(sectionPrefix) && code.length >= 4) {
+            if (code.length >= 4 && matchesSection(code)) {
                 set.add(code.substring(0, 4));
             }
         });
@@ -460,15 +474,15 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
-    // Aligned list of Manufactured Yarn Groups (Starting with 04)
+    // Aligned list of Manufactured Yarn Groups (Starting with 04 by default, plus DTY)
     const alignedYarns = useMemo(() => {
-        const groups = getSectionGroups('04', MANUFACTURED_GROUPS);
+        const groups = getSectionGroups(true, MANUFACTURED_GROUPS);
         return groups.filter(g => itemCategories[g.code] !== 'other');
     }, [sayanLastYear, sayanCurrent, itemCategories]);
 
-    // Aligned list of Raw Material Groups (Starting with 01)
+    // Aligned list of Raw Material Groups (Starting with 01 by default, plus FDY, الیاف, نخ ملت)
     const alignedImported = useMemo(() => {
-        const groups = getSectionGroups('01', RAW_MATERIAL_GROUPS);
+        const groups = getSectionGroups(false, RAW_MATERIAL_GROUPS);
         return groups.filter(g => itemCategories[g.code] !== 'other');
     }, [sayanLastYear, sayanCurrent, itemCategories]);
 
