@@ -389,6 +389,18 @@ export const WarehouseOverviewTab: React.FC = () => {
         if (code.startsWith('04')) {
             return 'yarn';
         }
+        if (code.startsWith('0104')) {
+            return 'rubber';
+        }
+        if (code.startsWith('0105')) {
+            return 'lycra';
+        }
+        if (code.startsWith('0106')) {
+            return 'spun';
+        }
+        if (code.startsWith('0101')) {
+            return 'chips';
+        }
 
         const name = String(r.itemName || '').toLowerCase();
         const grp = String(r.groupName || '').toLowerCase();

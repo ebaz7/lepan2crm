@@ -1373,8 +1373,8 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                     SELECT 
                         t11.Field_005 as ItemCode,
                         SUM(CASE 
-                            WHEN t10.Field_009 IN ('10', '13') THEN t11.Field_006 
-                            WHEN t10.Field_009 IN ('3', '12', '23') THEN -t11.Field_006 
+                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN t11.Field_006 
+                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
                             ELSE 0 
                         END) as StockQty
                     FROM STR_TBL_011 t11
@@ -1428,14 +1428,14 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                 SELECT 
                     t11.Field_005 as ItemCode,
                     SUM(CASE 
-                        WHEN t10.Field_009 IN ('10', '13') THEN
+                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '13') THEN
                             TRY_CAST(
                                 LEFT(
                                     LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
                                     PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
                                 ) as float
                             )
-                        WHEN t10.Field_009 IN ('3', '12', '23') THEN
+                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN
                             -TRY_CAST(
                                 LEFT(
                                     LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
@@ -2827,7 +2827,7 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                 }
             }
             
-            let whereClauses = ["t10.Field_009 IN ('12', '23')"];
+            let whereClauses = ["RTRIM(LTRIM(t10.Field_009)) IN ('12', '23')"];
             
             if (pDate) {
                 const gregDate = parseJalaliStrToGregorian(pDate);
