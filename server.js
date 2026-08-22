@@ -1348,7 +1348,16 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
             return res.json({ success: false, message: 'تنظیمات آدرس API یا کلید امنیتی سایان ثبت نشده است.', lastYearStock: [], currentStock: [] });
         }
 
-        // 1. Last Year Ending Stock (Up to 1403/12/30 -> 2025-03-20)
+        let lastYearDateTo = req.query.lastYearDateTo;
+        if (!lastYearDateTo || !/^\d{4}-\d{2}-\d{2}$/.test(lastYearDateTo)) {
+            lastYearDateTo = '2025-03-20';
+        }
+        let currentYearDateTo = req.query.currentYearDateTo;
+        if (!currentYearDateTo || !/^\d{4}-\d{2}-\d{2}$/.test(currentYearDateTo)) {
+            currentYearDateTo = new Date().toISOString().split('T')[0];
+        }
+
+        // 1. Last Year Ending Stock
         const sqlLastYear = `
             SELECT 
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
@@ -1370,10 +1379,10 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                       AND t11.Field_012 = t10.Field_018
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            WHERE t10.Field_008 <= '2025-03-20T23:59:59.000Z'
+            WHERE t10.Field_008 <= '${lastYearDateTo}T23:59:59.000Z'
         `;
 
-        // 2. Current Stock (Up to Now)
+        // 2. Current Stock (Up to specified current date)
         const sqlCurrent = `
             SELECT 
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
@@ -1395,6 +1404,7 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                       AND t11.Field_012 = t10.Field_018
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            WHERE t10.Field_008 <= '${currentYearDateTo}T23:59:59.000Z'
         `;
 
         let lastYearRows = [];
@@ -2289,7 +2299,6 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
                 `RTRIM(LTRIM(t10.Field_010)) LIKE N'%${sanitized}%'`,
                 `${sqlNormalize('p.Field_006')} LIKE N'%${jsNorm}%'`,
                 `${sqlNormalize('p.Field_007')} LIKE N'%${jsNorm}%'`,
-                `${sqlNormalize('p.Field_002')} LIKE N'%${jsNorm}%'`,
                 `${sqlNormalize('t07.Field_006')} LIKE N'%${jsNorm}%'`,
                 `RTRIM(LTRIM(t11.Field_005)) LIKE N'%${sanitized}%'`,
                 `${sqlNormalize('s04.Field_003')} LIKE N'%${jsNorm}%'`,
@@ -2460,7 +2469,7 @@ app.all('/api/sayan/sales-remittances', async (req, res) => {
         });
     } catch (e) {
         console.error("Fetch Sayan Sales Remittances Error:", e);
-        res.status(500).json({ success: false, message: e.message, remittances: [] });
+        res.status(500).json({ success: false, message: e.message, error: e.message, remittances: [] });
     }
 });
 
@@ -2504,14 +2513,13 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
                 const parts = normName.split(/\s+/).filter(Boolean);
                 if (parts.length > 0) {
                     const subParts = parts.map(part => {
-                        return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_002')} LIKE N'%${part}%' OR ${sqlNormalize('t07.Field_006')} LIKE N'%${part}%')`;
+                        return `(${sqlNormalize('p.Field_006')} LIKE N'%${part}%' OR ${sqlNormalize('p.Field_007')} LIKE N'%${part}%' OR ${sqlNormalize('t07.Field_006')} LIKE N'%${part}%')`;
                     });
                     conditions.push(`(${subParts.join(' AND ')})`);
                 }
             } else {
                 conditions.push(`${sqlNormalize('p.Field_006')} LIKE N'%${normName}%'`);
                 conditions.push(`${sqlNormalize('p.Field_007')} LIKE N'%${normName}%'`);
-                conditions.push(`${sqlNormalize('p.Field_002')} LIKE N'%${normName}%'`);
                 conditions.push(`${sqlNormalize('t07.Field_006')} LIKE N'%${normName}%'`);
             }
 
@@ -2530,7 +2538,6 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
                 t10.Field_018 as StoreId,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
-                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
                     t10.Field_010,
                     N'طرف‌حساب نامشخص'
@@ -2549,7 +2556,7 @@ app.post('/api/sayan/sales-remittance/explore', async (req, res) => {
         res.json({ success: true, headers: headers || [] });
     } catch (e) {
         console.error("Explore Remittances Error:", e);
-        res.status(500).json({ success: false, message: e.message });
+        res.status(500).json({ success: false, message: e.message, error: e.message });
     }
 });
 
@@ -2586,9 +2593,13 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
 
         // If there's a permitDate, it's an automatic lookup where we want STRICT matching of customer and date
         if (permitDate) {
-            const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
-            // Match date within a ±7 day window
-            whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 7`);
+            const gregDate = parseJalaliStrToGregorian(permitDate);
+            if (gregDate) {
+                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${gregDate}')) <= 7`);
+            } else {
+                const sanitizedDate = String(permitDate).replace(/'/g, "''").trim();
+                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 7`);
+            }
         }
 
         let matchConditions = getSayanMatchConditions({ personCode: pCode, recipientName: rName, permitNumber });
@@ -2602,8 +2613,9 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
             }
         }
 
-        const orderByClause = permitDate 
-            ? `ABS(DATEDIFF(day, t10.Field_008, '${String(permitDate).replace(/'/g, "''")}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
+        const gregDate = permitDate ? parseJalaliStrToGregorian(permitDate) : null;
+        const orderByClause = gregDate 
+            ? `ABS(DATEDIFF(day, t10.Field_008, '${gregDate}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
             : `t10.Field_008 DESC, t10.Field_001 DESC`;
 
         const queryHeaders = `
@@ -2620,7 +2632,6 @@ app.post('/api/sayan/sales-remittance/lookup', async (req, res) => {
                 t10.Field_029 as Note,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(COALESCE(p.Field_006, '') + ' ' + COALESCE(p.Field_007, ''))), ''),
-                    NULLIF(RTRIM(LTRIM(p.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t07.Field_006)), ''),
                     t10.Field_010,
                     N'طرف‌حساب نامشخص'
@@ -2785,8 +2796,13 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
             let whereClauses = ["t10.Field_009 IN ('12', '23')"];
             
             if (pDate) {
-                const sanitizedDate = String(pDate).replace(/'/g, "''").trim();
-                whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
+                const gregDate = parseJalaliStrToGregorian(pDate);
+                if (gregDate) {
+                    whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${gregDate}')) <= 5`);
+                } else {
+                    const sanitizedDate = String(pDate).replace(/'/g, "''").trim();
+                    whereClauses.push(`ABS(DATEDIFF(day, t10.Field_008, '${sanitizedDate}')) <= 5`);
+                }
             }
 
             // Utilize robust getSayanMatchConditions
@@ -2795,8 +2811,9 @@ app.post('/api/sayan/exit-permits/:id/sync-remittance', async (req, res) => {
                 whereClauses.push(...matchConditions);
             }
 
-            const orderByClause = pDate 
-                ? `ABS(DATEDIFF(day, t10.Field_008, '${String(pDate).replace(/'/g, "''")}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
+            const gregDateForOrder = pDate ? parseJalaliStrToGregorian(pDate) : null;
+            const orderByClause = gregDateForOrder 
+                ? `ABS(DATEDIFF(day, t10.Field_008, '${gregDateForOrder}')) ASC, t10.Field_008 DESC, t10.Field_001 DESC`
                 : `t10.Field_008 DESC, t10.Field_001 DESC`;
 
             const queryHeaders = `

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Loader2, Save, Plus, Trash2, Edit2, Check, X, FileText, 
-    TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw 
+    TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff
 } from 'lucide-react';
 
 interface WarehouseItem {
@@ -38,31 +38,11 @@ interface CommercialGoodItem {
     dollars: number;
 }
 
-const DEFAULT_RAW_MATERIALS: string[] = [
-    "اسپان 30 خام ویتکس",
-    "اسپان 30 ویتکس مشکی",
-    "اسپان 40 ویتکس",
-    "اسپان رنگی کد 201 سفید",
-    "اسپان رنگی کد 207 مشکی",
-    "الکرا 20",
-    "الکرا 30",
-    "الکرا 40",
-    "الکرا 70",
-    "الکرا 140",
-    "الکرا 210",
-    "نخ ملت کارتن"
-];
-
-const DEFAULT_FACTORY_ITEMS: string[] = [
-    "روغن poy",
-    "نخ poy",
-    "نخ الستیک"
-];
-
 export const WarehouseOverviewTab: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
 
     // Live Sayan Data States
     const [sayanLastYear, setSayanLastYear] = useState<any[]>([]);
@@ -78,9 +58,24 @@ export const WarehouseOverviewTab: React.FC = () => {
     const [purchasingGoods, setPurchasingGoods] = useState<CustomCargoItem[]>([]);
     const [commercialGoods, setCommercialGoods] = useState<CommercialGoodItem[]>([]);
 
-    // Metadata
+    // Dynamic category overrides for Sayan items
+    const [itemCategories, setItemCategories] = useState<Record<string, 'raw' | 'factory' | 'other'>>({});
+
+    // Metadata & Configurable Reporting Dates
     const [reportDate, setReportDate] = useState("۱۴۰۴/۰۴/۱۷");
     const [signature, setSignature] = useState("محمد ابراهیم حیدری");
+
+    // Configurable Labels and Query Dates
+    const [report1Label, setReport1Label] = useState("منتهی به سال ۱۴۰۳");
+    const [report1Jalali, setReport1Jalali] = useState("۱۴۰۳/۱۲/۳۰");
+    const [report1Miladi, setReport1Miladi] = useState("2025-03-20");
+
+    const [report2Label, setReport2Label] = useState("وضعیت فعلی سال ۱۴۰۴");
+    const [report2Jalali, setReport2Jalali] = useState("۱۴۰۴/۰۸/۲۲");
+    const [report2Miladi, setReport2Miladi] = useState("2026-08-22");
+
+    // Search filter for Sayan items
+    const [itemFilterText, setItemFilterText] = useState("");
 
     // Load everything on mount
     useEffect(() => {
@@ -90,17 +85,12 @@ export const WarehouseOverviewTab: React.FC = () => {
     const loadSavedData = async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch Sayan Live stock
-            const sayanRes = await fetch('/api/sayan/warehouse-inventory');
-            const sayanData = await sayanRes.json();
-            if (sayanData.success) {
-                setSayanLastYear(sayanData.lastYearStock || []);
-                setSayanCurrent(sayanData.currentStock || []);
-            }
-
-            // 2. Fetch our custom DB data
+            // 1. Fetch our custom DB data first to read labels/dates
             const dbRes = await fetch('/api/warehouse-overview/data');
             const dbData = await dbRes.json();
+
+            let r1Date = '2025-03-20';
+            let r2Date = '2026-08-22';
 
             if (dbData) {
                 setLastYearOverrides(dbData.lastYearOverrides || {});
@@ -109,10 +99,34 @@ export const WarehouseOverviewTab: React.FC = () => {
                 setGoodsInCustoms(dbData.goodsInCustoms || []);
                 setPurchasingGoods(dbData.purchasingGoods || []);
                 setCommercialGoods(dbData.commercialGoods || []);
+                setItemCategories(dbData.itemCategories || {});
+                
                 if (dbData.meta) {
                     if (dbData.meta.reportDate) setReportDate(dbData.meta.reportDate);
                     if (dbData.meta.signature) setSignature(dbData.meta.signature);
+                    
+                    if (dbData.meta.report1Label) setReport1Label(dbData.meta.report1Label);
+                    if (dbData.meta.report1Jalali) setReport1Jalali(dbData.meta.report1Jalali);
+                    if (dbData.meta.report1Miladi) {
+                        setReport1Miladi(dbData.meta.report1Miladi);
+                        r1Date = dbData.meta.report1Miladi;
+                    }
+                    
+                    if (dbData.meta.report2Label) setReport2Label(dbData.meta.report2Label);
+                    if (dbData.meta.report2Jalali) setReport2Jalali(dbData.meta.report2Jalali);
+                    if (dbData.meta.report2Miladi) {
+                        setReport2Miladi(dbData.meta.report2Miladi);
+                        r2Date = dbData.meta.report2Miladi;
+                    }
                 }
+            }
+
+            // 2. Fetch Sayan Live stock with correct dates
+            const sayanRes = await fetch(`/api/sayan/warehouse-inventory?lastYearDateTo=${r1Date}&currentYearDateTo=${r2Date}`);
+            const sayanData = await sayanRes.json();
+            if (sayanData.success) {
+                setSayanLastYear(sayanData.lastYearStock || []);
+                setSayanCurrent(sayanData.currentStock || []);
             }
         } catch (err) {
             console.error("Failed to load warehouse overview data", err);
@@ -121,7 +135,7 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (silent = false) => {
         setIsSaving(true);
         try {
             const payload = {
@@ -131,9 +145,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                 goodsInCustoms,
                 purchasingGoods,
                 commercialGoods,
+                itemCategories,
                 meta: {
                     reportDate,
-                    signature
+                    signature,
+                    report1Label,
+                    report1Jalali,
+                    report1Miladi,
+                    report2Label,
+                    report2Jalali,
+                    report2Miladi
                 }
             };
 
@@ -144,27 +165,102 @@ export const WarehouseOverviewTab: React.FC = () => {
             });
 
             if (res.ok) {
-                setIsEditMode(false);
-                alert("تغییرات با موفقیت ذخیره شد.");
+                if (!silent) {
+                    setIsEditMode(false);
+                    alert("تغییرات با موفقیت ذخیره شد.");
+                }
             } else {
-                alert("خطا در ذخیره تغییرات روی سرور.");
+                if (!silent) alert("خطا در ذخیره تغییرات روی سرور.");
             }
         } catch (err) {
             console.error(err);
-            alert("خطا در ذخیره اطلاعات.");
+            if (!silent) alert("خطا در ذخیره اطلاعات.");
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Smart Mapper to match Sayan raw item name to standard categories
+    // Apply custom dates and trigger fresh data query from Sayan
+    const handleApplySettingsAndFetch = async () => {
+        setIsLoading(true);
+        try {
+            // First save overrides and config
+            await handleSave(true);
+
+            // Refetch live stock with newly updated Miladi dates
+            const sayanRes = await fetch(`/api/sayan/warehouse-inventory?lastYearDateTo=${report1Miladi}&currentYearDateTo=${report2Miladi}`);
+            const sayanData = await sayanRes.json();
+            if (sayanData.success) {
+                setSayanLastYear(sayanData.lastYearStock || []);
+                setSayanCurrent(sayanData.currentStock || []);
+            }
+            setShowSettings(false);
+        } catch (err) {
+            console.error("Failed to refetch Sayan data", err);
+            alert("خطا در استعلام اطلاعات جدید از سایان.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Dynamically compile all item names in Sayan database for both periods
+    const dynamicItems = useMemo(() => {
+        const set = new Set<string>();
+        sayanLastYear.forEach(r => { if (r.itemName) set.add(r.itemName.trim()); });
+        sayanCurrent.forEach(r => { if (r.itemName) set.add(r.itemName.trim()); });
+        return Array.from(set).sort();
+    }, [sayanLastYear, sayanCurrent]);
+
+    // Smart category getter (supports user category overrides and defaults to keyword categorization)
+    const getItemCategory = (itemName: string): 'raw' | 'factory' | 'other' => {
+        if (itemCategories[itemName]) {
+            return itemCategories[itemName];
+        }
+        
+        // Auto-classify using keywords
+        const lower = itemName.toLowerCase();
+        if (
+            lower.includes('poy') || 
+            lower.includes('روغن') || 
+            lower.includes('الستیک') || 
+            lower.includes('لاستیک') || 
+            lower.includes('کارخانه')
+        ) {
+            return 'factory';
+        }
+        
+        // Default category
+        return 'raw';
+    };
+
+    const handleCategoryChange = (itemName: string, category: 'raw' | 'factory' | 'other') => {
+        setItemCategories(prev => ({
+            ...prev,
+            [itemName]: category
+        }));
+    };
+
+    // Filter items based on search filter input
+    const filteredRawItems = useMemo(() => {
+        const rawList = dynamicItems.filter(item => getItemCategory(item) === 'raw');
+        if (!itemFilterText.trim()) return rawList;
+        return rawList.filter(item => item.includes(itemFilterText.trim()));
+    }, [dynamicItems, itemCategories, itemFilterText]);
+
+    const filteredFactoryItems = useMemo(() => {
+        const factoryList = dynamicItems.filter(item => getItemCategory(item) === 'factory');
+        if (!itemFilterText.trim()) return factoryList;
+        return factoryList.filter(item => item.includes(itemFilterText.trim()));
+    }, [dynamicItems, itemCategories, itemFilterText]);
+
+    // Retrieve Sayan direct stock quantities
     const getSayanValue = (itemName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
         const list = isLastYear ? sayanLastYear : sayanCurrent;
         
-        // Clean query terms
+        // Clean target string
         const target = itemName.replace(/\s+/g, '').toLowerCase();
         
-        // Find best match in Sayan rows
+        // Find match in Sayan rows
         const found = list.find(r => {
             const rowName = String(r.itemName || '').replace(/\s+/g, '').toLowerCase();
             return rowName.includes(target) || target.includes(rowName);
@@ -204,18 +300,18 @@ export const WarehouseOverviewTab: React.FC = () => {
         const setOverrides = isLastYear ? setLastYearOverrides : setCurrentOverrides;
         const overrides = isLastYear ? lastYearOverrides : currentOverrides;
 
-        const numVal = (field === 'proforma') ? value : parseFloat(value || '0');
+        const val = (field === 'proforma') ? value : parseFloat(value || '0');
 
         setOverrides({
             ...overrides,
             [itemName]: {
                 ...(overrides[itemName] || {}),
-                [field]: numVal
+                [field]: val
             }
         });
     };
 
-    // Calculate sum of a list of standard items
+    // Calculate sum of a list of dynamic items
     const calculateSectionSum = (items: string[], isLastYear: boolean, field: 'cartons' | 'weight' | 'containers' | 'dollars') => {
         return items.reduce((sum, itemName) => {
             const val = getItemValue(itemName, isLastYear, field);
@@ -228,39 +324,42 @@ export const WarehouseOverviewTab: React.FC = () => {
         return list.reduce((sum, item) => sum + (parseFloat(item[field]) || 0), 0);
     };
 
+    // Unified Lists of dynamic items
+    const allActiveRawItems = useMemo(() => dynamicItems.filter(item => getItemCategory(item) === 'raw'), [dynamicItems, itemCategories]);
+    const allActiveFactoryItems = useMemo(() => dynamicItems.filter(item => getItemCategory(item) === 'factory'), [dynamicItems, itemCategories]);
+
     // Totals calculations
     const totalLastYearContainers = useMemo(() => {
-        const bg = calculateSectionSum(DEFAULT_RAW_MATERIALS, true, 'containers');
-        const transit = calculateCustomTableSum(goodsInTransit, 'container'); // We can split last year / current or keep general
-        const customs = calculateCustomTableSum(goodsInCustoms, 'container');
-        const purchase = calculateCustomTableSum(purchasingGoods, 'container');
-        return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides]);
-
-    const totalCurrentContainers = useMemo(() => {
-        const bg = calculateSectionSum(DEFAULT_RAW_MATERIALS, false, 'containers');
-        // Let's assume transit/customs/purchase in the tables are current year
+        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'containers');
         const transit = calculateCustomTableSum(goodsInTransit, 'container');
         const customs = calculateCustomTableSum(goodsInCustoms, 'container');
         const purchase = calculateCustomTableSum(purchasingGoods, 'container');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, allActiveRawItems, allActiveFactoryItems]);
+
+    const totalCurrentContainers = useMemo(() => {
+        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'containers');
+        const transit = calculateCustomTableSum(goodsInTransit, 'container');
+        const customs = calculateCustomTableSum(goodsInCustoms, 'container');
+        const purchase = calculateCustomTableSum(purchasingGoods, 'container');
+        return bg + transit + customs + purchase;
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, allActiveRawItems, allActiveFactoryItems]);
 
     const totalLastYearDollars = useMemo(() => {
-        const bg = calculateSectionSum(DEFAULT_RAW_MATERIALS, true, 'dollars');
+        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'dollars');
         const transit = calculateCustomTableSum(goodsInTransit, 'dollars');
         const customs = calculateCustomTableSum(goodsInCustoms, 'dollars');
         const purchase = calculateCustomTableSum(purchasingGoods, 'dollars');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, allActiveRawItems, allActiveFactoryItems]);
 
     const totalCurrentDollars = useMemo(() => {
-        const bg = calculateSectionSum(DEFAULT_RAW_MATERIALS, false, 'dollars');
+        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'dollars');
         const transit = calculateCustomTableSum(goodsInTransit, 'dollars');
         const customs = calculateCustomTableSum(goodsInCustoms, 'dollars');
         const purchase = calculateCustomTableSum(purchasingGoods, 'dollars');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, allActiveRawItems, allActiveFactoryItems]);
 
     // Difference and ratio formulas matching the PDF
     const diffContainers = totalCurrentContainers - totalLastYearContainers;
@@ -280,7 +379,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                     type={format === 'number' ? 'number' : 'text'}
                     value={val}
                     onChange={(e) => handleCellChange(itemName, isLastYear, field, e.target.value)}
-                    className="w-full text-center py-1 px-1 bg-blue-50 border border-blue-200 rounded text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                    className="w-full text-center py-1 px-1 bg-blue-50 border border-blue-200 rounded text-xs focus:ring-1 focus:ring-blue-400 focus:outline-none font-semibold"
                 />
             );
         }
@@ -361,6 +460,18 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                     <button
+                        onClick={() => setShowSettings(!showSettings)}
+                        className={`rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                            showSettings 
+                            ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>تنظیمات دوره مالی</span>
+                    </button>
+
+                    <button
                         onClick={loadSavedData}
                         disabled={isLoading}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5"
@@ -383,7 +494,7 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                     {isEditMode && (
                         <button
-                            onClick={handleSave}
+                            onClick={() => handleSave(false)}
                             disabled={isSaving}
                             className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                         >
@@ -394,10 +505,117 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
             </div>
 
+            {/* Dynamic Date & Period Settings Control (User Requested) */}
+            {showSettings && (
+                <div className="bg-white p-6 rounded-2xl border-2 border-blue-100 shadow-md space-y-6 max-w-4xl mx-auto animation-fade-in">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <Settings className="w-5 h-5 text-blue-600" />
+                        <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">تنظیمات پویای دوره‌های مالی و تاریخ استعلام سایان</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Period 1 Settings */}
+                        <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100">
+                            <h5 className="font-bold text-xs text-blue-900 border-b border-blue-100 pb-1.5">ستون گزارش ۱ (مثلاً سال گذشته)</h5>
+                            
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[11px] text-slate-500 font-bold mb-1">برچسب ستون جدول</label>
+                                    <input 
+                                        type="text"
+                                        value={report1Label}
+                                        onChange={(e) => setReport1Label(e.target.value)}
+                                        className="w-full text-xs font-bold p-2 bg-white border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        placeholder="مانند: منتهی به سال ۱۴۰۳"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] text-slate-500 font-bold mb-1">تاریخ شمسی (نمایش)</label>
+                                        <input 
+                                            type="text"
+                                            value={report1Jalali}
+                                            onChange={(e) => setReport1Jalali(e.target.value)}
+                                            className="w-full text-xs font-semibold p-2 bg-white border rounded text-center focus:outline-none"
+                                            placeholder="۱۴۰۳/۱۲/۳۰"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] text-slate-500 font-bold mb-1">تاریخ میلادی (سایان)</label>
+                                        <input 
+                                            type="date"
+                                            value={report1Miladi}
+                                            onChange={(e) => setReport1Miladi(e.target.value)}
+                                            className="w-full text-xs font-semibold p-2 bg-white border rounded text-center focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Period 2 Settings */}
+                        <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100">
+                            <h5 className="font-bold text-xs text-blue-900 border-b border-blue-100 pb-1.5">ستون گزارش ۲ (مثلاً سال جاری)</h5>
+                            
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[11px] text-slate-500 font-bold mb-1">برچسب ستون جدول</label>
+                                    <input 
+                                        type="text"
+                                        value={report2Label}
+                                        onChange={(e) => setReport2Label(e.target.value)}
+                                        className="w-full text-xs font-bold p-2 bg-white border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        placeholder="مانند: وضعیت فعلی سال ۱۴۰۴"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] text-slate-500 font-bold mb-1">تاریخ شمسی (نمایش)</label>
+                                        <input 
+                                            type="text"
+                                            value={report2Jalali}
+                                            onChange={(e) => setReport2Jalali(e.target.value)}
+                                            className="w-full text-xs font-semibold p-2 bg-white border rounded text-center focus:outline-none"
+                                            placeholder="۱۴۰۴/۰۴/۱۷"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] text-slate-500 font-bold mb-1">تاریخ میلادی (سایان)</label>
+                                        <input 
+                                            type="date"
+                                            value={report2Miladi}
+                                            onChange={(e) => setReport2Miladi(e.target.value)}
+                                            className="w-full text-xs font-semibold p-2 bg-white border rounded text-center focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+                        <button
+                            onClick={() => setShowSettings(false)}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg px-4 py-2 text-xs font-bold"
+                        >
+                            انصراف
+                        </button>
+                        <button
+                            onClick={handleApplySettingsAndFetch}
+                            disabled={isLoading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                        >
+                            {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            <span>اعمال تنظیمات و استخراج جدید از سایان</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Letter Header Box */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-4xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div className="text-xs font-bold text-slate-400">گزارش مدیریتی مقایسه‌ای</div>
+                    <div className="text-xs font-bold text-slate-400">گزارش مدیریتی مقایسه‌ای وضعیت انبارها</div>
                     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs">
                         <Calendar className="w-3.5 h-3.5 text-blue-600" />
                         <span className="text-slate-500 font-bold">تاریخ گزارش:</span>
@@ -416,21 +634,41 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                 <div className="space-y-1">
                     <h3 className="font-extrabold text-slate-800 text-base">مدیریت محترم لپان بافت جناب آقای محمد امین فتوت احمدی</h3>
-                    <p className="text-xs text-slate-500 font-medium">با سلام، احتراما گزارش موجودی منتهی به سال ۱۴۰۳ و مقایسه آن با سال ۱۴۰۴ تا امروز به شرح ذیل تقدیم حضور می‌گردد:</p>
+                    <p className="text-xs text-slate-500 font-medium">
+                        با سلام، احتراما گزارش موجودی {report1Label} (مورخ {report1Jalali}) و مقایسه آن با {report2Label} (مورخ {report2Jalali}) مستخرج از سامانه یکپارچه سایان به همراه جزئیات بارهای در راه و گمرک به شرح ذیل تقدیم حضور می‌گردد:
+                    </p>
                 </div>
             </div>
 
-            {/* Main Grid: Last Year vs Current Year comparison */}
+            {/* Sayan Items Filters */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">تعداد کل اقلام سایان: {dynamicItems.length} قلم</span>
+                    <span className="px-2 py-1 bg-green-50 text-green-600 rounded">مواد اولیه: {allActiveRawItems.length} قلم</span>
+                    <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded">در کارخانه: {allActiveFactoryItems.length} قلم</span>
+                </div>
+                <div className="w-full md:w-72">
+                    <input 
+                        type="text"
+                        value={itemFilterText}
+                        onChange={(e) => setItemFilterText(e.target.value)}
+                        placeholder="جستجو در بین اقلام انبار سایان..."
+                        className="w-full text-xs p-2 bg-slate-50 border rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                </div>
+            </div>
+
+            {/* Main Grid: Sayan Items - Left (Report 1) vs Right (Report 2) comparison */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 
-                {/* 1. LAST YEAR END OF FISCAL INVENTORY TABLE (1403) */}
+                {/* 1. REPORT 1 END OF FISCAL INVENTORY TABLE */}
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
                     <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse"></span>
-                            <h4 className="font-extrabold text-sm sm:text-base">موجودی بنگاه‌ها و کارخانه (منتهی به سال ۱۴۰۳)</h4>
+                            <h4 className="font-extrabold text-sm sm:text-base">موجودی انبارها ({report1Label})</h4>
                         </div>
-                        <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300 font-mono">پایان دوره ۱۴۰۳</span>
+                        <span className="text-xs bg-slate-800 px-2.5 py-1 rounded text-slate-300 font-bold font-mono">{report1Jalali}</span>
                     </div>
 
                     <div className="overflow-x-auto flex-1">
@@ -438,52 +676,95 @@ export const WarehouseOverviewTab: React.FC = () => {
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                                     <th className="py-3 px-2 text-right">نوع کالا / نخ</th>
+                                    <th className="py-3 px-2">دسته‌بندی</th>
                                     <th className="py-3 px-2">پروفرم</th>
-                                    <th className="py-3 px-2">کارتن مانده</th>
-                                    <th className="py-3 px-2">وزن مانده (kg)</th>
+                                    <th className="py-3 px-2">کارتن</th>
+                                    <th className="py-3 px-2 font-bold text-slate-900">وزن (kg)</th>
                                     <th className="py-3 px-2">کانتینر</th>
                                     <th className="py-3 px-2">ارزش دلاری</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                <tr className="bg-slate-50 text-slate-500 font-bold text-right"><td colSpan={6} className="py-1 px-3 text-[10px]">موجودی انبار بنگاه‌ها</td></tr>
-                                {DEFAULT_RAW_MATERIALS.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50 text-slate-700">
-                                        <td className="py-2.5 px-3 text-right font-bold">{item}</td>
-                                        <td className="py-2.5 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'weight', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
+                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۱. موجودی انبار بنگاه‌ها (مواد اولیه اصلی)</td></tr>
+                                {filteredRawItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredRawItems.map((item, idx) => (
+                                        <tr key={`raw-${idx}`} className="hover:bg-slate-50 text-slate-700">
+                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
+                                            <td className="py-2 px-1">
+                                                {isEditMode ? (
+                                                    <select
+                                                        value={getItemCategory(item)}
+                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
+                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
+                                                    >
+                                                        <option value="raw">مواد اولیه</option>
+                                                        <option value="factory">کارخانه</option>
+                                                        <option value="other">پنهان کردن</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">بنگاه‌ها</span>
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, true, 'weight', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
+                                        </tr>
+                                    ))
+                                )}
                                 
-                                <tr className="bg-slate-50 text-slate-500 font-bold text-right"><td colSpan={6} className="py-1 px-3 text-[10px]">موجودی در کارخانه</td></tr>
-                                {DEFAULT_FACTORY_ITEMS.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50 text-slate-700">
-                                        <td className="py-2.5 px-3 text-right font-bold">{item}</td>
-                                        <td className="py-2.5 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'weight', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
+                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۲. موجودی در کارخانه (مواد حین تولید و کمکی)</td></tr>
+                                {filteredFactoryItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredFactoryItems.map((item, idx) => (
+                                        <tr key={`fact-${idx}`} className="hover:bg-slate-50 text-slate-700">
+                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
+                                            <td className="py-2 px-1">
+                                                {isEditMode ? (
+                                                    <select
+                                                        value={getItemCategory(item)}
+                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
+                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
+                                                    >
+                                                        <option value="raw">مواد اولیه</option>
+                                                        <option value="factory">کارخانه</option>
+                                                        <option value="other">پنهان کردن</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">کارخانه</span>
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, true, 'weight', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                             <tfoot>
                                 <tr className="bg-slate-900 text-white font-extrabold border-t border-slate-700">
-                                    <td className="py-3 px-3 text-right font-extrabold" colSpan={2}>جمع کل انبارها</td>
+                                    <td className="py-3 px-3 text-right font-extrabold" colSpan={3}>جمع کل انبارها (سایان)</td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], true, 'cartons').toLocaleString('fa-IR')}
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'cartons').toLocaleString('fa-IR')}
+                                    </td>
+                                    <td className="py-3 px-2 font-mono text-center text-amber-300">
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'weight').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], true, 'weight').toLocaleString('fa-IR')}
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'containers').toLocaleString('fa-IR')}
                                     </td>
-                                    <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], true, 'containers').toLocaleString('fa-IR')}
-                                    </td>
-                                    <td className="py-3 px-2 font-mono text-center text-amber-400">
-                                        ${calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], true, 'dollars').toLocaleString('en-US')}
+                                    <td className="py-3 px-2 font-mono text-center text-emerald-300">
+                                        ${calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'dollars').toLocaleString('en-US')}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -491,14 +772,14 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 2. CURRENT ACTIVE FISCAL INVENTORY TABLE (1404) */}
+                {/* 2. REPORT 2 CURRENT ACTIVE INVENTORY TABLE */}
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
                     <div className="p-4 bg-blue-900 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse"></span>
-                            <h4 className="font-extrabold text-sm sm:text-base">موجودی بنگاه‌ها و کارخانه (فعلی سال ۱۴۰۴)</h4>
+                            <h4 className="font-extrabold text-sm sm:text-base">موجودی انبارها ({report2Label})</h4>
                         </div>
-                        <span className="text-xs bg-blue-800 px-2 py-1 rounded text-blue-200 font-mono">دوره فعال ۱۴۰۴</span>
+                        <span className="text-xs bg-blue-800 px-2.5 py-1 rounded text-blue-200 font-bold font-mono">{report2Jalali}</span>
                     </div>
 
                     <div className="overflow-x-auto flex-1">
@@ -506,52 +787,95 @@ export const WarehouseOverviewTab: React.FC = () => {
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                                     <th className="py-3 px-2 text-right">نوع کالا / نخ</th>
+                                    <th className="py-3 px-2">دسته‌بندی</th>
                                     <th className="py-3 px-2">پروفرم</th>
-                                    <th className="py-3 px-2">کارتن مانده</th>
-                                    <th className="py-3 px-2">وزن مانده (kg)</th>
+                                    <th className="py-3 px-2">کارتن</th>
+                                    <th className="py-3 px-2 font-bold text-slate-900">وزن (kg)</th>
                                     <th className="py-3 px-2">کانتینر</th>
                                     <th className="py-3 px-2">ارزش دلاری</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                <tr className="bg-slate-50 text-slate-500 font-bold text-right"><td colSpan={6} className="py-1 px-3 text-[10px]">موجودی انبار بنگاه‌ها</td></tr>
-                                {DEFAULT_RAW_MATERIALS.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50 text-slate-700">
-                                        <td className="py-2.5 px-3 text-right font-bold">{item}</td>
-                                        <td className="py-2.5 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'weight', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
+                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۱. موجودی انبار بنگاه‌ها (مواد اولیه اصلی)</td></tr>
+                                {filteredRawItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredRawItems.map((item, idx) => (
+                                        <tr key={`raw2-${idx}`} className="hover:bg-slate-50 text-slate-700">
+                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
+                                            <td className="py-2 px-1">
+                                                {isEditMode ? (
+                                                    <select
+                                                        value={getItemCategory(item)}
+                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
+                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
+                                                    >
+                                                        <option value="raw">مواد اولیه</option>
+                                                        <option value="factory">کارخانه</option>
+                                                        <option value="other">پنهان کردن</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">بنگاه‌ها</span>
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, false, 'weight', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
+                                        </tr>
+                                    ))
+                                )}
                                 
-                                <tr className="bg-slate-50 text-slate-500 font-bold text-right"><td colSpan={6} className="py-1 px-3 text-[10px]">موجودی در کارخانه</td></tr>
-                                {DEFAULT_FACTORY_ITEMS.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50 text-slate-700">
-                                        <td className="py-2.5 px-3 text-right font-bold">{item}</td>
-                                        <td className="py-2.5 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'weight', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
-                                        <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
+                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۲. موجودی در کارخانه (مواد حین تولید و کمکی)</td></tr>
+                                {filteredFactoryItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredFactoryItems.map((item, idx) => (
+                                        <tr key={`fact2-${idx}`} className="hover:bg-slate-50 text-slate-700">
+                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
+                                            <td className="py-2 px-1">
+                                                {isEditMode ? (
+                                                    <select
+                                                        value={getItemCategory(item)}
+                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
+                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
+                                                    >
+                                                        <option value="raw">مواد اولیه</option>
+                                                        <option value="factory">کارخانه</option>
+                                                        <option value="other">پنهان کردن</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">کارخانه</span>
+                                                )}
+                                            </td>
+                                            <td className="py-2 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, false, 'weight', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
+                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                             <tfoot>
                                 <tr className="bg-blue-900 text-white font-extrabold border-t border-blue-700">
-                                    <td className="py-3 px-3 text-right font-extrabold" colSpan={2}>جمع کل انبارها</td>
+                                    <td className="py-3 px-3 text-right font-extrabold" colSpan={3}>جمع کل انبارها (سایان)</td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], false, 'cartons').toLocaleString('fa-IR')}
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'cartons').toLocaleString('fa-IR')}
+                                    </td>
+                                    <td className="py-3 px-2 font-mono text-center text-amber-300">
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'weight').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], false, 'weight').toLocaleString('fa-IR')}
-                                    </td>
-                                    <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], false, 'containers').toLocaleString('fa-IR')}
+                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'containers').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center text-emerald-300">
-                                        ${calculateSectionSum([...DEFAULT_RAW_MATERIALS, ...DEFAULT_FACTORY_ITEMS], false, 'dollars').toLocaleString('en-US')}
+                                        ${calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'dollars').toLocaleString('en-US')}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -605,7 +929,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                                                     type="text" 
                                                     value={item.itemName} 
                                                     onChange={(e) => updateCommercialCell(item.id, 'itemName', e.target.value)}
-                                                    className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                    className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
                                                 />
                                             ) : item.itemName}
                                         </td>

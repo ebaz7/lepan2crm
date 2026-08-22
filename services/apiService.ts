@@ -171,8 +171,8 @@ export const apiCall = async <T>(endpoint: string, method: string = 'GET', body?
             if (isJson) {
                 try {
                     const errData = await response.json();
-                    if (errData && errData.error) {
-                        serverErrorMsg = errData.error;
+                    if (errData && (errData.error || errData.message)) {
+                        serverErrorMsg = errData.error || errData.message;
                     }
                 } catch (e) {
                     // Fallback to text if JSON parse failed
