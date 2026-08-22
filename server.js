@@ -1383,7 +1383,6 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                                               AND t11.Field_012 = t10.Field_018
                     WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
                       ${dateFromFilter}
-                      AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
                     GROUP BY t11.Field_005
                 )
                 SELECT 
@@ -1451,7 +1450,6 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                 WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
                   ${dateFromFilter}
                   AND t11.Field_031 LIKE N'%تعداد کارتن:%'
-                  AND (t11.Field_005 LIKE '01%' OR t11.Field_005 LIKE '04%')
                 GROUP BY t11.Field_005
             `;
 
