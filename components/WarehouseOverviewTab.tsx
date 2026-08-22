@@ -557,7 +557,7 @@ export const WarehouseOverviewTab: React.FC = () => {
         return list.reduce((sum, r) => {
             const code = String(r.itemCode || r.ItemCode || '');
             if (code.startsWith(groupCode)) {
-                const qty = field === 'weight' ? Math.abs(r.stockQty || 0) : Math.abs(r.cartonsQty || 0);
+                const qty = field === 'weight' ? (r.stockQty || 0) : (r.cartonsQty || 0);
                 return sum + qty;
             }
             return sum;
@@ -568,7 +568,7 @@ export const WarehouseOverviewTab: React.FC = () => {
         const list = isLastYear ? sayanLastYear : sayanCurrent;
         const found = list.find(r => String(r.itemCode || r.ItemCode || '') === itemCode);
         if (found) {
-            return field === 'weight' ? Math.abs(found.stockQty || 0) : Math.abs(found.cartonsQty || 0);
+            return field === 'weight' ? (found.stockQty || 0) : (found.cartonsQty || 0);
         }
         return 0;
     };
@@ -713,10 +713,10 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
 
         if (format === 'dollar') {
-            return val > 0 ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 0 })}` : '-';
+            return val !== 0 ? `$${val.toLocaleString('en-US', { minimumFractionDigits: 0 })}` : '-';
         }
         if (format === 'number') {
-            return val > 0 ? val.toLocaleString('fa-IR') : '-';
+            return val !== 0 ? val.toLocaleString('fa-IR', { maximumFractionDigits: 3 }) : '-';
         }
         return val || '-';
     };
