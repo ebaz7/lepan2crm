@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Loader2, Save, Plus, Trash2, Edit2, Check, X, FileText, 
-    TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff
+    TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff,
+    ChevronDown, ChevronRight
 } from 'lucide-react';
 
 interface WarehouseItem {
@@ -61,17 +62,20 @@ export const WarehouseOverviewTab: React.FC = () => {
     // Dynamic category overrides for Sayan items
     const [itemCategories, setItemCategories] = useState<Record<string, 'raw' | 'factory' | 'other'>>({});
 
+    // Collapsible group state for Manufactured Yarns
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
     // Metadata & Configurable Reporting Dates
-    const [reportDate, setReportDate] = useState("۱۴۰۴/۰۴/۱۷");
+    const [reportDate, setReportDate] = useState("۱۴۰۵/۰۵/۳۱");
     const [signature, setSignature] = useState("محمد ابراهیم حیدری");
 
     // Configurable Labels and Query Dates
-    const [report1Label, setReport1Label] = useState("منتهی به سال ۱۴۰۳");
-    const [report1Jalali, setReport1Jalali] = useState("۱۴۰۳/۱۲/۳۰");
-    const [report1Miladi, setReport1Miladi] = useState("2025-03-20");
+    const [report1Label, setReport1Label] = useState("منتهی به سال ۱۴۰۴");
+    const [report1Jalali, setReport1Jalali] = useState("۱۴۰۴/۱۲/۲۹");
+    const [report1Miladi, setReport1Miladi] = useState("2026-03-20");
 
-    const [report2Label, setReport2Label] = useState("وضعیت فعلی سال ۱۴۰۴");
-    const [report2Jalali, setReport2Jalali] = useState("۱۴۰۴/۰۸/۲۲");
+    const [report2Label, setReport2Label] = useState("وضعیت فعلی سال ۱۴۰۵");
+    const [report2Jalali, setReport2Jalali] = useState("۱۴۰۵/۰۵/۳۱");
     const [report2Miladi, setReport2Miladi] = useState("2026-08-22");
 
     // Search filter for Sayan items
@@ -89,8 +93,67 @@ export const WarehouseOverviewTab: React.FC = () => {
             const dbRes = await fetch('/api/warehouse-overview/data');
             const dbData = await dbRes.json();
 
-            let r1Date = '2025-03-20';
-            let r2Date = '2026-08-22';
+            // Fetch main system settings to dynamically compute defaults based on active fiscal year if there's no saved config
+            let activeYearLabel = "1405"; // Default fallback
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const settingsData = await settingsRes.json();
+                if (settingsData && settingsData.fiscalYears && settingsData.activeFiscalYearId) {
+                    const activeYearObj = settingsData.fiscalYears.find((y: any) => y.id === settingsData.activeFiscalYearId);
+                    if (activeYearObj && activeYearObj.label) {
+                        activeYearLabel = activeYearObj.label;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch settings for active fiscal year", e);
+            }
+
+            // Dynamic defaults based on system's active fiscal year
+            let r1Date = '2025-03-20'; // Default for 1403
+            let r2Date = '2026-08-22'; // Default for 1405 (actual today date in 1405)
+
+            if (activeYearLabel === "1405") {
+                r1Date = '2026-03-20'; // 1404/12/29
+                r2Date = '2026-08-22'; // 1405/05/31
+                
+                setReport1Label("منتهی به سال ۱۴۰۴");
+                setReport1Jalali("۱۴۰۴/۱۲/۲۹");
+                setReport1Miladi("2026-03-20");
+
+                setReport2Label("وضعیت فعلی سال ۱۴۰۵");
+                setReport2Jalali("۱۴۰۵/۰۵/۳۱");
+                setReport2Miladi("2026-08-22");
+                setReportDate("۱۴۰۵/۰۵/۳۱");
+            } else if (activeYearLabel === "1404") {
+                r1Date = '2025-03-20'; // 1403/12/30
+                r2Date = '2025-11-13'; // 1404/08/22
+                
+                setReport1Label("منتهی به سال ۱۴۰۳");
+                setReport1Jalali("۱۴۰۳/۱۲/۳۰");
+                setReport1Miladi("2025-03-20");
+
+                setReport2Label("وضعیت فعلی سال ۱۴۰۴");
+                setReport2Jalali("۱۴۰۴/۰۸/۲۲");
+                setReport2Miladi("2025-11-13");
+                setReportDate("۱۴۰۴/۰۸/۲۲");
+            } else {
+                // Generalized mathematical solar-to-miladi mapping fallback for any active year
+                const yr = parseInt(activeYearLabel) || 1404;
+                const prevYr = yr - 1;
+                const miladiYear = yr + 1121;
+                
+                r1Date = `${miladiYear - 1}-03-20`;
+                r2Date = `${miladiYear}-08-22`;
+
+                setReport1Label(`منتهی به سال ${prevYr.toLocaleString('fa-IR', {useGrouping: false})}`);
+                setReport1Jalali(`${prevYr.toLocaleString('fa-IR', {useGrouping: false})}/۱۲/۲۹`);
+                setReport1Miladi(`${miladiYear - 1}-03-20`);
+
+                setReport2Label(`وضعیت فعلی سال ${yr.toLocaleString('fa-IR', {useGrouping: false})}`);
+                setReport2Jalali(`${yr.toLocaleString('fa-IR', {useGrouping: false})}/۰۸/۲۲`);
+                setReport2Miladi(`${miladiYear}-08-22`);
+                setReportDate(`${yr.toLocaleString('fa-IR', {useGrouping: false})}/۰۸/۲۲`);
+            }
 
             if (dbData) {
                 setLastYearOverrides(dbData.lastYearOverrides || {});
@@ -130,6 +193,62 @@ export const WarehouseOverviewTab: React.FC = () => {
             }
         } catch (err) {
             console.error("Failed to load warehouse overview data", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Helper to sync dates directly with system's active fiscal year inside settings
+    const handleSyncWithActiveYear = async () => {
+        setIsLoading(true);
+        try {
+            const settingsRes = await fetch('/api/settings');
+            const settingsData = await settingsRes.json();
+            let activeYearLabel = "1405";
+            if (settingsData && settingsData.fiscalYears && settingsData.activeFiscalYearId) {
+                const activeYearObj = settingsData.fiscalYears.find((y: any) => y.id === settingsData.activeFiscalYearId);
+                if (activeYearObj && activeYearObj.label) {
+                    activeYearLabel = activeYearObj.label;
+                }
+            }
+
+            if (activeYearLabel === "1405") {
+                setReport1Label("منتهی به سال ۱۴۰۴");
+                setReport1Jalali("۱۴۰۴/۱۲/۲۹");
+                setReport1Miladi("2026-03-20");
+
+                setReport2Label("وضعیت فعلی سال ۱۴۰۵");
+                setReport2Jalali("۱۴۰۵/۰۵/۳۱");
+                setReport2Miladi("2026-08-22");
+                setReportDate("۱۴۰۵/۰۵/۳۱");
+            } else if (activeYearLabel === "1404") {
+                setReport1Label("منتهی به سال ۱۴۰۳");
+                setReport1Jalali("۱۴۰۳/۱۲/۳۰");
+                setReport1Miladi("2025-03-20");
+
+                setReport2Label("وضعیت فعلی سال ۱۴۰۴");
+                setReport2Jalali("۱۴۰۴/۰۸/۲۲");
+                setReport2Miladi("2025-11-13");
+                setReportDate("۱۴۰۴/۰۸/۲۲");
+            } else {
+                // Generalized mathematical solar-to-miladi mapping fallback for any active year
+                const yr = parseInt(activeYearLabel) || 1404;
+                const prevYr = yr - 1;
+                const miladiYear = yr + 1121;
+                
+                setReport1Label(`منتهی به سال ${prevYr.toLocaleString('fa-IR', {useGrouping: false})}`);
+                setReport1Jalali(`${prevYr.toLocaleString('fa-IR', {useGrouping: false})}/۱۲/۲۹`);
+                setReport1Miladi(`${miladiYear - 1}-03-20`);
+
+                setReport2Label(`وضعیت فعلی سال ${yr.toLocaleString('fa-IR', {useGrouping: false})}`);
+                setReport2Jalali(`${yr.toLocaleString('fa-IR', {useGrouping: false})}/۰۸/۲۲`);
+                setReport2Miladi(`${miladiYear}-08-22`);
+                setReportDate(`${yr.toLocaleString('fa-IR', {useGrouping: false})}/۰۸/۲۲`);
+            }
+            alert(`تاریخ‌ها بر اساس سال مالی فعال سیستم (${activeYearLabel}) بازنشانی شدند. جهت ذخیره به عنوان پیش‌فرض دائم، دکمه «ثبت دائم و استعلام جدید» را بزنید.`);
+        } catch (err) {
+            console.error("Failed to sync with active year", err);
+            alert("خطا در همگام‌سازی با سال مالی فعال سیستم.");
         } finally {
             setIsLoading(false);
         }
@@ -195,6 +314,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 setSayanCurrent(sayanData.currentStock || []);
             }
             setShowSettings(false);
+            alert("تنظیمات با موفقیت ذخیره شد و به عنوان پیش‌فرض دائم گزارش ثبت گردید.");
         } catch (err) {
             console.error("Failed to refetch Sayan data", err);
             alert("خطا در استعلام اطلاعات جدید از سایان.");
@@ -203,80 +323,175 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
-    // Dynamically compile all item names in Sayan database for both periods
-    const dynamicItems = useMemo(() => {
-        const set = new Set<string>();
-        sayanLastYear.forEach(r => { if (r.itemName) set.add(r.itemName.trim()); });
-        sayanCurrent.forEach(r => { if (r.itemName) set.add(r.itemName.trim()); });
-        return Array.from(set).sort();
-    }, [sayanLastYear, sayanCurrent]);
+    // Helper function to classify Sayan items based on keywords and database group name
+    const classifyItem = (r: any): 'lycra' | 'spun' | 'rubber' | 'melt' | 'nylon' | 'chips' | 'oil' | 'yarn' => {
+        const code = String(r.itemCode || r.ItemCode || '');
+        if (code.startsWith('04')) {
+            return 'yarn';
+        }
 
-    // Smart category getter (supports user category overrides and defaults to keyword categorization)
-    const getItemCategory = (itemName: string): 'raw' | 'factory' | 'other' => {
-        if (itemCategories[itemName]) {
-            return itemCategories[itemName];
+        const name = String(r.itemName || '').toLowerCase();
+        const grp = String(r.groupName || '').toLowerCase();
+
+        if (name.includes('لاکرا') || name.includes('اسپاندکس') || grp.includes('لاکرا') || grp.includes('اسپاندکس') || name.includes('spandex') || name.includes('lycra')) {
+            return 'lycra';
         }
-        
-        // Auto-classify using keywords
-        const lower = itemName.toLowerCase();
-        if (
-            lower.includes('poy') || 
-            lower.includes('روغن') || 
-            lower.includes('الستیک') || 
-            lower.includes('لاستیک') || 
-            lower.includes('کارخانه')
-        ) {
-            return 'factory';
+        if (name.includes('اسپان') || grp.includes('اسپان') || name.includes('spunbond') || name.includes('spun')) {
+            return 'spun';
         }
-        
-        // Default category
-        return 'raw';
+        if (name.includes('لاستیک') || name.includes('الستیک') || grp.includes('لاستیک') || grp.includes('الستیک') || name.includes('rubber') || name.includes('elastic')) {
+            return 'rubber';
+        }
+        if (name.includes('ملت') || grp.includes('ملت') || name.includes('meltblown') || name.includes('melt')) {
+            return 'melt';
+        }
+        if (name.includes('نایلون') || grp.includes('نایلون') || name.includes('nylon')) {
+            return 'nylon';
+        }
+        if (name.includes('چیپس') || grp.includes('چیپس') || name.includes('chips')) {
+            return 'chips';
+        }
+        if (name.includes('روغن') || grp.includes('روغن') || name.includes('oil')) {
+            return 'oil';
+        }
+
+        return 'yarn';
     };
 
-    const handleCategoryChange = (itemName: string, category: 'raw' | 'factory' | 'other') => {
-        setItemCategories(prev => ({
+    // Helper function to get all child items of a manufactured group name across both periods
+    const getGroupChildItems = (groupName: string) => {
+        const map: Record<string, { itemName: string; itemCode: string }> = {};
+        sayanLastYear.forEach(r => {
+            if (classifyItem(r) === 'yarn') {
+                const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
+                if (rGroup === groupName) {
+                    const code = r.itemCode || r.ItemCode || '';
+                    const name = r.itemName || code || 'کالای بدون نام';
+                    map[code || name] = { itemName: name, itemCode: code };
+                }
+            }
+        });
+        sayanCurrent.forEach(r => {
+            if (classifyItem(r) === 'yarn') {
+                const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
+                if (rGroup === groupName) {
+                    const code = r.itemCode || r.ItemCode || '';
+                    const name = r.itemName || code || 'کالای بدون نام';
+                    map[code || name] = { itemName: name, itemCode: code };
+                }
+            }
+        });
+        return Object.values(map).sort((a, b) => a.itemName.localeCompare(b.itemName));
+    };
+
+    const toggleGroup = (groupName: string) => {
+        setExpandedGroups(prev => ({
             ...prev,
-            [itemName]: category
+            [groupName]: !prev[groupName]
         }));
     };
 
-    // Filter items based on search filter input
-    const filteredRawItems = useMemo(() => {
-        const rawList = dynamicItems.filter(item => getItemCategory(item) === 'raw');
-        if (!itemFilterText.trim()) return rawList;
-        return rawList.filter(item => item.includes(itemFilterText.trim()));
-    }, [dynamicItems, itemCategories, itemFilterText]);
+    const getCategoryPersianLabel = (cat: string) => {
+        switch (cat) {
+            case 'lycra': return 'نخ لاکرا و اسپاندکس';
+            case 'spun': return 'اسپان باند';
+            case 'rubber': return 'لاستیک و کش';
+            case 'melt': return 'ملت بلون';
+            case 'nylon': return 'نایلون وارداتی';
+            case 'chips': return 'چیپس پلیمر (پتروشیمی)';
+            case 'oil': return 'روغن‌های کمکی و ریسندگی';
+            default: return 'سایر مواد اولیه و ملزومات';
+        }
+    };
 
-    const filteredFactoryItems = useMemo(() => {
-        const factoryList = dynamicItems.filter(item => getItemCategory(item) === 'factory');
-        if (!itemFilterText.trim()) return factoryList;
-        return factoryList.filter(item => item.includes(itemFilterText.trim()));
-    }, [dynamicItems, itemCategories, itemFilterText]);
+    // Aligned list of Manufactured Yarn Groups (All unique yarn groups across both periods)
+    const alignedYarns = useMemo(() => {
+        const set = new Set<string>();
+        sayanLastYear.forEach(r => {
+            if (classifyItem(r) === 'yarn') {
+                set.add(r.groupName || r.itemName || 'سایر نخ‌ها');
+            }
+        });
+        sayanCurrent.forEach(r => {
+            if (classifyItem(r) === 'yarn') {
+                set.add(r.groupName || r.itemName || 'سایر نخ‌ها');
+            }
+        });
+        return Array.from(set).filter(g => itemCategories[g] !== 'other').sort();
+    }, [sayanLastYear, sayanCurrent, itemCategories]);
 
-    // Retrieve Sayan direct stock quantities
-    const getSayanValue = (itemName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
-        const list = isLastYear ? sayanLastYear : sayanCurrent;
+    // Aligned list of Imported & Raw Items, categorized
+    const alignedImported = useMemo(() => {
+        const map: Record<string, { itemName: string; category: string; itemCode: string }> = {};
         
-        // Clean target string
-        const target = itemName.replace(/\s+/g, '').toLowerCase();
-        
-        // Find match in Sayan rows
-        const found = list.find(r => {
-            const rowName = String(r.itemName || '').replace(/\s+/g, '').toLowerCase();
-            return rowName.includes(target) || target.includes(rowName);
+        sayanLastYear.forEach(r => {
+            const cat = classifyItem(r);
+            if (cat !== 'yarn') {
+                const key = r.itemName || r.itemCode;
+                map[key] = { itemName: r.itemName, category: cat, itemCode: r.itemCode };
+            }
+        });
+        sayanCurrent.forEach(r => {
+            const cat = classifyItem(r);
+            if (cat !== 'yarn') {
+                const key = r.itemName || r.itemCode;
+                map[key] = { itemName: r.itemName, category: cat, itemCode: r.itemCode };
+            }
         });
 
+        return Object.values(map)
+            .filter(item => itemCategories[item.itemName] !== 'other')
+            .sort((a, b) => {
+                if (a.category !== b.category) {
+                    return a.category.localeCompare(b.category);
+                }
+                return a.itemName.localeCompare(b.itemName);
+            });
+    }, [sayanLastYear, sayanCurrent, itemCategories]);
+
+    // Filters based on search input
+    const filteredYarns = useMemo(() => {
+        if (!itemFilterText.trim()) return alignedYarns;
+        return alignedYarns.filter(g => g.includes(itemFilterText.trim()));
+    }, [alignedYarns, itemFilterText]);
+
+    const filteredImported = useMemo(() => {
+        if (!itemFilterText.trim()) return alignedImported;
+        return alignedImported.filter(item => 
+            item.itemName.includes(itemFilterText.trim()) || 
+            getCategoryPersianLabel(item.category).includes(itemFilterText.trim())
+        );
+    }, [alignedImported, itemFilterText]);
+
+    // Retrieve Sayan direct stock quantities for yarn groups or individual items
+    const getSayanGroupSum = (groupName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
+        const list = isLastYear ? sayanLastYear : sayanCurrent;
+        return list.reduce((sum, r) => {
+            const cat = classifyItem(r);
+            const rGroup = r.groupName || r.itemName || 'سایر نخ‌ها';
+            if (cat === 'yarn' && rGroup === groupName) {
+                const qty = field === 'weight' ? Math.abs(r.stockQty || 0) : Math.abs(r.cartonsQty || 0);
+                return sum + qty;
+            }
+            return sum;
+        }, 0);
+    };
+
+    const getSayanItemValue = (itemName: string, isLastYear: boolean, field: 'weight' | 'cartons'): number => {
+        const list = isLastYear ? sayanLastYear : sayanCurrent;
+        const found = list.find(r => r.itemName === itemName);
         if (found) {
-            return field === 'weight' ? Math.abs(found.stockQty) : Math.abs(found.cartonsQty);
+            return field === 'weight' ? Math.abs(found.stockQty || 0) : Math.abs(found.cartonsQty || 0);
         }
         return 0;
     };
 
-    // Table item getter with override fallback
+    // Smart value getter supporting local overrides with Sayan database fallback
     const getItemValue = (
         itemName: string, 
         isLastYear: boolean, 
-        field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars'
+        field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars',
+        isGroup = false
     ): any => {
         const overrides = isLastYear ? lastYearOverrides : currentOverrides;
         const itemOverride = overrides[itemName];
@@ -287,7 +502,11 @@ export const WarehouseOverviewTab: React.FC = () => {
 
         // Sayan fallback for weight and cartons
         if (field === 'weight' || field === 'cartons') {
-            return getSayanValue(itemName, isLastYear, field);
+            if (isGroup) {
+                return getSayanGroupSum(itemName, isLastYear, field);
+            } else {
+                return getSayanItemValue(itemName, isLastYear, field);
+            }
         }
 
         // Defaults
@@ -311,12 +530,11 @@ export const WarehouseOverviewTab: React.FC = () => {
         });
     };
 
-    // Calculate sum of a list of dynamic items
-    const calculateSectionSum = (items: string[], isLastYear: boolean, field: 'cartons' | 'weight' | 'containers' | 'dollars') => {
-        return items.reduce((sum, itemName) => {
-            const val = getItemValue(itemName, isLastYear, field);
-            return sum + (typeof val === 'number' ? val : 0);
-        }, 0);
+    const handleCategoryChange = (itemName: string, category: 'raw' | 'factory' | 'other') => {
+        setItemCategories(prev => ({
+            ...prev,
+            [itemName]: category
+        }));
     };
 
     // Calculate sum of custom tables
@@ -324,42 +542,56 @@ export const WarehouseOverviewTab: React.FC = () => {
         return list.reduce((sum, item) => sum + (parseFloat(item[field]) || 0), 0);
     };
 
-    // Unified Lists of dynamic items
-    const allActiveRawItems = useMemo(() => dynamicItems.filter(item => getItemCategory(item) === 'raw'), [dynamicItems, itemCategories]);
-    const allActiveFactoryItems = useMemo(() => dynamicItems.filter(item => getItemCategory(item) === 'factory'), [dynamicItems, itemCategories]);
+    // Support getting custom category overrides
+    const getItemCategory = (itemName: string): 'raw' | 'factory' | 'other' => {
+        if (itemCategories[itemName]) {
+            return itemCategories[itemName];
+        }
+        return 'raw'; // Default is active/visible
+    };
 
-    // Totals calculations
+    // Backward compatibility variables for total calculations
+    const allActiveRawItems = alignedImported;
+    const allActiveFactoryItems = alignedYarns;
+
+    const calculateTotalSayanSum = (isLastYear: boolean, field: 'cartons' | 'weight' | 'containers' | 'dollars') => {
+        const sumYarns = alignedYarns.reduce((sum, item) => sum + getItemValue(item, isLastYear, field, true), 0);
+        const sumImported = alignedImported.reduce((sum, item) => sum + getItemValue(item.itemName, isLastYear, field, false), 0);
+        return sumYarns + sumImported;
+    };
+
+    // Total calculations using grouped yarns + detail imported
     const totalLastYearContainers = useMemo(() => {
-        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'containers');
+        const bg = calculateTotalSayanSum(true, 'containers');
         const transit = calculateCustomTableSum(goodsInTransit, 'container');
         const customs = calculateCustomTableSum(goodsInCustoms, 'container');
         const purchase = calculateCustomTableSum(purchasingGoods, 'container');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, allActiveRawItems, allActiveFactoryItems]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, alignedYarns, alignedImported]);
 
     const totalCurrentContainers = useMemo(() => {
-        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'containers');
+        const bg = calculateTotalSayanSum(false, 'containers');
         const transit = calculateCustomTableSum(goodsInTransit, 'container');
         const customs = calculateCustomTableSum(goodsInCustoms, 'container');
         const purchase = calculateCustomTableSum(purchasingGoods, 'container');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, allActiveRawItems, allActiveFactoryItems]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, alignedYarns, alignedImported]);
 
     const totalLastYearDollars = useMemo(() => {
-        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'dollars');
+        const bg = calculateTotalSayanSum(true, 'dollars');
         const transit = calculateCustomTableSum(goodsInTransit, 'dollars');
         const customs = calculateCustomTableSum(goodsInCustoms, 'dollars');
         const purchase = calculateCustomTableSum(purchasingGoods, 'dollars');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, allActiveRawItems, allActiveFactoryItems]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, alignedYarns, alignedImported]);
 
     const totalCurrentDollars = useMemo(() => {
-        const bg = calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'dollars');
+        const bg = calculateTotalSayanSum(false, 'dollars');
         const transit = calculateCustomTableSum(goodsInTransit, 'dollars');
         const customs = calculateCustomTableSum(goodsInCustoms, 'dollars');
         const purchase = calculateCustomTableSum(purchasingGoods, 'dollars');
         return bg + transit + customs + purchase;
-    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, allActiveRawItems, allActiveFactoryItems]);
+    }, [goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, alignedYarns, alignedImported]);
 
     // Difference and ratio formulas matching the PDF
     const diffContainers = totalCurrentContainers - totalLastYearContainers;
@@ -371,8 +603,8 @@ export const WarehouseOverviewTab: React.FC = () => {
     const isDownwardTrend = diffContainers < 0;
 
     // Helper to render editable/static cell
-    const renderCell = (itemName: string, isLastYear: boolean, field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars', format = 'number') => {
-        const val = getItemValue(itemName, isLastYear, field);
+    const renderCell = (itemName: string, isLastYear: boolean, field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars', format = 'number', isGroup = false) => {
+        const val = getItemValue(itemName, isLastYear, field, isGroup);
         if (isEditMode) {
             return (
                 <input 
@@ -442,6 +674,151 @@ export const WarehouseOverviewTab: React.FC = () => {
 
     const updateCommercialCell = (id: string, field: string, value: any) => {
         setCommercialGoods(commercialGoods.map(r => r.id === id ? { ...r, [field]: field === 'itemName' || field === 'category' ? value : parseFloat(value || '0') } : r));
+    };
+
+    const renderTableBody = (isLastYear: boolean) => {
+        // Group filteredImported by category
+        const categoriesMap: Record<string, typeof filteredImported> = {};
+        filteredImported.forEach(item => {
+            if (!categoriesMap[item.category]) {
+                categoriesMap[item.category] = [];
+            }
+            categoriesMap[item.category].push(item);
+        });
+
+        const activeCategories = Object.keys(categoriesMap).sort();
+
+        return (
+            <tbody className="divide-y divide-slate-100">
+                {/* 1. MANUFACTURED YARNS */}
+                <tr className="bg-slate-50 text-slate-700 font-extrabold text-right">
+                    <td colSpan={7} className="py-2 px-3 text-[11px] text-blue-900 bg-blue-50 border-y border-blue-100">
+                        ۱. کالاهای تولیدی (ادغام شده در سطح گروه کالا)
+                    </td>
+                </tr>
+                {filteredYarns.length === 0 ? (
+                    <tr>
+                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
+                    </tr>
+                ) : (
+                    filteredYarns.map((groupName, idx) => {
+                        const isExpanded = !!expandedGroups[groupName];
+                        const childItems = getGroupChildItems(groupName);
+
+                        return (
+                            <React.Fragment key={`group-wrapper-${isLastYear ? 'ly' : 'curr'}-${idx}`}>
+                                <tr className="hover:bg-slate-50 text-slate-700 border-b border-slate-100">
+                                    <td 
+                                        className="py-2.5 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition-colors"
+                                        onClick={() => toggleGroup(groupName)}
+                                    >
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-slate-100 transition-colors">
+                                            {isExpanded ? (
+                                                <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                                            ) : (
+                                                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                            )}
+                                        </span>
+                                        <span>{groupName}</span>
+                                        <span className="text-[10px] text-slate-400 font-normal mr-1 select-none">({childItems.length} کالا)</span>
+                                    </td>
+                                    <td className="py-2 px-1">
+                                        {isEditMode ? (
+                                            <select
+                                                value={getItemCategory(groupName)}
+                                                onChange={(e) => handleCategoryChange(groupName, e.target.value as any)}
+                                                className="text-[10px] p-1 border rounded bg-white text-slate-700 focus:outline-none"
+                                            >
+                                                <option value="raw">تولیدی (نمایش)</option>
+                                                <option value="other">پنهان کردن</option>
+                                            </select>
+                                        ) : (
+                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">تولیدی</span>
+                                        )}
+                                    </td>
+                                    <td className="py-2 px-2">{renderCell(groupName, isLastYear, 'proforma', 'text', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(groupName, isLastYear, 'cartons', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(groupName, isLastYear, 'weight', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-medium">{renderCell(groupName, isLastYear, 'containers', 'number', true)}</td>
+                                    <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(groupName, isLastYear, 'dollars', 'dollar', true)}</td>
+                                </tr>
+                                
+                                {isExpanded && childItems.map((child, cIdx) => (
+                                    <tr 
+                                        key={`child-${isLastYear ? 'ly' : 'curr'}-${groupName}-${cIdx}`} 
+                                        className="bg-slate-50/30 hover:bg-slate-100/50 transition-colors text-slate-600 text-[11px] border-b border-dashed border-slate-100/80"
+                                    >
+                                        <td className="py-2 px-3 pr-8 text-right font-normal text-slate-700 flex items-center gap-1.5">
+                                            <span className="text-slate-300 font-bold select-none">↳</span>
+                                            <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded mr-1 select-all">{child.itemCode}</span>
+                                            <span className="font-medium text-slate-800">{child.itemName}</span>
+                                        </td>
+                                        <td className="py-2 px-1">
+                                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold select-none">کالا</span>
+                                        </td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'proforma', 'text', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'cartons', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-700">{renderCell(child.itemName, isLastYear, 'weight', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono text-slate-500">{renderCell(child.itemName, isLastYear, 'containers', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-semibold text-slate-600">{renderCell(child.itemName, isLastYear, 'dollars', 'dollar', false)}</td>
+                                    </tr>
+                                ))}
+                            </React.Fragment>
+                        );
+                    })
+                )}
+
+                {/* 2. IMPORTED & RAW MATERIALS */}
+                <tr className="bg-slate-50 text-slate-700 font-extrabold text-right">
+                    <td colSpan={7} className="py-2 px-3 text-[11px] text-teal-900 bg-teal-50 border-y border-teal-100">
+                        ۲. مواد اولیه وارداتی و کمکی (تفکیک شده با جزئیات)
+                    </td>
+                </tr>
+                {activeCategories.length === 0 ? (
+                    <tr>
+                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
+                    </tr>
+                ) : (
+                    activeCategories.map(cat => {
+                        const items = categoriesMap[cat] || [];
+                        const catLabel = getCategoryPersianLabel(cat);
+                        return (
+                            <React.Fragment key={`cat-sec-${cat}`}>
+                                <tr className="bg-slate-100/50 text-slate-600 font-bold text-right">
+                                    <td colSpan={7} className="py-1 px-3 text-[10px] text-slate-500 font-semibold border-b border-slate-100">
+                                        📁 {catLabel}
+                                    </td>
+                                </tr>
+                                {items.map((item, idx) => (
+                                    <tr key={`imp-${isLastYear ? 'ly' : 'curr'}-${cat}-${idx}`} className="hover:bg-slate-50 text-slate-700">
+                                        <td className="py-2 px-3 text-right font-medium text-slate-800 pr-6">{item.itemName}</td>
+                                        <td className="py-2 px-1">
+                                            {isEditMode ? (
+                                                <select
+                                                    value={getItemCategory(item.itemName)}
+                                                    onChange={(e) => handleCategoryChange(item.itemName, e.target.value as any)}
+                                                    className="text-[10px] p-1 border rounded bg-white text-slate-700 focus:outline-none"
+                                                >
+                                                    <option value="raw">وارداتی (نمایش)</option>
+                                                    <option value="other">پنهان کردن</option>
+                                                </select>
+                                            ) : (
+                                                <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded font-bold">وارداتی</span>
+                                            )}
+                                        </td>
+                                        <td className="py-2 px-2">{renderCell(item.itemName, isLastYear, 'proforma', 'text', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-medium">{renderCell(item.itemName, isLastYear, 'cartons', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item.itemName, isLastYear, 'weight', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-medium">{renderCell(item.itemName, isLastYear, 'containers', 'number', false)}</td>
+                                        <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item.itemName, isLastYear, 'dollars', 'dollar', false)}</td>
+                                    </tr>
+                                ))}
+                            </React.Fragment>
+                        );
+                    })
+                )}
+            </tbody>
+        );
     };
 
     return (
@@ -593,21 +970,33 @@ export const WarehouseOverviewTab: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 pt-4">
                         <button
-                            onClick={() => setShowSettings(false)}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg px-4 py-2 text-xs font-bold"
-                        >
-                            انصراف
-                        </button>
-                        <button
-                            onClick={handleApplySettingsAndFetch}
+                            type="button"
+                            onClick={handleSyncWithActiveYear}
                             disabled={isLoading}
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                            className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg px-4 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                         >
-                            {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                            <span>اعمال تنظیمات و استخراج جدید از سایان</span>
+                            <RefreshCw className="w-3.5 h-3.5 animate-pulse" />
+                            <span>همگام‌سازی هوشمند با سال مالی فعال سیستم</span>
                         </button>
+                        
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowSettings(false)}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg px-4 py-2 text-xs font-bold transition-all"
+                            >
+                                انصراف
+                            </button>
+                            <button
+                                onClick={handleApplySettingsAndFetch}
+                                disabled={isLoading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                            >
+                                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                <span>ثبت دائم و استعلام جدید از سایان</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -643,9 +1032,9 @@ export const WarehouseOverviewTab: React.FC = () => {
             {/* Sayan Items Filters */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">تعداد کل اقلام سایان: {dynamicItems.length} قلم</span>
-                    <span className="px-2 py-1 bg-green-50 text-green-600 rounded">مواد اولیه: {allActiveRawItems.length} قلم</span>
-                    <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded">در کارخانه: {allActiveFactoryItems.length} قلم</span>
+                    <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">تعداد کل اقلام سایان: {(allActiveRawItems.length + allActiveFactoryItems.length).toLocaleString('fa-IR')} قلم</span>
+                    <span className="px-2 py-1 bg-green-50 text-green-600 rounded">مواد اولیه: {allActiveRawItems.length.toLocaleString('fa-IR')} قلم</span>
+                    <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded">در کارخانه: {allActiveFactoryItems.length.toLocaleString('fa-IR')} قلم</span>
                 </div>
                 <div className="w-full md:w-72">
                     <input 
@@ -684,87 +1073,21 @@ export const WarehouseOverviewTab: React.FC = () => {
                                     <th className="py-3 px-2">ارزش دلاری</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۱. موجودی انبار بنگاه‌ها (مواد اولیه اصلی)</td></tr>
-                                {filteredRawItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
-                                    </tr>
-                                ) : (
-                                    filteredRawItems.map((item, idx) => (
-                                        <tr key={`raw-${idx}`} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
-                                            <td className="py-2 px-1">
-                                                {isEditMode ? (
-                                                    <select
-                                                        value={getItemCategory(item)}
-                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
-                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
-                                                    >
-                                                        <option value="raw">مواد اولیه</option>
-                                                        <option value="factory">کارخانه</option>
-                                                        <option value="other">پنهان کردن</option>
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">بنگاه‌ها</span>
-                                                )}
-                                            </td>
-                                            <td className="py-2 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, true, 'weight', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
-                                        </tr>
-                                    ))
-                                )}
-                                
-                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۲. موجودی در کارخانه (مواد حین تولید و کمکی)</td></tr>
-                                {filteredFactoryItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
-                                    </tr>
-                                ) : (
-                                    filteredFactoryItems.map((item, idx) => (
-                                        <tr key={`fact-${idx}`} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
-                                            <td className="py-2 px-1">
-                                                {isEditMode ? (
-                                                    <select
-                                                        value={getItemCategory(item)}
-                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
-                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
-                                                    >
-                                                        <option value="raw">مواد اولیه</option>
-                                                        <option value="factory">کارخانه</option>
-                                                        <option value="other">پنهان کردن</option>
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">کارخانه</span>
-                                                )}
-                                            </td>
-                                            <td className="py-2 px-2">{renderCell(item, true, 'proforma', 'text')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'cartons', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, true, 'weight', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, true, 'containers', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, true, 'dollars', 'dollar')}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
+                            {renderTableBody(true)}
                             <tfoot>
                                 <tr className="bg-slate-900 text-white font-extrabold border-t border-slate-700">
                                     <td className="py-3 px-3 text-right font-extrabold" colSpan={3}>جمع کل انبارها (سایان)</td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'cartons').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(true, 'cartons').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center text-amber-300">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'weight').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(true, 'weight').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'containers').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(true, 'containers').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center text-emerald-300">
-                                        ${calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], true, 'dollars').toLocaleString('en-US')}
+                                        ${calculateTotalSayanSum(true, 'dollars').toLocaleString('en-US')}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -795,87 +1118,21 @@ export const WarehouseOverviewTab: React.FC = () => {
                                     <th className="py-3 px-2">ارزش دلاری</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۱. موجودی انبار بنگاه‌ها (مواد اولیه اصلی)</td></tr>
-                                {filteredRawItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
-                                    </tr>
-                                ) : (
-                                    filteredRawItems.map((item, idx) => (
-                                        <tr key={`raw2-${idx}`} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
-                                            <td className="py-2 px-1">
-                                                {isEditMode ? (
-                                                    <select
-                                                        value={getItemCategory(item)}
-                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
-                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
-                                                    >
-                                                        <option value="raw">مواد اولیه</option>
-                                                        <option value="factory">کارخانه</option>
-                                                        <option value="other">پنهان کردن</option>
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">بنگاه‌ها</span>
-                                                )}
-                                            </td>
-                                            <td className="py-2 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, false, 'weight', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
-                                        </tr>
-                                    ))
-                                )}
-                                
-                                <tr className="bg-slate-50 text-slate-600 font-black text-right"><td colSpan={7} className="py-1.5 px-3 text-[11px]">۲. موجودی در کارخانه (مواد حین تولید و کمکی)</td></tr>
-                                {filteredFactoryItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-4 text-center text-slate-400">موردی یافت نشد.</td>
-                                    </tr>
-                                ) : (
-                                    filteredFactoryItems.map((item, idx) => (
-                                        <tr key={`fact2-${idx}`} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{item}</td>
-                                            <td className="py-2 px-1">
-                                                {isEditMode ? (
-                                                    <select
-                                                        value={getItemCategory(item)}
-                                                        onChange={(e) => handleCategoryChange(item, e.target.value as any)}
-                                                        className="text-[10px] p-1 border rounded bg-white text-slate-700"
-                                                    >
-                                                        <option value="raw">مواد اولیه</option>
-                                                        <option value="factory">کارخانه</option>
-                                                        <option value="other">پنهان کردن</option>
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">کارخانه</span>
-                                                )}
-                                            </td>
-                                            <td className="py-2 px-2">{renderCell(item, false, 'proforma', 'text')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'cartons', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">{renderCell(item, false, 'weight', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-medium">{renderCell(item, false, 'containers', 'number')}</td>
-                                            <td className="py-2 px-2 font-mono font-bold text-emerald-600">{renderCell(item, false, 'dollars', 'dollar')}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
+                            {renderTableBody(false)}
                             <tfoot>
                                 <tr className="bg-blue-900 text-white font-extrabold border-t border-blue-700">
                                     <td className="py-3 px-3 text-right font-extrabold" colSpan={3}>جمع کل انبارها (سایان)</td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'cartons').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(false, 'cartons').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center text-amber-300">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'weight').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(false, 'weight').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center">
-                                        {calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'containers').toLocaleString('fa-IR')}
+                                        {calculateTotalSayanSum(false, 'containers').toLocaleString('fa-IR')}
                                     </td>
                                     <td className="py-3 px-2 font-mono text-center text-emerald-300">
-                                        ${calculateSectionSum([...allActiveRawItems, ...allActiveFactoryItems], false, 'dollars').toLocaleString('en-US')}
+                                        ${calculateTotalSayanSum(false, 'dollars').toLocaleString('en-US')}
                                     </td>
                                 </tr>
                             </tfoot>

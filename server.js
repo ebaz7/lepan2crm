@@ -1364,7 +1364,12 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    RTRIM(LTRIM(t11.Field_005))
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
                 ) as ItemName,
                 t11.Field_031 as DetailNote,
                 CASE 
@@ -1372,13 +1377,33 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                     WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
                     ELSE 0 
                 END as NetQty,
-                RTRIM(LTRIM(t10.Field_009)) as DocType
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
+                t_group.GroupName,
+                t_group.SubGroupName
             FROM STR_TBL_011 t11
             INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004 
                                       AND t11.Field_012 = t10.Field_018
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
+                       MIN(t02_sub.Field_003) as SubGroupName,
+                       MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
             WHERE t10.Field_008 <= '${lastYearDateTo}T23:59:59.000Z'
         `;
 
@@ -1389,7 +1414,12 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    RTRIM(LTRIM(t11.Field_005))
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
                 ) as ItemName,
                 t11.Field_031 as DetailNote,
                 CASE 
@@ -1397,13 +1427,33 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                     WHEN RTRIM(LTRIM(t10.Field_009)) IN ('3', '12', '23') THEN -t11.Field_006 
                     ELSE 0 
                 END as NetQty,
-                RTRIM(LTRIM(t10.Field_009)) as DocType
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
+                t_group.GroupName,
+                t_group.SubGroupName
             FROM STR_TBL_011 t11
             INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004 
                                       AND t11.Field_012 = t10.Field_018
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
+                       MIN(t02_sub.Field_003) as SubGroupName,
+                       MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
             WHERE t10.Field_008 <= '${currentYearDateTo}T23:59:59.000Z'
         `;
 
@@ -1444,11 +1494,21 @@ app.get('/api/sayan/warehouse-inventory', async (req, res) => {
                     }
                 }
 
-                if (!map[name]) {
-                    map[name] = { itemName: name, stockQty: 0, cartonsQty: 0 };
+                // Create a unique key per item code or name
+                const key = r.ItemCode || name;
+
+                if (!map[key]) {
+                    map[key] = { 
+                        itemCode: r.ItemCode || '',
+                        itemName: name, 
+                        groupName: r.GroupName || 'سایر گروه‌ها',
+                        subGroupName: r.SubGroupName || '',
+                        stockQty: 0, 
+                        cartonsQty: 0 
+                    };
                 }
-                map[name].stockQty += qty;
-                map[name].cartonsQty += cartons;
+                map[key].stockQty += qty;
+                map[key].cartonsQty += cartons;
             });
 
             return Object.values(map);
