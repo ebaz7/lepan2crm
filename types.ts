@@ -405,6 +405,12 @@ export interface SystemSettings {
   productionCompareTelegramGroupId?: string;
   productionCompareBaleGroupId?: string;
   productionCompareWhatsappGroupId?: string;
+
+  // WAREHOUSE & SUPPLY CHAIN OVERVIEW BOT GROUPS
+  warehouseTelegramGroupId?: string;
+  warehouseBaleGroupId?: string;
+  warehouseWhatsappGroupId?: string;
+  warehouseAutoAlertEnabled?: boolean;
   
   salesNotificationUsers?: { username: string; platforms: string[]; name?: string }[]; // Usernames and their active platforms (telegram, bale)
   salesContactMessage?: string;

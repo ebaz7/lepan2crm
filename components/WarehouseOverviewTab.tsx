@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Loader2, Save, Plus, Trash2, Edit2, Check, X, FileText, 
     TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff,
-    ChevronDown, ChevronRight
+    ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Send, Bell, BellRing, 
+    CheckCircle2, ArrowUpRight, ArrowDownRight, Sparkles, Share2, Scale, Layers, 
+    Package, Boxes, Filter, ExternalLink, Info
 } from 'lucide-react';
 
 interface WarehouseItem {
@@ -45,6 +47,19 @@ export const WarehouseOverviewTab: React.FC = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
 
+    // Bot Alert & Dispatch States
+    const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+    const [isSendingBot, setIsSendingBot] = useState(false);
+    const [botDestinationType, setBotDestinationType] = useState<'default' | 'production' | 'custom'>('default');
+    const [customTargetId, setCustomTargetId] = useState('');
+    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['telegram', 'bale']);
+    const [botSendSuccessMessage, setBotSendSuccessMessage] = useState<string | null>(null);
+    const [botSendErrorMessage, setBotSendErrorMessage] = useState<string | null>(null);
+
+    // Variance Filter State
+    const [varianceFilter, setVarianceFilter] = useState<'all' | 'negative' | 'positive'>('all');
+    const [showVarianceDetails, setShowVarianceDetails] = useState(true);
+
     // Live Sayan Data States
     const [sayanLastYear, setSayanLastYear] = useState<any[]>([]);
     const [sayanCurrent, setSayanCurrent] = useState<any[]>([]);
@@ -79,6 +94,11 @@ export const WarehouseOverviewTab: React.FC = () => {
     const [report2Miladi, setReport2Miladi] = useState("2026-08-22");
 
     const [cumulativeFromLastYear, setCumulativeFromLastYear] = useState<boolean>(true);
+
+    // Warehouse Bot Group Configurations from AppSettings
+    const [warehouseTelegramGroupId, setWarehouseTelegramGroupId] = useState<string>('');
+    const [warehouseBaleGroupId, setWarehouseBaleGroupId] = useState<string>('');
+    const [warehouseWhatsappGroupId, setWarehouseWhatsappGroupId] = useState<string>('');
 
     // Search filter for Sayan items
     const [itemFilterText, setItemFilterText] = useState("");
@@ -132,10 +152,16 @@ export const WarehouseOverviewTab: React.FC = () => {
             try {
                 const settingsRes = await fetch('/api/settings');
                 const settingsData = await settingsRes.json();
-                if (settingsData && settingsData.fiscalYears && settingsData.activeFiscalYearId) {
-                    const activeYearObj = settingsData.fiscalYears.find((y: any) => y.id === settingsData.activeFiscalYearId);
-                    if (activeYearObj && activeYearObj.label) {
-                        activeYearLabel = activeYearObj.label;
+                if (settingsData) {
+                    if (settingsData.warehouseTelegramGroupId) setWarehouseTelegramGroupId(settingsData.warehouseTelegramGroupId);
+                    if (settingsData.warehouseBaleGroupId) setWarehouseBaleGroupId(settingsData.warehouseBaleGroupId);
+                    if (settingsData.warehouseWhatsappGroupId) setWarehouseWhatsappGroupId(settingsData.warehouseWhatsappGroupId);
+                    
+                    if (settingsData.fiscalYears && settingsData.activeFiscalYearId) {
+                        const activeYearObj = settingsData.fiscalYears.find((y: any) => y.id === settingsData.activeFiscalYearId);
+                        if (activeYearObj && activeYearObj.label) {
+                            activeYearLabel = activeYearObj.label;
+                        }
                     }
                 }
             } catch (e) {
@@ -341,6 +367,24 @@ export const WarehouseOverviewTab: React.FC = () => {
     const handleApplySettingsAndFetch = async () => {
         setIsLoading(true);
         try {
+            // Save bot group settings to main system settings
+            try {
+                const settingsRes = await fetch('/api/settings');
+                const existingSettings = await settingsRes.json();
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...existingSettings,
+                        warehouseTelegramGroupId,
+                        warehouseBaleGroupId,
+                        warehouseWhatsappGroupId
+                    })
+                });
+            } catch (e) {
+                console.error("Failed to update bot group settings", e);
+            }
+
             // First save overrides and config
             await handleSave(true);
 
@@ -698,6 +742,171 @@ export const WarehouseOverviewTab: React.FC = () => {
 
     const isDownwardTrend = diffContainers < 0;
 
+    // TOTAL WEIGHTS COMPARISON CALCULATIONS (مجموعه مقایسه‌های جامع وزنی)
+    // 1. Factory Manufactured Yarns (نخ‌های تولیدی کارخانه)
+    const totalLastYearYarnsWeight = useMemo(() => {
+        return alignedYarns.reduce((sum, item) => sum + getItemValue(item.code, true, 'weight', true), 0);
+    }, [alignedYarns, lastYearOverrides, sayanLastYear]);
+
+    const totalCurrentYarnsWeight = useMemo(() => {
+        return alignedYarns.reduce((sum, item) => sum + getItemValue(item.code, false, 'weight', true), 0);
+    }, [alignedYarns, currentOverrides, sayanCurrent]);
+
+    const diffYarnsWeight = totalCurrentYarnsWeight - totalLastYearYarnsWeight;
+    const ratioYarnsWeight = totalLastYearYarnsWeight > 0 ? (diffYarnsWeight / totalLastYearYarnsWeight) * 100 : 0;
+    const isYarnsDownward = diffYarnsWeight < 0;
+
+    // 2. Raw Materials & Imported Goods (مواد اولیه و واردات شامل انبار + گمرک + ترانزیت + خرید)
+    const totalLastYearRawWeight = useMemo(() => {
+        const bg = alignedImported.reduce((sum, item) => sum + getItemValue(item.code, true, 'weight', true), 0);
+        const transit = calculateCustomTableSum(goodsInTransit, 'weight');
+        const customs = calculateCustomTableSum(goodsInCustoms, 'weight');
+        const purchase = calculateCustomTableSum(purchasingGoods, 'weight');
+        return bg + transit + customs + purchase;
+    }, [alignedImported, goodsInTransit, goodsInCustoms, purchasingGoods, lastYearOverrides, sayanLastYear]);
+
+    const totalCurrentRawWeight = useMemo(() => {
+        const bg = alignedImported.reduce((sum, item) => sum + getItemValue(item.code, false, 'weight', true), 0);
+        const transit = calculateCustomTableSum(goodsInTransit, 'weight');
+        const customs = calculateCustomTableSum(goodsInCustoms, 'weight');
+        const purchase = calculateCustomTableSum(purchasingGoods, 'weight');
+        return bg + transit + customs + purchase;
+    }, [alignedImported, goodsInTransit, goodsInCustoms, purchasingGoods, currentOverrides, sayanCurrent]);
+
+    const diffRawWeight = totalCurrentRawWeight - totalLastYearRawWeight;
+    const ratioRawWeight = totalLastYearRawWeight > 0 ? (diffRawWeight / totalLastYearRawWeight) * 100 : 0;
+    const isRawDownward = diffRawWeight < 0;
+
+    // 3. Total Enterprise Inventory & Inflow (سرجمع کل زنجیره تامین و انبار)
+    const totalLastYearAllWeight = totalLastYearYarnsWeight + totalLastYearRawWeight;
+    const totalCurrentAllWeight = totalCurrentYarnsWeight + totalCurrentRawWeight;
+    const diffAllWeight = totalCurrentAllWeight - totalLastYearAllWeight;
+    const ratioAllWeight = totalLastYearAllWeight > 0 ? (diffAllWeight / totalLastYearAllWeight) * 100 : 0;
+    const isAllWeightDownward = diffAllWeight < 0;
+
+    // 4. Comparative matrix of all items (and detection of negative items)
+    const allComparedItems = useMemo(() => {
+        const list: Array<{
+            code: string;
+            name: string;
+            category: 'factory' | 'raw';
+            categoryLabel: string;
+            lastYearWeight: number;
+            currentWeight: number;
+            diffWeight: number;
+            ratio: number;
+            isNegative: boolean;
+        }> = [];
+
+        // Add Yarns (Factory Production)
+        alignedYarns.forEach(group => {
+            const wLast = getItemValue(group.code, true, 'weight', true);
+            const wCurr = getItemValue(group.code, false, 'weight', true);
+            const diff = wCurr - wLast;
+            const ratio = wLast > 0 ? (diff / wLast) * 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: group.code,
+                name: group.name,
+                category: 'factory',
+                categoryLabel: 'تولیدی کارخانه',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
+        // Add Raw Materials & Imports
+        alignedImported.forEach(group => {
+            const wLast = getItemValue(group.code, true, 'weight', true);
+            const wCurr = getItemValue(group.code, false, 'weight', true);
+            const diff = wCurr - wLast;
+            const ratio = wLast > 0 ? (diff / wLast) * 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: group.code,
+                name: group.name,
+                category: 'raw',
+                categoryLabel: 'مواد اولیه / وارداتی',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
+        return list;
+    }, [alignedYarns, alignedImported, lastYearOverrides, currentOverrides, sayanLastYear, sayanCurrent]);
+
+    // Negative Items (کالاهای منفی / دارای کاهش وزنی یا موجودی منفی)
+    const negativeItems = useMemo(() => {
+        return allComparedItems
+            .filter(item => item.isNegative)
+            .sort((a, b) => a.diffWeight - b.diffWeight); // sorted by largest negative deficit first
+    }, [allComparedItems]);
+
+    // Filtered variance items for table display
+    const filteredVarianceItems = useMemo(() => {
+        if (varianceFilter === 'negative') return allComparedItems.filter(item => item.isNegative);
+        if (varianceFilter === 'positive') return allComparedItems.filter(item => !item.isNegative);
+        return allComparedItems;
+    }, [allComparedItems, varianceFilter]);
+
+    // Bot dispatch function
+    const handleSendNegativeAlert = async () => {
+        setIsSendingBot(true);
+        setBotSendSuccessMessage(null);
+        setBotSendErrorMessage(null);
+        try {
+            let targetGroup = null;
+            if (botDestinationType === 'custom' && customTargetId.trim()) {
+                targetGroup = customTargetId.trim();
+            }
+
+            const payload = {
+                negativeItems,
+                summary: {
+                    reportDate,
+                    report1Label,
+                    report2Label,
+                    signature,
+                    lastYearYarnsWeight: totalLastYearYarnsWeight,
+                    currentYarnsWeight: totalCurrentYarnsWeight,
+                    yarnsDiffWeight: diffYarnsWeight,
+                    yarnsRatio: ratioYarnsWeight,
+                    lastYearRawWeight: totalLastYearRawWeight,
+                    currentRawWeight: totalCurrentRawWeight,
+                    rawDiffWeight: diffRawWeight,
+                    rawRatio: ratioRawWeight,
+                    lastYearTotalWeight: totalLastYearAllWeight,
+                    currentTotalWeight: totalCurrentAllWeight,
+                    totalDiffWeight: diffAllWeight,
+                    totalRatio: ratioAllWeight
+                },
+                targetGroup,
+                platforms: selectedPlatforms
+            };
+
+            const res = await fetch('/api/warehouse-overview/send-negative-alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setBotSendSuccessMessage(`✅ گزارش هشدار اقلام منفی با موفقیت به ${data.sentCount || 1} گروه پیام‌رسان ارسال گردید.`);
+            } else {
+                setBotSendErrorMessage(data.error || 'خطا در ارسال گزارش به ربات');
+            }
+        } catch (err: any) {
+            setBotSendErrorMessage(err.message || 'خطا در برقراری ارتباط با سرور');
+        } finally {
+            setIsSendingBot(false);
+        }
+    };
+
     // Helper to render editable/static cell
     const renderCell = (itemName: string, isLastYear: boolean, field: 'proforma' | 'cartons' | 'weight' | 'containers' | 'dollars', format = 'number', isGroup = false) => {
         const val = getItemValue(itemName, isLastYear, field, isGroup);
@@ -950,7 +1159,28 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    {negativeItems.length > 0 ? (
+                        <button
+                            onClick={() => setIsBotModalOpen(true)}
+                            className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 animate-pulse shadow-sm"
+                            title="مشاهده اقلام منفی و ارسال گزارش هشدار به ربات"
+                        >
+                            <BellRing className="w-3.5 h-3.5 text-red-600 animate-bounce" />
+                            <span>🚨 هشدار کسری ({negativeItems.length.toLocaleString('fa-IR')} کالا)</span>
+                            <Send className="w-3 h-3 text-red-500 mr-0.5" />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setIsBotModalOpen(true)}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5"
+                            title="ارسال گزارش وضعیت کلی انبار به ربات"
+                        >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>تراز وزنی مثبت (ارسال به بات)</span>
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setShowSettings(!showSettings)}
                         className={`rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border ${
@@ -1100,6 +1330,55 @@ export const WarehouseOverviewTab: React.FC = () => {
                             />
                             <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                         </label>
+                    </div>
+
+                    {/* Warehouse Bot Groups Configuration */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Send className="w-4 h-4 text-blue-600" />
+                                <h5 className="font-extrabold text-xs text-slate-800">تنظیم شناسه گروه‌های ربات انبار و زنجیره تامین</h5>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-medium">جهت ارسال خودکار و دستی هشدارهای تراز منفی</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-1">شناسه گروه تلگرام (Telegram Group ID):</label>
+                                <input
+                                    type="text"
+                                    value={warehouseTelegramGroupId}
+                                    onChange={(e) => setWarehouseTelegramGroupId(e.target.value)}
+                                    placeholder="مثال: -100123456789 یا @warehouse_group"
+                                    className="w-full text-xs font-mono p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-1">شناسه گروه بله (Bale Group ID):</label>
+                                <input
+                                    type="text"
+                                    value={warehouseBaleGroupId}
+                                    onChange={(e) => setWarehouseBaleGroupId(e.target.value)}
+                                    placeholder="مثال: -123456789@g.bale.ai"
+                                    className="w-full text-xs font-mono p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-1">شناسه گروه واتساپ (WhatsApp Group ID):</label>
+                                <input
+                                    type="text"
+                                    value={warehouseWhatsappGroupId}
+                                    onChange={(e) => setWarehouseWhatsappGroupId(e.target.value)}
+                                    placeholder="مثال: 12036302488888@g.us"
+                                    className="w-full text-xs font-mono p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 pt-4">
@@ -1791,51 +2070,319 @@ export const WarehouseOverviewTab: React.FC = () => {
 
             </div>
 
-            {/* COMPARATIVE ANALYSIS SUMMARY (تفاضل و مقایسه سالانه) */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-md space-y-6 max-w-4xl mx-auto">
+            {/* COMPARATIVE ANALYSIS SUMMARY (تفاضل و مقایسه جامع وزنی، تولید، واردات و آمار سالانه) */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-md space-y-8 max-w-5xl mx-auto">
                 <div className="border-b border-slate-100 pb-4 text-center">
-                    <h4 className="font-black text-slate-800 text-lg">تحلیل مقایسه‌ای وضعیت زنجیره تامین و موجودی</h4>
-                    <p className="text-xs text-slate-400 mt-1">تغییرات سالانه حجم ترخیص کالا و کانتینرهای گمرک به صورت لحظه‌ای</p>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold mb-2">
+                        <Scale className="w-3.5 h-3.5" />
+                        <span>تحلیل مقایسه‌ای تراز وزنی و عملکرد سالانه</span>
+                    </div>
+                    <h4 className="font-black text-slate-800 text-lg sm:text-xl">مقایسه تراز وزنی تولیدات، واردات و موجودی زنجیره تامین</h4>
+                    <p className="text-xs text-slate-500 mt-1">پایش لحظه‌ای تراز وزنی سال جاری ({report2Label}) نسبت به سال گذشته ({report1Label}) و تفکیک رشد یا افت</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Container differences */}
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                {/* 4 Comprehensive Metric Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1. Factory Production Yarns Weight */}
+                    <div className="p-4 bg-gradient-to-br from-blue-50/50 to-slate-50 rounded-2xl border border-blue-100/80 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                                <Package className="w-3.5 h-3.5 text-blue-600" />
+                                <span>نخ‌های تولیدی کارخانه</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isYarnsDownward ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {isYarnsDownward ? '🔻 تراز منفی' : '📈 تراز مثبت'}
+                            </span>
+                        </div>
                         <div>
-                            <div className="text-xs text-slate-500 font-bold">اختلاف تعداد کانتینر واردات سال قبل به امسال</div>
-                            <div className="text-2xl font-black text-slate-800 font-mono mt-2" dir="ltr">
-                                {diffContainers > 0 ? `+${diffContainers.toFixed(2)}` : diffContainers.toFixed(2)}
+                            <div className="text-[11px] text-slate-500 font-medium flex justify-between">
+                                <span>پارسال: {(totalLastYearYarnsWeight / 1000).toFixed(2)} تن</span>
+                                <span>امسال: {(totalCurrentYarnsWeight / 1000).toFixed(2)} تن</span>
+                            </div>
+                            <div className="text-xl font-black text-slate-800 font-mono mt-1" dir="ltr">
+                                {diffYarnsWeight >= 0 ? `+${(diffYarnsWeight / 1000).toFixed(2)}` : (diffYarnsWeight / 1000).toFixed(2)} <span className="text-xs font-normal text-slate-500">تن</span>
                             </div>
                         </div>
-                        <div className={`p-3 rounded-xl font-bold text-xs flex flex-col items-center gap-1 ${ratioContainers < 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                            {ratioContainers < 0 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
-                            <span className="font-mono">{ratioContainers.toFixed(1)}%</span>
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                            <span className="text-slate-500 font-medium">درصد تغییرات:</span>
+                            <span className={`font-mono font-bold flex items-center gap-0.5 ${ratioYarnsWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {ratioYarnsWeight < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                                {ratioYarnsWeight >= 0 ? `+${ratioYarnsWeight.toFixed(1)}%` : `${ratioYarnsWeight.toFixed(1)}%`}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Currency value differences */}
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                    {/* 2. Raw & Imported Materials Weight */}
+                    <div className="p-4 bg-gradient-to-br from-teal-50/50 to-slate-50 rounded-2xl border border-teal-100/80 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                                <Boxes className="w-3.5 h-3.5 text-teal-600" />
+                                <span>مواد اولیه و واردات</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isRawDownward ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {isRawDownward ? '🔻 تراز منفی' : '📈 تراز مثبت'}
+                            </span>
+                        </div>
                         <div>
-                            <div className="text-xs text-slate-500 font-bold">اختلاف مقدار ارزی واردات سال قبل به امسال</div>
-                            <div className="text-2xl font-black text-slate-800 font-mono mt-2" dir="ltr">
-                                {diffDollars >= 0 ? `+$${diffDollars.toLocaleString('en-US')}` : `-$${Math.abs(diffDollars).toLocaleString('en-US')}`}
+                            <div className="text-[11px] text-slate-500 font-medium flex justify-between">
+                                <span>پارسال: {(totalLastYearRawWeight / 1000).toFixed(2)} تن</span>
+                                <span>امسال: {(totalCurrentRawWeight / 1000).toFixed(2)} تن</span>
+                            </div>
+                            <div className="text-xl font-black text-slate-800 font-mono mt-1" dir="ltr">
+                                {diffRawWeight >= 0 ? `+${(diffRawWeight / 1000).toFixed(2)}` : (diffRawWeight / 1000).toFixed(2)} <span className="text-xs font-normal text-slate-500">تن</span>
                             </div>
                         </div>
-                        <div className={`p-3 rounded-xl font-bold text-xs flex flex-col items-center gap-1 ${ratioDollars < 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                            {ratioDollars < 0 ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
-                            <span className="font-mono">{ratioDollars.toFixed(1)}%</span>
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                            <span className="text-slate-500 font-medium">درصد تغییرات:</span>
+                            <span className={`font-mono font-bold flex items-center gap-0.5 ${ratioRawWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {ratioRawWeight < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                                {ratioRawWeight >= 0 ? `+${ratioRawWeight.toFixed(1)}%` : `${ratioRawWeight.toFixed(1)}%`}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 3. Total Enterprise Supply Chain Weight */}
+                    <div className="p-4 bg-gradient-to-br from-indigo-50/50 to-slate-50 rounded-2xl border border-indigo-100/80 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>سرجمع کل وزن زنجیره</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isAllWeightDownward ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {isAllWeightDownward ? '🔻 تراز منفی' : '📈 تراز مثبت'}
+                            </span>
+                        </div>
+                        <div>
+                            <div className="text-[11px] text-slate-500 font-medium flex justify-between">
+                                <span>پارسال: {(totalLastYearAllWeight / 1000).toFixed(2)} تن</span>
+                                <span>امسال: {(totalCurrentAllWeight / 1000).toFixed(2)} تن</span>
+                            </div>
+                            <div className="text-xl font-black text-slate-800 font-mono mt-1" dir="ltr">
+                                {diffAllWeight >= 0 ? `+${(diffAllWeight / 1000).toFixed(2)}` : (diffAllWeight / 1000).toFixed(2)} <span className="text-xs font-normal text-slate-500">تن</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                            <span className="text-slate-500 font-medium">تغییر کل:</span>
+                            <span className={`font-mono font-bold flex items-center gap-0.5 ${ratioAllWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {ratioAllWeight < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                                {ratioAllWeight >= 0 ? `+${ratioAllWeight.toFixed(1)}%` : `${ratioAllWeight.toFixed(1)}%`}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 4. Containers & Dollars Import Metrics */}
+                    <div className="p-4 bg-gradient-to-br from-amber-50/50 to-slate-50 rounded-2xl border border-amber-100/80 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                                <span>کانتینر و ارزش دلاری</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ratioContainers < 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {ratioContainers < 0 ? '🔻 نزولی' : '📈 صعودی'}
+                            </span>
+                        </div>
+                        <div>
+                            <div className="text-[11px] text-slate-500 font-medium flex justify-between">
+                                <span>کانتینر: {diffContainers > 0 ? `+${diffContainers.toFixed(1)}` : diffContainers.toFixed(1)}</span>
+                                <span>ارزش: {diffDollars >= 0 ? `+$${(diffDollars / 1000).toFixed(0)}k` : `-$${(Math.abs(diffDollars) / 1000).toFixed(0)}k`}</span>
+                            </div>
+                            <div className="text-xl font-black text-slate-800 font-mono mt-1" dir="ltr">
+                                {ratioContainers >= 0 ? `+${ratioContainers.toFixed(1)}%` : `${ratioContainers.toFixed(1)}%`}
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                            <span className="text-slate-500 font-medium">تغییر ارزی:</span>
+                            <span className={`font-mono font-bold ${ratioDollars < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {ratioDollars >= 0 ? `+${ratioDollars.toFixed(1)}%` : `${ratioDollars.toFixed(1)}%`}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Import Trend Notification Banner */}
-                <div className={`p-4 rounded-2xl border flex items-center gap-3 justify-center text-sm font-bold ${
-                    isDownwardTrend 
-                    ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                    : 'bg-green-50 text-green-800 border-green-200'
-                }`}>
-                    <span>وضعیت آماری:</span>
-                    <span>نسبت به سال گذشته، روند کل واردات کانتینری <span className="underline">{ratioContainers.toFixed(1)}%</span> و نسبت ارزی <span className="underline">{ratioDollars.toFixed(1)}%</span> تغییر داشته و {isDownwardTrend ? 'نزولی' : 'صعودی'} بوده است.</span>
+                {/* 🚨 NEGATIVE ITEMS ALERT CENTER */}
+                {negativeItems.length > 0 ? (
+                    <div className="p-5 rounded-2xl bg-red-50/90 border-2 border-red-200 space-y-4 shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200/80 pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 bg-red-600 text-white rounded-xl shadow animate-bounce">
+                                    <BellRing className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h5 className="font-extrabold text-red-900 text-sm sm:text-base flex items-center gap-2">
+                                        <span>هشدار فوری: شناسایی {negativeItems.length.toLocaleString('fa-IR')} قلم کالا با تراز منفی و افت وزنی</span>
+                                        <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded-full text-[10px] font-mono font-bold">ALARM ACTIVE</span>
+                                    </h5>
+                                    <p className="text-xs text-red-700 mt-0.5">
+                                        این اقلام در مقایسه با سال گذشته کاهش موجودی داشته یا مانده فعلی آن‌ها منفی است و نیازمند بررسی و صدور گزارش به مدیران می‌باشند.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setIsBotModalOpen(true)}
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2.5 text-xs font-extrabold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg self-stretch sm:self-auto"
+                            >
+                                <Send className="w-4 h-4" />
+                                <span>ارسال فوری گزارش منفی‌ها به بات</span>
+                            </button>
+                        </div>
+
+                        {/* List of Negative Items Mini Table */}
+                        <div className="overflow-x-auto rounded-xl border border-red-200 bg-white">
+                            <table className="w-full text-xs text-center border-collapse">
+                                <thead>
+                                    <tr className="bg-red-100/70 text-red-900 font-bold border-b border-red-200">
+                                        <th className="py-2.5 px-3 text-right">کد و نام کالا / گروه</th>
+                                        <th className="py-2.5 px-2">دسته‌بندی</th>
+                                        <th className="py-2.5 px-2 font-mono">وزن پارسال ({report1Label})</th>
+                                        <th className="py-2.5 px-2 font-mono">وزن امسال ({report2Label})</th>
+                                        <th className="py-2.5 px-2 font-mono text-red-700 font-extrabold">میزان کسری و افت (Δ kg)</th>
+                                        <th className="py-2.5 px-2 font-mono">درصد افت</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {negativeItems.map((item, idx) => (
+                                        <tr key={`neg-${item.code}-${idx}`} className="border-b border-red-100 hover:bg-red-50/50 transition-colors">
+                                            <td className="py-2 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span className="font-mono text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">{item.code}</span>
+                                                <span>{item.name}</span>
+                                            </td>
+                                            <td className="py-2 px-2 text-slate-600">
+                                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                                                    {item.categoryLabel}
+                                                </span>
+                                            </td>
+                                            <td className="py-2 px-2 font-mono text-slate-600">
+                                                {item.lastYearWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">
+                                                {item.currentWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-2 px-2 font-mono font-extrabold text-red-600 bg-red-50/50" dir="ltr">
+                                                {item.diffWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} kg
+                                                <span className="text-[10px] text-red-500 font-normal mr-1">({(item.diffWeight / 1000).toFixed(2)} تن)</span>
+                                            </td>
+                                            <td className="py-2 px-2 font-mono font-bold text-red-600">
+                                                {item.ratio.toFixed(1)}%
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" />
+                            <div>
+                                <h5 className="font-extrabold text-emerald-900 text-xs sm:text-sm">تراز وزنی کلیه اقلام مثبت است</h5>
+                                <p className="text-[11px] text-emerald-700">هیچ قلم کالایی با کاهش یا تراز منفی نسبت به سال گذشته شناسایی نشد.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setIsBotModalOpen(true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>ارسال گزارش به ربات</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* DETAILED VARIANCE & WEIGHT CHANGE MATRIX */}
+                <div className="space-y-4 pt-2 border-t border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <h5 className="font-extrabold text-slate-800 text-sm sm:text-base">جدول مقایسه مستقیم و ماتریس تراز وزنی تمام اقلام</h5>
+                            <button
+                                onClick={() => setShowVarianceDetails(!showVarianceDetails)}
+                                className="text-xs text-blue-600 hover:underline font-bold"
+                            >
+                                {showVarianceDetails ? '(پنهان کردن)' : '(نمایش جزئیات)'}
+                            </button>
+                        </div>
+
+                        {/* Filter Tabs */}
+                        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                            <button
+                                onClick={() => setVarianceFilter('all')}
+                                className={`px-3 py-1.5 rounded-lg transition-all ${varianceFilter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            >
+                                همه اقلام ({allComparedItems.length})
+                            </button>
+                            <button
+                                onClick={() => setVarianceFilter('negative')}
+                                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${varianceFilter === 'negative' ? 'bg-red-600 text-white shadow-sm' : 'text-red-600 hover:bg-red-50'}`}
+                            >
+                                <TrendingDown className="w-3.5 h-3.5" />
+                                <span>دارای افت وزنی ({negativeItems.length})</span>
+                            </button>
+                            <button
+                                onClick={() => setVarianceFilter('positive')}
+                                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${varianceFilter === 'positive' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                            >
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                <span>دارای رشد وزنی ({allComparedItems.length - negativeItems.length})</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {showVarianceDetails && (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                            <table className="w-full text-xs text-center border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                        <th className="py-2.5 px-3 text-right">کد و عنوان کالا / گروه</th>
+                                        <th className="py-2.5 px-2">دسته‌بندی</th>
+                                        <th className="py-2.5 px-2 font-mono">وزن سال قبل ({report1Label})</th>
+                                        <th className="py-2.5 px-2 font-mono">وزن سال جاری ({report2Label})</th>
+                                        <th className="py-2.5 px-2 font-mono font-bold">اختلاف وزنی (Δ kg)</th>
+                                        <th className="py-2.5 px-2 font-mono">درصد تغییر</th>
+                                        <th className="py-2.5 px-2">وضعیت تراز</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredVarianceItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-4 text-center text-slate-400">موردی مطابق با فیلتر یافت نشد.</td>
+                                        </tr>
+                                    ) : (
+                                        filteredVarianceItems.map((item, idx) => (
+                                            <tr key={`var-${item.code}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                                                <td className="py-2.5 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">{item.code}</span>
+                                                    <span>{item.name}</span>
+                                                </td>
+                                                <td className="py-2 px-2 text-slate-500">
+                                                    <span className="text-[10px] bg-slate-50 border px-1.5 py-0.5 rounded font-medium">
+                                                        {item.categoryLabel}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2 px-2 font-mono text-slate-600">
+                                                    {item.lastYearWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="py-2 px-2 font-mono font-bold text-slate-900">
+                                                    {item.currentWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
+                                                </td>
+                                                <td className={`py-2 px-2 font-mono font-extrabold ${item.isNegative ? 'text-red-600 bg-red-50/40' : 'text-emerald-600 bg-emerald-50/40'}`} dir="ltr">
+                                                    {item.diffWeight >= 0 ? `+${item.diffWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}` : item.diffWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} kg
+                                                </td>
+                                                <td className={`py-2 px-2 font-mono font-bold ${item.isNegative ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                    {item.ratio >= 0 ? `+${item.ratio.toFixed(1)}%` : `${item.ratio.toFixed(1)}%`}
+                                                </td>
+                                                <td className="py-2 px-2">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.isNegative ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                        {item.isNegative ? '🔻 منفی' : '🟢 مثبت'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 {/* Signature Box */}
@@ -1856,6 +2403,177 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* 🤖 BOT DISPATCH & ALARM NOTIFICATION MODAL */}
+            {isBotModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animation-fade-in" dir="rtl">
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
+                                    <Send className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-base sm:text-lg">ارسال گزارش هشدار تراز وزنی و اقلام منفی به ربات</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">ارسال مستقیم گزارش مقایسه‌ای و اقلام دارای کسری به گروه‌های تلگرام و بله</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsBotModalOpen(false)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Status / Alert feedback */}
+                        {botSendSuccessMessage && (
+                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                                <span>{botSendSuccessMessage}</span>
+                            </div>
+                        )}
+
+                        {botSendErrorMessage && (
+                            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                <span>{botSendErrorMessage}</span>
+                            </div>
+                        )}
+
+                        {/* Summary of what will be dispatched */}
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                            <div className="text-xs font-extrabold text-slate-700 flex items-center justify-between">
+                                <span>خلاصه گزارش آماده ارسال:</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{reportDate}</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                <div className="p-2 bg-white rounded-xl border border-slate-100">
+                                    <span className="text-slate-400 block text-[10px]">اقلام منفی:</span>
+                                    <span className="font-bold text-red-600 font-mono">{negativeItems.length} قلم کالا</span>
+                                </div>
+                                <div className="p-2 bg-white rounded-xl border border-slate-100">
+                                    <span className="text-slate-400 block text-[10px]">تراز تولیدات:</span>
+                                    <span className={`font-bold font-mono ${diffYarnsWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                        {(diffYarnsWeight / 1000).toFixed(2)} تن
+                                    </span>
+                                </div>
+                                <div className="p-2 bg-white rounded-xl border border-slate-100">
+                                    <span className="text-slate-400 block text-[10px]">تراز مواد اولیه:</span>
+                                    <span className={`font-bold font-mono ${diffRawWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                        {(diffRawWeight / 1000).toFixed(2)} تن
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Destination Selection */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-extrabold text-slate-700">انتخاب گروه یا مخاطب مقصد</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setBotDestinationType('default')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botDestinationType === 'default'
+                                        ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-sm font-bold'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-extrabold">گروه‌های پیش‌فرض انبار و زنجیره تامین</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                        {warehouseTelegramGroupId || warehouseBaleGroupId ? (
+                                            <span className="text-blue-700 font-mono text-[10px]">
+                                                {warehouseTelegramGroupId ? `تلگرام: ${warehouseTelegramGroupId}` : ''}
+                                                {warehouseTelegramGroupId && warehouseBaleGroupId ? ' | ' : ''}
+                                                {warehouseBaleGroupId ? `بله: ${warehouseBaleGroupId}` : ''}
+                                            </span>
+                                        ) : (
+                                            <span>ارسال به گروه‌های پیش‌فرض تنظیم شده در بخش تنظیمات</span>
+                                        )}
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBotDestinationType('custom')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botDestinationType === 'custom'
+                                        ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-sm font-bold'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-extrabold">شناسه / گروه سفارشی (Chat ID)</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">ارسال به آیدی یا گروه مشخص دیگر</span>
+                                </button>
+                            </div>
+
+                            {botDestinationType === 'custom' && (
+                                <div className="mt-2">
+                                    <input
+                                        type="text"
+                                        value={customTargetId}
+                                        onChange={(e) => setCustomTargetId(e.target.value)}
+                                        placeholder="مثال: -100123456789 یا @my_warehouse_group"
+                                        className="w-full text-xs font-mono p-2.5 bg-slate-50 border rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        dir="ltr"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Platforms Checkbox */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-extrabold text-slate-700">پلتفرم‌های پیام‌رسان فعال</label>
+                            <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedPlatforms.includes('telegram')}
+                                        onChange={(e) => {
+                                            if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'telegram']);
+                                            else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'telegram'));
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                    />
+                                    <span>تلگرام (Telegram)</span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedPlatforms.includes('bale')}
+                                        onChange={(e) => {
+                                            if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'bale']);
+                                            else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'bale'));
+                                        }}
+                                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                    />
+                                    <span>پیام‌رسان بله (Bale)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                            <button
+                                onClick={() => setIsBotModalOpen(false)}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-5 py-2.5 text-xs font-bold transition-all"
+                            >
+                                انصراف و بستن
+                            </button>
+                            <button
+                                onClick={handleSendNegativeAlert}
+                                disabled={isSendingBot || selectedPlatforms.length === 0}
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-2.5 text-xs font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
+                            >
+                                {isSendingBot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                <span>{isSendingBot ? 'در حال ارسال پیام به گروه...' : 'تایید و ارسال هشدار به ربات'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

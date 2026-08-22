@@ -417,6 +417,18 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
         { key: 'productionCompareWhatsappGroupId', plat: 'whatsapp' },
     ];
 
+    const warehouseKeys = [
+        { key: 'warehouseTelegramGroupId', plat: 'telegram' },
+        { key: 'warehouseBaleGroupId', plat: 'bale' },
+        { key: 'warehouseWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'warehouseGroupId', plat: 'telegram' },
+        { key: 'defaultWarehouseGroup', plat: 'telegram' },
+        { key: 'productionCompareTelegramGroupId', plat: 'telegram' },
+        { key: 'productionCompareBaleGroupId', plat: 'bale' },
+        { key: 'productionTelegramGroupId', plat: 'telegram' },
+        { key: 'productionBaleGroupId', plat: 'bale' },
+    ];
+
     const reportsKeys = [
         { key: 'reportsGroupId', plat: 'telegram' },
         { key: 'telegramReportsGroupId', plat: 'telegram' },
@@ -440,12 +452,14 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
         keysToUse = productionKeys;
     } else if (category === 'production_compare') {
         keysToUse = productionCompareKeys;
+    } else if (category === 'warehouse') {
+        keysToUse = warehouseKeys;
     } else if (category === 'sales') {
         keysToUse = salesKeys;
     } else if (category === 'accounting') {
         keysToUse = accountingKeys;
     } else {
-        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...reportsKeys, ...generalKeys];
+        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...warehouseKeys, ...reportsKeys, ...generalKeys];
     }
 
     keysToUse.forEach(({ key, plat }) => {
@@ -1513,6 +1527,162 @@ app.post('/api/warehouse-overview/data', (req, res) => {
         saveDb(db);
         res.json({ success: true });
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const { negativeItems = [], summary = {}, targetGroup = null, platforms = ['telegram', 'bale'] } = req.body;
+
+        // Collect destination targets
+        let targets = [];
+        if (targetGroup) {
+            platforms.forEach(plat => {
+                targets.push({ platform: plat, id: targetGroup });
+            });
+        } else {
+            targets = collectBotTargets(db, { category: 'warehouse', platforms });
+            if (targets.length === 0) {
+                targets = collectBotTargets(db, { category: 'production_compare', platforms });
+            }
+            if (targets.length === 0) {
+                targets = collectBotTargets(db, { category: 'production', platforms });
+            }
+            if (targets.length === 0) {
+                targets = collectBotTargets(db, { category: 'all', platforms });
+            }
+        }
+
+        if (!targets || targets.length === 0) {
+            return res.status(400).json({ 
+                error: 'هیچ شناسه گروه یا مقصدی برای ارسال پیام بات تنظیم نشده است. لطفاً در بخش تنظیمات یا فیلد ارسال، آیدی گروه را وارد نمایید.' 
+            });
+        }
+
+        // Format Iranian Persian numbers helper
+        const fNum = (n, maxDec = 1) => {
+            const num = parseFloat(n) || 0;
+            return num.toLocaleString('fa-IR', { maximumFractionDigits: maxDec });
+        };
+        const fTon = (n) => {
+            const num = (parseFloat(n) || 0) / 1000;
+            return num.toLocaleString('fa-IR', { maximumFractionDigits: 2 });
+        };
+
+        const reportDate = summary.reportDate || '۱۴۰۵/۰۵/۳۱';
+        const r1Label = summary.report1Label || 'منتهی به سال ۱۴۰۴';
+        const r2Label = summary.report2Label || 'وضعیت فعلی سال ۱۴۰۵';
+        const signature = summary.signature || 'انبارداری مرکزی و تامین خارجی';
+
+        // Prepare message
+        let msg = `🚨 *هشدار تراز وزنی انبار و اقلام دارای رشد منفی* 🚨\n`;
+        msg += `📅 *تاریخ استعلام:* ${reportDate}\n`;
+        msg += `📊 *مقایسه دوره‌ها:* ${r2Label} نسبت به ${r1Label}\n`;
+        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+        msg += `⚖️ *خلاصه مقایسه وزنی زنجیره تامین و تولید:*\n\n`;
+
+        if (summary.lastYearYarnsWeight !== undefined || summary.currentYarnsWeight !== undefined) {
+            const yDiff = (summary.currentYarnsWeight || 0) - (summary.lastYearYarnsWeight || 0);
+            const yRatio = summary.lastYearYarnsWeight > 0 ? (yDiff / summary.lastYearYarnsWeight) * 100 : 0;
+            const yIcon = yDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+            msg += `🧵 *۱. نخ‌های تولیدی کارخانه (تولید داخلی):*\n`;
+            msg += `  • سال قبل: ${fNum(summary.lastYearYarnsWeight)} kg (${fTon(summary.lastYearYarnsWeight)} تن)\n`;
+            msg += `  • سال جاری: ${fNum(summary.currentYarnsWeight)} kg (${fTon(summary.currentYarnsWeight)} تن)\n`;
+            msg += `  • اختلاف وزنی: ${yDiff >= 0 ? '+' : ''}${fNum(yDiff)} kg (${yRatio >= 0 ? '+' : ''}${fNum(yRatio, 1)}%) [${yIcon}]\n\n`;
+        }
+
+        if (summary.lastYearRawWeight !== undefined || summary.currentRawWeight !== undefined) {
+            const rDiff = (summary.currentRawWeight || 0) - (summary.lastYearRawWeight || 0);
+            const rRatio = summary.lastYearRawWeight > 0 ? (rDiff / summary.lastYearRawWeight) * 100 : 0;
+            const rIcon = rDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+            msg += `📦 *۲. مواد اولیه، اقلام وارداتی و گمرک:*\n`;
+            msg += `  • سال قبل: ${fNum(summary.lastYearRawWeight)} kg (${fTon(summary.lastYearRawWeight)} تن)\n`;
+            msg += `  • سال جاری: ${fNum(summary.currentRawWeight)} kg (${fTon(summary.currentRawWeight)} تن)\n`;
+            msg += `  • اختلاف وزنی: ${rDiff >= 0 ? '+' : ''}${fNum(rDiff)} kg (${rRatio >= 0 ? '+' : ''}${fNum(rRatio, 1)}%) [${rIcon}]\n\n`;
+        }
+
+        if (summary.lastYearTotalWeight !== undefined || summary.currentTotalWeight !== undefined) {
+            const tDiff = (summary.currentTotalWeight || 0) - (summary.lastYearTotalWeight || 0);
+            const tRatio = summary.lastYearTotalWeight > 0 ? (tDiff / summary.lastYearTotalWeight) * 100 : 0;
+            const tIcon = tDiff >= 0 ? '✅ تراز مثبت' : '⚠️ تراز منفی';
+            msg += `🏢 *۳. سرجمع کل موجودی زنجیره تامین:*\n`;
+            msg += `  • سال قبل: ${fNum(summary.lastYearTotalWeight)} kg (${fTon(summary.lastYearTotalWeight)} تن)\n`;
+            msg += `  • سال جاری: ${fNum(summary.currentTotalWeight)} kg (${fTon(summary.currentTotalWeight)} تن)\n`;
+            msg += `  • تغییر کل: ${tDiff >= 0 ? '+' : ''}${fNum(tDiff)} kg (${tRatio >= 0 ? '+' : ''}${fNum(tRatio, 1)}%) [${tIcon}]\n`;
+        }
+
+        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+        msg += `⚠️ *فهرست اقلام و کالاهای دارای کسری / افت وزنی (منفی):*\n\n`;
+
+        if (negativeItems.length === 0) {
+            msg += `✅ هیچ کالایی با تراز وزنی منفی یافت نشد. تمامی اقلام در وضعیت رشد یا برابر با سال گذشته می‌باشند.\n`;
+        } else {
+            negativeItems.forEach((item, idx) => {
+                const num = fNum(idx + 1, 0);
+                const diff = parseFloat(item.diffWeight) || 0;
+                const ratio = parseFloat(item.ratio) || 0;
+                const catLabel = item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی';
+                
+                msg += `${num}. *${item.name}* ${item.code ? `(${item.code})` : ''} - ${catLabel}\n`;
+                msg += `   🔻 افت وزنی: *${fNum(diff)} kg* (${fNum(ratio, 1)}%)\n`;
+                msg += `   📊 سال قبل: ${fNum(item.lastYearWeight)} kg ⬅️ امسال: ${fNum(item.currentWeight)} kg\n\n`;
+            });
+        }
+
+        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+        msg += `🔍 *تعداد کل کالاهای دارای افت:* ${fNum(negativeItems.length, 0)} قلم کالا\n`;
+        msg += `👤 *تنظیم گزارش:* ${signature}\n`;
+        msg += `🤖 *ارسال شده توسط سامانه یکپارچه انبار و زنجیره تامین*`;
+
+        // Send to targets
+        let sentCount = 0;
+        const sendErrors = [];
+
+        for (const target of targets) {
+            try {
+                if (target.platform === 'telegram') {
+                    const tg = await safeImport('./backend/telegram.js');
+                    if (tg && tg.sendBotMessage) {
+                        await tg.sendBotMessage(target.id, msg, { parse_mode: 'Markdown' });
+                        sentCount++;
+                    }
+                } else if (target.platform === 'bale') {
+                    const bale = await safeImport('./backend/bale.js');
+                    if (bale && bale.sendBotMessage) {
+                        await bale.sendBotMessage(target.id, msg);
+                        sentCount++;
+                    }
+                } else if (target.platform === 'whatsapp') {
+                    const wa = await safeImport('./backend/whatsapp.js');
+                    if (wa && wa.sendMessage) {
+                        await wa.sendMessage(target.id, msg);
+                        sentCount++;
+                    }
+                }
+            } catch (err) {
+                console.error(`Error sending negative alert to ${target.platform} (${target.id}):`, err.message);
+                sendErrors.push(`${target.platform} (${target.id}): ${err.message}`);
+            }
+        }
+
+        if (sentCount === 0 && sendErrors.length > 0) {
+            return res.status(500).json({ 
+                error: `خطا در ارسال به ربات: ${sendErrors.join(', ')}` 
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            sentCount, 
+            targetsCount: targets.length,
+            errors: sendErrors.length > 0 ? sendErrors : undefined,
+            messageText: msg
+        });
+    } catch (err) {
+        console.error("Negative alert send fatal error:", err);
         res.status(500).json({ error: err.message });
     }
 });

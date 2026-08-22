@@ -4300,6 +4300,63 @@ const Settings: React.FC<SettingsProps> = ({
                           />
                         </div>
                       </div>
+
+                      <h4 className="font-bold text-sm text-amber-800 pt-3 border-t border-dashed flex items-center gap-2">
+                        <span>📦 تنظیمات گروه‌های پایش انبار، تراز وزنی و هشدار اقلام منفی (Warehouse Overview & Balance Alert)</span>
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه تلگرام پایش انبار و هشدار اقلام منفی
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.warehouseTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                warehouseTelegramGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="-100... یا @group"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه بله پایش انبار و هشدار اقلام منفی
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.warehouseBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                warehouseBaleGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="شناسه گروه بله..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه واتساپ پایش انبار
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.warehouseWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                warehouseWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
