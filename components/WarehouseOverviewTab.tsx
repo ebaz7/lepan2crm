@@ -92,13 +92,10 @@ export const WarehouseOverviewTab: React.FC = () => {
         return match ? parseInt(match[1]) : 1404;
     };
 
-    // Helper to approximate Gregorian start date of Jalali year
+    // Helper to approximate Gregorian start date of Jalali year (anchoring to official opening balance base 2025-03-21)
     const getJalaliYearStartMiladi = (year: number) => {
-        if (year === 1403) return '2024-03-20';
-        if (year === 1404) return '2025-03-21';
-        if (year === 1405) return '2026-03-21';
-        if (year === 1406) return '2027-03-21';
-        return `${year + 1121}-03-21`;
+        if (year < 1404) return '2024-03-20';
+        return '2025-03-21';
     };
 
     // Helper to fetch Sayan warehouse inventory using dynamic start and end dates
