@@ -332,7 +332,7 @@ export async function fetchProcessedSayanSalesData(db, dateFromInput, dateToInpu
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
         LEFT JOIN ACT_TBL_007 t07 ON RTRIM(LTRIM(t10.Field_010)) = RTRIM(LTRIM(t07.Field_005)) AND (t07.Field_004 = '11' OR t07.Field_004 = '31')
         WHERE (
-            (t10.Field_009 = '12' AND t11.Field_007 > 0)
+            (t10.Field_009 IN ('3', '12', '23') AND t11.Field_007 > 0)
             OR
             t10.Field_009 = '13'
           )
@@ -340,8 +340,11 @@ export async function fetchProcessedSayanSalesData(db, dateFromInput, dateToInpu
         ORDER BY t10.Field_008 DESC
     `;
 
+    console.log(`[fetchProcessedSayanSalesData] Executing SQL:`, sql);
     const rawSalesRows = await runSayanQuery(db, sql);
+    console.log(`[fetchProcessedSayanSalesData] SQL execution returned ${rawSalesRows.length} rows.`);
     const productRows = rawSalesRows.filter(isActualProduct);
+    console.log(`[fetchProcessedSayanSalesData] After isActualProduct filtering: ${productRows.length} rows.`);
 
     const invMap = new Map();
     productRows.forEach(row => {

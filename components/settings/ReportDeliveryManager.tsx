@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Send, Clock, Calendar, CheckCircle2, AlertCircle, RefreshCw, Plus, 
   Trash2, Edit3, Power, FileText, Download, Image, Sparkles, Layers,
@@ -40,17 +41,17 @@ const MODULE_OPTIONS = [
 ];
 
 const REPORT_TYPE_OPTIONS = [
-  { value: 'daily_sales', label: 'گزارش روزانه عملکرد فروش (سایان ERP)' },
-  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش (امروز با دیروز / دو بازه)' },
-  { value: 'warehouse_overview', label: '📦 گزارش پایش روزانه آمار و تراز انبار سایان' },
-  { value: 'production_overview', label: '🏭 گزارش پایش روزانه آمار تولید و کارخانه سایان' },
-  { value: 'cheque_vault', label: '🏛️ گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
-  { value: 'cheque_not_due', label: '⏳ فقط چک‌های سررسید نشده نزد صندوق (اسناد آتی)' },
-  { value: 'cheque_overdue', label: '⚠️ فقط چک‌های سررسید گذشته / معوق نزد صندوق (پیگیری فوری)' },
-  { value: 'cheque_matured', label: '🔔 فقط چک‌های سررسید شده امروز نزد صندوق (ارسال خودکار روزانه)' },
-  { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی' },
-  { value: 'customer_balances', label: 'گزارش مانده حساب و تراز مشتریان (تفضیل‌ها)' },
-  { value: 'inventory_stock', label: 'گزارش موجودی و گردش کالای انبار' },
+  { value: 'daily_sales', label: 'گزارش فروش و مرجوعی (سایان ERP)' },
+  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش کارخانه (سایان ERP)' },
+  { value: 'warehouse_overview', label: '📦 گزارش تراز وزنی انبارها و پایش زنجیره تامین سایان' },
+  { value: 'production_overview', label: '🏭 گزارش آمار کل تولید و ضایعات کارخانه سایان' },
+  { value: 'cheque_vault', label: '🏛️ گزارش اسناد دریافتنی نزد صندوق خزانه‌داری سایان (سال ۱۴۰۴ به بعد)' },
+  { value: 'cheque_not_due', label: '⏳ گزارش اسناد دریافتنی سررسید نشده نزد صندوق (اسناد آتی)' },
+  { value: 'cheque_overdue', label: '⚠️ گزارش اسناد دریافتنی سررسید گذشته معوق نزد صندوق (پیگیری فوری)' },
+  { value: 'cheque_matured', label: '🔔 گزارش اسناد دریافتنی سررسید شده امروز نزد صندوق (ارسال خودکار روزانه)' },
+  { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی خزانه‌داری' },
+  { value: 'customer_balances', label: 'گزارش مانده حساب و تراز معین تفصیلی مشتریان' },
+  { value: 'inventory_stock', label: 'گزارش موجودی و تراز گردش کالای انبارها' },
 ];
 
 const SCHEDULE_OPTIONS = [
@@ -366,7 +367,7 @@ export const ReportDeliveryManager: React.FC = () => {
       </div>
 
       {/* MODAL EDIT / CREATE */}
-      {isModalOpen && editingJob && (
+      {isModalOpen && editingJob && createPortal(
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
           <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans my-auto z-[10000]">
             
@@ -635,7 +636,8 @@ export const ReportDeliveryManager: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -615,6 +615,21 @@ const CreateRequestModal = ({ onClose, currentUser, onSuccess, parts }: any) => 
     };
 
     const handleItemChange = (id: string, field: keyof PurchaseRequestItem, value: any) => {
+        if (field === 'itemName' && parts && parts.length > 0) {
+            const trimmedVal = String(value).trim().toLowerCase();
+            const matchedPart = parts.find((p: any) => p.name.trim().toLowerCase() === trimmedVal);
+            if (matchedPart) {
+                setItems(items.map(it => it.id === id ? {
+                    ...it,
+                    partId: matchedPart.id,
+                    itemName: matchedPart.name,
+                    itemCode: matchedPart.code || matchedPart.id.slice(0, 8),
+                    unit: matchedPart.unit || 'عدد',
+                    specifications: matchedPart.dimensions || '',
+                } : it));
+                return;
+            }
+        }
         setItems(items.map(it => it.id === id ? { ...it, [field]: value } : it));
     };
 
@@ -670,8 +685,27 @@ const CreateRequestModal = ({ onClose, currentUser, onSuccess, parts }: any) => 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const validItems = items.filter(it => it.itemName.trim().length > 0);
-        if (validItems.length === 0) return alert('لطفاً حداقل یک کالا یا قطعه با نام مشخص وارد کنید');
+        const initialValidItems = items.filter(it => it.itemName.trim().length > 0);
+        if (initialValidItems.length === 0) return alert('لطفاً حداقل یک کالا یا قطعه با نام مشخص وارد کنید');
+
+        // Auto-link any items that match existing part names in the catalog
+        const validItems = initialValidItems.map(it => {
+            if (!it.partId && parts && parts.length > 0) {
+                const trimmedName = it.itemName.trim().toLowerCase();
+                const matchedPart = parts.find((p: any) => p.name.trim().toLowerCase() === trimmedName);
+                if (matchedPart) {
+                    return {
+                        ...it,
+                        partId: matchedPart.id,
+                        itemName: matchedPart.name,
+                        itemCode: matchedPart.code || matchedPart.id.slice(0, 8),
+                        unit: matchedPart.unit || 'عدد',
+                        specifications: matchedPart.dimensions || ''
+                    };
+                }
+            }
+            return it;
+        });
 
         setLoading(true);
         try {
