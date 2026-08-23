@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PaymentOrder, OrderStatus, SystemSettings, User, ExitPermit, ExitPermitStatus, WarehouseTransaction, UserRole, SystemAnnouncement } from '../types';
 import { formatCurrency, getShamsiDateFromIso } from '../constants';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { TrendingUp, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy } from 'lucide-react';
 import { getRolePermissions } from '../services/authService';
 import { getExitPermits, getWarehouseTransactions, getNotes, getPurchaseRequests, getTaskGroups, getTasks, updateTask } from '../services/storageService';
 import { isInFinancialYear } from '../utils/dateUtils';
@@ -84,6 +84,30 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [copiedQuote, setCopiedQuote] = useState(false);
+
+  // Warehouse Alert State
+  const [warehouseAlertData, setWarehouseAlertData] = useState<{ totalCurrentAllWeight: number, diffAllWeight: number, ratioAllWeight: number } | null>(null);
+
+  useEffect(() => {
+      const fetchWarehouseAlert = async () => {
+          try {
+              const res = await fetch('/api/warehouse-overview/data');
+              if (res.ok) {
+                  const data = await res.json();
+                  if (data?.meta?.totalCurrentAllWeight !== undefined) {
+                      setWarehouseAlertData({
+                          totalCurrentAllWeight: data.meta.totalCurrentAllWeight,
+                          diffAllWeight: data.meta.diffAllWeight,
+                          ratioAllWeight: data.meta.ratioAllWeight
+                      });
+                  }
+              }
+          } catch (err) {
+              console.error("Failed to fetch warehouse overview alert", err);
+          }
+      };
+      fetchWarehouseAlert();
+  }, []);
 
   // Automatically fetch an online poem from Iranian sites on mount
   useEffect(() => {
@@ -463,6 +487,30 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
   return (
     <div className="space-y-6 pb-20 md:pb-0 animate-fade-in">
         
+        {/* WAREHOUSE ALERT WIDGET */}
+        {warehouseAlertData && warehouseAlertData.diffAllWeight < 0 && (
+            <div 
+                onClick={() => onNavigate && onNavigate('warehouse-overview')}
+                className="cursor-pointer bg-red-50 hover:bg-red-100 border border-red-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors group"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-red-500 text-white rounded-xl shadow-inner group-hover:scale-105 transition-transform animate-pulse">
+                        <TrendingDown size={24} />
+                    </div>
+                    <div>
+                        <h4 className="font-extrabold text-red-900 text-sm md:text-base mb-0.5">هشدار: افت تراز وزنی انبارها</h4>
+                        <p className="text-xs text-red-700 font-medium">
+                            موجودی انبار نسبت به سال گذشته <span className="font-bold text-red-800" dir="ltr">{Math.abs(warehouseAlertData.diffAllWeight).toLocaleString('fa-IR', { maximumFractionDigits: 0 })} kg</span> 
+                            {' '}({(Math.abs(warehouseAlertData.ratioAllWeight)).toFixed(1)}٪) کاهش یافته است.
+                        </p>
+                    </div>
+                </div>
+                <div className="text-red-400 group-hover:text-red-600 transition-colors hidden sm:block">
+                    <ChevronLeft size={24} />
+                </div>
+            </div>
+        )}
+
         {/* TOP SECTION: MINIMAL DATE, PRICES & SLICK POETRY */}
         <div className="flex flex-col lg:flex-row gap-4">
             {/* Minimal Date Card - Smaller & Sleek */}

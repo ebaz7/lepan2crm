@@ -519,7 +519,10 @@ export const WarehouseOverviewTab: React.FC = () => {
                     report2Jalali,
                     report2Miladi,
                     cumulativeFromLastYear,
-                    allowedCompanies
+                    allowedCompanies,
+                    totalCurrentAllWeight,
+                    diffAllWeight,
+                    ratioAllWeight
                 }
             };
 

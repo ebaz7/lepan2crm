@@ -43,7 +43,7 @@ const MODULE_OPTIONS = [
 const REPORT_TYPE_OPTIONS = [
   { value: 'daily_sales', label: 'گزارش فروش و برگشت از فروش (Sayan ERP)' },
   { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش کارخانه (Sayan ERP)' },
-  { value: 'warehouse_overview', label: '📦 گزارش تراز وزنی انبارها و پایش زنجیره تامین (Sayan ERP)' },
+  { value: 'warehouse_overview', label: '📊 گزارش آمار انبار (Sayan ERP)' },
   { value: 'production_overview', label: '🏭 گزارش آمار کل تولید و ضایعات کارخانه (Sayan ERP)' },
   { value: 'cheque_vault', label: '🏛️ گزارش اسناد دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
   { value: 'cheque_not_due', label: '⏳ گزارش اسناد دریافتنی سررسید نشده نزد صندوق (آتی)' },
