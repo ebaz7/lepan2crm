@@ -4006,6 +4006,9 @@ const Settings: React.FC<SettingsProps> = ({
                   </div>
 
                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 block mb-1">
+                      دکمه‌های اختصاصی شروع در منوی استارت ربات
+                    </label>
                     {(settings.botStoreLinks || []).map((linkItem, lIdx) => (
                       <div key={lIdx} className="flex gap-2 animate-slide-left">
                         <input
@@ -4055,7 +4058,7 @@ const Settings: React.FC<SettingsProps> = ({
                           ],
                         })
                       }
-                      className="text-sm text-blue-600 font-bold flex items-center gap-1 glass-panel border border-blue-200 px-3 py-1.5 rounded-lg hover:shadow-sm transition-all"
+                      className="text-sm text-blue-600 font-bold flex items-center gap-1 glass-panel border border-blue-200 px-3 py-1.5 rounded-lg hover:shadow-sm transition-all mt-1"
                     >
                       + افزودن دکمه جدید
                     </button>
@@ -4127,137 +4130,27 @@ const Settings: React.FC<SettingsProps> = ({
                           />
                         </div>
                       </div>
-
-
                     </div>
 
-                    <div className="md:col-span-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-4">
-                      <div className="flex items-center justify-between">
+                    {/* Unified Sayan & Treasury Automated Reports Section */}
+                    <div className="md:col-span-2 bg-slate-50 p-6 rounded-2xl border border-slate-200/80 space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-amber-50 text-amber-700 rounded-2xl border border-amber-100 flex-shrink-0">
+                          <Bot size={24} />
+                        </div>
                         <div>
-                          <label className="text-sm font-bold text-indigo-900 block">
-                            ⏰ تنظیمات ارسال خودکار روزانه گزارش وضعیت چک‌ها (خزانه‌داری)
-                          </label>
-                          <p className="text-[11px] text-indigo-600 mt-0.5">
-                            ارسال خودکار آمار و وضعیت چک‌های نزد صندوق خزانه‌داری در ساعت مشخص‌شده به گروه‌های انتخابی
+                          <h4 className="font-extrabold text-base text-slate-800 flex items-center gap-2">
+                            <span>🚀 انتقال به موتور مرکزی زمان‌بندی و ارسال گزارشات</span>
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">یکپارچه شده</span>
+                          </h4>
+                          <p className="text-xs text-slate-600 leading-relaxed mt-2">
+                            تمامی تنظیمات، مدیریت پلتفرم‌ها و زمان‌بندی هوشمند گزارشات سیستم (شامل <b>آمار فروش روزانه</b>، <b>وضعیت چک‌ها و خزانه‌داری</b>، <b>پایش و تراز موجودی انبار</b>، و <b>آمار تولید کارخانه</b>) همگی به صورت یکپارچه به <b>«موتور مرکزی زمان‌بندی و ارسال گزارشات (Report Delivery Engine)»</b> در بخش تنظیمات ربات (انتهای همین صفحه) منتقل شدند.
                           </p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.chequeVaultAutoSendEnabled ?? true}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                chequeVaultAutoSendEnabled: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-indigo-100/70">
-                        <div>
-                          <label className="text-xs font-bold text-gray-700 block mb-1">
-                            ساعت ارسال روزانه چک‌ها
-                          </label>
-                          <input
-                            type="time"
-                            value={settings.chequeVaultSendTime || "09:00"}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                chequeVaultSendTime: e.target.value,
-                              })
-                            }
-                            className="w-full border rounded-lg p-2 text-xs font-mono text-center font-bold bg-white"
-                          />
-                        </div>
-                        <div className="flex items-center gap-4 pt-5">
-                          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={settings.chequeVaultAttachPdf ?? true}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  chequeVaultAttachPdf: e.target.checked,
-                                })
-                              }
-                              className="rounded text-indigo-600"
-                            />
-                            <span>پیوست PDF</span>
-                          </label>
-                          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={settings.chequeVaultAttachExcel ?? true}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  chequeVaultAttachExcel: e.target.checked,
-                                })
-                              }
-                              className="rounded text-indigo-600"
-                            />
-                            <span>پیوست اکسل</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="pt-2">
-                        <label className="text-xs font-bold text-indigo-900 block mb-1">
-                          شناسه گروه‌های اختصاصی گزارش چک‌ها (می‌توانید چند شناسه را با کاما جدا کنید)
-                        </label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-500 block mb-1">
-                              تلگرام (Chat ID یا چند آیدی با کاما)
-                            </label>
-                            <input
-                              className="w-full border rounded p-2 text-xs dir-ltr bg-white"
-                              value={settings.chequeVaultTelegramGroupId || ""}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  chequeVaultTelegramGroupId: e.target.value,
-                                })
-                              }
-                              placeholder="-100123..., -100456..."
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-500 block mb-1">
-                              بله (شناسه گروه یا چند آیدی با کاما)
-                            </label>
-                            <input
-                              className="w-full border rounded p-2 text-xs dir-ltr bg-white"
-                              value={settings.chequeVaultBaleGroupId || ""}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  chequeVaultBaleGroupId: e.target.value,
-                                })
-                              }
-                              placeholder="ID1, ID2..."
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-500 block mb-1">
-                              واتساپ (ID گروه یا شماره‌ها با کاما)
-                            </label>
-                            <input
-                              className="w-full border rounded p-2 text-xs dir-ltr bg-white"
-                              value={settings.chequeVaultWhatsappGroupId || ""}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  chequeVaultWhatsappGroupId: e.target.value,
-                                })
-                              }
-                              placeholder="...@g.us, ...@g.us"
-                            />
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] text-slate-500 font-bold">🎯 مزایای موتور یکپارچه جدید:</span>
+                            <span className="text-[10px] bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg font-bold">تعریف ساعت خودکار اختصاصی برای هر گزارش</span>
+                            <span className="text-[10px] bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg font-bold">پشتیبانی همزمان از تلگرام، بله و واتساپ</span>
+                            <span className="text-[10px] bg-white border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg font-bold">امکان اجرای فوری و درخواستی تست گزارش</span>
                           </div>
                         </div>
                       </div>
@@ -4508,219 +4401,6 @@ const Settings: React.FC<SettingsProps> = ({
                             placeholder="120363... یا 0912..."
                           />
                         </div>
-                      </div>
-
-                      <h4 className="font-bold text-sm text-amber-800 pt-3 border-t border-dashed flex items-center gap-2">
-                        <span>📦 تنظیمات گروه‌های پایش انبار، تراز وزنی و هشدار اقلام منفی (امکان تعریف چند گروه با کاما)</span>
-                      </h4>
-                      <p className="text-[11px] text-amber-900/80 mb-2">
-                        گزارشات پایش انبار صرفاً به گروه‌های مشخص‌شده در این بخش ارسال می‌شود و به هیچ گروه دیگری ارسال نخواهد شد.
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="text-xs font-bold text-gray-600 block mb-1">
-                            شناسه گروه(های) تلگرام انبار
-                          </label>
-                          <input
-                            type="text"
-                            value={settings.warehouseTelegramGroupId || ""}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                warehouseTelegramGroupId: e.target.value,
-                              })
-                            }
-                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
-                            placeholder="-100123..., -100456... (چند آیدی با کاما)"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-gray-600 block mb-1">
-                            شناسه گروه(های) بله انبار
-                          </label>
-                          <input
-                            type="text"
-                            value={settings.warehouseBaleGroupId || ""}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                warehouseBaleGroupId: e.target.value,
-                              })
-                            }
-                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
-                            placeholder="شناسه گروه بله (یا چند گروه با کاما)"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-gray-600 block mb-1">
-                            شناسه گروه(های) واتساپ انبار
-                          </label>
-                          <input
-                            type="text"
-                            value={settings.warehouseWhatsappGroupId || ""}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                warehouseWhatsappGroupId: e.target.value,
-                              })
-                            }
-                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
-                            placeholder="120363... یا شماره‌ها با کاما"
-                          />
-                        </div>
-                      </div>
-
-                      {/* ⏰ Automated Daily Warehouse Overview & Variance Report */}
-                      <div className="mt-4 pt-4 border-t border-amber-200/80 space-y-4">
-                        <div className="flex items-center justify-between bg-amber-100/50 p-3 rounded-xl border border-amber-200">
-                          <div>
-                            <h5 className="font-extrabold text-xs text-amber-900 flex items-center gap-2">
-                              <span>⏰ ارسال اتوماتیک روزانه گزارش انبار و هشدار اقلام منفی به مدیریت و گروه‌ها</span>
-                            </h5>
-                            <p className="text-[11px] text-amber-800/80 mt-0.5">
-                              ارسال خودکار فایل PDF، تحلیل روند و نوتیفیکیشن درون‌برنامه‌ای به مدیرعامل در ساعت مشخص روزانه
-                            </p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!settings.warehouseDailyAutoReportEnabled}
-                              onChange={(e) =>
-                                setSettings({
-                                  ...settings,
-                                  warehouseDailyAutoReportEnabled: e.target.checked,
-                                })
-                              }
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-                          </label>
-                        </div>
-
-                        {settings.warehouseDailyAutoReportEnabled && (
-                          <div className="p-4 bg-white/70 rounded-xl border border-amber-200 space-y-4 animate-fade-in">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <label className="text-xs font-bold text-gray-700 block mb-1">
-                                  ساعت ارسال خودکار روزانه
-                                </label>
-                                <input
-                                  type="time"
-                                  value={settings.warehouseDailyAutoReportTime || "09:00"}
-                                  onChange={(e) =>
-                                    setSettings({
-                                      ...settings,
-                                      warehouseDailyAutoReportTime: e.target.value,
-                                    })
-                                  }
-                                  className="w-full border rounded-lg p-2 text-xs font-mono text-center font-bold"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="text-xs font-bold text-gray-700 block mb-1">
-                                  محدوده و صفحات گزارش (Scope)
-                                </label>
-                                <select
-                                  value={settings.warehouseDailyAutoReportScope || "both"}
-                                  onChange={(e) =>
-                                    setSettings({
-                                      ...settings,
-                                      warehouseDailyAutoReportScope: e.target.value as any,
-                                    })
-                                  }
-                                  className="w-full border rounded-lg p-2 text-xs font-bold text-slate-800"
-                                >
-                                  <option value="both">📑 گزارش جامع ۲ صفحه‌ای (کل جداول + تحلیل روند و کسری)</option>
-                                  <option value="overview_only">🏢 فقط صفحه اول (کل جداول زنجیره تامین)</option>
-                                  <option value="variance_only">⚠️ فقط صفحه دوم (تحلیل روند و هشدارهای کسری)</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="text-xs font-bold text-gray-700 block mb-1">
-                                  قالب و فرمت ارسال (Format)
-                                </label>
-                                <select
-                                  value={settings.warehouseDailyAutoReportFormat || "pdf_and_caption"}
-                                  onChange={(e) =>
-                                    setSettings({
-                                      ...settings,
-                                      warehouseDailyAutoReportFormat: e.target.value as any,
-                                    })
-                                  }
-                                  className="w-full border rounded-lg p-2 text-xs font-bold text-slate-800"
-                                >
-                                  <option value="pdf_and_caption">📎 فایل PDF رسمی + متن خلاصه و کپشن</option>
-                                  <option value="pdf_only">📄 فقط فایل PDF رسمی</option>
-                                  <option value="caption_only">💬 فقط متن و کپشن تحلیلی</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-100">
-                              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={settings.warehouseDailyInAppNotifEnabled !== false}
-                                  onChange={(e) =>
-                                    setSettings({
-                                      ...settings,
-                                      warehouseDailyInAppNotifEnabled: e.target.checked,
-                                    })
-                                  }
-                                  className="w-4 h-4 text-amber-600 rounded border-amber-300"
-                                />
-                                <span>🔔 ارسال همزمان نوتیفیکیشن درون‌برنامه‌ای به مدیرعامل و هیئت مدیره</span>
-                              </label>
-
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-slate-500">پلتفرم‌های مقصد:</span>
-                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={(settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale']).includes('telegram')}
-                                    onChange={(e) => {
-                                      const current = settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale'];
-                                      const updated = e.target.checked ? [...current, 'telegram'] : current.filter(p => p !== 'telegram');
-                                      setSettings({ ...settings, warehouseDailyAutoReportPlatforms: updated });
-                                    }}
-                                    className="w-3.5 h-3.5 text-blue-600 rounded"
-                                  />
-                                  <span>تلگرام</span>
-                                </label>
-
-                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={(settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale']).includes('bale')}
-                                    onChange={(e) => {
-                                      const current = settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale'];
-                                      const updated = e.target.checked ? [...current, 'bale'] : current.filter(p => p !== 'bale');
-                                      setSettings({ ...settings, warehouseDailyAutoReportPlatforms: updated });
-                                    }}
-                                    className="w-3.5 h-3.5 text-blue-600 rounded"
-                                  />
-                                  <span>بله</span>
-                                </label>
-
-                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={(settings.warehouseDailyAutoReportPlatforms || []).includes('whatsapp')}
-                                    onChange={(e) => {
-                                      const current = settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale'];
-                                      const updated = e.target.checked ? [...current, 'whatsapp'] : current.filter(p => p !== 'whatsapp');
-                                      setSettings({ ...settings, warehouseDailyAutoReportPlatforms: updated });
-                                    }}
-                                    className="w-3.5 h-3.5 text-green-600 rounded"
-                                  />
-                                  <span>واتساپ</span>
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 

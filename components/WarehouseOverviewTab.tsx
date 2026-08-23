@@ -2484,7 +2484,7 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                 {/* 🚨 NEGATIVE ITEMS ALERT CENTER */}
                 {negativeItems.length > 0 ? (
-                    <div className="p-5 rounded-2xl bg-red-50/90 border-2 border-red-200 space-y-4 shadow-sm">
+                    <div id="section-negative-alert" className="p-5 rounded-2xl bg-red-50/90 border-2 border-red-200 space-y-4 shadow-sm scroll-mt-28">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200/80 pb-3">
                             <div className="flex items-center gap-2.5">
                                 <div className="p-2 bg-red-600 text-white rounded-xl shadow animate-bounce">
@@ -2688,17 +2688,17 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* 🤖 BOT DISPATCH & ALARM NOTIFICATION MODAL */}
-            {isBotModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animation-fade-in" dir="rtl">
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            {isBotModalOpen && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-900/75 backdrop-blur-md animate-fade-in" dir="rtl">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-5 sm:p-7 space-y-5 max-h-[92vh] flex flex-col overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
-                                    <Send className="w-6 h-6" />
+                                <div className="p-2.5 bg-red-50 text-red-600 rounded-2xl">
+                                    <Send className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-800 text-base sm:text-lg">ارسال گزارش انبار، هشدار کسری و مغایرت به ربات و مدیریت</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">ارسال فایل PDF رسمی، کپشن تحلیلی و نوتیفیکیشن اختصاصی به مدیرعامل</p>
+                                    <h3 className="font-black text-slate-800 text-sm sm:text-base md:text-lg">ارسال گزارش انبار، هشدار کسری و مغایرت به ربات و مدیریت</h3>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">ارسال فایل PDF رسمی، کپشن تحلیلی و نوتیفیکیشن اختصاصی به مدیرعامل</p>
                                 </div>
                             </div>
                             <button
@@ -2711,258 +2711,221 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                         {/* Status / Alert feedback */}
                         {botSendSuccessMessage && (
-                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shrink-0">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                                 <span>{botSendSuccessMessage}</span>
                             </div>
                         )}
 
                         {botSendErrorMessage && (
-                            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center gap-2 shrink-0">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                                 <span>{botSendErrorMessage}</span>
                             </div>
                         )}
 
-                        {/* 1. Scope Selection (محدوده گزارش ارسالی) */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
-                                <FileText className="w-4 h-4 text-indigo-600" />
-                                <span>۱. انتخاب محدوده و صفحات گزارش (Scope)</span>
-                            </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setBotReportScope('both')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botReportScope === 'both'
-                                        ? 'bg-indigo-50 border-indigo-400 text-indigo-950 shadow-sm font-bold ring-1 ring-indigo-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-indigo-900">📑 گزارش جامع ۲ صفحه‌ای</span>
-                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
-                                        صفحه ۱: کل جداول زنجیره تامین + صفحه ۲: تحلیل روند کسری‌ها و رشد
-                                    </span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setBotReportScope('overview_only')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botReportScope === 'overview_only'
-                                        ? 'bg-blue-50 border-blue-400 text-blue-950 shadow-sm font-bold ring-1 ring-blue-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-blue-900">🏢 فقط صفحه اول</span>
-                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
-                                        جداول کل زنجیره تامین، تولید، مواد اولیه و لجستیک
-                                    </span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setBotReportScope('variance_only')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botReportScope === 'variance_only'
-                                        ? 'bg-amber-50 border-amber-400 text-amber-950 shadow-sm font-bold ring-1 ring-amber-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-amber-900">⚠️ فقط صفحه دوم</span>
-                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
-                                        تحلیل روندها، اقلام دارای رشد و هشدارهای کسری منفی
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 2. Format Selection (نوع و قالب ارسال) */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
-                                <Sliders className="w-4 h-4 text-emerald-600" />
-                                <span>۲. قالب و فرمت ارسال گزارش (Format)</span>
-                            </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setBotSendFormat('pdf_and_caption')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botSendFormat === 'pdf_and_caption'
-                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-emerald-900">📎 PDF رسمی + متن کپشن</span>
-                                    <span className="text-[10px] text-slate-500 font-normal">
-                                        ارسال فایل PDF باکیفیت به همراه خلاصه متنی و هشدار
-                                    </span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setBotSendFormat('pdf_only')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botSendFormat === 'pdf_only'
-                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-emerald-900">📄 فقط فایل PDF</span>
-                                    <span className="text-[10px] text-slate-500 font-normal">
-                                        ارسال سند PDF طراحی شده رسمی بدون کپشن طولانی
-                                    </span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setBotSendFormat('caption_only')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botSendFormat === 'caption_only'
-                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-black text-emerald-900">💬 فقط پیام متنی</span>
-                                    <span className="text-[10px] text-slate-500 font-normal">
-                                        ارسال پیام تحلیلی سریع در گروه بدون ضمیمه PDF
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 3. In-App Notification to CEO / Management */}
-                        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3.5">
-                            <label className="flex items-center justify-between cursor-pointer">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
-                                        <BellRing className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <span className="text-xs font-black text-amber-900 block">
-                                            ارسال نوتیفیکیشن درون‌برنامه‌ای به مدیرعامل و مدیران ارشد
-                                        </span>
-                                        <span className="text-[10px] text-amber-700 block mt-0.5">
-                                            ثبت هشدار مستقیم در زنگوله اعلان‌های داشبورد نقش‌های مدیرعامل، مدیریت و بازرگانی
-                                        </span>
-                                    </div>
+                        <div className="overflow-y-auto flex-1 space-y-4 pr-1 pl-1 custom-scrollbar min-h-0">
+                            {/* 1. Scope Selection (محدوده گزارش ارسالی) */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                                    <FileText className="w-4 h-4 text-indigo-600" />
+                                    <span>۱. انتخاب محدوده و صفحات گزارش (Scope)</span>
+                                </label>
+                                <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotReportScope('both')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botReportScope === 'both'
+                                            ? 'bg-white shadow text-indigo-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        📑 گزارش جامع (۲ صفحه)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotReportScope('overview_only')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botReportScope === 'overview_only'
+                                            ? 'bg-white shadow text-blue-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        🏢 فقط صفحه ۱
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotReportScope('variance_only')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botReportScope === 'variance_only'
+                                            ? 'bg-white shadow text-amber-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        ⚠️ فقط صفحه ۲ (تحلیل کسری)
+                                    </button>
                                 </div>
-                                <input
-                                    type="checkbox"
-                                    checked={botNotifyInApp}
-                                    onChange={(e) => setBotNotifyInApp(e.target.checked)}
-                                    className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
-                                />
-                            </label>
-                        </div>
+                            </div>
 
-                        {/* 4. Destination Selection */}
-                        <div className="space-y-3">
-                            <label className="block text-xs font-extrabold text-slate-700">۴. انتخاب گروه یا مخاطب مقصد</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setBotDestinationType('default')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botDestinationType === 'default'
-                                        ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-sm font-bold'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-extrabold">گروه‌های پیش‌فرض انبار و زنجیره تامین</span>
-                                    <span className="text-[10px] text-slate-500 font-normal">
-                                        {warehouseTelegramGroupId || warehouseBaleGroupId ? (
-                                            <span className="text-blue-700 font-mono text-[10px]">
-                                                {warehouseTelegramGroupId ? `تلگرام: ${warehouseTelegramGroupId}` : ''}
-                                                {warehouseTelegramGroupId && warehouseBaleGroupId ? ' | ' : ''}
-                                                {warehouseBaleGroupId ? `بله: ${warehouseBaleGroupId}` : ''}
+                            {/* 2. Format Selection (نوع و قالب ارسال) */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                                    <Sliders className="w-4 h-4 text-emerald-600" />
+                                    <span>۲. قالب و فرمت ارسال گزارش (Format)</span>
+                                </label>
+                                <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotSendFormat('pdf_and_caption')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botSendFormat === 'pdf_and_caption'
+                                            ? 'bg-white shadow text-emerald-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        📎 PDF + متن کپشن
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotSendFormat('pdf_only')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botSendFormat === 'pdf_only'
+                                            ? 'bg-white shadow text-emerald-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        📄 فقط فایل PDF
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotSendFormat('caption_only')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botSendFormat === 'caption_only'
+                                            ? 'bg-white shadow text-emerald-950 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        💬 فقط پیام متنی
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 3. In-App Notification to CEO / Management */}
+                            <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-2.5">
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
+                                            <BellRing className="w-3.5 h-3.5" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[11px] font-black text-amber-900 block">
+                                                ارسال نوتیفیکیشن درون‌برنامه‌ای به مدیرعامل و مدیران ارشد
                                             </span>
-                                        ) : (
-                                            <span>ارسال به گروه‌های پیش‌فرض تنظیم شده در بخش تنظیمات</span>
-                                        )}
-                                    </span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setBotDestinationType('custom')}
-                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
-                                        botDestinationType === 'custom'
-                                        ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-sm font-bold'
-                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="text-xs font-extrabold">شناسه / گروه سفارشی (Chat ID)</span>
-                                    <span className="text-[10px] text-slate-500 font-normal">ارسال به آیدی یا گروه مشخص دیگر</span>
-                                </button>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={botNotifyInApp}
+                                        onChange={(e) => setBotNotifyInApp(e.target.checked)}
+                                        className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer"
+                                    />
+                                </label>
                             </div>
 
-                            {botDestinationType === 'custom' && (
-                                <div className="mt-2">
-                                    <input
-                                        type="text"
-                                        value={customTargetId}
-                                        onChange={(e) => setCustomTargetId(e.target.value)}
-                                        placeholder="مثال: -100123456789 یا @my_warehouse_group"
-                                        className="w-full text-xs font-mono p-2.5 bg-slate-50 border rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                        dir="ltr"
-                                    />
+                            {/* 4. Destination Selection */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-extrabold text-slate-700">۳. انتخاب گروه یا مخاطب مقصد</label>
+                                <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotDestinationType('default')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botDestinationType === 'default'
+                                            ? 'bg-white shadow text-blue-900 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        👥 گروه‌های پیش‌فرض انبار
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBotDestinationType('custom')}
+                                        className={`flex-1 py-1.5 text-center text-[10.5px] font-black rounded-lg transition-all ${
+                                            botDestinationType === 'custom'
+                                            ? 'bg-white shadow text-blue-900 font-extrabold'
+                                            : 'text-slate-600 hover:text-slate-900 font-bold'
+                                        }`}
+                                    >
+                                        👤 شناسه سفارشی (Chat ID)
+                                    </button>
                                 </div>
-                            )}
-                        </div>
 
-                        {/* 5. Platforms Checkbox */}
-                        <div className="space-y-2">
-                            <label className="block text-xs font-extrabold text-slate-700">۵. پلتفرم‌های پیام‌رسان فعال</label>
-                            <div className="flex items-center gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedPlatforms.includes('telegram')}
-                                        onChange={(e) => {
-                                            if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'telegram']);
-                                            else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'telegram'));
-                                        }}
-                                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
-                                    />
-                                    <span>تلگرام (Telegram)</span>
-                                </label>
+                                {botDestinationType === 'custom' && (
+                                    <div className="mt-1">
+                                        <input
+                                            type="text"
+                                            value={customTargetId}
+                                            onChange={(e) => setCustomTargetId(e.target.value)}
+                                            placeholder="مثال: -100123456789 یا @my_warehouse_group"
+                                            className="w-full text-xs font-mono p-2 bg-slate-50 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            dir="ltr"
+                                        />
+                                    </div>
+                                )}
+                            </div>
 
-                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedPlatforms.includes('bale')}
-                                        onChange={(e) => {
-                                            if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'bale']);
-                                            else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'bale'));
-                                        }}
-                                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
-                                    />
-                                    <span>پیام‌رسان بله (Bale)</span>
-                                </label>
+                            {/* 5. Platforms Checkbox */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-extrabold text-slate-700">۴. پلتفرم‌های پیام‌رسان فعال</label>
+                                <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPlatforms.includes('telegram')}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'telegram']);
+                                                else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'telegram'));
+                                            }}
+                                            className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                        />
+                                        <span>تلگرام (Telegram)</span>
+                                    </label>
+
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPlatforms.includes('bale')}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedPlatforms([...selectedPlatforms, 'bale']);
+                                                else setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'bale'));
+                                            }}
+                                            className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                        />
+                                        <span>بله (Bale)</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 shrink-0">
                             <button
                                 onClick={() => setIsBotModalOpen(false)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-5 py-2.5 text-xs font-bold transition-all"
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-5 py-2.5 text-xs font-bold transition-all cursor-pointer"
                             >
                                 انصراف و بستن
                             </button>
                             <button
                                 onClick={handleSendNegativeAlert}
                                 disabled={isSendingBot || selectedPlatforms.length === 0}
-                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-2.5 text-xs font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-2.5 text-xs font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
                             >
                                 {isSendingBot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 <span>{isSendingBot ? 'در حال ارسال و تولید فایل PDF...' : 'تایید و ارسال به گروه و مدیریت'}</span>
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
         </div>

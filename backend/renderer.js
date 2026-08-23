@@ -2346,9 +2346,10 @@ export const generateProductionCompareReportPDF = async (
 
 // 7. Warehouse Overview & Supply Chain Comparative Balance PDF (Page 1: Full Tables + Page 2: Trend / Growth & Deficits)
 export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
+  let page = null;
   try {
     const browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     const {
       mode = 'both', // 'both' | 'overview_only' | 'variance_only'
@@ -2799,11 +2800,18 @@ export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
       printBackground: true,
       margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
     });
-    await page.close();
     return pdf;
   } catch (e) {
     console.error("Generate Warehouse Overview Report PDF Error:", e);
     throw e;
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+      } catch (err) {
+        // ignore close errors
+      }
+    }
   }
 };
 

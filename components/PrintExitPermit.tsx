@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ExitPermit, ExitPermitStatus, SystemSettings, UserRole, SalesContact, User } from '../types';
 import { formatDate, formatCurrency, formatIranianPlate } from '../constants';
 import { X, Printer, Clock, MapPin, Package, Truck, CheckCircle, XCircle, Share2, Edit, Loader2, Users, Search, FileDown, Minimize2, Maximize2, ZoomIn, ZoomOut, Paperclip, Eye, Image as ImageIcon } from 'lucide-react';
@@ -62,7 +63,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             }
             const wrapperHeight = window.innerHeight;
             const targetWidth = 794; 
-            const targetHeight = 1120;
+            const targetHeight = permit.sayanRemittanceDoc ? 2272 : 1120;
             
             let computedScale = 1;
             if (scaleMode === 'fit') {
@@ -485,10 +486,15 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
 
                 {permit.attachments && permit.attachments.length > 0 && (
                     <div className="space-y-2 my-3 border-t border-b border-emerald-100 py-3">
-                        <h3 className="font-black text-sm flex items-center gap-2 text-gray-800">
-                            <Paperclip size={18} className="text-emerald-600" />
-                            <span>تصاویر و مدارک پیوست (قبض باسکول، عکس بار و اسناد) ({permit.attachments.length} فایل)</span>
-                        </h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-2 mb-2" dir="rtl">
+                            <div className="flex items-center gap-2 text-emerald-800">
+                                <Paperclip size={18} className="text-emerald-600" />
+                                <span className="font-black text-sm">تصاویر و مدارک پیوست</span>
+                            </div>
+                            <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100/80 font-bold self-start sm:self-center font-sans">
+                                تعداد: {permit.attachments.length} فایل <span className="text-[10px] text-gray-400 font-normal mr-1">(قبض باسکول، عکس بار و اسناد)</span>
+                            </span>
+                        </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-emerald-50/40 p-3 rounded-2xl border-2 border-emerald-200">
                             {permit.attachments.map((att, idx) => {
                                 const isImg = att.data?.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)$/i.test(att.fileName);
@@ -613,8 +619,8 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
   if (embed) return content;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex flex-col items-center pt-6 md:pt-10 pb-16 md:pb-20 overflow-y-auto overflow-x-hidden justify-start p-2 animate-fade-in safe-pb">
-        <div className="bg-white p-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-wrap items-center justify-between gap-3 w-full max-w-5xl no-print mb-6 sticky top-0 z-[10000] border-2 border-blue-100 backdrop-blur-xl bg-white/95">
+    <div className="fixed inset-0 bg-slate-100/95 backdrop-blur-md z-[9999] flex flex-col items-center pt-6 md:pt-10 pb-16 md:pb-20 overflow-y-auto overflow-x-hidden justify-start p-2 animate-fade-in safe-pb">
+        <div className="bg-white p-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] flex flex-wrap items-center justify-between gap-3 w-full max-w-5xl no-print mb-6 sticky top-0 z-[10000] border-2 border-blue-100 backdrop-blur-xl bg-white/95">
             <div className="flex items-center gap-3">
                 <button onClick={onClose} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all active:scale-95"><X size={20}/></button>
                 <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
@@ -811,7 +817,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
         <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
             <div style={{ 
               width: `${scale * 794}px`,
-              height: `${scale * 1120}px`,
+              height: `${scale * (permit.sayanRemittanceDoc ? 2272 : 1120)}px`,
               overflow: 'hidden',
               position: 'relative',
               borderRadius: '12px',
@@ -820,7 +826,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             }}>
                 <div style={{ 
                   width: '794px', 
-                  height: '1120px',
+                  height: `${permit.sayanRemittanceDoc ? 2272 : 1120}px`,
                   backgroundColor: 'white', 
                   transform: `scale(${scale})`,
                   transformOrigin: 'top left',
@@ -833,13 +839,13 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             </div>
         </div>
 
-        {lightboxImg && (
-            <div className="fixed inset-0 z-[100000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxImg(null)}>
-                <div className="relative max-w-4xl w-full max-h-[85vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+        {lightboxImg && createPortal(
+            <div className="fixed inset-0 z-[200000] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxImg(null)}>
+                <div className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between w-full mb-3 text-white">
-                        <span className="font-mono text-xs truncate max-w-md" dir="ltr">{lightboxImg.fileName}</span>
+                        <span className="font-mono text-xs truncate max-w-md font-bold" dir="ltr">{lightboxImg.fileName}</span>
                         <div className="flex items-center gap-2">
-                            <a href={lightboxImg.data} download={lightboxImg.fileName || 'Attachment'} className="bg-emerald-600 text-white px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-700 shadow-md">
+                            <a href={lightboxImg.data} download={lightboxImg.fileName || 'Attachment'} className="bg-emerald-600 text-white px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-700 shadow-md transition-colors">
                                 <FileDown size={14} /> دانلود فایل
                             </a>
                             <button onClick={() => setLightboxImg(null)} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl text-white transition-colors">
@@ -847,9 +853,12 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
                             </button>
                         </div>
                     </div>
-                    <img src={lightboxImg.data} alt="" className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border-2 border-white/20" />
+                    <div className="w-full flex justify-center overflow-auto max-h-[80vh]">
+                        <img src={lightboxImg.data} alt="" className="max-w-full max-h-[78vh] object-contain rounded-2xl shadow-2xl border border-white/10" />
+                    </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         )}
     </div>
   );

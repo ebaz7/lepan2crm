@@ -964,7 +964,19 @@ const RejectModal = ({ onClose, onConfirm }: { onClose: () => void, onConfirm: (
     );
 };
 
-const WarehouseCheckModal = ({ onClose, onConfirm }: { onClose: () => void, onConfirm: (inStock: boolean, data: any) => void }) => {
+const WarehouseCheckModal = ({ 
+    request, 
+    parts, 
+    onClose, 
+    onConfirm,
+    onRegisterPart 
+}: { 
+    request: any, 
+    parts: any[], 
+    onClose: () => void, 
+    onConfirm: (inStock: boolean, data: any) => void,
+    onRegisterPart: (item: any) => void
+}) => {
     const [inStock, setInStock] = useState(false);
     const [exitNumber, setExitNumber] = useState(() => {
         const shamsi = getCurrentShamsiDate();
@@ -973,6 +985,8 @@ const WarehouseCheckModal = ({ onClose, onConfirm }: { onClose: () => void, onCo
     });
     const [recipient, setRecipient] = useState('');
     const [notes, setNotes] = useState('');
+
+    const manualItems = request.items?.filter((it: any) => !it.partId) || [];
 
     return createPortal(
         <div className="fixed inset-0 z-[100000008] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1006,14 +1020,46 @@ const WarehouseCheckModal = ({ onClose, onConfirm }: { onClose: () => void, onCo
                             </div>
                         </div>
                     ) : (
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">ملاحظات انبارداری:</label>
-                            <textarea className="w-full border rounded-xl p-3 text-xs h-24 focus:ring-2 focus:ring-indigo-100 outline-none" value={notes} onChange={e => setNotes(e.target.value)} placeholder="توضیحات عدم وجود در انبار یا حداقل موجودی..." />
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 block mb-1">ملاحظات انبارداری:</label>
+                                <textarea className="w-full border rounded-xl p-3 text-xs h-24 focus:ring-2 focus:ring-indigo-100 outline-none" value={notes} onChange={e => setNotes(e.target.value)} placeholder="توضیحات عدم وجود در انبار یا حداقل موجودی..." />
+                            </div>
                         </div>
                     )}
 
+                    {manualItems.length > 0 ? (
+                        <div className="space-y-3 bg-red-50 p-4 rounded-2xl border border-red-200">
+                            <p className="text-[11px] font-black text-red-700 leading-relaxed">
+                                ⚠️ خطای انبارداری: {manualItems.length} قلم کالا به صورت دستی ثبت شده است. برای خروج کالا یا ارجاع به درخواست خرید، ابتدا باید کالا در شناسنامه کالاها تعریف شده و انتخاب شود:
+                            </p>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {manualItems.map((it: any) => (
+                                    <div key={it.id} className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-red-100 text-[10px]">
+                                        <div className="font-bold text-gray-800 truncate pl-2 max-w-[150px]">
+                                            {it.itemName}
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={() => onRegisterPart(it)}
+                                            className="px-2.5 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-black text-[9px]"
+                                        >
+                                            ➕ تعریف کالا
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+
                     <div className="flex gap-3 pt-2">
-                        <button onClick={() => onConfirm(inStock, { warehouseExitVoucherNumber: exitNumber, warehouseRecipient: recipient, warehouseNotes: notes })} className="flex-1 bg-indigo-600 text-white font-black py-3.5 rounded-2xl shadow-lg active:scale-95 transition-all text-xs">ثبت و ادامه فرآیند</button>
+                        <button 
+                            disabled={manualItems.length > 0} 
+                            onClick={() => onConfirm(inStock, { warehouseExitVoucherNumber: exitNumber, warehouseRecipient: recipient, warehouseNotes: notes })} 
+                            className={`flex-1 font-black py-3.5 rounded-2xl shadow-lg active:scale-95 transition-all text-xs ${(manualItems.length > 0) ? 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none' : 'bg-indigo-600 text-white'}`}
+                        >
+                            ثبت و ادامه فرآیند
+                        </button>
                         <button onClick={onClose} className="px-6 bg-gray-100 text-gray-600 font-bold text-xs rounded-2xl">انصراف</button>
                     </div>
                 </div>
@@ -1241,6 +1287,7 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
     const [showPurchasingAgentModal, setShowPurchasingAgentModal] = useState(false);
     const [printingProforma, setPrintingProforma] = useState<PurchaseProforma | null>(null);
     const [printType, setPrintType] = useState<'REQUEST' | 'PROFORMA' | 'RECEIPT' | 'BARCODE'>('REQUEST');
+    const [definingItem, setDefiningItem] = useState<any>(null);
 
     const handleAction = async (nextStatus: PurchaseRequestStatus, extra: any = {}, actionLabel?: string) => {
         setActionLoading(true);
@@ -1677,7 +1724,10 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
                 />}
 
                 {showWarehouseCheckModal && <WarehouseCheckModal 
+                    request={request}
+                    parts={parts}
                     onClose={() => setShowWarehouseCheckModal(false)}
+                    onRegisterPart={(item) => setDefiningItem(item)}
                     onConfirm={(inStock: boolean, data: any) => {
                         if (inStock) {
                             handleAction(PurchaseRequestStatus.DELIVERED_FROM_WAREHOUSE, data, 'تحویل مستقیم از انبار');
@@ -1687,6 +1737,48 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
                         setShowWarehouseCheckModal(false);
                     }}
                 />}
+
+                {definingItem && (
+                    <PartModal 
+                        onClose={() => setDefiningItem(null)} 
+                        onSuccess={async (newPart: any) => {
+                            if (definingItem && newPart) {
+                                const updatedItems = (request.items || []).map((it: any) => {
+                                    if (it.id === definingItem.id) {
+                                        return {
+                                            ...it,
+                                            partId: newPart.id,
+                                            itemCode: newPart.code || newPart.id.slice(0, 8),
+                                            itemName: newPart.name
+                                        };
+                                    }
+                                    return it;
+                                });
+                                
+                                const updatedRequest = {
+                                    ...request,
+                                    items: updatedItems,
+                                    itemName: updatedItems.length === 1 ? updatedItems[0].itemName : `${updatedItems[0].itemName} (+${updatedItems.length - 1} قلم دیگر)`,
+                                    quantity: updatedItems[0]?.quantity || request.quantity,
+                                    unit: updatedItems[0]?.unit || request.unit,
+                                    specifications: updatedItems[0]?.specifications || request.specifications
+                                };
+                                
+                                try {
+                                    await updatePurchaseRequest(updatedRequest);
+                                    onSuccess();
+                                    alert('کالا با موفقیت در شناسنامه تعریف و به این درخواست متصل شد.');
+                                } catch (err) {
+                                    console.error(err);
+                                    alert('خطا در بروزرسانی درخواست خرید با کالا جدید');
+                                }
+                            }
+                            setDefiningItem(null);
+                        }}
+                        initialData={{ name: definingItem.itemName, unit: definingItem.unit, dimensions: definingItem.specifications || '', isVirtualForPurchase: true }}
+                        parts={parts}
+                    />
+                )}
 
                 {showFactoryBranchModal && <FactoryBranchModal 
                     onClose={() => setShowFactoryBranchModal(false)}
@@ -2255,9 +2347,15 @@ const PartModal = ({ onClose, onSuccess, initialData, parts }: any) => {
         if(!formData.name || !formData.category) return alert('نام و گروه‌بندی الزامی است');
         setLoading(true);
         try {
-            if (initialData?.id) await updatePartMasterData({ ...initialData, ...formData } as PartMasterData);
-            else await savePartMasterData({ ...formData, id: generateUUID() } as PartMasterData);
-            onSuccess();
+            const finalPart = { ...formData };
+            if (initialData?.id && !initialData.isVirtualForPurchase) {
+                await updatePartMasterData({ ...initialData, ...formData } as PartMasterData);
+            } else {
+                const newId = generateUUID();
+                finalPart.id = newId;
+                await savePartMasterData({ ...formData, id: newId } as PartMasterData);
+            }
+            onSuccess(finalPart);
             onClose();
         } catch (e) { 
             console.error('Save Part error', e); 

@@ -11,7 +11,7 @@ export interface ReportDeliveryJob {
   id: string;
   title: string;
   module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr';
-  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'cheque_not_due' | 'cheque_overdue' | 'cheque_matured' | 'custom';
+  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'cheque_not_due' | 'cheque_overdue' | 'cheque_matured' | 'warehouse_overview' | 'production_overview' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
   destinationGroup?: string;
   telegramGroup?: string;
@@ -42,6 +42,8 @@ const MODULE_OPTIONS = [
 const REPORT_TYPE_OPTIONS = [
   { value: 'daily_sales', label: 'گزارش روزانه عملکرد فروش (سایان ERP)' },
   { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش (امروز با دیروز / دو بازه)' },
+  { value: 'warehouse_overview', label: '📦 گزارش پایش روزانه آمار و تراز انبار سایان' },
+  { value: 'production_overview', label: '🏭 گزارش پایش روزانه آمار تولید و کارخانه سایان' },
   { value: 'cheque_vault', label: '🏛️ گزارش اسناد و چک‌های دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
   { value: 'cheque_not_due', label: '⏳ فقط چک‌های سررسید نشده نزد صندوق (اسناد آتی)' },
   { value: 'cheque_overdue', label: '⚠️ فقط چک‌های سررسید گذشته / معوق نزد صندوق (پیگیری فوری)' },

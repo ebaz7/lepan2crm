@@ -1549,7 +1549,6 @@ app.post('/api/warehouse-overview/generate-pdf', async (req, res) => {
             signature = 'انبارداری مرکزی و تامین خارجی'
         } = req.body;
 
-        const Renderer = await import('./backend/renderer.js');
         const pdfBuffer = await Renderer.generateWarehouseOverviewReportPDF({
             mode,
             summary,
@@ -6049,6 +6048,55 @@ async function executeReportJob(job) {
                 console.log(`✅ Warehouse overview report dispatched to ${customTargets.length} targets.`);
             } catch (whErr) {
                 console.error("Error generating/sending warehouse report:", whErr);
+            }
+        } else if (job.reportType === 'production_overview' || job.module === 'production') {
+            // Dispatch Production Daily Overview to configured groups
+            try {
+                const archive = db.productionWasteArchive || [];
+                if (archive.length > 0) {
+                    // Get the latest archive entry
+                    const sorted = [...archive].sort((a, b) => b.createdAt ? b.createdAt.localeCompare(a.createdAt) : b.dateFrom.localeCompare(a.dateFrom));
+                    const latestEntry = sorted[0];
+                    const Renderer = await safeImport('./backend/renderer.js');
+                    const title = `گزارش آمار کل تولید و ضایعات (${latestEntry.dateFrom})`;
+                    const pdfBuffer = Renderer && Renderer.generateProductionReportPDF 
+                        ? await Renderer.generateProductionReportPDF(title, latestEntry.dateFrom, latestEntry.dateTo || latestEntry.dateFrom, latestEntry.items || [], latestEntry.totals || {}, latestEntry.waste || {})
+                        : null;
+
+                    const caption = buildProductionCaption(latestEntry.dateFrom, latestEntry.totals || {}, latestEntry.waste || {});
+
+                    for (const target of customTargets) {
+                        try {
+                            if (target.platform === 'telegram' && telegram) {
+                                if (pdfBuffer && job.attachPdf !== false) {
+                                    await telegram.sendBotDocument(target.id, pdfBuffer, `Production_Report_${latestEntry.dateFrom.replace(/[\/\\]/g, '-')}.pdf`, caption);
+                                } else {
+                                    await telegram.sendBotMessage(target.id, caption);
+                                }
+                            } else if (target.platform === 'bale' && bale) {
+                                if (pdfBuffer && job.attachPdf !== false) {
+                                    await bale.sendBotDocument(target.id, pdfBuffer, `Production_Report_${latestEntry.dateFrom.replace(/[\/\\]/g, '-')}.pdf`, caption);
+                                } else {
+                                    await bale.sendBotMessage(target.id, caption);
+                                }
+                            } else if (target.platform === 'whatsapp' && whatsapp) {
+                                if (pdfBuffer && job.attachPdf !== false) {
+                                    const b64 = pdfBuffer.toString('base64');
+                                    await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename: 'Production_Report.pdf' });
+                                } else {
+                                    await whatsapp.sendMessage(target.id, caption);
+                                }
+                            }
+                        } catch (targetErr) {
+                            console.error(`Error sending production report to ${target.platform} (${target.id}):`, targetErr.message);
+                        }
+                    }
+                    console.log(`✅ Production overview report dispatched to ${customTargets.length} targets.`);
+                } else {
+                    console.log(`⚠️ No production report entries found in archive to dispatch.`);
+                }
+            } catch (prodErr) {
+                console.error("Error generating/sending production report:", prodErr);
             }
         } else if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
             const sendFn = async (chatId, text, opts) => {

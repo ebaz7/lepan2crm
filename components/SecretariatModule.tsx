@@ -1863,15 +1863,15 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
       {/* 1. REGISTER NEW LETTER MODAL */}
       <AnimatePresence>
         {showNewLetterModal && (
-          <div className="fixed inset-0 z-50 flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-0 backdrop-blur-sm overflow-hidden">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-50 dark:bg-slate-900 border dark:border-white/10 rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[95vh] overflow-y-auto text-right"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="bg-slate-50 dark:bg-slate-900 w-full h-full p-6 sm:p-8 flex flex-col overflow-hidden text-right"
               dir="rtl"
             >
-              <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center justify-between border-b pb-3 shrink-0">
                 <h3 className="text-base font-black text-gray-800 dark:text-white">
                   ثبت نامه اداری جدید
                 </h3>
@@ -1883,8 +1883,9 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                 </button>
               </div>
 
-              <form onSubmit={handleSaveLetter} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form onSubmit={handleSaveLetter} className="flex-1 flex flex-col overflow-hidden gap-4 min-h-0">
+                <div className="flex-1 overflow-y-auto pr-1 pl-1 space-y-4 custom-scrollbar min-h-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Letter Date */}
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 font-bold">
@@ -3177,9 +3178,10 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                     </label>
                   </div>
                 </div>
+                </div>
 
                 {/* Form Buttons */}
-                <div className="flex justify-end gap-2 border-t pt-4">
+                <div className="flex justify-end gap-2 border-t pt-4 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
