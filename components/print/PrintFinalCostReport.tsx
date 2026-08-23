@@ -124,11 +124,6 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
   expenses.push({ name: 'هزینه حمل داخلی', amount: record.stages[TradeStage.INTERNAL_SHIPPING]?.costRial || 0 });
   expenses.push({ name: 'کارمزد و هزینه‌های ترخیص', amount: record.stages[TradeStage.AGENT_FEES]?.costRial || 0 });
 
-  const guaranteeDepositsTotal = record.greenLeafData?.guarantees?.reduce((acc, g) => acc + (g.cashAmount || 0), 0) || 0;
-  if (guaranteeDepositsTotal > 0) {
-      expenses.push({ name: 'سپرده نقدی ضمانت‌نامه‌ها (هزینه سوا)', amount: guaranteeDepositsTotal });
-  }
-
   const activeExpenses = expenses.filter(e => e.amount > 0);
 
   const handleDownloadPDF = async () => {

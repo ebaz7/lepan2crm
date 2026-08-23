@@ -2176,26 +2176,23 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-purple-700">بخش نقدی کوتاژ (ریال)</label>
+                                            <label className="text-xs font-bold text-purple-700">بخش نقدی کوتاژ (به گمرک)</label>
                                             <input 
                                                 className="w-full border rounded p-2 text-sm dir-ltr bg-purple-50 border-purple-200" 
                                                 value={formatNumberString(newGuaranteeDetails.dutyCashAmount)} 
-                                                onChange={e => {
-                                                    const val = deformatNumberString(e.target.value);
-                                                    setNewGuaranteeDetails({...newGuaranteeDetails, dutyCashAmount: val});
-                                                }}
+                                                onChange={e => setNewGuaranteeDetails({...newGuaranteeDetails, dutyCashAmount: deformatNumberString(e.target.value)})} 
                                                 placeholder="پرداخت نقدی کوتاژ..."
                                             />
-                                            <span className="text-[10px] text-gray-500 block">پیش‌پرداخت حقوق ورودی (بدون احتساب به عنوان هزینه اضافه)</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-green-700">سپرده نقدی ضمانت‌نامه (هزینه سوا)</label>
+                                            <label className="text-xs font-bold text-green-700">سپرده نقدی ضمانت‌نامه (به بانک)</label>
                                             <input 
                                                 className="w-full border rounded p-2 text-sm dir-ltr bg-green-50 border-green-200" 
                                                 value={formatNumberString(newGuaranteeDetails.cashAmount)} 
                                                 onChange={e => setNewGuaranteeDetails({...newGuaranteeDetails, cashAmount: deformatNumberString(e.target.value)})} 
                                                 placeholder="سپرده نقدی به بانک..."
                                             />
+                                            <span className="text-[9px] text-gray-500 block leading-tight mt-1">جزئی از خود ضمانت‌نامه است و هزینه مجزا محاسبه نمی‌شود.</span>
                                         </div>
                                     </div>
 
@@ -2216,7 +2213,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         return (
                                             <div className={`text-xs p-2.5 rounded-lg font-bold flex justify-between items-center transition-all ${diff === 0 ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
                                                 <span>مبلغ کوتاژ: <span className="font-mono">{formatNumberString(duty.amount)}</span></span>
-                                                <span>مجموع مبالغ ثبت‌شده (ضمانت + نقدی): <span className="font-mono">{formatNumberString(totalAllocated)}</span></span>
+                                                <span>مجموع مبالغ ثبت‌شده (ضمانت + نقدی گمرک): <span className="font-mono">{formatNumberString(totalAllocated)}</span></span>
                                                 <span>باقیمانده: <span className={`font-mono ${diff !== 0 ? 'text-red-700' : ''}`}>{formatNumberString(diff)}</span></span>
                                             </div>
                                         );
@@ -2236,8 +2233,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 <div className="text-xs text-gray-600 flex flex-wrap gap-x-3 gap-y-1">
                                                     <span>نوع: {g.guaranteeType === 'credit' ? '💡 حد اعتبار بانکی' : '🎫 چک ضمانت‌نامه'}</span>
                                                     {g.guaranteeAmount ? <span>مبلغ ضمانت: <span className="font-mono font-bold text-orange-700">{formatCurrency(g.guaranteeAmount)}</span></span> : null}
-                                                    {g.dutyCashAmount ? <span>بخش نقدی کوتاژ: <span className="font-mono font-bold text-purple-700">{formatCurrency(g.dutyCashAmount)}</span></span> : null}
-                                                    {g.cashAmount && g.cashAmount > 0 ? <span>سپرده نقدی ضمانت‌نامه (هزینه سوا): <span className="font-mono font-bold text-green-700">{formatCurrency(g.cashAmount)}</span></span> : null}
+                                                    {g.dutyCashAmount ? <span>نقدی گمرک: <span className="font-mono font-bold text-purple-700">{formatCurrency(g.dutyCashAmount)}</span></span> : null}
+                                                    {g.cashAmount && g.cashAmount > 0 ? <span>سپرده بانک: <span className="font-mono font-bold text-green-700">{formatCurrency(g.cashAmount)}</span></span> : null}
                                                 </div>
                                                 {g.guaranteeType !== 'credit' && g.chequeNumber && (
                                                     <div className="text-xs text-gray-500">شماره چک: {g.chequeNumber} {g.chequeBank ? `(${g.chequeBank})` : ''}</div>
@@ -2405,8 +2402,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     sum + (selectedRecord.stages[stage]?.costRial || 0), 0);
 
                                 // 4. Grand Total Rial Cost (Total Project Cost)
-                                const guaranteeDepositsTotal = selectedRecord.greenLeafData?.guarantees?.reduce((acc: number, g: any) => acc + (g.cashAmount || 0), 0) || 0;
-                                const grandTotalRialProject = netCurrencyRialCost + totalOverheadsRial + guaranteeDepositsTotal;
+                                const grandTotalRialProject = netCurrencyRialCost + totalOverheadsRial;
 
                                 // 5. Total Weight
                                 const totalWeight = selectedRecord.items.reduce((sum, item) => sum + item.weight, 0);
@@ -2444,12 +2440,6 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                 if (!data || data.costRial === 0) return null;
                                                                 return (<tr key={stage}><td className="p-3 text-gray-600">{stage}</td><td className="p-3 font-mono">{formatCurrency(data.costRial)}</td></tr>);
                                                             })}
-                                                            {guaranteeDepositsTotal > 0 && (
-                                                                <tr className="bg-green-50/50">
-                                                                    <td className="p-3 text-green-800 font-bold">سپرده نقدی ضمانت‌نامه‌ها (هزینه سوا)</td>
-                                                                    <td className="p-3 font-mono text-green-800 font-bold">{formatCurrency(guaranteeDepositsTotal)}</td>
-                                                                </tr>
-                                                            )}
                                                             <tr className="bg-rose-50 font-bold border-t-2 border-rose-200">
                                                                 <td className="p-3">جمع کل هزینه نهایی پروژه (ریالی)</td>
                                                                 <td className="p-3 font-mono dir-ltr">{formatCurrency(grandTotalRialProject)}</td>
