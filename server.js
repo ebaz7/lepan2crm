@@ -6000,24 +6000,573 @@ async function executeReportJob(job) {
             });
             console.log(`✅ Cheques report (${rType}) dispatched successfully: ${res.count} cheques found.`);
         } else if (job.reportType === 'warehouse_overview' || job.module === 'warehouse') {
-            // Dispatch Warehouse Daily Overview to configured groups
+            // Dispatch Warehouse Daily Overview to configured groups with dynamic compilation!
             try {
-                const overviewData = db.warehouseOverview || {};
-                const Renderer = await safeImport('./backend/renderer.js');
-                const pdfBuffer = Renderer && Renderer.generateWarehouseOverviewReportPDF 
-                    ? await Renderer.generateWarehouseOverviewReportPDF({
+                console.log("📊 Starting dynamic compilation of warehouse daily overview report...");
+                const overview = db.warehouseOverview || {};
+                const lastYearOverrides = overview.lastYearOverrides || {};
+                const currentOverrides = overview.currentOverrides || {};
+                const goodsInTransit = overview.goodsInTransit || [];
+                const goodsInCustoms = overview.goodsInCustoms || [];
+                const purchasingGoods = overview.purchasingGoods || [];
+                const commercialGoods = overview.commercialGoods || [];
+                const itemCategories = overview.itemCategories || {};
+                const meta = overview.meta || {};
+
+                // Date helpers
+                const getTodayJalaliStr = () => {
+                    try {
+                        const now = new Date();
+                        const options = { calendar: 'persian', year: 'numeric', month: 'numeric', day: 'numeric' };
+                        const parts = new Intl.DateTimeFormat('en-US-u-ca-persian', options).formatToParts(now);
+                        const y = parts.find(p => p.type === 'year')?.value || '1405';
+                        const m = parts.find(p => p.type === 'month')?.value || '1';
+                        const d = parts.find(p => p.type === 'day')?.value || '1';
+                        const mm = parseInt(m, 10) < 10 ? `۰${m}` : m;
+                        const dd = parseInt(d, 10) < 10 ? `۰${d}` : d;
+                        return `${y}/${mm}/${dd}`;
+                    } catch (e) {
+                        return '۱۴۰۵/۰۵/۳۱';
+                    }
+                };
+
+                const getJalaliYear = (jalaliStr) => {
+                    const clean = String(jalaliStr || '').trim()
+                        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+                        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+                    const match = clean.match(/^(\d{4})/);
+                    return match ? parseInt(match[1]) : 1404;
+                };
+
+                const getJalaliYearStartMiladi = (year) => {
+                    if (year < 1404) return '2024-03-20';
+                    return '2025-03-21';
+                };
+
+                const report1Jalali = meta.report1Jalali || '۱۴۰۴/۱۲/۲۹';
+                const report2Jalali = getTodayJalaliStr();
+                const reportDate = getTodayJalaliStr();
+                const report1Miladi = meta.report1Miladi || '2025-03-20';
+                const report2Miladi = new Date().toISOString().split('T')[0];
+                const cumulativeFromLastYear = meta.cumulativeFromLastYear ?? true;
+
+                const y1 = getJalaliYear(report1Jalali);
+                const y2 = getJalaliYear(report2Jalali);
+                const r1From = getJalaliYearStartMiladi(y1);
+                const r2From = cumulativeFromLastYear ? getJalaliYearStartMiladi(y1) : getJalaliYearStartMiladi(y2);
+
+                console.log(`📡 Querying Sayan stock for dates: Last Year: ${r1From} to ${report1Miladi}, Current: ${r2From} to ${report2Miladi}`);
+                
+                // Get stock data from Sayan ERP
+                let lastYearStock = [];
+                let currentStock = [];
+                try {
+                    const getWarehouseInventoryForDate = async (targetDate, fromDate) => {
+                        const dateFromFilter = fromDate ? `AND t10.Field_008 >= '${fromDate}T00:00:00.000Z'` : '';
+                        const sqlStockAndNames = `
+                            WITH GroupedStock AS (
+                                SELECT 
+                                    t11.Field_005 as ItemCode,
+                                    SUM(CASE 
+                                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '24', '26', '29', '40', '44', '46', '83') THEN t11.Field_006 
+                                        WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN -t11.Field_006 
+                                        ELSE 0 
+                                    END) as StockQty
+                                FROM STR_TBL_011 t11
+                                INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                                          AND t11.Field_003 = t10.Field_004 
+                                                          AND t11.Field_012 = t10.Field_018
+                                WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                                  ${dateFromFilter}
+                                GROUP BY t11.Field_005
+                            )
+                            SELECT 
+                                gs.ItemCode,
+                                gs.StockQty,
+                                COALESCE(
+                                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                                    RTRIM(LTRIM(gs.ItemCode)),
+                                    N'کالای بدون نام'
+                                ) as ItemName,
+                                t_group.GroupName,
+                                t_group.SubGroupName
+                            FROM GroupedStock gs
+                            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(gs.ItemCode))
+                            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(gs.ItemCode))
+                            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(gs.ItemCode))
+                            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(gs.ItemCode))
+                            LEFT JOIN (
+                                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                                FROM IND_TBL_021 t21_sub
+                                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                GROUP BY t21_sub.Field_004
+                            ) t_name ON RTRIM(LTRIM(gs.ItemCode)) = RTRIM(LTRIM(t_name.ItemCode))
+                            LEFT JOIN (
+                                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, 
+                                       MIN(t02_sub.Field_003) as SubGroupName,
+                                       MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                                FROM IND_TBL_021 t21_sub
+                                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                                GROUP BY t21_sub.Field_004
+                            ) t_group ON RTRIM(LTRIM(gs.ItemCode)) = RTRIM(LTRIM(t_group.ItemCode))
+                        `;
+
+                        const sqlCartonsOnly = `
+                            SELECT 
+                                t11.Field_005 as ItemCode,
+                                SUM(CASE 
+                                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '24', '26', '29', '40', '44', '46', '83') THEN
+                                        TRY_CAST(
+                                            LEFT(
+                                                LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
+                                                PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
+                                            ) as float
+                                        )
+                                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN
+                                        -TRY_CAST(
+                                            LEFT(
+                                                LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)),
+                                                PATINDEX('%[^0-9]%', LTRIM(SUBSTRING(t11.Field_031, CHARINDEX(N'تعداد کارتن:', t11.Field_031) + 12, 10)) + 'X') - 1
+                                            ) as float
+                                        )
+                                    ELSE 0
+                                END) as CartonsQty
+                            FROM STR_TBL_011 t11
+                            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                                      AND t11.Field_003 = t10.Field_004 
+                                                      AND t11.Field_012 = t10.Field_018
+                            WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                              ${dateFromFilter}
+                              AND t11.Field_031 LIKE N'%تعداد کارتن:%'
+                            GROUP BY t11.Field_005
+                        `;
+
+                        const [resStock, resCartons] = await Promise.all([
+                            executeSayanQuery(db, sqlStockAndNames),
+                            executeSayanQuery(db, sqlCartonsOnly)
+                        ]);
+
+                        const stockRows = resStock || [];
+                        const cartonRows = resCartons || [];
+
+                        const cartonsMap = {};
+                        cartonRows.forEach(r => {
+                            if (r.ItemCode) {
+                                cartonsMap[r.ItemCode.trim()] = parseFloat(r.CartonsQty || 0);
+                            }
+                        });
+
+                        return stockRows.map(r => {
+                            const itemCodeTrimmed = r.ItemCode ? r.ItemCode.trim() : '';
+                            return {
+                                itemCode: itemCodeTrimmed,
+                                itemName: r.ItemName ? r.ItemName.trim() : 'کالای بدون نام',
+                                groupName: r.GroupName ? r.GroupName.trim() : 'سایر گروه‌ها',
+                                subGroupName: r.SubGroupName ? r.SubGroupName.trim() : '',
+                                stockQty: parseFloat(r.StockQty || 0),
+                                cartonsQty: cartonsMap[itemCodeTrimmed] || 0
+                            };
+                        });
+                    };
+
+                    const results = await Promise.all([
+                        getWarehouseInventoryForDate(report1Miladi, r1From),
+                        getWarehouseInventoryForDate(report2Miladi, r2From)
+                    ]);
+                    lastYearStock = results[0] || [];
+                    currentStock = results[1] || [];
+                } catch (sayanQueryErr) {
+                    console.error("❌ Sayan Query failed during daily cron compilation:", sayanQueryErr);
+                }
+
+                console.log(`📦 Sayan query done. LastYearStock rows: ${lastYearStock.length}, CurrentStock rows: ${currentStock.length}`);
+
+                // Setup groups
+                const MANUFACTURED_GROUPS = [
+                    { code: '0401', name: 'اسپاندکس (کاور)' },
+                    { code: '0402', name: 'کش' },
+                    { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
+                    { code: '0405', name: 'پلی استر شوایتر' },
+                    { code: '0407', name: 'نایلون' },
+                    { code: '0108', name: 'نایلون' },
+                    { code: '0103', name: 'dty با پلی استر' }
+                ];
+
+                const RAW_MATERIAL_GROUPS = [
+                    { code: '0101', name: 'چیپس' },
+                    { code: '0102', name: 'POY' },
+                    { code: '0104', name: 'لاستیک' },
+                    { code: '0105', name: 'لاکرا' },
+                    { code: '0106', name: 'پلی استر اسپان' },
+                    { code: '0107', name: 'مستربچ' },
+                    { code: '0408', name: 'نخ ملت' },
+                    { code: '0409', name: 'الیاف' },
+                    { code: '0410', name: 'FDY' }
+                ];
+
+                const getSectionGroups = (isProduction, predefinedGroups) => {
+                    const set = new Set();
+                    predefinedGroups.forEach(g => set.add(g.code));
+
+                    const otherPredefined = isProduction ? RAW_MATERIAL_GROUPS : MANUFACTURED_GROUPS;
+                    const otherPredefinedCodes = new Set(otherPredefined.map(g => g.code));
+
+                    const matchesSection = (code) => {
+                        const prefix4 = code.substring(0, 4);
+                        if (set.has(prefix4)) return true;
+                        if (otherPredefinedCodes.has(prefix4)) return false;
+                        if (isProduction) {
+                            return code.startsWith('04');
+                        } else {
+                            return code.startsWith('01');
+                        }
+                    };
+
+                    lastYearStock.forEach(r => {
+                        const code = String(r.itemCode || '');
+                        if (code.length >= 4 && matchesSection(code)) {
+                            set.add(code.substring(0, 4));
+                        }
+                    });
+                    currentStock.forEach(r => {
+                        const code = String(r.itemCode || '');
+                        if (code.length >= 4 && matchesSection(code)) {
+                            set.add(code.substring(0, 4));
+                        }
+                    });
+
+                    const list = Array.from(set).map(prefix => {
+                        const predefined = predefinedGroups.find(g => g.code === prefix);
+                        if (predefined) return predefined;
+
+                        let discoveredName = '';
+                        const found = [...currentStock, ...lastYearStock].find(r => {
+                            const c = String(r.itemCode || '');
+                            return c.startsWith(prefix) && (r.groupName || r.itemName);
+                        });
+                        if (found) {
+                            discoveredName = found.groupName || found.itemName || '';
+                        }
+                        return {
+                            code: prefix,
+                            name: discoveredName || `گروه ${prefix}`
+                        };
+                    });
+
+                    return list.sort((a, b) => a.code.localeCompare(b.code));
+                };
+
+                const alignedYarns = getSectionGroups(true, MANUFACTURED_GROUPS);
+                const alignedImported = getSectionGroups(false, RAW_MATERIAL_GROUPS);
+
+                const getSayanGroupSum = (groupCode, isLastYear, field) => {
+                    const list = isLastYear ? lastYearStock : currentStock;
+                    return list.reduce((sum, r) => {
+                        const code = String(r.itemCode || '');
+                        if (code.startsWith(groupCode)) {
+                            const qty = field === 'weight' ? (r.stockQty || 0) : (r.cartonsQty || 0);
+                            return sum + qty;
+                        }
+                        return sum;
+                    }, 0);
+                };
+
+                const getSayanItemValue = (itemCode, isLastYear, field) => {
+                    const list = isLastYear ? lastYearStock : currentStock;
+                    const found = list.find(r => String(r.itemCode || '') === itemCode);
+                    if (found) {
+                        return field === 'weight' ? (found.stockQty || 0) : (found.cartonsQty || 0);
+                    }
+                    return 0;
+                };
+
+                const getItemValue = (itemKey, isLastYear, field, isGroup) => {
+                    const overrides = isLastYear ? lastYearOverrides : currentOverrides;
+                    let itemOverride = overrides[itemKey];
+                    if (!itemOverride) {
+                        const allItems = [...lastYearStock, ...currentStock];
+                        const foundItem = allItems.find(r => String(r.itemCode || '') === itemKey);
+                        if (foundItem && foundItem.itemName) {
+                            itemOverride = overrides[foundItem.itemName];
+                        }
+                    }
+
+                    if (itemOverride && itemOverride[field] !== undefined && itemOverride[field] !== '') {
+                        return itemOverride[field];
+                    }
+
+                    if (field === 'weight' || field === 'cartons') {
+                        if (isGroup) {
+                            return getSayanGroupSum(itemKey, isLastYear, field);
+                        } else {
+                            return getSayanItemValue(itemKey, isLastYear, field);
+                        }
+                    }
+
+                    if (field === 'proforma') return '';
+                    return 0;
+                };
+
+                const getItemCategory = (code) => {
+                    if (itemCategories && itemCategories[code]) return itemCategories[code];
+                    if (code.startsWith('04')) return 'yarn';
+                    if (code.startsWith('0104')) return 'rubber';
+                    if (code.startsWith('0105')) return 'lycra';
+                    if (code.startsWith('0106')) return 'spun';
+                    if (code.startsWith('0101')) return 'chips';
+                    return 'other';
+                };
+
+                const calculateCustomTableSum = (items, field) => {
+                    return (items || []).reduce((sum, r) => sum + (parseFloat(r[field]) || 0), 0);
+                };
+
+                // Compute weights
+                const totalLastYearYarnsWeight = alignedYarns.reduce((sum, item) => sum + getItemValue(item.code, true, 'weight', true), 0);
+                const totalCurrentYarnsWeight = alignedYarns.reduce((sum, item) => sum + getItemValue(item.code, false, 'weight', true), 0);
+                const diffYarnsWeight = totalCurrentYarnsWeight - totalLastYearYarnsWeight;
+                const ratioYarnsWeight = totalLastYearYarnsWeight > 0 ? (diffYarnsWeight / totalLastYearYarnsWeight) * 100 : 0;
+
+                const totalLastYearRawWeight = alignedImported.reduce((sum, item) => sum + getItemValue(item.code, true, 'weight', true), 0)
+                    + calculateCustomTableSum(goodsInTransit, 'weight')
+                    + calculateCustomTableSum(goodsInCustoms, 'weight')
+                    + calculateCustomTableSum(purchasingGoods, 'weight');
+
+                const totalCurrentRawWeight = alignedImported.reduce((sum, item) => sum + getItemValue(item.code, false, 'weight', true), 0)
+                    + calculateCustomTableSum(goodsInTransit, 'weight')
+                    + calculateCustomTableSum(goodsInCustoms, 'weight')
+                    + calculateCustomTableSum(purchasingGoods, 'weight');
+
+                const diffRawWeight = totalCurrentRawWeight - totalLastYearRawWeight;
+                const ratioRawWeight = totalLastYearRawWeight > 0 ? (diffRawWeight / totalLastYearRawWeight) * 100 : 0;
+
+                const totalLastYearAllWeight = totalLastYearYarnsWeight + totalLastYearRawWeight;
+                const totalCurrentAllWeight = totalCurrentYarnsWeight + totalCurrentRawWeight;
+                const diffAllWeight = totalCurrentAllWeight - totalLastYearAllWeight;
+                const ratioAllWeight = totalLastYearAllWeight > 0 ? (diffAllWeight / totalLastYearAllWeight) * 100 : 0;
+
+                const totalCurrentContainers = alignedYarns.reduce((sum, item) => sum + (parseFloat(getItemValue(item.code, false, 'containers', true)) || 0), 0)
+                    + alignedImported.reduce((sum, item) => sum + (parseFloat(getItemValue(item.code, false, 'containers', true)) || 0), 0)
+                    + calculateCustomTableSum(goodsInTransit, 'containers')
+                    + calculateCustomTableSum(goodsInCustoms, 'containers')
+                    + calculateCustomTableSum(purchasingGoods, 'containers');
+
+                const totalCurrentDollars = alignedYarns.reduce((sum, item) => sum + (parseFloat(getItemValue(item.code, false, 'dollars', true)) || 0), 0)
+                    + alignedImported.reduce((sum, item) => sum + (parseFloat(getItemValue(item.code, false, 'dollars', true)) || 0), 0)
+                    + calculateCustomTableSum(goodsInTransit, 'dollars')
+                    + calculateCustomTableSum(goodsInCustoms, 'dollars')
+                    + calculateCustomTableSum(purchasingGoods, 'dollars');
+
+                // Build datasets
+                const allComparedItems = [];
+                alignedYarns.forEach(group => {
+                    const wLast = getItemValue(group.code, true, 'weight', true);
+                    const wCurr = getItemValue(group.code, false, 'weight', true);
+                    const diff = wCurr - wLast;
+                    const ratio = wLast > 0 ? (diff / wLast) * 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: group.code,
+                        name: group.name,
+                        category: 'factory',
+                        categoryLabel: 'تولیدی کارخانه',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
+                alignedImported.forEach(group => {
+                    const wLast = getItemValue(group.code, true, 'weight', true);
+                    const wCurr = getItemValue(group.code, false, 'weight', true);
+                    const diff = wCurr - wLast;
+                    const ratio = wLast > 0 ? (diff / wLast) * 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: group.code,
+                        name: group.name,
+                        category: 'raw',
+                        categoryLabel: 'مواد اولیه / وارداتی',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
+                const negativeItems = allComparedItems
+                    .filter(item => item.isNegative)
+                    .sort((a, b) => a.diffWeight - b.diffWeight);
+
+                const growthItems = allComparedItems
+                    .filter(item => !item.isNegative && item.diffWeight > 0)
+                    .sort((a, b) => b.diffWeight - a.diffWeight);
+
+                const yarnItems = alignedYarns.map(g => ({
+                    code: g.code,
+                    name: g.name,
+                    lastYearCartons: getItemValue(g.code, true, 'cartons', true),
+                    lastYearWeight: getItemValue(g.code, true, 'weight', true),
+                    lastYearContainers: getItemValue(g.code, true, 'containers', true),
+                    lastYearDollars: getItemValue(g.code, true, 'dollars', true),
+                    currentCartons: getItemValue(g.code, false, 'cartons', true),
+                    currentWeight: getItemValue(g.code, false, 'weight', true),
+                    currentContainers: getItemValue(g.code, false, 'containers', true),
+                    currentDollars: getItemValue(g.code, false, 'dollars', true)
+                }));
+
+                const rawItems = alignedImported.map(g => ({
+                    code: g.code,
+                    name: g.name,
+                    category: getItemCategory(g.code),
+                    proforma: getItemValue(g.code, false, 'proforma', true) || getItemValue(g.code, true, 'proforma', true),
+                    lastYearCartons: getItemValue(g.code, true, 'cartons', true),
+                    lastYearWeight: getItemValue(g.code, true, 'weight', true),
+                    lastYearContainers: getItemValue(g.code, true, 'containers', true),
+                    lastYearDollars: getItemValue(g.code, true, 'dollars', true),
+                    currentCartons: getItemValue(g.code, false, 'cartons', true),
+                    currentWeight: getItemValue(g.code, false, 'weight', true),
+                    currentContainers: getItemValue(g.code, false, 'containers', true),
+                    currentDollars: getItemValue(g.code, false, 'dollars', true)
+                }));
+
+                const logisticsItems = [
+                    ...goodsInTransit.map(r => ({ ...r, category: 'transit', categoryLabel: 'بارهای در راه (کانتینری)' })),
+                    ...goodsInCustoms.map(r => ({ ...r, category: 'customs', categoryLabel: 'بارهای در گمرک' })),
+                    ...purchasingGoods.map(r => ({ ...r, category: 'purchasing', categoryLabel: 'بارهای در حال خرید' })),
+                    ...commercialGoods.map(r => ({ ...r, category: 'commercial', categoryLabel: 'کالای تجاری / متفرقه' }))
+                ];
+
+                const compiledSummary = {
+                    reportDate,
+                    report1Label,
+                    report2Label,
+                    signature: meta.signature || 'انبارداری مرکزی و پایش زنجیره تامین',
+                    lastYearYarnsWeight: totalLastYearYarnsWeight,
+                    currentYarnsWeight: totalCurrentYarnsWeight,
+                    yarnsDiffWeight: diffYarnsWeight,
+                    yarnsRatio: ratioYarnsWeight,
+                    lastYearRawWeight: totalLastYearRawWeight,
+                    currentRawWeight: totalCurrentRawWeight,
+                    rawDiffWeight: diffRawWeight,
+                    rawRatio: ratioRawWeight,
+                    lastYearTotalWeight: totalLastYearAllWeight,
+                    currentTotalWeight: totalCurrentAllWeight,
+                    totalDiffWeight: diffAllWeight,
+                    totalRatio: ratioAllWeight,
+                    containersTotal: totalCurrentContainers,
+                    dollarsTotal: totalCurrentDollars
+                };
+
+                console.log(`⚖️ Compiled summary: lastYearYarns: ${totalLastYearYarnsWeight}, currentYarns: ${totalCurrentYarnsWeight}, negative count: ${negativeItems.length}`);
+
+                // Generate PDF using compiled data
+                const RendererModule = await safeImport('./backend/renderer.js');
+                const pdfBuffer = RendererModule && RendererModule.generateWarehouseOverviewReportPDF 
+                    ? await RendererModule.generateWarehouseOverviewReportPDF({
                         mode: db.settings?.warehouseDailyAutoReportScope || 'both',
-                        summary: overviewData.summary || {},
-                        yarnItems: overviewData.yarnItems || [],
-                        rawItems: overviewData.rawItems || [],
-                        logisticsItems: overviewData.logisticsItems || [],
-                        growthItems: overviewData.growthItems || [],
-                        negativeItems: overviewData.negativeItems || [],
-                        signature: 'انبارداری مرکزی و پایش زنجیره تامین'
+                        summary: compiledSummary,
+                        yarnItems,
+                        rawItems,
+                        logisticsItems,
+                        growthItems,
+                        negativeItems,
+                        signature: compiledSummary.signature
                     })
                     : null;
 
-                const caption = `📦 *گزارش پایش روزانه وضعیت موجودی انبار و هشدار اقلام منفی*\n⏰ تاریخ ارسال: ${new Date().toLocaleDateString('fa-IR')} - ساعت ${job.sendTime || '09:00'}\n📊 تراز و تحلیل جامع انبار`;
+                // Build beautifully formatted caption message matching the manual sending!
+                const fNum = (n, maxDec = 1) => {
+                    const num = parseFloat(n) || 0;
+                    return num.toLocaleString('fa-IR', { maximumFractionDigits: maxDec });
+                };
+                const fTon = (n) => {
+                    const num = (parseFloat(n) || 0) / 1000;
+                    return num.toLocaleString('fa-IR', { maximumFractionDigits: 2 });
+                };
+
+                let msg = `🚨 *گزارش تراز وزنی انبارها و پایش زنجیره تامین* 🚨\n`;
+                msg += `📅 *تاریخ استعلام:* ${reportDate}\n`;
+                msg += `📊 *مقایسه دوره‌ها:* ${report2Label} نسبت به ${report1Label}\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+
+                const autoScope = db.settings?.warehouseDailyAutoReportScope || 'both';
+
+                if (autoScope === 'both' || autoScope === 'overview_only') {
+                    msg += `⚖️ *خلاصه مقایسه وزنی زنجیره تامین و تولید:*\n\n`;
+
+                    const yDiff = totalCurrentYarnsWeight - totalLastYearYarnsWeight;
+                    const yRatio = totalLastYearYarnsWeight > 0 ? (yDiff / totalLastYearYarnsWeight) * 100 : 0;
+                    const yIcon = yDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+                    msg += `🧵 *۱. نخ‌های تولیدی کارخانه (تولید داخلی):*\n`;
+                    msg += `  • سال قبل: ${fNum(totalLastYearYarnsWeight)} kg (${fTon(totalLastYearYarnsWeight)} تن)\n`;
+                    msg += `  • سال جاری: ${fNum(totalCurrentYarnsWeight)} kg (${fTon(totalCurrentYarnsWeight)} تن)\n`;
+                    msg += `  • اختلاف وزنی: ${yDiff >= 0 ? '+' : ''}${fNum(yDiff)} kg (${yRatio >= 0 ? '+' : ''}${fNum(yRatio, 1)}%) [${yIcon}]\n\n`;
+
+                    const rDiff = totalCurrentRawWeight - totalLastYearRawWeight;
+                    const rRatio = totalLastYearRawWeight > 0 ? (rDiff / totalLastYearRawWeight) * 100 : 0;
+                    const rIcon = rDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+                    msg += `📦 *۲. مواد اولیه، اقلام وارداتی و گمرک:*\n`;
+                    msg += `  • سال قبل: ${fNum(totalLastYearRawWeight)} kg (${fTon(totalLastYearRawWeight)} تن)\n`;
+                    msg += `  • سال جاری: ${fNum(totalCurrentRawWeight)} kg (${fTon(totalCurrentRawWeight)} تن)\n`;
+                    msg += `  • اختلاف وزنی: ${rDiff >= 0 ? '+' : ''}${fNum(rDiff)} kg (${rRatio >= 0 ? '+' : ''}${fNum(rRatio, 1)}%) [${rIcon}]\n\n`;
+
+                    const tDiff = totalCurrentAllWeight - totalLastYearAllWeight;
+                    const tRatio = totalLastYearAllWeight > 0 ? (tDiff / totalLastYearAllWeight) * 100 : 0;
+                    const tIcon = tDiff >= 0 ? '✅ تراز مثبت' : '⚠️ تراز منفی';
+                    msg += `🏢 *۳. سرجمع کل موجودی زنجیره تامین:*\n`;
+                    msg += `  • سال قبل: ${fNum(totalLastYearAllWeight)} kg (${fTon(totalLastYearAllWeight)} تن)\n`;
+                    msg += `  • سال جاری: ${fNum(totalCurrentAllWeight)} kg (${fTon(totalCurrentAllWeight)} تن)\n`;
+                    msg += `  • تغییر کل: ${tDiff >= 0 ? '+' : ''}${fNum(tDiff)} kg (${tRatio >= 0 ? '+' : ''}${fNum(tRatio, 1)}%) [${tIcon}]\n`;
+
+                    msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                }
+
+                if (autoScope === 'both' || autoScope === 'variance_only') {
+                    msg += `⚠️ *فهرست اقلام و کالاهای دارای کسری / افت وزنی (تراز منفی):*\n\n`;
+
+                    if (negativeItems.length === 0) {
+                        msg += `✅ هیچ کالایی با تراز وزنی منفی یافت نشد. تمامی اقلام در وضعیت رشد یا حفظ موجودی قرار دارند.\n`;
+                    } else {
+                        negativeItems.slice(0, 15).forEach((item, idx) => {
+                            const num = fNum(idx + 1, 0);
+                            const diff = parseFloat(item.diffWeight) || 0;
+                            const ratio = parseFloat(item.ratio) || 0;
+                            const catLabel = item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی';
+                            
+                            msg += `${num}. *${item.name}* ${item.code ? `(${item.code})` : ''} - ${catLabel}\n`;
+                            msg += `   🔻 افت وزنی: *${fNum(diff)} kg* (${fNum(ratio, 1)}%)\n`;
+                            msg += `   📊 سال قبل: ${fNum(item.lastYearWeight)} kg ⬅️ امسال: ${fNum(item.currentWeight)} kg\n\n`;
+                        });
+                        if (negativeItems.length > 15) {
+                            msg += `... و ${fNum(negativeItems.length - 15, 0)} قلم کالای منفی دیگر (جزئیات در فایل PDF پیوست)\n\n`;
+                        }
+                    }
+
+                    if (growthItems && growthItems.length > 0) {
+                        msg += `📈 *تعداد کالاهای دارای رشد وزنی (مثبت):* ${fNum(growthItems.length, 0)} قلم کالا\n`;
+                    }
+
+                    msg += `🔍 *تعداد کل کالاهای دارای کسری / افت:* ${fNum(negativeItems.length, 0)} قلم کالا\n`;
+                    msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                }
+
+                msg += `👤 *تنظیم گزارش:* ${compiledSummary.signature}\n`;
+                if (pdfBuffer) {
+                    msg += `📎 *فایل PDF رسمی ${autoScope === 'both' ? '۲ صفحه‌ای (جداول کل + روند رشد و افت)' : (autoScope === 'overview_only' ? 'صفحه ۱ (جداول کل)' : 'صفحه ۲ (تحلیل روند و کسری)')} ضمیمه گردید.*\n`;
+                }
+                msg += `🤖 *سامانه یکپارچه مانیتورینگ انبار و زنجیره تامین سایان ERP*`;
+
+                const caption = msg;
+                const whatsapp = await safeImport('./backend/whatsapp.js');
 
                 for (const target of customTargets) {
                     try {
@@ -6045,7 +6594,7 @@ async function executeReportJob(job) {
                         console.error(`Error sending warehouse report to ${target.platform} (${target.id}):`, targetErr.message);
                     }
                 }
-                console.log(`✅ Warehouse overview report dispatched to ${customTargets.length} targets.`);
+                console.log(`✅ Warehouse overview report dynamically compiled and dispatched to ${customTargets.length} targets.`);
             } catch (whErr) {
                 console.error("Error generating/sending warehouse report:", whErr);
             }
