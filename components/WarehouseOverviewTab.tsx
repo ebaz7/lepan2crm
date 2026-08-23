@@ -5,8 +5,9 @@ import {
     TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff,
     ChevronDown, ChevronRight, ChevronUp, AlertTriangle, AlertCircle, Send, Bell, BellRing, 
     CheckCircle2, ArrowUpRight, ArrowDownRight, ArrowUp, Sparkles, Share2, Scale, Layers, 
-    Package, Boxes, Filter, ExternalLink, Info, Download, FileDown, CheckSquare, Clock, Sliders, Navigation
+    Package, Boxes, Filter, ExternalLink, Info, Download, FileDown, CheckSquare, Clock, Sliders, Navigation, Building2
 } from 'lucide-react';
+import { TradeStage } from '../types';
 
 interface WarehouseItem {
     id?: string;
@@ -103,6 +104,10 @@ export const WarehouseOverviewTab: React.FC = () => {
 
     const [cumulativeFromLastYear, setCumulativeFromLastYear] = useState<boolean>(true);
 
+    // Allowed commercial companies for warehouse overview integration
+    const [allowedCompanies, setAllowedCompanies] = useState<string[]>([]);
+    const [availableCompanies, setAvailableCompanies] = useState<string[]>([]);
+
     // Warehouse Bot Group Configurations from AppSettings
     const [warehouseTelegramGroupId, setWarehouseTelegramGroupId] = useState<string>('');
     const [warehouseBaleGroupId, setWarehouseBaleGroupId] = useState<string>('');
@@ -180,9 +185,15 @@ export const WarehouseOverviewTab: React.FC = () => {
     const loadSavedData = async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch our custom DB data first to read labels/dates
+            // 1. Fetch our custom DB data first to read labels/dates and allowed companies
             const dbRes = await fetch('/api/warehouse-overview/data');
             const dbData = await dbRes.json();
+
+            let currentAllowedComps: string[] = [];
+            if (dbData && dbData.meta && Array.isArray(dbData.meta.allowedCompanies)) {
+                currentAllowedComps = dbData.meta.allowedCompanies;
+                setAllowedCompanies(currentAllowedComps);
+            }
 
             // Fetch main system settings to dynamically compute defaults based on active fiscal year if there's no saved config
             let activeYearLabel = "1405"; // Default fallback
@@ -311,11 +322,23 @@ export const WarehouseOverviewTab: React.FC = () => {
                 return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0) : 0;
             };
 
-            const activeTradeRecords = tradeRecords.filter((r: any) => !r.isArchived);
+            const uniqueComps = Array.from(new Set(tradeRecords.filter((r: any) => !r.isArchived).map((r: any) => r.company || 'بدون شرکت'))).sort();
+            setAvailableCompanies(uniqueComps);
+
+            const activeTradeRecords = tradeRecords.filter((r: any) => !r.isArchived && (allowedCompanies.length === 0 || allowedCompanies.includes(r.company || 'بدون شرکت')));
 
             for (const record of activeTradeRecords) {
+                const hasAgentFees = record.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || record.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || record.stages?.[TradeStage.AGENT_FEES]?.isCompleted ||
+                                     record.stages?.['هزینه‌های ترخیص']?.costRial > 0 || record.stages?.['هزینه‌های ترخیص']?.costCurrency > 0 || record.stages?.['هزینه‌های ترخیص']?.isCompleted;
+                const hasInternalShipping = record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted ||
+                                         record.stages?.['حمل داخلی']?.costRial > 0 || record.stages?.['حمل داخلی']?.costCurrency > 0 || record.stages?.['حمل داخلی']?.isCompleted;
+                const hasClearanceDocs = record.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted ||
+                                       record.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || record.stages?.['ترخیصیه و قبض انبار']?.costCurrency > 0 || record.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
+
+                const isCleared = hasAgentFees || hasInternalShipping || hasClearanceDocs || record.status === 'Completed';
+
                 const hasCottage = record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && d.cottageNumber.trim() !== '');
-                const isInCustoms = record.isInCustoms || hasCottage;
+                const isInCustoms = !isCleared && (record.isInCustoms || hasCottage);
                 const isInTransit = !isInCustoms && record.isInTransit;
                 const isCurrencyPurchased = !isInCustoms && !isInTransit && (
                     record.currencyPurchaseData && (
@@ -351,12 +374,24 @@ export const WarehouseOverviewTab: React.FC = () => {
                 const loadedCustoms = dbData.goodsInCustoms || [];
                 const loadedPurchase = dbData.purchasingGoods || [];
 
+                const clearedFileNumbers = new Set(
+                    activeTradeRecords
+                        .filter(r => {
+                            const ha = r.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || r.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || r.stages?.[TradeStage.AGENT_FEES]?.isCompleted || r.stages?.['هزینه‌های ترخیص']?.costRial > 0 || r.stages?.['هزینه‌های ترخیص']?.isCompleted;
+                            const hi = r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted || r.stages?.['حمل داخلی']?.costRial > 0 || r.stages?.['حمل داخلی']?.isCompleted;
+                            const hc = r.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted || r.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || r.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
+                            return ha || hi || hc || r.status === 'Completed';
+                        })
+                        .map(r => r.fileNumber)
+                        .filter(Boolean)
+                );
+
                 setGoodsInTransit([
                     ...loadedTransit.filter((x: any) => !x.id.startsWith('com_')),
                     ...parsedCommercialTransit
                 ]);
                 setGoodsInCustoms([
-                    ...loadedCustoms.filter((x: any) => !x.id.startsWith('com_')),
+                    ...loadedCustoms.filter((x: any) => !x.id.startsWith('com_') && (!x.proforma || !clearedFileNumbers.has(x.proforma))),
                     ...parsedCommercialCustoms
                 ]);
                 setPurchasingGoods([
@@ -387,6 +422,9 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                     if (dbData.meta.cumulativeFromLastYear !== undefined) {
                         setCumulativeFromLastYear(dbData.meta.cumulativeFromLastYear);
+                    }
+                    if (Array.isArray(dbData.meta.allowedCompanies)) {
+                        setAllowedCompanies(dbData.meta.allowedCompanies);
                     }
                 }
             }
@@ -480,7 +518,8 @@ export const WarehouseOverviewTab: React.FC = () => {
                     report2Label,
                     report2Jalali,
                     report2Miladi,
-                    cumulativeFromLastYear
+                    cumulativeFromLastYear,
+                    allowedCompanies
                 }
             };
 
@@ -1767,6 +1806,62 @@ export const WarehouseOverviewTab: React.FC = () => {
                                     dir="ltr"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Commercial Companies Filter Configuration */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-blue-600" />
+                                <h5 className="font-extrabold text-xs text-slate-800">انتخاب شرکت‌های بخش بازرگانی (ارتباط با گزارش انبار)</h5>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-medium">فقط پرونده‌های شرکت‌های انتخاب‌شده در محاسبات و گزارش انبار اعمال می‌شوند</span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            {availableCompanies.length === 0 ? (
+                                <span className="text-xs text-slate-400">هیچ شرکتی در پرونده‌های بازرگانی یافت نشد.</span>
+                            ) : (
+                                availableCompanies.map(comp => {
+                                    const isSelected = allowedCompanies.includes(comp);
+                                    return (
+                                        <button
+                                            key={comp}
+                                            type="button"
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setAllowedCompanies(allowedCompanies.filter(c => c !== comp));
+                                                } else {
+                                                    setAllowedCompanies([...allowedCompanies, comp]);
+                                                }
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                                isSelected 
+                                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            <span>{comp}</span>
+                                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                        </button>
+                                    );
+                                })
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                            <span className="text-[11px] text-blue-700 font-bold">
+                                {allowedCompanies.length === 0 ? 'وضعیت: اعمال تمام شرکت‌ها (بدون فیلتر)' : `شرکت‌های فعال: ${allowedCompanies.join(', ')}`}
+                            </span>
+                            {allowedCompanies.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setAllowedCompanies([])}
+                                    className="text-xs text-red-600 hover:text-red-800 font-bold underline cursor-pointer"
+                                >
+                                    پاک کردن فیلتر (انتخاب همه)
+                                </button>
+                            )}
                         </div>
                     </div>
 
