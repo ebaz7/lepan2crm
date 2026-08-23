@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, Loader2, FileDown } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
-import { MeetingMinutes, MeetingStatus } from '../../types';
+import { MeetingMinutes } from '../../types';
 
 interface PrintMeetingProps {
   meeting: MeetingMinutes;
@@ -24,25 +25,25 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
       });
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-4 overflow-y-auto animate-fade-in safe-pb">
-      <div className="relative z-50 flex flex-col gap-2 no-print w-full max-w-4xl mb-4">
-         <div className="glass-panel p-3 rounded-xl shadow-lg flex justify-between items-center gap-4">
-             <span className="font-bold text-sm">پیش‌نمایش چاپ صورتجلسه</span>
-             <div className="flex gap-2">
-                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 text-white p-2 rounded text-xs flex items-center gap-1">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
-                <button onClick={() => window.print()} className="bg-blue-600 text-white p-2 rounded text-xs flex items-center gap-1"><Printer size={16}/> چاپ</button>
-                <button onClick={onClose} className="bg-gray-100 text-gray-700 p-2 rounded hover:bg-gray-200"><X size={18}/></button>
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[99999] flex flex-col items-center justify-start p-3 sm:p-6 md:p-8 overflow-y-auto animate-fade-in custom-scrollbar">
+      <div className="relative z-50 flex flex-col gap-2 no-print w-full max-w-4xl mb-4 shrink-0">
+         <div className="glass-panel p-3 sm:p-4 rounded-2xl shadow-xl flex justify-between items-center gap-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+             <span className="font-bold text-sm text-gray-800 dark:text-gray-200">پیش‌نمایش چاپ صورتجلسه شماره {meeting.meetingNumber}</span>
+             <div className="flex items-center gap-2">
+                <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">{processing ? <Loader2 size={15} className="animate-spin"/> : <FileDown size={15}/>} دانلود PDF</button>
+                <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"><Printer size={15}/> چاپ</button>
+                <button onClick={onClose} className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 p-1.5 rounded-xl transition-colors"><X size={18}/></button>
              </div>
          </div>
       </div>
       
       {/* Printable Area */}
-      <div id="meeting-print-area" className="w-full max-w-4xl bg-white p-10 font-sans text-black shadow-lg printable-content" style={{ direction: 'rtl' }}>
-        <div className="border-4 border-gray-900 p-6 relative">
-            <h1 className="text-2xl font-black text-center mb-8">صورتجلسه</h1>
+      <div id="meeting-print-area" className="w-full max-w-4xl bg-white p-6 sm:p-10 font-sans text-black shadow-2xl rounded-2xl printable-content my-2" style={{ direction: 'rtl' }}>
+        <div className="border-4 border-gray-900 p-4 sm:p-6 relative rounded-xl">
+            <h1 className="text-xl sm:text-2xl font-black text-center mb-6 sm:mb-8">صورتجلسه</h1>
 
-            <div className="grid grid-cols-2 gap-6 text-sm mb-8 border-b-2 border-gray-200 pb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs sm:text-sm mb-6 sm:mb-8 border-b-2 border-gray-200 pb-6 sm:pb-8">
                 <div className="space-y-1">
                     <div className="text-gray-500 font-bold text-xs">شماره جلسه:</div>
                     <div className="font-black">{meeting.meetingNumber}</div>
@@ -61,25 +62,25 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm mb-6 sm:mb-8 border-b-2 border-gray-200 pb-6 sm:pb-8">
                 <div><span className="font-black">رئیس جلسه:</span> {meeting.chairman}</div>
                 <div><span className="font-black">دبیر جلسه:</span> {meeting.secretary}</div>
             </div>
 
             <div className="mb-8">
-                <h2 className="font-black border-b-2 border-gray-200 mb-4 pb-2">اعضای حاضر</h2>
-                <div className="grid grid-cols-2 gap-2">
+                <h2 className="font-black border-b-2 border-gray-200 mb-4 pb-2 text-xs sm:text-sm">اعضای حاضر</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {meeting.attendees.filter(a => a.isPresent).map((a, i) => (
-                        <div key={i} className="text-sm">• {a.fullName} - {a.role}</div>
+                        <div key={i} className="text-xs bg-gray-50 p-2 rounded border border-gray-200 font-bold">• {a.fullName} - {a.role}</div>
                     ))}
                     {meeting.guestAttendees && meeting.guestAttendees.map((g, i) => (
-                        <div key={`guest-${i}`} className="text-sm text-gray-700">• {g} - مدعو</div>
+                        <div key={`guest-${i}`} className="text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 font-bold">• {g} - مدعو</div>
                     ))}
                 </div>
             </div>
 
             <div className="mb-8">
-                <h2 className="font-black border-b-2 border-gray-200 mb-4 pb-2">مصوبات</h2>
+                <h2 className="font-black border-b-2 border-gray-200 mb-4 pb-2 text-xs sm:text-sm">مصوبات</h2>
                 <table className="w-full border-collapse border border-gray-400">
                     <thead>
                         <tr className="bg-gray-100">
@@ -92,10 +93,10 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
                     <tbody>
                         {meeting.items.map((item, idx) => (
                             <tr key={item.id}>
-                                <td className="border border-gray-400 p-2 text-center text-sm">{idx + 1}</td>
-                                <td className="border border-gray-400 p-2 text-sm">{item.description}</td>
-                                <td className="border border-gray-400 p-2 text-center text-sm">{item.responsiblePerson}</td>
-                                <td className="border border-gray-400 p-2 text-center text-sm">{item.duration}</td>
+                                <td className="border border-gray-400 p-2 text-center text-xs">{idx + 1}</td>
+                                <td className="border border-gray-400 p-2 text-xs leading-relaxed">{item.description}</td>
+                                <td className="border border-gray-400 p-2 text-center text-xs">{item.responsiblePerson}</td>
+                                <td className="border border-gray-400 p-2 text-center text-xs">{item.duration}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -103,7 +104,7 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
             </div>
 
             <div className="mt-10 border-t-2 border-gray-900 pt-6">
-                <h3 className="font-black text-sm mb-4">امضاها و تاییدات:</h3>
+                <h3 className="font-black text-xs sm:text-sm mb-4">امضاها و تاییدات:</h3>
                 <div className="flex flex-wrap gap-4">
                 {Object.entries(meeting.approvals || {}).map(([username, appInfo]) => {
                     const attendee = meeting.attendees.find(a => a.username === username);
@@ -125,5 +126,7 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
 
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 export default PrintMeeting;

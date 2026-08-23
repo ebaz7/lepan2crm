@@ -10,8 +10,10 @@ import {
     CheckSquare, Square, X, Trash2, Reply, Edit2, ArrowRight, Mic, 
     Play, Pause, Loader2, Search, MoreVertical, File, Image as ImageIcon,
     Check, CheckCheck, DownloadCloud, StopCircle, Share2, Copy, Forward, Eye, CornerUpLeft, Bell,
-    Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw
+    Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw, Smile
 } from 'lucide-react';
+import { StickerPicker } from './chat/StickerPicker';
+import { StickerItem } from './chat/stickerData';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
 import { sendNotification, clearAllActiveNotifications } from '../services/notificationService';
@@ -210,6 +212,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const [searchTerm, setSearchTerm] = useState(''); // Main List Search
     const [innerSearchTerm, setInnerSearchTerm] = useState(''); // Inside Chat Search
     const [showInnerSearch, setShowInnerSearch] = useState(false);
+    const [showStickerPicker, setShowStickerPicker] = useState(false);
     
     const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
     const pendingTaskIdRef = useRef<string | null>(null);
@@ -934,6 +937,77 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     // --- Actions ---
+    const handleSendSticker = async (sticker: StickerItem) => {
+        if (!currentUser || !activeChannel) return;
+        const newMsgId = generateUUID();
+        const newMsg: ChatMessage = {
+            id: newMsgId,
+            sender: currentUser.fullName,
+            senderUsername: currentUser.username,
+            role: currentUser.role,
+            message: sticker.name || 'استیکر',
+            sticker: {
+                packId: sticker.packId,
+                stickerId: sticker.id,
+                name: sticker.name,
+                emoji: sticker.emoji,
+                preview: sticker.preview
+            },
+            timestamp: Date.now(),
+            recipient: activeChannel.type === 'private' ? activeChannel.id! : undefined,
+            groupId: (activeChannel.type === 'group' || activeChannel.type === 'task_group') ? activeChannel.id! : undefined,
+            replyTo: replyingTo ? {
+                id: replyingTo.id,
+                sender: replyingTo.sender,
+                message: replyingTo.message || 'استیکر'
+            } : undefined,
+            readBy: [],
+            isPending: false
+        };
+
+        setPendingMessages(prev => [...prev, newMsg]);
+        setReplyingTo(null);
+        setShowStickerPicker(false);
+        setTimeout(scrollToBottom, 50);
+
+        try {
+            await sendMessage(newMsg);
+            onRefresh();
+        } catch(err) {
+            console.error("Failed to send sticker:", err);
+        }
+    };
+
+    const handleToggleReaction = async (msgId: string, emoji: string) => {
+        if (!currentUser) return;
+        // Optimistic local update
+        setMessages(prev => prev.map(m => {
+            if (m.id !== msgId) return m;
+            const reactions = { ...(m.reactions || {}) };
+            const users = reactions[emoji] ? [...reactions[emoji]] : [];
+            const idx = users.indexOf(currentUser.username);
+            if (idx > -1) {
+                users.splice(idx, 1);
+                if (users.length === 0) delete reactions[emoji];
+                else reactions[emoji] = users;
+            } else {
+                users.push(currentUser.username);
+                reactions[emoji] = users;
+            }
+            return { ...m, reactions };
+        }));
+
+        try {
+            await apiCall(`/api/chat/${msgId}/reaction`, 'POST', {
+                emoji,
+                username: currentUser.username
+            });
+            onRefresh();
+        } catch (err) {
+            console.error("Failed to toggle reaction:", err);
+        }
+    };
+
     const handleSendMessage = async () => {
         if ((!inputText.trim() && !localSharedData?.fileUrl) || isUploading) return;
 
@@ -2003,7 +2077,25 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             )}
 
                                             {/* Content */}
-                                            {msg.attachment ? (
+                                            {msg.sticker ? (
+                                                <div className="py-1">
+                                                    {msg.sticker.preview ? (
+                                                        <div 
+                                                            className="w-32 h-32 md:w-40 md:h-40 select-none transition-transform hover:scale-105 filter drop-shadow-md"
+                                                            dangerouslySetInnerHTML={{ __html: msg.sticker.preview }}
+                                                        />
+                                                    ) : msg.sticker.url ? (
+                                                        <img 
+                                                            src={resolveImageUrl(msg.sticker.url)} 
+                                                            alt={msg.sticker.name || 'استیکر'} 
+                                                            className="w-32 h-32 md:w-40 md:h-40 object-contain filter drop-shadow-sm select-none transition-transform hover:scale-105"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-5xl">{msg.sticker.emoji || '🌟'}</span>
+                                                    )}
+                                                </div>
+                                            ) : msg.attachment ? (
                                                 <div className="mb-1">
                                                     {msg.attachment.fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                                         <img 
@@ -2073,6 +2165,51 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                 </div>
                                             )}
 
+                                            {/* Reactions Badges */}
+                                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1.5 pt-1 border-t border-black/5 dark:border-white/5">
+                                                    {Object.entries(msg.reactions).map(([emoji, users]) => {
+                                                        if (!users || users.length === 0) return null;
+                                                        const hasReacted = users.includes(currentUser.username);
+                                                        return (
+                                                            <button
+                                                                key={emoji}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleToggleReaction(msg.id, emoji);
+                                                                }}
+                                                                title={`${users.join('، ')}`}
+                                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-all active:scale-90 ${
+                                                                    hasReacted 
+                                                                        ? 'bg-blue-100 dark:bg-blue-900/60 border border-blue-400 dark:border-blue-700 text-blue-800 dark:text-blue-200 scale-105 font-bold shadow-xs' 
+                                                                        : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 text-gray-700 dark:text-gray-300'
+                                                                }`}
+                                                            >
+                                                                <span className="text-sm">{emoji}</span>
+                                                                <span className="text-[10px]">{users.length}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Quick Reaction Bar on hover */}
+                                            <div className="hidden group-hover:flex absolute -top-7 right-2 bg-white dark:bg-gray-800 shadow-md rounded-full px-1.5 py-0.5 border border-gray-200 dark:border-gray-700 items-center gap-1 z-20 animate-scale-in">
+                                                {['👍', '❤️', '😂', '🔥', '👏', '🎉'].map(emoji => (
+                                                    <button
+                                                        key={emoji}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleToggleReaction(msg.id, emoji);
+                                                        }}
+                                                        className="hover:scale-125 transition-transform text-xs p-0.5 active:scale-95"
+                                                        title={`واکنش با ${emoji}`}
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+
                                             {/* Footer */}
                                             <div className="flex justify-end items-center gap-1 mt-1 opacity-60 select-none">
                                                 {msg.uploadProgress !== undefined && (
@@ -2132,13 +2269,21 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 </div>
                             )}
 
-                            <button onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors mb-1 relative">
+                            <button onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} className="p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 relative">
                                 <Paperclip size={24}/>
                                 {/* Attachment Menu */}
                                 <div id="chat-file-menu" className="hidden absolute bottom-14 right-0 glass-panel shadow-xl rounded-xl border p-2 flex flex-col gap-2 min-w-[150px] animate-scale-in z-50">
-                                    <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded text-sm text-gray-700"><ImageIcon size={18} className="text-blue-500"/> گالری (عکس/فیلم)</button>
-                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded text-sm text-gray-700"><File size={18} className="text-orange-500"/> فایل</button>
+                                    <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><ImageIcon size={18} className="text-blue-500"/> گالری (عکس/فیلم)</button>
+                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><File size={18} className="text-orange-500"/> فایل</button>
                                 </div>
+                            </button>
+                            
+                            <button 
+                                onClick={() => setShowStickerPicker(prev => !prev)} 
+                                className={`p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : ''}`}
+                                title="استیکرها و ایموجی‌ها"
+                            >
+                                <Smile size={24}/>
                             </button>
                             
                             <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
@@ -2179,6 +2324,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 >
                                     {isRecording ? <div className="text-white font-mono text-xs">{formatTime(recordingTime)}</div> : <Mic size={24}/>}
                                 </button>
+                            )}
+
+                            {/* Sticker Picker Popover */}
+                            {showStickerPicker && (
+                                <StickerPicker 
+                                    onClose={() => setShowStickerPicker(false)}
+                                    onSelectSticker={handleSendSticker}
+                                />
                             )}
                         </div>
                         </>
@@ -2232,9 +2385,25 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 return (
                     <div className="fixed inset-0 z-[200]" onClick={() => setContextMenuMsg(null)}>
                         <div 
-                            className="absolute glass-panel rounded-xl shadow-2xl border w-48 py-1 overflow-hidden animate-scale-in"
+                            className="absolute glass-panel rounded-xl shadow-2xl border w-56 py-1 overflow-hidden animate-scale-in"
                             style={{ top: topPosition, left: leftPosition }}
                         >
+                            {/* Reactions Bar inside Context Menu */}
+                            <div className="flex items-center justify-around px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                                {['👍', '❤️', '😂', '🔥', '👏', '🎉', '😢'].map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => {
+                                            handleToggleReaction(contextMenuMsg.msg.id, emoji);
+                                            setContextMenuMsg(null);
+                                        }}
+                                        className="text-lg hover:scale-130 active:scale-95 transition-transform"
+                                        title={emoji}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
                             <button onClick={() => { setReplyingTo(contextMenuMsg.msg); setContextMenuMsg(null); }} className="w-full text-right px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"><Reply size={16}/> پاسخ</button>
                             <button onClick={() => { handleCopyMessage(contextMenuMsg.msg); setContextMenuMsg(null); }} className="w-full text-right px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"><Copy size={16}/> کپی</button>
                             <button onClick={() => { handleNativeShare(contextMenuMsg.msg); setContextMenuMsg(null); }} className="w-full text-right px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-sm"><Share2 size={16}/> اشتراک‌گذاری</button>

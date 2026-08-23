@@ -4,74 +4,101 @@ import "react-quill/dist/quill.snow.css";
 
 // Register custom fonts and sizes in Quill using style attributors for 100% universal compatibility
 if (typeof window !== "undefined" && ReactQuill) {
-  const Quill = (ReactQuill as any).Quill;
-  if (Quill) {
-    // 1. Register Font family style attributor (uses inline style instead of class)
-    const Font = Quill.import("attributors/style/font") as any;
-    if (Font) {
-      Font.whitelist = [
-        "Vazirmatn",
-        "Shabnam",
-        "Sahel",
-        "Gandom",
-        "Estedad",
-        "Samim",
-        "Tanha",
-        "Tahoma",
-        "Arial",
-        "Times New Roman",
-        "Courier New",
-      ];
-      Quill.register(Font, true);
-    }
+  try {
+    const Quill = (ReactQuill as any).Quill;
+    if (Quill && typeof Quill.import === "function") {
+      // 1. Register Font family style attributor (uses inline style instead of class)
+      try {
+        const Font = Quill.import("attributors/style/font") as any;
+        if (Font) {
+          Font.whitelist = [
+            "Vazirmatn",
+            "Shabnam",
+            "Sahel",
+            "Gandom",
+            "Estedad",
+            "Samim",
+            "Tanha",
+            "Tahoma",
+            "Arial",
+            "Times New Roman",
+            "Courier New",
+          ];
+          Quill.register(Font, true);
+        }
+      } catch (e) {
+        console.warn("Quill font attributor init skipped:", e);
+      }
 
-    // 2. Register Font size style attributor (uses inline style instead of class)
-    const Size = Quill.import("attributors/style/size") as any;
-    if (Size) {
-      Size.whitelist = [
-        "9px",
-        "10px",
-        "11px",
-        "12px",
-        "13px",
-        "14px",
-        "15px",
-        "16px",
-        "17px",
-        "18px",
-        "19px",
-        "20px",
-        "22px",
-        "24px",
-        "28px",
-        "32px",
-        "36px",
-        "48px",
-      ];
-      Quill.register(Size, true);
-    }
+      // 2. Register Font size style attributor (uses inline style instead of class)
+      try {
+        const Size = Quill.import("attributors/style/size") as any;
+        if (Size) {
+          Size.whitelist = [
+            "9px",
+            "10px",
+            "11px",
+            "12px",
+            "13px",
+            "14px",
+            "15px",
+            "16px",
+            "17px",
+            "18px",
+            "19px",
+            "20px",
+            "22px",
+            "24px",
+            "28px",
+            "32px",
+            "36px",
+            "48px",
+          ];
+          Quill.register(Size, true);
+        }
+      } catch (e) {
+        console.warn("Quill size attributor init skipped:", e);
+      }
 
-    // 3. Register align and direction style attributors
-    const Align = Quill.import("attributors/style/align") as any;
-    if (Align) {
-      Quill.register(Align, true);
-    }
-    const Direction = Quill.import("attributors/style/direction") as any;
-    if (Direction) {
-      Quill.register(Direction, true);
-    }
+      // 3. Register align and direction style attributors
+      try {
+        const Align = Quill.import("attributors/style/align") as any;
+        if (Align) {
+          Quill.register(Align, true);
+        }
+      } catch (e) {}
 
-    // 4. Register Line Height
-    const Parchment = Quill.import("parchment");
-    const LineHeightStyle = new Parchment.Attributor.Style(
-      "lineHeight",
-      "line-height",
-      {
-        scope: Parchment.Scope.BLOCK,
-        whitelist: ["1.0", "1.5", "2.0", "2.5", "3.0"],
-      },
-    );
-    Quill.register(LineHeightStyle, true);
+      try {
+        const Direction = Quill.import("attributors/style/direction") as any;
+        if (Direction) {
+          Quill.register(Direction, true);
+        }
+      } catch (e) {}
+
+      // 4. Register Line Height if Parchment constructor is available
+      try {
+        const Parchment = Quill.import("parchment");
+        const StyleAttributor =
+          Parchment?.Attributor?.Style ||
+          Parchment?.StyleAttributor ||
+          (typeof Parchment?.Attributor === "function" ? Parchment.Attributor : null);
+        if (typeof StyleAttributor === "function") {
+          const LineHeightStyle = new StyleAttributor(
+            "lineHeight",
+            "line-height",
+            {
+              scope: Parchment.Scope?.BLOCK || 3,
+              whitelist: ["1.0", "1.5", "2.0", "2.5", "3.0"],
+            },
+          );
+          Quill.register(LineHeightStyle, true);
+        }
+      } catch (e) {
+        console.warn("LineHeight attributor skipped:", e);
+      }
+    }
+  } catch (err) {
+    console.warn("ReactQuill configuration caught gracefully:", err);
   }
 }
 
@@ -2782,7 +2809,6 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                               placeholder="متن رسمی و اداری خود را اینجا بنویسید..."
                               className="text-sm border-none ql-editor-borderless flex-1"
                               modules={{
-                                table: true,
                                 toolbar: [
                                   [
                                     {

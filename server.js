@@ -419,14 +419,13 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
 
     const warehouseKeys = [
         { key: 'warehouseTelegramGroupId', plat: 'telegram' },
+        { key: 'warehouseTelegramGroupIds', plat: 'telegram' },
         { key: 'warehouseBaleGroupId', plat: 'bale' },
+        { key: 'warehouseBaleGroupIds', plat: 'bale' },
         { key: 'warehouseWhatsappGroupId', plat: 'whatsapp' },
+        { key: 'warehouseWhatsappGroupIds', plat: 'whatsapp' },
         { key: 'warehouseGroupId', plat: 'telegram' },
-        { key: 'defaultWarehouseGroup', plat: 'telegram' },
-        { key: 'productionCompareTelegramGroupId', plat: 'telegram' },
-        { key: 'productionCompareBaleGroupId', plat: 'bale' },
-        { key: 'productionTelegramGroupId', plat: 'telegram' },
-        { key: 'productionBaleGroupId', plat: 'bale' },
+        { key: 'defaultWarehouseGroup', plat: 'telegram' }
     ];
 
     const reportsKeys = [
@@ -463,9 +462,14 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     }
 
     keysToUse.forEach(({ key, plat }) => {
-        const val = settings[key];
-        if (val && platforms.includes(plat)) {
-            salesTargets.push({ platform: plat, id: val });
+        const rawVal = settings[key];
+        if (rawVal && platforms.includes(plat)) {
+            const ids = String(rawVal).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            ids.forEach(singleId => {
+                if (singleId && !salesTargets.some(t => t.platform === plat && String(t.id).trim() === singleId)) {
+                    salesTargets.push({ platform: plat, id: singleId });
+                }
+            });
         }
     });
 
@@ -1531,29 +1535,75 @@ app.post('/api/warehouse-overview/data', (req, res) => {
     }
 });
 
+// --- WAREHOUSE OVERVIEW & SUPPLY CHAIN PDF GENERATION & BOT DISPATCH ---
+app.post('/api/warehouse-overview/generate-pdf', async (req, res) => {
+    try {
+        const {
+            mode = 'both',
+            summary = {},
+            yarnItems = [],
+            rawItems = [],
+            logisticsItems = [],
+            growthItems = [],
+            negativeItems = [],
+            signature = 'انبارداری مرکزی و تامین خارجی'
+        } = req.body;
+
+        const Renderer = await import('./backend/renderer.js');
+        const pdfBuffer = await Renderer.generateWarehouseOverviewReportPDF({
+            mode,
+            summary,
+            yarnItems,
+            rawItems,
+            logisticsItems,
+            growthItems,
+            negativeItems,
+            signature
+        });
+
+        const reportDate = summary.reportDate || '1405-05-31';
+        const cleanDate = reportDate.replace(/[\/\\]/g, '-');
+        const filename = `Warehouse_Overview_${cleanDate}_${mode}.pdf`;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+    } catch (err) {
+        console.error("Generate Warehouse PDF error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
     try {
         const db = getDb();
         const settings = db.settings || {};
-        const { negativeItems = [], summary = {}, targetGroup = null, platforms = ['telegram', 'bale'] } = req.body;
+        const {
+            mode = 'both', // 'both' | 'overview_only' | 'variance_only'
+            sendFormat = 'pdf_and_caption', // 'pdf_and_caption' | 'pdf_only' | 'caption_only'
+            notifyInApp = true,
+            negativeItems = [],
+            growthItems = [],
+            yarnItems = [],
+            rawItems = [],
+            logisticsItems = [],
+            summary = {},
+            targetGroup = null,
+            platforms = ['telegram', 'bale']
+        } = req.body;
 
-        // Collect destination targets
+        // Collect destination targets strictly for Warehouse
         let targets = [];
         if (targetGroup) {
-            platforms.forEach(plat => {
-                targets.push({ platform: plat, id: targetGroup });
+            const groupIds = String(targetGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            groupIds.forEach(gid => {
+                platforms.forEach(plat => {
+                    targets.push({ platform: plat, id: gid });
+                });
             });
         } else {
             targets = collectBotTargets(db, { category: 'warehouse', platforms });
-            if (targets.length === 0) {
-                targets = collectBotTargets(db, { category: 'production_compare', platforms });
-            }
-            if (targets.length === 0) {
-                targets = collectBotTargets(db, { category: 'production', platforms });
-            }
-            if (targets.length === 0) {
-                targets = collectBotTargets(db, { category: 'all', platforms });
-            }
         }
 
         if (!targets || targets.length === 0) {
@@ -1577,65 +1627,104 @@ app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
         const r2Label = summary.report2Label || 'وضعیت فعلی سال ۱۴۰۵';
         const signature = summary.signature || 'انبارداری مرکزی و تامین خارجی';
 
-        // Prepare message
-        let msg = `🚨 *هشدار تراز وزنی انبار و اقلام دارای رشد منفی* 🚨\n`;
+        // Prepare message caption based on mode and scope
+        let msg = `🚨 *گزارش تراز وزنی انبارها و پایش زنجیره تامین* 🚨\n`;
         msg += `📅 *تاریخ استعلام:* ${reportDate}\n`;
         msg += `📊 *مقایسه دوره‌ها:* ${r2Label} نسبت به ${r1Label}\n`;
         msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
-        msg += `⚖️ *خلاصه مقایسه وزنی زنجیره تامین و تولید:*\n\n`;
 
-        if (summary.lastYearYarnsWeight !== undefined || summary.currentYarnsWeight !== undefined) {
-            const yDiff = (summary.currentYarnsWeight || 0) - (summary.lastYearYarnsWeight || 0);
-            const yRatio = summary.lastYearYarnsWeight > 0 ? (yDiff / summary.lastYearYarnsWeight) * 100 : 0;
-            const yIcon = yDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
-            msg += `🧵 *۱. نخ‌های تولیدی کارخانه (تولید داخلی):*\n`;
-            msg += `  • سال قبل: ${fNum(summary.lastYearYarnsWeight)} kg (${fTon(summary.lastYearYarnsWeight)} تن)\n`;
-            msg += `  • سال جاری: ${fNum(summary.currentYarnsWeight)} kg (${fTon(summary.currentYarnsWeight)} تن)\n`;
-            msg += `  • اختلاف وزنی: ${yDiff >= 0 ? '+' : ''}${fNum(yDiff)} kg (${yRatio >= 0 ? '+' : ''}${fNum(yRatio, 1)}%) [${yIcon}]\n\n`;
+        if (mode === 'both' || mode === 'overview_only') {
+            msg += `⚖️ *خلاصه مقایسه وزنی زنجیره تامین و تولید:*\n\n`;
+
+            if (summary.lastYearYarnsWeight !== undefined || summary.currentYarnsWeight !== undefined) {
+                const yDiff = (summary.currentYarnsWeight || 0) - (summary.lastYearYarnsWeight || 0);
+                const yRatio = summary.lastYearYarnsWeight > 0 ? (yDiff / summary.lastYearYarnsWeight) * 100 : 0;
+                const yIcon = yDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+                msg += `🧵 *۱. نخ‌های تولیدی کارخانه (تولید داخلی):*\n`;
+                msg += `  • سال قبل: ${fNum(summary.lastYearYarnsWeight)} kg (${fTon(summary.lastYearYarnsWeight)} تن)\n`;
+                msg += `  • سال جاری: ${fNum(summary.currentYarnsWeight)} kg (${fTon(summary.currentYarnsWeight)} تن)\n`;
+                msg += `  • اختلاف وزنی: ${yDiff >= 0 ? '+' : ''}${fNum(yDiff)} kg (${yRatio >= 0 ? '+' : ''}${fNum(yRatio, 1)}%) [${yIcon}]\n\n`;
+            }
+
+            if (summary.lastYearRawWeight !== undefined || summary.currentRawWeight !== undefined) {
+                const rDiff = (summary.currentRawWeight || 0) - (summary.lastYearRawWeight || 0);
+                const rRatio = summary.lastYearRawWeight > 0 ? (rDiff / summary.lastYearRawWeight) * 100 : 0;
+                const rIcon = rDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
+                msg += `📦 *۲. مواد اولیه، اقلام وارداتی و گمرک:*\n`;
+                msg += `  • سال قبل: ${fNum(summary.lastYearRawWeight)} kg (${fTon(summary.lastYearRawWeight)} تن)\n`;
+                msg += `  • سال جاری: ${fNum(summary.currentRawWeight)} kg (${fTon(summary.currentRawWeight)} تن)\n`;
+                msg += `  • اختلاف وزنی: ${rDiff >= 0 ? '+' : ''}${fNum(rDiff)} kg (${rRatio >= 0 ? '+' : ''}${fNum(rRatio, 1)}%) [${rIcon}]\n\n`;
+            }
+
+            if (summary.lastYearTotalWeight !== undefined || summary.currentTotalWeight !== undefined) {
+                const tDiff = (summary.currentTotalWeight || 0) - (summary.lastYearTotalWeight || 0);
+                const tRatio = summary.lastYearTotalWeight > 0 ? (tDiff / summary.lastYearTotalWeight) * 100 : 0;
+                const tIcon = tDiff >= 0 ? '✅ تراز مثبت' : '⚠️ تراز منفی';
+                msg += `🏢 *۳. سرجمع کل موجودی زنجیره تامین:*\n`;
+                msg += `  • سال قبل: ${fNum(summary.lastYearTotalWeight)} kg (${fTon(summary.lastYearTotalWeight)} تن)\n`;
+                msg += `  • سال جاری: ${fNum(summary.currentTotalWeight)} kg (${fTon(summary.currentTotalWeight)} تن)\n`;
+                msg += `  • تغییر کل: ${tDiff >= 0 ? '+' : ''}${fNum(tDiff)} kg (${tRatio >= 0 ? '+' : ''}${fNum(tRatio, 1)}%) [${tIcon}]\n`;
+            }
+
+            msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
         }
 
-        if (summary.lastYearRawWeight !== undefined || summary.currentRawWeight !== undefined) {
-            const rDiff = (summary.currentRawWeight || 0) - (summary.lastYearRawWeight || 0);
-            const rRatio = summary.lastYearRawWeight > 0 ? (rDiff / summary.lastYearRawWeight) * 100 : 0;
-            const rIcon = rDiff >= 0 ? '📈 رشد (+)' : '🔻 کاهش (-)';
-            msg += `📦 *۲. مواد اولیه، اقلام وارداتی و گمرک:*\n`;
-            msg += `  • سال قبل: ${fNum(summary.lastYearRawWeight)} kg (${fTon(summary.lastYearRawWeight)} تن)\n`;
-            msg += `  • سال جاری: ${fNum(summary.currentRawWeight)} kg (${fTon(summary.currentRawWeight)} تن)\n`;
-            msg += `  • اختلاف وزنی: ${rDiff >= 0 ? '+' : ''}${fNum(rDiff)} kg (${rRatio >= 0 ? '+' : ''}${fNum(rRatio, 1)}%) [${rIcon}]\n\n`;
+        if (mode === 'both' || mode === 'variance_only') {
+            msg += `⚠️ *فهرست اقلام و کالاهای دارای کسری / افت وزنی (تراز منفی):*\n\n`;
+
+            if (negativeItems.length === 0) {
+                msg += `✅ هیچ کالایی با تراز وزنی منفی یافت نشد. تمامی اقلام در وضعیت رشد یا حفظ موجودی قرار دارند.\n`;
+            } else {
+                negativeItems.slice(0, 15).forEach((item, idx) => {
+                    const num = fNum(idx + 1, 0);
+                    const diff = parseFloat(item.diffWeight) || 0;
+                    const ratio = parseFloat(item.ratio) || 0;
+                    const catLabel = item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی';
+                    
+                    msg += `${num}. *${item.name}* ${item.code ? `(${item.code})` : ''} - ${catLabel}\n`;
+                    msg += `   🔻 افت وزنی: *${fNum(diff)} kg* (${fNum(ratio, 1)}%)\n`;
+                    msg += `   📊 سال قبل: ${fNum(item.lastYearWeight)} kg ⬅️ امسال: ${fNum(item.currentWeight)} kg\n\n`;
+                });
+                if (negativeItems.length > 15) {
+                    msg += `... و ${fNum(negativeItems.length - 15, 0)} قلم کالای منفی دیگر (جزئیات در فایل PDF پیوست)\n\n`;
+                }
+            }
+
+            if (growthItems && growthItems.length > 0) {
+                msg += `📈 *تعداد کالاهای دارای رشد وزنی (مثبت):* ${fNum(growthItems.length, 0)} قلم کالا\n`;
+            }
+
+            msg += `🔍 *تعداد کل کالاهای دارای کسری / افت:* ${fNum(negativeItems.length, 0)} قلم کالا\n`;
+            msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
         }
 
-        if (summary.lastYearTotalWeight !== undefined || summary.currentTotalWeight !== undefined) {
-            const tDiff = (summary.currentTotalWeight || 0) - (summary.lastYearTotalWeight || 0);
-            const tRatio = summary.lastYearTotalWeight > 0 ? (tDiff / summary.lastYearTotalWeight) * 100 : 0;
-            const tIcon = tDiff >= 0 ? '✅ تراز مثبت' : '⚠️ تراز منفی';
-            msg += `🏢 *۳. سرجمع کل موجودی زنجیره تامین:*\n`;
-            msg += `  • سال قبل: ${fNum(summary.lastYearTotalWeight)} kg (${fTon(summary.lastYearTotalWeight)} تن)\n`;
-            msg += `  • سال جاری: ${fNum(summary.currentTotalWeight)} kg (${fTon(summary.currentTotalWeight)} تن)\n`;
-            msg += `  • تغییر کل: ${tDiff >= 0 ? '+' : ''}${fNum(tDiff)} kg (${tRatio >= 0 ? '+' : ''}${fNum(tRatio, 1)}%) [${tIcon}]\n`;
-        }
-
-        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
-        msg += `⚠️ *فهرست اقلام و کالاهای دارای کسری / افت وزنی (منفی):*\n\n`;
-
-        if (negativeItems.length === 0) {
-            msg += `✅ هیچ کالایی با تراز وزنی منفی یافت نشد. تمامی اقلام در وضعیت رشد یا برابر با سال گذشته می‌باشند.\n`;
-        } else {
-            negativeItems.forEach((item, idx) => {
-                const num = fNum(idx + 1, 0);
-                const diff = parseFloat(item.diffWeight) || 0;
-                const ratio = parseFloat(item.ratio) || 0;
-                const catLabel = item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی';
-                
-                msg += `${num}. *${item.name}* ${item.code ? `(${item.code})` : ''} - ${catLabel}\n`;
-                msg += `   🔻 افت وزنی: *${fNum(diff)} kg* (${fNum(ratio, 1)}%)\n`;
-                msg += `   📊 سال قبل: ${fNum(item.lastYearWeight)} kg ⬅️ امسال: ${fNum(item.currentWeight)} kg\n\n`;
-            });
-        }
-
-        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
-        msg += `🔍 *تعداد کل کالاهای دارای افت:* ${fNum(negativeItems.length, 0)} قلم کالا\n`;
         msg += `👤 *تنظیم گزارش:* ${signature}\n`;
-        msg += `🤖 *ارسال شده توسط سامانه یکپارچه انبار و زنجیره تامین*`;
+        if (sendFormat !== 'caption_only') {
+            msg += `📎 *فایل PDF رسمی ${mode === 'both' ? '۲ صفحه‌ای (جداول کل + روند رشد و افت)' : (mode === 'overview_only' ? 'صفحه ۱ (جداول کل)' : 'صفحه ۲ (تحلیل روند و کسری)')} ضمیمه گردید.*\n`;
+        }
+        msg += `🤖 *سامانه یکپارچه مانیتورینگ انبار و زنجیره تامین سایان ERP*`;
+
+        // Generate PDF if requested
+        let pdfBuffer = null;
+        const filename = `Warehouse_Overview_${reportDate.replace(/[\/\\]/g, '-')}_${mode}.pdf`;
+
+        if (sendFormat === 'pdf_and_caption' || sendFormat === 'pdf_only') {
+            try {
+                const Renderer = await import('./backend/renderer.js');
+                pdfBuffer = await Renderer.generateWarehouseOverviewReportPDF({
+                    mode,
+                    summary,
+                    yarnItems,
+                    rawItems,
+                    logisticsItems,
+                    growthItems,
+                    negativeItems,
+                    signature
+                });
+            } catch (err) {
+                console.error("PDF Generation error for bot dispatch:", err);
+            }
+        }
 
         // Send to targets
         let sentCount = 0;
@@ -1645,26 +1734,66 @@ app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
             try {
                 if (target.platform === 'telegram') {
                     const tg = await safeImport('./backend/telegram.js');
-                    if (tg && tg.sendBotMessage) {
-                        await tg.sendBotMessage(target.id, msg, { parse_mode: 'Markdown' });
-                        sentCount++;
+                    if (tg) {
+                        if (pdfBuffer && (sendFormat === 'pdf_and_caption' || sendFormat === 'pdf_only')) {
+                            const tgCaption = sendFormat === 'pdf_and_caption' ? msg : `📄 گزارش وضعیت و تراز انبارها (${reportDate})`;
+                            await tg.sendBotDocument(target.id, pdfBuffer, filename, tgCaption);
+                            sentCount++;
+                        } else if (tg.sendBotMessage) {
+                            await tg.sendBotMessage(target.id, msg, { parse_mode: 'Markdown' });
+                            sentCount++;
+                        }
                     }
                 } else if (target.platform === 'bale') {
                     const bale = await safeImport('./backend/bale.js');
-                    if (bale && bale.sendBotMessage) {
-                        await bale.sendBotMessage(target.id, msg);
-                        sentCount++;
+                    if (bale) {
+                        if (pdfBuffer && (sendFormat === 'pdf_and_caption' || sendFormat === 'pdf_only')) {
+                            const baleCaption = sendFormat === 'pdf_and_caption' ? msg : `📄 گزارش وضعیت و تراز انبارها (${reportDate})`;
+                            await bale.sendBotDocument(target.id, pdfBuffer, filename, baleCaption);
+                            sentCount++;
+                        } else if (bale.sendBotMessage) {
+                            await bale.sendBotMessage(target.id, msg);
+                            sentCount++;
+                        }
                     }
                 } else if (target.platform === 'whatsapp') {
                     const wa = await safeImport('./backend/whatsapp.js');
                     if (wa && wa.sendMessage) {
-                        await wa.sendMessage(target.id, msg);
+                        if (pdfBuffer && (sendFormat === 'pdf_and_caption' || sendFormat === 'pdf_only')) {
+                            await wa.sendMessage(target.id, msg, {
+                                data: pdfBuffer.toString('base64'),
+                                mimeType: 'application/pdf',
+                                filename
+                            });
+                        } else {
+                            await wa.sendMessage(target.id, msg);
+                        }
                         sentCount++;
                     }
                 }
             } catch (err) {
-                console.error(`Error sending negative alert to ${target.platform} (${target.id}):`, err.message);
+                console.error(`Error sending warehouse alert to ${target.platform} (${target.id}):`, err.message);
                 sendErrors.push(`${target.platform} (${target.id}): ${err.message}`);
+            }
+        }
+
+        // Send In-App Notification to CEO & Management if requested
+        if (notifyInApp) {
+            try {
+                const totalDiff = (summary.currentTotalWeight || 0) - (summary.lastYearTotalWeight || 0);
+                const notifTitle = `🚨 گزارش و هشدار کمبود موجودی انبار (${reportDate})`;
+                const notifBody = negativeItems.length > 0 
+                    ? `تعداد ${negativeItems.length} قلم کالا با کسری وزنی نسبت به سال قبل شناسایی شد. تراز کل زنجیره: ${totalDiff >= 0 ? '+' : ''}${fNum(totalDiff)} kg`
+                    : `تراز کل زنجیره تامین: ${totalDiff >= 0 ? '+' : ''}${fNum(totalDiff)} kg (تمامی اقلام در وضعیت رشد یا حفظ موجودی)`;
+                
+                await broadcastNotification(
+                    notifTitle,
+                    notifBody,
+                    '/?tab=warehouse',
+                    ['ceo', 'admin', 'manager', 'commercial', 'financial']
+                );
+            } catch (notifErr) {
+                console.error("In-app broadcast notification error:", notifErr);
             }
         }
 
@@ -1679,7 +1808,8 @@ app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
             sentCount, 
             targetsCount: targets.length,
             errors: sendErrors.length > 0 ? sendErrors : undefined,
-            messageText: msg
+            messageText: msg,
+            hasPdf: !!pdfBuffer
         });
     } catch (err) {
         console.error("Negative alert send fatal error:", err);
@@ -3778,6 +3908,101 @@ app.post('/api/chat', async (req, res) => {
         console.error("Async broadcast notification error:", e);
     }
 });
+
+// Chat Message Reactions Endpoint
+app.post('/api/chat/:id/reaction', (req, res) => {
+    const db = getDb();
+    const id = req.params.id;
+    const { emoji, username } = req.body;
+    if (!emoji || !username) {
+        return res.status(400).json({ error: 'Emoji and username required' });
+    }
+    const idx = (db.messages || []).findIndex(m => m.id === id);
+    if (idx > -1) {
+        if (!db.messages[idx].reactions) db.messages[idx].reactions = {};
+        const reactions = db.messages[idx].reactions;
+        const users = reactions[emoji] ? [...reactions[emoji]] : [];
+        const uIdx = users.indexOf(username);
+        if (uIdx > -1) {
+            users.splice(uIdx, 1);
+            if (users.length === 0) {
+                delete reactions[emoji];
+            } else {
+                reactions[emoji] = users;
+            }
+        } else {
+            users.push(username);
+            reactions[emoji] = users;
+        }
+        db.messages[idx].reactions = reactions;
+        saveDb(db);
+        return res.json({ success: true, reactions });
+    }
+    res.status(404).json({ error: 'Message not found' });
+});
+
+// Server-Side Graphics Processing Engine Routes
+app.get('/api/graphics/engine-status', async (req, res) => {
+    try {
+        const { GraphicsEngine } = await safeImport('./backend/graphics-engine.js');
+        if (GraphicsEngine) {
+            res.json(GraphicsEngine.engineStatus());
+        } else {
+            res.json({ active: true, mode: 'Fallback Lightweight Engine' });
+        }
+    } catch (e) {
+        res.json({ active: true, error: e.message });
+    }
+});
+
+app.post('/api/graphics/optimize-image', async (req, res) => {
+    try {
+        const { base64Data, width = 800, quality = 80, format = 'webp' } = req.body;
+        if (!base64Data) {
+            return res.status(400).json({ error: 'base64Data required' });
+        }
+        const { optimizeImage } = await safeImport('./backend/graphics-engine.js');
+        const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+        const inputBuffer = Buffer.from(cleanBase64, 'base64');
+        const optimized = await optimizeImage(inputBuffer, { width, quality, format });
+        const optimizedBase64 = `data:image/${optimized.format};base64,${optimized.buffer.toString('base64')}`;
+        res.json({
+            success: true,
+            format: optimized.format,
+            width: optimized.width,
+            height: optimized.height,
+            size: optimized.size,
+            dataUrl: optimizedBase64
+        });
+    } catch (err) {
+        console.error("Graphics optimize API error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/graphics/render-chart', async (req, res) => {
+    try {
+        const { data = [], width = 300, height = 80, strokeColor = '#3B82F6', title = '' } = req.body;
+        const { renderServerChart } = await safeImport('./backend/graphics-engine.js');
+        const svg = renderServerChart({ data, width, height, strokeColor, title });
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(svg);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/graphics/generate-badge', async (req, res) => {
+    try {
+        const { label = '', value = '', status = 'info' } = req.body;
+        const { renderServerBadge } = await safeImport('./backend/graphics-engine.js');
+        const svg = renderServerBadge({ label, value, status });
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(svg);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 app.put('/api/chat/:id', (req, res) => { 
     const db = getDb(); 
     const idx = db.messages.findIndex(m => m.id === req.params.id); 
@@ -5597,8 +5822,66 @@ function setupDailyReports() {
                         job.attachExcel = attachE;
                         modified = true;
                     }
+                } else if (job.id === 'job_warehouse_overview_daily') {
+                    const whTime = settings.warehouseDailyAutoReportTime || '09:00';
+                    const [whH, whM] = whTime.split(':').map(x => parseInt(x, 10) || 0);
+                    if (job.sendTime !== whTime || job.sendHour !== whH || job.sendMinute !== whM) {
+                        job.sendTime = whTime;
+                        job.sendHour = whH;
+                        job.sendMinute = whM;
+                        job.cronExpression = `${whM} ${whH} * * *`;
+                        modified = true;
+                    }
+                    const whEnabled = settings.warehouseDailyAutoReportEnabled ?? false;
+                    if (job.enabled !== whEnabled) {
+                        job.enabled = whEnabled;
+                        modified = true;
+                    }
+                    const whTg = settings.warehouseTelegramGroupId || '';
+                    if (job.telegramGroup !== whTg) {
+                        job.telegramGroup = whTg;
+                        modified = true;
+                    }
+                    const whBale = settings.warehouseBaleGroupId || '';
+                    if (job.baleGroup !== whBale) {
+                        job.baleGroup = whBale;
+                        modified = true;
+                    }
+                    const whWa = settings.warehouseWhatsappGroupId || '';
+                    if (job.whatsappGroup !== whWa) {
+                        job.whatsappGroup = whWa;
+                        modified = true;
+                    }
                 }
             });
+
+            // Ensure warehouse job exists if enabled
+            if (!db.reportDeliveryJobs.some(j => j.id === 'job_warehouse_overview_daily')) {
+                const whTime = settings.warehouseDailyAutoReportTime || '09:00';
+                const [whH, whM] = whTime.split(':').map(x => parseInt(x, 10) || 0);
+                db.reportDeliveryJobs.push({
+                    id: 'job_warehouse_overview_daily',
+                    title: 'گزارش پایش موجودی انبار، تراز وزنی و هشدار اقلام منفی',
+                    module: 'warehouse',
+                    reportType: 'warehouse_overview',
+                    botPlatforms: settings.warehouseDailyAutoReportPlatforms || ['telegram', 'bale'],
+                    destinationGroup: settings.warehouseTelegramGroupId || '',
+                    telegramGroup: settings.warehouseTelegramGroupId || '',
+                    baleGroup: settings.warehouseBaleGroupId || '',
+                    whatsappGroup: settings.warehouseWhatsappGroupId || '',
+                    scheduleType: 'daily_custom',
+                    sendTime: whTime,
+                    sendHour: whH || 9,
+                    sendMinute: whM || 0,
+                    cronExpression: `${whM || 0} ${whH || 9} * * *`,
+                    attachPdf: true,
+                    attachExcel: false,
+                    attachImage: false,
+                    enabled: settings.warehouseDailyAutoReportEnabled ?? false,
+                    createdAt: new Date().toISOString()
+                });
+                modified = true;
+            }
 
             if (modified) {
                 saveDb(db);
@@ -5664,21 +5947,27 @@ async function executeReportJob(job) {
 
         const defaultTgGroup = isChequeJob
             ? (db.settings?.chequeVaultTelegramGroupId || db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId)
-            : (isProdJob
-                ? (db.settings?.productionTelegramGroupId || db.settings?.factoryGroupId)
-                : (isSalesJob ? (db.settings?.dailySalesTelegramGroupId || db.settings?.botDailySalesGroupIdTele) : (db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId)));
+            : (job.reportType === 'warehouse_overview' || job.module === 'warehouse'
+                ? (db.settings?.warehouseTelegramGroupId || '')
+                : (isProdJob
+                    ? (db.settings?.productionTelegramGroupId || db.settings?.factoryGroupId)
+                    : (isSalesJob ? (db.settings?.dailySalesTelegramGroupId || db.settings?.botDailySalesGroupIdTele) : (db.settings?.botAccountingGroupIdTele || db.settings?.telegramGroupId))));
 
         const defaultBaleGroup = isChequeJob
             ? (db.settings?.chequeVaultBaleGroupId || db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId)
-            : (isProdJob
-                ? db.settings?.productionBaleGroupId
-                : (isSalesJob ? (db.settings?.dailySalesBaleGroupId || db.settings?.botDailySalesGroupIdBale) : (db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId)));
+            : (job.reportType === 'warehouse_overview' || job.module === 'warehouse'
+                ? (db.settings?.warehouseBaleGroupId || '')
+                : (isProdJob
+                    ? db.settings?.productionBaleGroupId
+                    : (isSalesJob ? (db.settings?.dailySalesBaleGroupId || db.settings?.botDailySalesGroupIdBale) : (db.settings?.botAccountingGroupIdBale || db.settings?.baleGroupId))));
 
         const defaultWaGroup = isChequeJob
             ? (db.settings?.chequeVaultWhatsappGroupId || db.settings?.botBijakGroupIdWhatsApp)
-            : (isProdJob
-                ? db.settings?.productionWhatsappGroupId
-                : (isSalesJob ? (db.settings?.dailySalesWhatsappGroupId || db.settings?.botDailySalesGroupIdWhatsApp) : (db.settings?.botBijakGroupIdWhatsApp || db.settings?.defaultWarehouseGroup)));
+            : (job.reportType === 'warehouse_overview' || job.module === 'warehouse'
+                ? (db.settings?.warehouseWhatsappGroupId || '')
+                : (isProdJob
+                    ? db.settings?.productionWhatsappGroupId
+                    : (isSalesJob ? (db.settings?.dailySalesWhatsappGroupId || db.settings?.botDailySalesGroupIdWhatsApp) : (db.settings?.botBijakGroupIdWhatsApp || db.settings?.defaultWarehouseGroup))));
 
         const teleGroup = job.telegramGroup || job.destinationGroup || defaultTgGroup;
         const baleGroup = job.baleGroup || job.destinationGroup || defaultBaleGroup;
@@ -5686,13 +5975,16 @@ async function executeReportJob(job) {
 
         const customTargets = [];
         if (job.botPlatforms?.includes('telegram') && teleGroup) {
-            customTargets.push({ platform: 'telegram', id: teleGroup });
+            const ids = String(teleGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            ids.forEach(id => customTargets.push({ platform: 'telegram', id }));
         }
         if (job.botPlatforms?.includes('bale') && baleGroup) {
-            customTargets.push({ platform: 'bale', id: baleGroup });
+            const ids = String(baleGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            ids.forEach(id => customTargets.push({ platform: 'bale', id }));
         }
         if (job.botPlatforms?.includes('whatsapp') && waGroup) {
-            customTargets.push({ platform: 'whatsapp', id: waGroup });
+            const ids = String(waGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            ids.forEach(id => customTargets.push({ platform: 'whatsapp', id }));
         }
 
         if (job.reportType === 'cheque_vault' || job.reportType === 'cheque_not_due' || job.reportType === 'cheque_overdue' || job.reportType === 'cheque_matured' || job.reportType === 'cheques_treasury' || job.reportType === 'cheque_alerts') {
@@ -5708,6 +6000,56 @@ async function executeReportJob(job) {
                 reportType: rType
             });
             console.log(`✅ Cheques report (${rType}) dispatched successfully: ${res.count} cheques found.`);
+        } else if (job.reportType === 'warehouse_overview' || job.module === 'warehouse') {
+            // Dispatch Warehouse Daily Overview to configured groups
+            try {
+                const overviewData = db.warehouseOverview || {};
+                const Renderer = await safeImport('./backend/renderer.js');
+                const pdfBuffer = Renderer && Renderer.generateWarehouseOverviewReportPDF 
+                    ? await Renderer.generateWarehouseOverviewReportPDF({
+                        mode: db.settings?.warehouseDailyAutoReportScope || 'both',
+                        summary: overviewData.summary || {},
+                        yarnItems: overviewData.yarnItems || [],
+                        rawItems: overviewData.rawItems || [],
+                        logisticsItems: overviewData.logisticsItems || [],
+                        growthItems: overviewData.growthItems || [],
+                        negativeItems: overviewData.negativeItems || [],
+                        signature: 'انبارداری مرکزی و پایش زنجیره تامین'
+                    })
+                    : null;
+
+                const caption = `📦 *گزارش پایش روزانه وضعیت موجودی انبار و هشدار اقلام منفی*\n⏰ تاریخ ارسال: ${new Date().toLocaleDateString('fa-IR')} - ساعت ${job.sendTime || '09:00'}\n📊 تراز و تحلیل جامع انبار`;
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await telegram.sendBotDocument(target.id, pdfBuffer, `Warehouse_Overview_${Date.now()}.pdf`, caption);
+                            } else {
+                                await telegram.sendBotMessage(target.id, caption);
+                            }
+                        } else if (target.platform === 'bale' && bale) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await bale.sendBotDocument(target.id, pdfBuffer, `Warehouse_Overview_${Date.now()}.pdf`, caption);
+                            } else {
+                                await bale.sendBotMessage(target.id, caption);
+                            }
+                        } else if (target.platform === 'whatsapp' && whatsapp) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                const b64 = pdfBuffer.toString('base64');
+                                await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename: 'Warehouse_Overview.pdf' });
+                            } else {
+                                await whatsapp.sendMessage(target.id, caption);
+                            }
+                        }
+                    } catch (targetErr) {
+                        console.error(`Error sending warehouse report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Warehouse overview report dispatched to ${customTargets.length} targets.`);
+            } catch (whErr) {
+                console.error("Error generating/sending warehouse report:", whErr);
+            }
         } else if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {

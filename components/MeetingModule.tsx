@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import PrintMeeting from './print/PrintMeeting';
 import { User, MeetingMinutes, MeetingStatus, MeetingAttendee, MeetingItem, UserRole, SystemSettings, RolePermissions } from '../types';
 import { getMeetings, saveMeeting, updateMeeting, deleteMeeting, getNextMeetingNumber, getSettings, sendMeetingAnnouncement, sendMeetingMinutes, sendMessage, uploadFileChunked } from '../services/storageService';
@@ -880,16 +881,16 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
             </div>
             
             {/* Create/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-md animate-fade-in overflow-hidden">
-                    <div className="bg-white dark:bg-gray-900 w-full h-full md:h-auto md:max-h-[92vh] max-w-full md:max-w-5xl xl:max-w-7xl rounded-none md:rounded-3xl shadow-2xl overflow-visible flex flex-col border-0 md:border border-white dark:border-white/10">
-                        <div className="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-gray-50/50 dark:bg-black/20">
+            {showModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-gray-900 w-full max-h-[92vh] max-w-full md:max-w-5xl xl:max-w-6xl rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-200 dark:border-white/10">
+                        <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-gray-50/50 dark:bg-black/20 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-xl">
                                     {editingMeeting ? <Edit size={20}/> : <PlusCircle size={20}/>}
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-gray-900 dark:text-gray-100 italic tracking-tight">
+                                    <h3 className="font-black text-gray-900 dark:text-gray-100 italic tracking-tight text-sm sm:text-base">
                                         {editingMeeting ? 'ویرایش صورتجلسه' : 'ثبت صورتجلسه جدید'}
                                     </h3>
                                     <p className="text-[10px] text-gray-400 font-bold">تمام اطلاعات را با دقت وارد کنید</p>
@@ -900,7 +901,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             </button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
+                        <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
                             {/* General Info */}
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="space-y-1.5 focus-within:scale-[1.02] transition-transform">
@@ -1301,12 +1302,13 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             {/* View/Approval Modal */}
-            {viewMeeting && (
-                <div className="fixed inset-0 z-[100] flex items-start justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto">
-                    <div className="bg-white text-gray-900 w-full my-1 sm:my-6 max-w-full md:max-w-5xl xl:max-w-7xl rounded-xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
+            {viewMeeting && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white text-gray-900 w-full max-w-5xl xl:max-w-6xl max-h-[94vh] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-gray-300">
                         <div className="p-3 sm:p-4 px-4 sm:px-6 border-b border-gray-200 flex justify-between items-center bg-gray-100 shrink-0">
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <div className="p-1.5 sm:p-2 bg-emerald-100 text-emerald-700 rounded-xl">
@@ -1324,9 +1326,9 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             </div>
                         </div>
 
-                        <div className="p-2 sm:p-4 md:p-8 overflow-y-auto flex-1 bg-gray-200 font-sans print:p-0">
+                        <div className="p-3 sm:p-6 md:p-8 overflow-y-auto flex-1 bg-gray-100 font-sans custom-scrollbar">
                             {/* Meeting Header Block - Solid White Paper */}
-                            <div className="bg-white text-gray-900 border-2 sm:border-4 border-gray-900 p-3 sm:p-6 md:p-8 relative shadow-lg rounded-xl max-w-5xl mx-auto overflow-hidden">
+                            <div className="bg-white text-gray-900 border-2 sm:border-4 border-gray-900 p-4 sm:p-8 relative shadow-lg rounded-2xl max-w-4xl mx-auto space-y-6">
                                 <div className="text-center space-y-1 sm:space-y-2 mb-4 sm:mb-8">
                                     <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900">صورتجلسه</h1>
                                     <div className="text-xs sm:text-sm font-bold text-gray-700 italic">گروه تولیدی احمدی</div>
@@ -1678,35 +1680,36 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-black/20 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
-                            <div className="flex gap-3 w-full sm:w-auto">
+                        <div className="p-4 sm:p-5 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                            <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                                 {viewMeeting.status === MeetingStatus.DRAFT && (
-                                    <button onClick={() => handleSendAnnouncement(viewMeeting)} className="flex-1 sm:flex-none px-5 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] md:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
-                                        <Send size={18} /> ارسال اعلان برگزاری
+                                    <button onClick={() => handleSendAnnouncement(viewMeeting)} className="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95">
+                                        <Send size={16} /> ارسال اعلان برگزاری
                                     </button>
                                 )}
                                 {(viewMeeting.status === MeetingStatus.DRAFT || viewMeeting.status === MeetingStatus.PENDING_APPROVAL) && isFactoryManager && (
-                                    <button onClick={() => handleFactoryManagerApprove(viewMeeting)} className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl text-[10px] md:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                                        <CheckCircle size={18} /> تایید مدیر کارخانه (ارسال اتومات به گروه و مدیرعامل)
+                                    <button onClick={() => handleFactoryManagerApprove(viewMeeting)} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95">
+                                        <CheckCircle size={16} /> تایید مدیر کارخانه (ارسال اتومات)
                                     </button>
                                 )}
                                 {viewMeeting.status === MeetingStatus.PENDING_CEO && (currentUser.role === UserRole.CEO || currentUser.role === 'ceo' || currentUser.role === UserRole.ADMIN) && (
-                                    <button onClick={() => handleCeoFinalApprove(viewMeeting)} className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl text-[10px] md:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                                        <CheckCircle size={18} /> تایید نهایی و بایگانی مدیرعامل
+                                    <button onClick={() => handleCeoFinalApprove(viewMeeting)} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95">
+                                        <CheckCircle size={16} /> تایید نهایی و بایگانی مدیرعامل
                                     </button>
                                 )}
                                 {viewMeeting.status === MeetingStatus.APPROVED && (
-                                    <button onClick={() => handleSendMinutes(viewMeeting)} className="flex-1 sm:flex-none px-5 py-3 bg-blue-600 text-white rounded-2xl text-[10px] md:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
-                                        <MessageSquare size={18} /> ارسال به گروه تولید
+                                    <button onClick={() => handleSendMinutes(viewMeeting)} className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95">
+                                        <MessageSquare size={16} /> ارسال به گروه تولید
                                     </button>
                                 )}
                             </div>
-                            <div className="w-full sm:w-auto">
-                                <button onClick={() => setViewMeeting(null)} className="w-full sm:w-auto px-8 py-3 rounded-2xl text-xs font-black bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 transition-all active:scale-95">بستن پنجره</button>
+                            <div className="w-full sm:w-auto shrink-0">
+                                <button onClick={() => setViewMeeting(null)} className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-black bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all active:scale-95">بستن پنجره</button>
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             {showPrintModal && <PrintMeeting meeting={showPrintModal} onClose={() => setShowPrintModal(null)} />}
         </div>

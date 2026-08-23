@@ -406,11 +406,17 @@ export interface SystemSettings {
   productionCompareBaleGroupId?: string;
   productionCompareWhatsappGroupId?: string;
 
-  // WAREHOUSE & SUPPLY CHAIN OVERVIEW BOT GROUPS
+  // WAREHOUSE & SUPPLY CHAIN OVERVIEW BOT GROUPS & AUTOMATED SCHEDULE
   warehouseTelegramGroupId?: string;
   warehouseBaleGroupId?: string;
   warehouseWhatsappGroupId?: string;
   warehouseAutoAlertEnabled?: boolean;
+  warehouseDailyAutoReportEnabled?: boolean;
+  warehouseDailyAutoReportTime?: string;
+  warehouseDailyAutoReportPlatforms?: string[];
+  warehouseDailyAutoReportScope?: 'both' | 'overview_only' | 'variance_only';
+  warehouseDailyAutoReportFormat?: 'pdf_and_caption' | 'pdf_only' | 'caption_only';
+  warehouseDailyInAppNotifEnabled?: boolean;
   
   salesNotificationUsers?: { username: string; platforms: string[]; name?: string }[]; // Usernames and their active platforms (telegram, bale)
   salesContactMessage?: string;
@@ -740,6 +746,15 @@ export interface ChatMessage {
     isDeleted?: boolean; // Logical delete
     isPending?: boolean;
     uploadProgress?: number;
+    reactions?: Record<string, string[]>; // e.g. { "👍": ["admin", "reza"], "❤️": ["ali"] }
+    sticker?: {
+        packId: string;
+        stickerId: string;
+        url?: string;
+        emoji?: string;
+        name?: string;
+        preview?: string;
+    };
 }
 
 export interface ChatGroup {

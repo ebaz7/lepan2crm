@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     Loader2, Save, Plus, Trash2, Edit2, Check, X, FileText, 
     TrendingDown, TrendingUp, DollarSign, Calendar, RefreshCw, Settings, Eye, EyeOff,
-    ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Send, Bell, BellRing, 
-    CheckCircle2, ArrowUpRight, ArrowDownRight, Sparkles, Share2, Scale, Layers, 
-    Package, Boxes, Filter, ExternalLink, Info
+    ChevronDown, ChevronRight, ChevronUp, AlertTriangle, AlertCircle, Send, Bell, BellRing, 
+    CheckCircle2, ArrowUpRight, ArrowDownRight, ArrowUp, Sparkles, Share2, Scale, Layers, 
+    Package, Boxes, Filter, ExternalLink, Info, Download, FileDown, CheckSquare, Clock, Sliders, Navigation
 } from 'lucide-react';
 
 interface WarehouseItem {
@@ -53,8 +54,15 @@ export const WarehouseOverviewTab: React.FC = () => {
     const [botDestinationType, setBotDestinationType] = useState<'default' | 'production' | 'custom'>('default');
     const [customTargetId, setCustomTargetId] = useState('');
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['telegram', 'bale']);
+    const [botReportScope, setBotReportScope] = useState<'both' | 'overview_only' | 'variance_only'>('both');
+    const [botSendFormat, setBotSendFormat] = useState<'pdf_and_caption' | 'pdf_only' | 'caption_only'>('pdf_and_caption');
+    const [botNotifyInApp, setBotNotifyInApp] = useState<boolean>(true);
     const [botSendSuccessMessage, setBotSendSuccessMessage] = useState<string | null>(null);
     const [botSendErrorMessage, setBotSendErrorMessage] = useState<string | null>(null);
+
+    // PDF Direct Download States
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+    const [pdfScopeMenuOpen, setPdfScopeMenuOpen] = useState(false);
 
     // Variance Filter State
     const [varianceFilter, setVarianceFilter] = useState<'all' | 'negative' | 'positive'>('all');
@@ -102,6 +110,35 @@ export const WarehouseOverviewTab: React.FC = () => {
 
     // Search filter for Sayan items
     const [itemFilterText, setItemFilterText] = useState("");
+
+    // Active Section State for Navigator
+    const [activeSectionId, setActiveSectionId] = useState<string>('section-sayan-tables');
+
+    // Scroll lock for Bot Modal to strictly prevent background page scrolling / jumping
+    useEffect(() => {
+        if (isBotModalOpen) {
+            const originalOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = originalOverflow;
+            };
+        }
+    }, [isBotModalOpen]);
+
+    // Smooth scroll helper to navigate effortlessly between sections without tiring scroll
+    const scrollToSection = (sectionId: string) => {
+        setActiveSectionId(sectionId);
+        const element = document.getElementById(sectionId);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const containers = document.querySelectorAll('.overflow-y-auto, .custom-scrollbar');
+        containers.forEach(c => c.scrollTo({ top: 0, behavior: 'smooth' }));
+    };
 
     // Helper to extract Jalali year
     const getJalaliYear = (jalaliStr: string) => {
@@ -846,12 +883,127 @@ export const WarehouseOverviewTab: React.FC = () => {
             .sort((a, b) => a.diffWeight - b.diffWeight); // sorted by largest negative deficit first
     }, [allComparedItems]);
 
+    // Growth Items (کالاهای دارای رشد وزنی مثبت)
+    const growthItems = useMemo(() => {
+        return allComparedItems
+            .filter(item => !item.isNegative && item.diffWeight > 0)
+            .sort((a, b) => b.diffWeight - a.diffWeight); // sorted by highest positive growth first
+    }, [allComparedItems]);
+
     // Filtered variance items for table display
     const filteredVarianceItems = useMemo(() => {
         if (varianceFilter === 'negative') return allComparedItems.filter(item => item.isNegative);
         if (varianceFilter === 'positive') return allComparedItems.filter(item => !item.isNegative);
         return allComparedItems;
     }, [allComparedItems, varianceFilter]);
+
+    // Structured Dataset Extractor for PDF and Bot Dispatch
+    const getExportDataset = () => {
+        const yarnItems = filteredYarns.map(g => ({
+            code: g.code,
+            name: g.name,
+            lastYearCartons: getItemValue(g.code, true, 'cartons', true),
+            lastYearWeight: getItemValue(g.code, true, 'weight', true),
+            lastYearContainers: getItemValue(g.code, true, 'containers', true),
+            lastYearDollars: getItemValue(g.code, true, 'dollars', true),
+            currentCartons: getItemValue(g.code, false, 'cartons', true),
+            currentWeight: getItemValue(g.code, false, 'weight', true),
+            currentContainers: getItemValue(g.code, false, 'containers', true),
+            currentDollars: getItemValue(g.code, false, 'dollars', true)
+        }));
+
+        const rawItems = filteredImported.map(g => ({
+            code: g.code,
+            name: g.name,
+            category: getItemCategory(g.code),
+            proforma: getItemValue(g.code, false, 'proforma', true) || getItemValue(g.code, true, 'proforma', true),
+            lastYearCartons: getItemValue(g.code, true, 'cartons', true),
+            lastYearWeight: getItemValue(g.code, true, 'weight', true),
+            lastYearContainers: getItemValue(g.code, true, 'containers', true),
+            lastYearDollars: getItemValue(g.code, true, 'dollars', true),
+            currentCartons: getItemValue(g.code, false, 'cartons', true),
+            currentWeight: getItemValue(g.code, false, 'weight', true),
+            currentContainers: getItemValue(g.code, false, 'containers', true),
+            currentDollars: getItemValue(g.code, false, 'dollars', true)
+        }));
+
+        const logisticsItems = [
+            ...goodsInTransit.map(r => ({ ...r, category: 'transit', categoryLabel: 'بارهای در راه (کانتینری)' })),
+            ...goodsInCustoms.map(r => ({ ...r, category: 'customs', categoryLabel: 'بارهای در گمرک' })),
+            ...purchasingGoods.map(r => ({ ...r, category: 'purchasing', categoryLabel: 'بارهای در حال خرید' })),
+            ...commercialGoods.map(r => ({ ...r, category: 'commercial', categoryLabel: 'کالای تجاری / متفرقه' }))
+        ];
+
+        const summary = {
+            reportDate,
+            report1Label,
+            report2Label,
+            signature,
+            lastYearYarnsWeight: totalLastYearYarnsWeight,
+            currentYarnsWeight: totalCurrentYarnsWeight,
+            yarnsDiffWeight: diffYarnsWeight,
+            yarnsRatio: ratioYarnsWeight,
+            lastYearRawWeight: totalLastYearRawWeight,
+            currentRawWeight: totalCurrentRawWeight,
+            rawDiffWeight: diffRawWeight,
+            rawRatio: ratioRawWeight,
+            lastYearTotalWeight: totalLastYearAllWeight,
+            currentTotalWeight: totalCurrentAllWeight,
+            totalDiffWeight: diffAllWeight,
+            totalRatio: ratioAllWeight,
+            containersTotal: totalCurrentContainers,
+            dollarsTotal: totalCurrentDollars
+        };
+
+        return {
+            summary,
+            yarnItems,
+            rawItems,
+            logisticsItems,
+            growthItems,
+            negativeItems,
+            signature
+        };
+    };
+
+    // PDF Download function (Direct browser download)
+    const handleDownloadPdf = async (scope: 'both' | 'overview_only' | 'variance_only' = 'both') => {
+        setIsDownloadingPdf(true);
+        setPdfScopeMenuOpen(false);
+        try {
+            const data = getExportDataset();
+            const payload = {
+                ...data,
+                mode: scope
+            };
+
+            const res = await fetch('/api/warehouse-overview/generate-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'خطا در ساخت فایل PDF');
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const scopeSuffix = scope === 'both' ? 'Full_2Pages' : (scope === 'overview_only' ? 'Page1_Overview' : 'Page2_Variance');
+            a.download = `Warehouse_Overview_${reportDate.replace(/[\/\\]/g, '-')}_${scopeSuffix}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (err: any) {
+            alert(err.message || 'خطا در دریافت فایل PDF گزارش');
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
 
     // Bot dispatch function
     const handleSendNegativeAlert = async () => {
@@ -864,26 +1016,12 @@ export const WarehouseOverviewTab: React.FC = () => {
                 targetGroup = customTargetId.trim();
             }
 
+            const data = getExportDataset();
             const payload = {
-                negativeItems,
-                summary: {
-                    reportDate,
-                    report1Label,
-                    report2Label,
-                    signature,
-                    lastYearYarnsWeight: totalLastYearYarnsWeight,
-                    currentYarnsWeight: totalCurrentYarnsWeight,
-                    yarnsDiffWeight: diffYarnsWeight,
-                    yarnsRatio: ratioYarnsWeight,
-                    lastYearRawWeight: totalLastYearRawWeight,
-                    currentRawWeight: totalCurrentRawWeight,
-                    rawDiffWeight: diffRawWeight,
-                    rawRatio: ratioRawWeight,
-                    lastYearTotalWeight: totalLastYearAllWeight,
-                    currentTotalWeight: totalCurrentAllWeight,
-                    totalDiffWeight: diffAllWeight,
-                    totalRatio: ratioAllWeight
-                },
+                ...data,
+                mode: botReportScope,
+                sendFormat: botSendFormat,
+                notifyInApp: botNotifyInApp,
                 targetGroup,
                 platforms: selectedPlatforms
             };
@@ -894,11 +1032,13 @@ export const WarehouseOverviewTab: React.FC = () => {
                 body: JSON.stringify(payload)
             });
 
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setBotSendSuccessMessage(`✅ گزارش هشدار اقلام منفی با موفقیت به ${data.sentCount || 1} گروه پیام‌رسان ارسال گردید.`);
+            const respData = await res.json();
+            if (res.ok && respData.success) {
+                const scopeLabel = botReportScope === 'both' ? 'جامع ۲ صفحه‌ای' : (botReportScope === 'overview_only' ? 'صفحه ۱ (جداول کل)' : 'صفحه ۲ (تحلیل روند و کسری)');
+                const formatLabel = botSendFormat === 'pdf_and_caption' ? 'PDF رسمی + خلاصه متنی' : (botSendFormat === 'pdf_only' ? 'فایل PDF' : 'پیام متنی');
+                setBotSendSuccessMessage(`✅ گزارش (${scopeLabel} با فرمت ${formatLabel}) با موفقیت به ${respData.sentCount || 1} گروه ارسال شد${botNotifyInApp ? ' و نوتیفیکیشن هشدار به مدیرعامل مخابره گردید.' : '.'}`);
             } else {
-                setBotSendErrorMessage(data.error || 'خطا در ارسال گزارش به ربات');
+                setBotSendErrorMessage(respData.error || 'خطا در ارسال گزارش به ربات');
             }
         } catch (err: any) {
             setBotSendErrorMessage(err.message || 'خطا در برقراری ارتباط با سرور');
@@ -1146,84 +1286,227 @@ export const WarehouseOverviewTab: React.FC = () => {
     };
 
     return (
-        <div className="p-4 sm:p-6 space-y-8 bg-slate-50 rounded-xl select-none" dir="rtl">
-            {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
-                        <FileText className="w-5 h-5" />
+        <div className="p-3 sm:p-6 space-y-6 bg-slate-50 rounded-2xl select-none" dir="rtl">
+            {/* Sticky Action & Navigation Bar */}
+            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-md space-y-3 transition-all">
+                {/* Top Row: Title and Primary Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shadow-xs">
+                            <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
+                                <span>سامانه نمای کلی موجودی و مغایرت سالانه انبار</span>
+                                <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">داشبورد هوشمند</span>
+                            </h2>
+                            <p className="text-[11px] text-slate-500 font-medium hidden sm:block">پایش همزمان موجودی‌های سایان، انبارهای تجاری، بارهای در راه و ترخیصی گمرک</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-slate-800">سامانه نمای کلی موجودی و مغایرت سالانه انبار</h2>
-                        <p className="text-xs text-slate-500 mt-0.5">پایش همزمان موجودی‌های سایان، انبارهای تجاری، بارهای در راه و ترخیصی گمرک</p>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* PDF Direct Download Dropdown */}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPdfScopeMenuOpen(!pdfScopeMenuOpen); }}
+                                disabled={isDownloadingPdf}
+                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl px-3.5 py-2 text-xs font-black transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                title="دانلود فایل PDF رسمی گزارش انبار و تحلیل روندها"
+                            >
+                                {isDownloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5 text-indigo-600" />}
+                                <span>خروجی PDF رسمی</span>
+                                <ChevronDown className="w-3 h-3 text-indigo-500 mr-0.5" />
+                            </button>
+
+                            {pdfScopeMenuOpen && (
+                                <div className="absolute left-0 mt-1 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-right animate-fade-in" dir="rtl">
+                                    <div className="text-[10px] font-black text-slate-400 px-2 py-1 border-b border-slate-100 flex items-center justify-between">
+                                        <span>انتخاب محدوده گزارش PDF:</span>
+                                        <button type="button" onClick={() => setPdfScopeMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-3 h-3" /></button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { handleDownloadPdf('both'); setPdfScopeMenuOpen(false); }}
+                                        className="w-full text-right px-2.5 py-2 rounded-xl text-xs hover:bg-indigo-50 text-slate-700 hover:text-indigo-900 font-bold flex items-center justify-between group transition-colors cursor-pointer"
+                                    >
+                                        <span>📑 گزارش جامع ۲ صفحه‌ای (کل زنجیره + تحلیل)</span>
+                                        <span className="text-[10px] text-indigo-600 opacity-0 group-hover:opacity-100">دانلود</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { handleDownloadPdf('overview_only'); setPdfScopeMenuOpen(false); }}
+                                        className="w-full text-right px-2.5 py-2 rounded-xl text-xs hover:bg-blue-50 text-slate-700 hover:text-blue-900 font-semibold flex items-center justify-between group transition-colors cursor-pointer"
+                                    >
+                                        <span>🏢 فقط صفحه ۱ (کل جداول زنجیره تامین)</span>
+                                        <span className="text-[10px] text-blue-600 opacity-0 group-hover:opacity-100">دانلود</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { handleDownloadPdf('variance_only'); setPdfScopeMenuOpen(false); }}
+                                        className="w-full text-right px-2.5 py-2 rounded-xl text-xs hover:bg-amber-50 text-slate-700 hover:text-amber-900 font-semibold flex items-center justify-between group transition-colors cursor-pointer"
+                                    >
+                                        <span>⚠️ فقط صفحه ۲ (تحلیل روند و کسری منفی)</span>
+                                        <span className="text-[10px] text-amber-600 opacity-0 group-hover:opacity-100">دانلود</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bot Modal Trigger */}
+                        {negativeItems.length > 0 ? (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsBotModalOpen(true); }}
+                                className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-3.5 py-2 text-xs font-black transition-all flex items-center gap-1.5 animate-pulse shadow-md shadow-red-500/20 cursor-pointer"
+                                title="مشاهده اقلام منفی و ارسال گزارش هشدار به ربات"
+                            >
+                                <BellRing className="w-3.5 h-3.5 text-white animate-bounce" />
+                                <span>🚨 ارسال هشدار کسری ({negativeItems.length.toLocaleString('fa-IR')} کالا)</span>
+                                <Send className="w-3 h-3 text-white/90 mr-0.5" />
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsBotModalOpen(true); }}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl px-3.5 py-2 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                title="ارسال گزارش وضعیت کلی انبار به ربات"
+                            >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>تراز وزنی مثبت (ارسال به بات)</span>
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() => setShowSettings(!showSettings)}
+                            className={`rounded-xl px-3 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                                showSettings 
+                                ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            <Settings className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="hidden sm:inline">تنظیمات دوره</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={loadSavedData}
+                            disabled={isLoading}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                            {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                            <span className="hidden sm:inline">بروزرسانی</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsEditMode(!isEditMode)}
+                            className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                                isEditMode 
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-300' 
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                            <span>{isEditMode ? "لغو ویرایش" : "ویرایش دستی"}</span>
+                        </button>
+
+                        {isEditMode && (
+                            <button
+                                type="button"
+                                onClick={() => handleSave(false)}
+                                disabled={isSaving}
+                                className="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-xs font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                            >
+                                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                <span>ذخیره</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                    {negativeItems.length > 0 ? (
+                {/* Bottom Row: Quick Section Navigation Ribbon */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold border-t border-slate-100 pt-2 custom-scrollbar">
+                    <span className="text-[10px] text-slate-400 font-black pl-1 whitespace-nowrap flex items-center gap-1">
+                        <Navigation className="w-3 h-3 text-blue-500" />
+                        <span>دسترسی سریع:</span>
+                    </span>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-summary')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Scale className="w-3 h-3 text-blue-600" />
+                        <span>📊 خلاصه تراز کل</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-sayan-tables')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Package className="w-3 h-3 text-indigo-600" />
+                        <span>🧵 تولیدات و مواد سایان</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-commercial')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Boxes className="w-3 h-3 text-emerald-600" />
+                        <span>🏬 کالای تجاری</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-transit')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Layers className="w-3 h-3 text-teal-600" />
+                        <span>🚢 بارهای در راه</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-customs')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-sky-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Layers className="w-3 h-3 text-sky-600" />
+                        <span>🏢 ترخیصی گمرک</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => scrollToSection('section-purchasing')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        <Layers className="w-3 h-3 text-indigo-600" />
+                        <span>🛒 در حال خرید</span>
+                    </button>
+
+                    {negativeItems.length > 0 && (
                         <button
-                            onClick={() => setIsBotModalOpen(true)}
-                            className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 animate-pulse shadow-sm"
-                            title="مشاهده اقلام منفی و ارسال گزارش هشدار به ربات"
+                            type="button"
+                            onClick={() => scrollToSection('section-negative-alert')}
+                            className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer animate-pulse font-black"
                         >
-                            <BellRing className="w-3.5 h-3.5 text-red-600 animate-bounce" />
-                            <span>🚨 هشدار کسری ({negativeItems.length.toLocaleString('fa-IR')} کالا)</span>
-                            <Send className="w-3 h-3 text-red-500 mr-0.5" />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => setIsBotModalOpen(true)}
-                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5"
-                            title="ارسال گزارش وضعیت کلی انبار به ربات"
-                        >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>تراز وزنی مثبت (ارسال به بات)</span>
+                            <BellRing className="w-3 h-3 text-red-600" />
+                            <span>🚨 هشدار کسری منفی ({negativeItems.length.toLocaleString('fa-IR')})</span>
                         </button>
                     )}
 
                     <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className={`rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                            showSettings 
-                            ? 'bg-blue-50 text-blue-800 border-blue-200' 
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
+                        type="button"
+                        onClick={() => scrollToSection('section-variance-matrix')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-700 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer"
                     >
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>تنظیمات دوره مالی</span>
+                        <TrendingUp className="w-3 h-3 text-amber-600" />
+                        <span>📈 ماتریس تحلیل روندها</span>
                     </button>
-
-                    <button
-                        onClick={loadSavedData}
-                        disabled={isLoading}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-xs font-bold transition-all flex items-center gap-1.5"
-                    >
-                        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                        <span>بروزرسانی از سایان</span>
-                    </button>
-
-                    <button
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        className={`rounded-lg px-4 py-2 text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                            isEditMode 
-                            ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' 
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span>{isEditMode ? "لغو ویرایش دستی" : "حالت ویرایش دستی"}</span>
-                    </button>
-
-                    {isEditMode && (
-                        <button
-                            onClick={() => handleSave(false)}
-                            disabled={isSaving}
-                            className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-                        >
-                            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                            <span>ذخیره تغییرات</span>
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1459,7 +1742,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* Main Grid: Sayan Items - Left (Report 1) vs Right (Report 2) comparison */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div id="section-sayan-tables" className="grid grid-cols-1 xl:grid-cols-2 gap-6 scroll-mt-28">
                 
                 {/* 1. REPORT 1 END OF FISCAL INVENTORY TABLE */}
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
@@ -1554,7 +1837,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* 3. COMMERCIAL WAREHOUSE GOODS TABLE */}
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div id="section-commercial" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
                 <div className="p-4 bg-emerald-800 text-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <h4 className="font-extrabold text-sm sm:text-base">کالای انبار تجاری (مخصوص سرمایه در گردش و بازرگانی)</h4>
@@ -1685,7 +1968,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             <div className="space-y-6">
                 
                 {/* A. GOODS IN TRANSIT (کالاهای در راه) */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div id="section-transit" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
                     <div className="p-4 bg-teal-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">کالاهای در راه (بارهای در مسیر حمل دریایی / زمینی)</h4>
@@ -1813,7 +2096,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 {/* B. GOODS IN CUSTOMS (بارهای در گمرک) */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div id="section-customs" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
                     <div className="p-4 bg-sky-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">بارهای در گمرک (رسیده به گمرکات کشور و در حال ترخیص)</h4>
@@ -1941,7 +2224,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 {/* C. GOODS UNDER PURCHASE / PROCURING (در حال خرید) */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div id="section-purchasing" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
                     <div className="p-4 bg-indigo-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">بارهای در حال خرید (ثبت سفارش شده یا پیش پرداخت انجام شده)</h4>
@@ -2414,8 +2697,8 @@ export const WarehouseOverviewTab: React.FC = () => {
                                     <Send className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-800 text-base sm:text-lg">ارسال گزارش هشدار تراز وزنی و اقلام منفی به ربات</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">ارسال مستقیم گزارش مقایسه‌ای و اقلام دارای کسری به گروه‌های تلگرام و بله</p>
+                                    <h3 className="font-black text-slate-800 text-base sm:text-lg">ارسال گزارش انبار، هشدار کسری و مغایرت به ربات و مدیریت</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">ارسال فایل PDF رسمی، کپشن تحلیلی و نوتیفیکیشن اختصاصی به مدیرعامل</p>
                                 </div>
                             </div>
                             <button
@@ -2441,35 +2724,142 @@ export const WarehouseOverviewTab: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Summary of what will be dispatched */}
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                            <div className="text-xs font-extrabold text-slate-700 flex items-center justify-between">
-                                <span>خلاصه گزارش آماده ارسال:</span>
-                                <span className="text-[10px] text-slate-400 font-mono">{reportDate}</span>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                                <div className="p-2 bg-white rounded-xl border border-slate-100">
-                                    <span className="text-slate-400 block text-[10px]">اقلام منفی:</span>
-                                    <span className="font-bold text-red-600 font-mono">{negativeItems.length} قلم کالا</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-xl border border-slate-100">
-                                    <span className="text-slate-400 block text-[10px]">تراز تولیدات:</span>
-                                    <span className={`font-bold font-mono ${diffYarnsWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        {(diffYarnsWeight / 1000).toFixed(2)} تن
+                        {/* 1. Scope Selection (محدوده گزارش ارسالی) */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                                <FileText className="w-4 h-4 text-indigo-600" />
+                                <span>۱. انتخاب محدوده و صفحات گزارش (Scope)</span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setBotReportScope('both')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botReportScope === 'both'
+                                        ? 'bg-indigo-50 border-indigo-400 text-indigo-950 shadow-sm font-bold ring-1 ring-indigo-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-indigo-900">📑 گزارش جامع ۲ صفحه‌ای</span>
+                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
+                                        صفحه ۱: کل جداول زنجیره تامین + صفحه ۲: تحلیل روند کسری‌ها و رشد
                                     </span>
-                                </div>
-                                <div className="p-2 bg-white rounded-xl border border-slate-100">
-                                    <span className="text-slate-400 block text-[10px]">تراز مواد اولیه:</span>
-                                    <span className={`font-bold font-mono ${diffRawWeight < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        {(diffRawWeight / 1000).toFixed(2)} تن
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBotReportScope('overview_only')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botReportScope === 'overview_only'
+                                        ? 'bg-blue-50 border-blue-400 text-blue-950 shadow-sm font-bold ring-1 ring-blue-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-blue-900">🏢 فقط صفحه اول</span>
+                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
+                                        جداول کل زنجیره تامین، تولید، مواد اولیه و لجستیک
                                     </span>
-                                </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBotReportScope('variance_only')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botReportScope === 'variance_only'
+                                        ? 'bg-amber-50 border-amber-400 text-amber-950 shadow-sm font-bold ring-1 ring-amber-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-amber-900">⚠️ فقط صفحه دوم</span>
+                                    <span className="text-[10px] text-slate-500 font-normal leading-relaxed">
+                                        تحلیل روندها، اقلام دارای رشد و هشدارهای کسری منفی
+                                    </span>
+                                </button>
                             </div>
                         </div>
 
-                        {/* Destination Selection */}
+                        {/* 2. Format Selection (نوع و قالب ارسال) */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                                <Sliders className="w-4 h-4 text-emerald-600" />
+                                <span>۲. قالب و فرمت ارسال گزارش (Format)</span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setBotSendFormat('pdf_and_caption')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botSendFormat === 'pdf_and_caption'
+                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-emerald-900">📎 PDF رسمی + متن کپشن</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                        ارسال فایل PDF باکیفیت به همراه خلاصه متنی و هشدار
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBotSendFormat('pdf_only')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botSendFormat === 'pdf_only'
+                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-emerald-900">📄 فقط فایل PDF</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                        ارسال سند PDF طراحی شده رسمی بدون کپشن طولانی
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBotSendFormat('caption_only')}
+                                    className={`p-3 rounded-xl border text-right transition-all flex flex-col gap-1 ${
+                                        botSendFormat === 'caption_only'
+                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm font-bold ring-1 ring-emerald-300'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className="text-xs font-black text-emerald-900">💬 فقط پیام متنی</span>
+                                    <span className="text-[10px] text-slate-500 font-normal">
+                                        ارسال پیام تحلیلی سریع در گروه بدون ضمیمه PDF
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 3. In-App Notification to CEO / Management */}
+                        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3.5">
+                            <label className="flex items-center justify-between cursor-pointer">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                                        <BellRing className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-black text-amber-900 block">
+                                            ارسال نوتیفیکیشن درون‌برنامه‌ای به مدیرعامل و مدیران ارشد
+                                        </span>
+                                        <span className="text-[10px] text-amber-700 block mt-0.5">
+                                            ثبت هشدار مستقیم در زنگوله اعلان‌های داشبورد نقش‌های مدیرعامل، مدیریت و بازرگانی
+                                        </span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={botNotifyInApp}
+                                    onChange={(e) => setBotNotifyInApp(e.target.checked)}
+                                    className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                                />
+                            </label>
+                        </div>
+
+                        {/* 4. Destination Selection */}
                         <div className="space-y-3">
-                            <label className="block text-xs font-extrabold text-slate-700">انتخاب گروه یا مخاطب مقصد</label>
+                            <label className="block text-xs font-extrabold text-slate-700">۴. انتخاب گروه یا مخاطب مقصد</label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <button
                                     type="button"
@@ -2522,9 +2912,9 @@ export const WarehouseOverviewTab: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Platforms Checkbox */}
+                        {/* 5. Platforms Checkbox */}
                         <div className="space-y-2">
-                            <label className="block text-xs font-extrabold text-slate-700">پلتفرم‌های پیام‌رسان فعال</label>
+                            <label className="block text-xs font-extrabold text-slate-700">۵. پلتفرم‌های پیام‌رسان فعال</label>
                             <div className="flex items-center gap-4">
                                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
                                     <input
@@ -2568,7 +2958,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                                 className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 py-2.5 text-xs font-black transition-all flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
                             >
                                 {isSendingBot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                <span>{isSendingBot ? 'در حال ارسال پیام به گروه...' : 'تایید و ارسال هشدار به ربات'}</span>
+                                <span>{isSendingBot ? 'در حال ارسال و تولید فایل PDF...' : 'تایید و ارسال به گروه و مدیریت'}</span>
                             </button>
                         </div>
                     </div>
