@@ -41,17 +41,17 @@ const MODULE_OPTIONS = [
 ];
 
 const REPORT_TYPE_OPTIONS = [
-  { value: 'daily_sales', label: 'گزارش فروش و مرجوعی (سایان ERP)' },
-  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش کارخانه (سایان ERP)' },
-  { value: 'warehouse_overview', label: '📦 گزارش تراز وزنی انبارها و پایش زنجیره تامین سایان' },
-  { value: 'production_overview', label: '🏭 گزارش آمار کل تولید و ضایعات کارخانه سایان' },
-  { value: 'cheque_vault', label: '🏛️ گزارش اسناد دریافتنی نزد صندوق خزانه‌داری سایان (سال ۱۴۰۴ به بعد)' },
-  { value: 'cheque_not_due', label: '⏳ گزارش اسناد دریافتنی سررسید نشده نزد صندوق (اسناد آتی)' },
-  { value: 'cheque_overdue', label: '⚠️ گزارش اسناد دریافتنی سررسید گذشته معوق نزد صندوق (پیگیری فوری)' },
-  { value: 'cheque_matured', label: '🔔 گزارش اسناد دریافتنی سررسید شده امروز نزد صندوق (ارسال خودکار روزانه)' },
-  { value: 'cheque_alerts', label: 'گزارش سررسید کلی چک‌ها و اسناد دریافتنی خزانه‌داری' },
-  { value: 'customer_balances', label: 'گزارش مانده حساب و تراز معین تفصیلی مشتریان' },
-  { value: 'inventory_stock', label: 'گزارش موجودی و تراز گردش کالای انبارها' },
+  { value: 'daily_sales', label: 'گزارش فروش و برگشت از فروش (Sayan ERP)' },
+  { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش کارخانه (Sayan ERP)' },
+  { value: 'warehouse_overview', label: '📦 گزارش تراز وزنی انبارها و پایش زنجیره تامین (Sayan ERP)' },
+  { value: 'production_overview', label: '🏭 گزارش آمار کل تولید و ضایعات کارخانه (Sayan ERP)' },
+  { value: 'cheque_vault', label: '🏛️ گزارش اسناد دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
+  { value: 'cheque_not_due', label: '⏳ گزارش اسناد دریافتنی سررسید نشده نزد صندوق (آتی)' },
+  { value: 'cheque_overdue', label: '⚠️ گزارش اسناد معوق و سررسید گذشته نزد صندوق (پیگیری فوری)' },
+  { value: 'cheque_matured', label: '🔔 گزارش اسناد سررسید شده امروز نزد صندوق (ارسال روزانه)' },
+  { value: 'cheque_alerts', label: 'گزارش جامع سررسید چک‌ها و اسناد خزانه‌داری' },
+  { value: 'customer_balances', label: 'گزارش تراز معین تفصیلی و مانده حساب مشتریان' },
+  { value: 'inventory_stock', label: 'گزارش کاردکس و تراز گردش موجودی کالا' },
 ];
 
 const SCHEDULE_OPTIONS = [
@@ -368,10 +368,10 @@ export const ReportDeliveryManager: React.FC = () => {
 
       {/* MODAL EDIT / CREATE */}
       {isModalOpen && editingJob && createPortal(
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleUp text-right dir-rtl font-sans my-auto z-[10000]">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 animate-scaleUp text-right dir-rtl font-sans z-[10000]">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 p-5 flex-shrink-0">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-600" />
                 <span>{editingJob.id ? 'ویرایش زمان‌بندی گزارش' : 'افزودن زمان‌بندی گزارش جدید'}</span>
@@ -381,7 +381,7 @@ export const ReportDeliveryManager: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 text-xs">
               
               <div>
                 <label className="block font-bold text-slate-700 mb-1">عنوان زمان‌بندی:</label>
@@ -390,7 +390,7 @@ export const ReportDeliveryManager: React.FC = () => {
                   value={editingJob.title || ''}
                   onChange={(e) => setEditingJob(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="مثلاً: گزارش روزانه فروش مدیریت (ساعت ۱۹:۰۰)"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500 bg-white"
                 />
               </div>
 
@@ -400,7 +400,7 @@ export const ReportDeliveryManager: React.FC = () => {
                   <select
                     value={editingJob.module || 'sales'}
                     onChange={(e) => setEditingJob(prev => ({ ...prev, module: e.target.value as any }))}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500 bg-white"
                   >
                     {MODULE_OPTIONS.map(m => (
                       <option key={m.value} value={m.value}>{m.label}</option>
@@ -413,7 +413,7 @@ export const ReportDeliveryManager: React.FC = () => {
                   <select
                     value={editingJob.reportType || 'daily_sales'}
                     onChange={(e) => setEditingJob(prev => ({ ...prev, reportType: e.target.value as any }))}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500 bg-white"
                   >
                     {REPORT_TYPE_OPTIONS.map(r => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -484,7 +484,7 @@ export const ReportDeliveryManager: React.FC = () => {
                     if (st === 'daily_1900' || st === 'daily_comp_1900') defaultTime = '19:00';
                     setEditingJob(prev => ({ ...prev, scheduleType: st, sendTime: defaultTime }));
                   }}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500 bg-white"
                 >
                   {SCHEDULE_OPTIONS.map(s => (
                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -616,11 +616,11 @@ export const ReportDeliveryManager: React.FC = () => {
 
             </div>
 
-            <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+            <div className="p-5 flex items-center justify-end gap-2 border-t border-slate-100 flex-shrink-0 bg-slate-50 rounded-b-3xl">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
               >
                 انصراف
               </button>
@@ -628,7 +628,7 @@ export const ReportDeliveryManager: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveJob}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-md"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-md cursor-pointer"
               >
                 <Check size={16} />
                 <span>ذخیره زمان‌بندی</span>

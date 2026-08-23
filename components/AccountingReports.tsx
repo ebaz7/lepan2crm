@@ -3622,7 +3622,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'traz' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">تراز مانده مشتریان</span>
+                        <span className="truncate">تراز معین تفصیلی مشتریان</span>
                     </button>
                 )}
                 {isSalesAllowed && (
@@ -3631,7 +3631,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sales' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">فروش و تحلیل مقایسه‌ای</span>
+                        <span className="truncate">گزارش فروش و برگشت از فروش</span>
                     </button>
                 )}
                 {isProductionAllowed && (
@@ -3640,7 +3640,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'production' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">آمار کل تولید و ضایعات</span>
+                        <span className="truncate">آمار تولید و ضایعات کارخانه</span>
                     </button>
                 )}
                 {isChequesAllowed && (
@@ -3649,7 +3649,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'cheques' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">لیست چک‌ها</span>
+                        <span className="truncate">اسناد دریافتنی (چک‌ها)</span>
                     </button>
                 )}
                 {isRemittancesAllowed && (
@@ -3658,7 +3658,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'remittances' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">حواله‌های فروش (خروج کالا)</span>
+                        <span className="truncate">حواله فروش و خروج کالا</span>
                     </button>
                 )}
                 {isWarehouseOverviewAllowed && (
@@ -3667,7 +3667,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'warehouseOverview' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     >
                         <Archive className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">نمای کلی انبار</span>
+                        <span className="truncate">تراز وزنی و نمای کلی انبار</span>
                     </button>
                 )}
             </div>

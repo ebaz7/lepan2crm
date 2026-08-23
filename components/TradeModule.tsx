@@ -445,6 +445,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             freightCost: 0, 
             startDate: new Date().toISOString(), 
             status: 'Active', 
+            isInTransit: false,
+            isInCustoms: false,
             stages: {}, 
             createdAt: Date.now(), 
             createdBy: currentUser.fullName, 
@@ -1039,7 +1041,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             commodityGroup: selectedRecord.commodityGroup,
             company: selectedRecord.company,
             registrationNumber: selectedRecord.registrationNumber,
-            operatingBank: selectedRecord.operatingBank
+            operatingBank: selectedRecord.operatingBank,
+            isInTransit: selectedRecord.isInTransit || false,
+            isInCustoms: selectedRecord.isInCustoms || false
         });
         setShowEditMetadataModal(true);
     };
@@ -1449,6 +1453,26 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">فروشنده</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.sellerName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, sellerName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ارز پایه</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.mainCurrency || ''} onChange={e => setEditMetadataForm({...editMetadataForm, mainCurrency: e.target.value})}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">گروه کالایی</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.commodityGroup || ''} onChange={e => setEditMetadataForm({...editMetadataForm, commodityGroup: e.target.value})}><option value="">انتخاب...</option>{commodityGroups.map(g => <option key={g} value={g}>{g}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شرکت</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.company || ''} onChange={e => setEditMetadataForm({...editMetadataForm, company: e.target.value})}><option value="">انتخاب...</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره ثبت سفارش</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.registrationNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, registrationNumber: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">بانک عامل</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.operatingBank || ''} onChange={e => setEditMetadataForm({...editMetadataForm, operatingBank: e.target.value})}><option value="">انتخاب...</option>{operatingBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editMetadataForm.isInTransit || false} 
+                                            onChange={e => setEditMetadataForm({...editMetadataForm, isInTransit: e.target.checked})} 
+                                            className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+                                        /> 
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">بار در راه (ترانزیت)</span>
+                                    </label>
+                                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editMetadataForm.isInCustoms || false} 
+                                            onChange={e => setEditMetadataForm({...editMetadataForm, isInCustoms: e.target.checked})} 
+                                            className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+                                        /> 
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">بار در گمرک</span>
+                                    </label>
+                                </div>
                                 <button onClick={saveMetadata} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4 transition-all">ذخیره تغییرات</button>
                             </div>
                         </div>

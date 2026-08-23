@@ -1107,6 +1107,8 @@ export interface TradeRecord {
     freightCost: number;
     status: 'Active' | 'Completed';
     isArchived?: boolean;
+    isInTransit?: boolean;
+    isInCustoms?: boolean;
     stages: Record<string, TradeStageData>;
     startDate: string;
     createdAt: number;

@@ -252,12 +252,118 @@ export const WarehouseOverviewTab: React.FC = () => {
                 setReportDate(`${yr.toLocaleString('fa-IR', {useGrouping: false})}/۰۸/۲۲`);
             }
 
+            // Fetch trade records to dynamically compute commercial goods in transit, in customs, and purchased
+            let tradeRecords: any[] = [];
+            try {
+                const tradeRes = await fetch('/api/trade');
+                if (tradeRes.ok) {
+                    tradeRecords = await tradeRes.json();
+                }
+            } catch (err) {
+                console.error("Failed to fetch trade records", err);
+            }
+
+            const parsedCommercialTransit: CustomCargoItem[] = [];
+            const parsedCommercialCustoms: CustomCargoItem[] = [];
+            const parsedCommercialPurchase: CustomCargoItem[] = [];
+
+            const getRecordWeight = (rec: any): number => {
+                if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
+                    const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+                    let commW = 0;
+                    for (const doc of commDocs) {
+                        if (doc.invoiceItems && doc.invoiceItems.length > 0) {
+                            commW += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0);
+                        } else if (doc.netWeight) {
+                            commW += Number(doc.netWeight) || 0;
+                        }
+                    }
+                    if (commW > 0) return commW;
+                }
+                return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0) : 0;
+            };
+
+            const getRecordCartons = (rec: any): number => {
+                if (!rec.shippingDocuments) return 0;
+                const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+                let cartons = 0;
+                for (const doc of commDocs) {
+                    if (doc.packagesCount) {
+                        cartons += Number(doc.packagesCount) || 0;
+                    } else if (doc.packingItems && doc.packingItems.length > 0) {
+                        cartons += doc.packingItems.reduce((sum: number, item: any) => sum + (Number(item.packageCount) || 0), 0);
+                    }
+                }
+                return cartons;
+            };
+
+            const getRecordDollars = (rec: any): number => {
+                if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
+                    const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+                    let dol = 0;
+                    for (const doc of commDocs) {
+                        if (doc.invoiceItems && doc.invoiceItems.length > 0) {
+                            dol += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
+                        }
+                    }
+                    if (dol > 0) return dol;
+                }
+                return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0) : 0;
+            };
+
+            const activeTradeRecords = tradeRecords.filter((r: any) => !r.isArchived);
+
+            for (const record of activeTradeRecords) {
+                const hasCottage = record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && d.cottageNumber.trim() !== '');
+                const isInCustoms = record.isInCustoms || hasCottage;
+                const isInTransit = !isInCustoms && record.isInTransit;
+                const isCurrencyPurchased = !isInCustoms && !isInTransit && (
+                    record.currencyPurchaseData && (
+                        record.currencyPurchaseData.purchasedAmount > 0 || 
+                        (record.currencyPurchaseData.tranches && record.currencyPurchaseData.tranches.length > 0)
+                    )
+                );
+
+                const item: CustomCargoItem = {
+                    id: `com_${record.id}`,
+                    cargoType: record.goodsName || 'کالای بازرگانی',
+                    proforma: record.fileNumber || '',
+                    weight: getRecordWeight(record),
+                    cartons: getRecordCartons(record),
+                    container: 0,
+                    dollars: getRecordDollars(record)
+                };
+
+                if (isInCustoms) {
+                    parsedCommercialCustoms.push(item);
+                } else if (isInTransit) {
+                    parsedCommercialTransit.push(item);
+                } else if (isCurrencyPurchased) {
+                    parsedCommercialPurchase.push(item);
+                }
+            }
+
             if (dbData) {
                 setLastYearOverrides(dbData.lastYearOverrides || {});
                 setCurrentOverrides(dbData.currentOverrides || {});
-                setGoodsInTransit(dbData.goodsInTransit || []);
-                setGoodsInCustoms(dbData.goodsInCustoms || []);
-                setPurchasingGoods(dbData.purchasingGoods || []);
+                
+                const loadedTransit = dbData.goodsInTransit || [];
+                const loadedCustoms = dbData.goodsInCustoms || [];
+                const loadedPurchase = dbData.purchasingGoods || [];
+
+                setGoodsInTransit([
+                    ...loadedTransit.filter((x: any) => !x.id.startsWith('com_')),
+                    ...parsedCommercialTransit
+                ]);
+                setGoodsInCustoms([
+                    ...loadedCustoms.filter((x: any) => !x.id.startsWith('com_')),
+                    ...parsedCommercialCustoms
+                ]);
+                setPurchasingGoods([
+                    ...loadedPurchase.filter((x: any) => !x.id.startsWith('com_')),
+                    ...parsedCommercialPurchase
+                ]);
+
                 setCommercialGoods(dbData.commercialGoods || []);
                 setItemCategories(dbData.itemCategories || {});
                 
@@ -360,9 +466,9 @@ export const WarehouseOverviewTab: React.FC = () => {
             const payload = {
                 lastYearOverrides,
                 currentOverrides,
-                goodsInTransit,
-                goodsInCustoms,
-                purchasingGoods,
+                goodsInTransit: goodsInTransit.filter(r => !r.id.startsWith('com_')),
+                goodsInCustoms: goodsInCustoms.filter(r => !r.id.startsWith('com_')),
+                purchasingGoods: purchasingGoods.filter(r => !r.id.startsWith('com_')),
                 commercialGoods,
                 itemCategories,
                 meta: {
@@ -2003,80 +2109,94 @@ export const WarehouseOverviewTab: React.FC = () => {
                                         <td colSpan={isEditMode ? 7 : 6} className="py-6 text-center text-slate-400 font-medium">هیچ باری در راه ثبت نشده است.</td>
                                     </tr>
                                 ) : (
-                                    goodsInTransit.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.cargoType} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'cargoType', e.target.value)}
-                                                        className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.cargoType}
-                                            </td>
-                                            <td className="py-2.5 px-2">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.proforma} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'proforma', e.target.value)}
-                                                        className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.proforma || '-'}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.weight} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'weight', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.weight.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.cartons} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'cartons', e.target.value)}
-                                                        className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.cartons.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.container} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'container', e.target.value)}
-                                                        className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.container.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.dollars} 
-                                                        onChange={(e) => updateCustomCell('transit', item.id, 'dollars', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : `$${item.dollars.toLocaleString('en-US')}`}
-                                            </td>
-                                            {isEditMode && (
-                                                <td className="py-2.5 px-2">
-                                                    <button 
-                                                        onClick={() => deleteCustomRow('transit', item.id)}
-                                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                    goodsInTransit.map((item) => {
+                                        const isCommercial = item.id.startsWith('com_');
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
+                                                <td className="py-2.5 px-3 text-right font-bold flex items-center gap-1.5 flex-wrap">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.cargoType} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'cargoType', e.target.value)}
+                                                            className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex items-center gap-1.5 flex-wrap">
+                                                            {item.cargoType}
+                                                            {isCommercial && (
+                                                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-900 font-bold font-sans">
+                                                                    سیستم بازرگانی
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    )}
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))
+                                                <td className="py-2.5 px-2">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.proforma} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'proforma', e.target.value)}
+                                                            className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : item.proforma || '-'}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.weight} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'weight', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.weight.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.cartons} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'cartons', e.target.value)}
+                                                            className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.cartons.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.container} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'container', e.target.value)}
+                                                            className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.container.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.dollars} 
+                                                            onChange={(e) => updateCustomCell('transit', item.id, 'dollars', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : `$${item.dollars.toLocaleString('en-US')}`}
+                                                </td>
+                                                {isEditMode && (
+                                                    <td className="py-2.5 px-2">
+                                                        {!isCommercial && (
+                                                            <button 
+                                                                onClick={() => deleteCustomRow('transit', item.id)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                             {goodsInTransit.length > 0 && (
@@ -2131,80 +2251,94 @@ export const WarehouseOverviewTab: React.FC = () => {
                                         <td colSpan={isEditMode ? 7 : 6} className="py-6 text-center text-slate-400 font-medium">هیچ باری در گمرک ثبت نشده است.</td>
                                     </tr>
                                 ) : (
-                                    goodsInCustoms.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.cargoType} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'cargoType', e.target.value)}
-                                                        className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.cargoType}
-                                            </td>
-                                            <td className="py-2.5 px-2">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.proforma} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'proforma', e.target.value)}
-                                                        className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.proforma || '-'}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.weight} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'weight', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.weight.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.cartons} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'cartons', e.target.value)}
-                                                        className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.cartons.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.container} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'container', e.target.value)}
-                                                        className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.container.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.dollars} 
-                                                        onChange={(e) => updateCustomCell('customs', item.id, 'dollars', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : `$${item.dollars.toLocaleString('en-US')}`}
-                                            </td>
-                                            {isEditMode && (
-                                                <td className="py-2.5 px-2">
-                                                    <button 
-                                                        onClick={() => deleteCustomRow('customs', item.id)}
-                                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                    goodsInCustoms.map((item) => {
+                                        const isCommercial = item.id.startsWith('com_');
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
+                                                <td className="py-2.5 px-3 text-right font-bold flex items-center gap-1.5 flex-wrap">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.cargoType} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'cargoType', e.target.value)}
+                                                            className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex items-center gap-1.5 flex-wrap">
+                                                            {item.cargoType}
+                                                            {isCommercial && (
+                                                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-900 font-bold font-sans">
+                                                                    سیستم بازرگانی
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    )}
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))
+                                                <td className="py-2.5 px-2">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.proforma} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'proforma', e.target.value)}
+                                                            className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : item.proforma || '-'}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.weight} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'weight', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.weight.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.cartons} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'cartons', e.target.value)}
+                                                            className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.cartons.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.container} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'container', e.target.value)}
+                                                            className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.container.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.dollars} 
+                                                            onChange={(e) => updateCustomCell('customs', item.id, 'dollars', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : `$${item.dollars.toLocaleString('en-US')}`}
+                                                </td>
+                                                {isEditMode && (
+                                                    <td className="py-2.5 px-2">
+                                                        {!isCommercial && (
+                                                            <button 
+                                                                onClick={() => deleteCustomRow('customs', item.id)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                             {goodsInCustoms.length > 0 && (
@@ -2259,80 +2393,94 @@ export const WarehouseOverviewTab: React.FC = () => {
                                         <td colSpan={isEditMode ? 7 : 6} className="py-6 text-center text-slate-400 font-medium">هیچ خرید فعالی در دست اقدام نیست.</td>
                                     </tr>
                                 ) : (
-                                    purchasingGoods.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
-                                            <td className="py-2.5 px-3 text-right font-bold">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.cargoType} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'cargoType', e.target.value)}
-                                                        className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.cargoType}
-                                            </td>
-                                            <td className="py-2.5 px-2">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="text" 
-                                                        value={item.proforma} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'proforma', e.target.value)}
-                                                        className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
-                                                    />
-                                                ) : item.proforma || '-'}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.weight} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'weight', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.weight.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.cartons} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'cartons', e.target.value)}
-                                                        className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.cartons.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.container} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'container', e.target.value)}
-                                                        className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : item.container.toLocaleString('fa-IR')}
-                                            </td>
-                                            <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
-                                                {isEditMode ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={item.dollars} 
-                                                        onChange={(e) => updateCustomCell('purchase', item.id, 'dollars', e.target.value)}
-                                                        className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
-                                                    />
-                                                ) : `$${item.dollars.toLocaleString('en-US')}`}
-                                            </td>
-                                            {isEditMode && (
-                                                <td className="py-2.5 px-2">
-                                                    <button 
-                                                        onClick={() => deleteCustomRow('purchase', item.id)}
-                                                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                    purchasingGoods.map((item) => {
+                                        const isCommercial = item.id.startsWith('com_');
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-50 text-slate-700">
+                                                <td className="py-2.5 px-3 text-right font-bold flex items-center gap-1.5 flex-wrap">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.cargoType} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'cargoType', e.target.value)}
+                                                            className="w-full py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex items-center gap-1.5 flex-wrap">
+                                                            {item.cargoType}
+                                                            {isCommercial && (
+                                                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-900 font-bold font-sans">
+                                                                    سیستم بازرگانی
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    )}
                                                 </td>
-                                            )}
-                                        </tr>
-                                    ))
+                                                <td className="py-2.5 px-2">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="text" 
+                                                            value={item.proforma} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'proforma', e.target.value)}
+                                                            className="w-full text-center py-1 px-2 border rounded border-slate-200 focus:outline-none"
+                                                        />
+                                                    ) : item.proforma || '-'}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.weight} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'weight', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.weight.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.cartons} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'cartons', e.target.value)}
+                                                            className="w-24 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.cartons.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.container} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'container', e.target.value)}
+                                                            className="w-20 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : item.container.toLocaleString('fa-IR')}
+                                                </td>
+                                                <td className="py-2.5 px-2 font-mono font-bold text-emerald-600">
+                                                    {isEditMode && !isCommercial ? (
+                                                        <input 
+                                                            type="number" 
+                                                            value={item.dollars} 
+                                                            onChange={(e) => updateCustomCell('purchase', item.id, 'dollars', e.target.value)}
+                                                            className="w-28 text-center py-1 px-2 border rounded border-slate-200 font-mono"
+                                                        />
+                                                    ) : `$${item.dollars.toLocaleString('en-US')}`}
+                                                </td>
+                                                {isEditMode && (
+                                                    <td className="py-2.5 px-2">
+                                                        {!isCommercial && (
+                                                            <button 
+                                                                onClick={() => deleteCustomRow('purchase', item.id)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-all"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                             {purchasingGoods.length > 0 && (
