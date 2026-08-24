@@ -57,7 +57,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
                 canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canManagePurchase: true,
                 canViewNotifications: true, canCreateNotifications: true, canCreateAnnouncements: true,
                 canViewCustomerBalances: true, canImportCustomerBalances: true,
-                canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true
+                canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true, canViewSayanWarehouseWidget: true
             };
         }
 
@@ -88,7 +88,7 @@ export const getRolePermissions = (userRole: string, settings: SystemSettings | 
             canViewSecurity: true, canCreateSecurityLog: true, canApproveSecuritySupervisor: true, canManagePurchase: true,
             canViewNotifications: true, canCreateNotifications: true, canCreateAnnouncements: true,
             canViewCustomerBalances: true, canImportCustomerBalances: true,
-            canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true,
+            canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true, canViewSayanWarehouseWidget: true,
             // Purchase-specific permissions hardwired for administrator:
             canView: true, canCreate: true, canApproveTechnical: true, canApproveFactory: true, canApproveCEO: true,
             canManageProformas: true, canSelectProforma: true, canRegisterEntry: true, canCheckQC: true,

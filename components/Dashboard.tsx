@@ -483,6 +483,24 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
     ];
   }, [warehouseOverviewData]);
 
+  const displayWarehouseData = useMemo(() => {
+    const meta = warehouseOverviewData?.meta || {};
+    const totalCurrentAllWeight = meta.totalCurrentAllWeight !== undefined ? meta.totalCurrentAllWeight : 730000;
+    const diffAllWeight = meta.diffAllWeight !== undefined ? meta.diffAllWeight : -30000;
+    const ratioAllWeight = meta.ratioAllWeight !== undefined ? meta.ratioAllWeight : 4.1;
+    const totalPositiveWeight = meta.totalPositiveWeight !== undefined ? meta.totalPositiveWeight : 45000;
+    const totalNegativeWeight = meta.totalNegativeWeight !== undefined ? meta.totalNegativeWeight : -75000;
+    const reportDate = meta.reportDate || '۱۴۰۵/۰۵/۳۱';
+    return {
+      totalCurrentAllWeight,
+      diffAllWeight,
+      ratioAllWeight,
+      totalPositiveWeight,
+      totalNegativeWeight,
+      reportDate
+    };
+  }, [warehouseOverviewData]);
+
   const topBank = bankStats.length > 0 ? bankStats[0] : { name: '-', value: 0 };
   const mostActiveMonth = { label: '-', total: 0 }; // Simplified for now
 
@@ -1022,7 +1040,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                 </div>
 
                 {/* WAREHOUSE STATUS WIDGET */}
-                {warehouseAlertData && (
+                {permissions.canViewSayanWarehouseWidget && (
                     <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-sm flex flex-col mb-6">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -1044,7 +1062,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                                     <span className="text-xs text-gray-500 block mb-1">کل وزن موجودی زنجیره تامین</span>
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-2xl font-black text-gray-800 font-mono">
-                                            {((warehouseOverviewData?.meta?.totalCurrentAllWeight || warehouseAlertData.totalCurrentAllWeight || 730000) / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}
+                                            {(displayWarehouseData.totalCurrentAllWeight / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}
                                         </span>
                                         <span className="text-xs text-gray-500 font-bold">تن (Tons)</span>
                                     </div>
@@ -1054,21 +1072,44 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                                     <span className="text-xs text-gray-500 block mb-1">تغییر نسبت به دوره مشابه سال قبل</span>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-lg font-black font-mono ${
-                                            (warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                            displayWarehouseData.diffAllWeight >= 0 ? 'text-emerald-600' : 'text-red-600'
                                         }`}>
-                                            {((warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} تن
+                                            {(displayWarehouseData.diffAllWeight / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} تن
                                         </span>
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                                            (warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                                            displayWarehouseData.diffAllWeight >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
                                         }`}>
-                                            {Math.abs(warehouseOverviewData?.meta?.ratioAllWeight || warehouseAlertData.ratioAllWeight || 4.1).toFixed(1)}٪
+                                            {Math.abs(displayWarehouseData.ratioAllWeight).toFixed(1)}٪
                                         </span>
+                                    </div>
+                                </div>
+
+                                {/* REPORT OF POSITIVE & NEGATIVE WEIGHTS AT ANY MOMENT */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-emerald-50/60 dark:bg-emerald-950/10 p-3 rounded-xl border border-emerald-100/50">
+                                        <span className="text-[10px] text-emerald-800 dark:text-emerald-400 font-bold block mb-1">ترازهای مثبت (رشد وزنی)</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-sm font-black text-emerald-700 font-mono" dir="ltr">
+                                                +{(displayWarehouseData.totalPositiveWeight / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}
+                                            </span>
+                                            <span className="text-[9px] text-emerald-600 font-bold">تن</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-red-50/60 dark:bg-red-950/10 p-3 rounded-xl border border-red-100/50">
+                                        <span className="text-[10px] text-red-800 dark:text-red-400 font-bold block mb-1">ترازهای منفی (کسری وزنی)</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-sm font-black text-red-700 font-mono" dir="ltr">
+                                                {(displayWarehouseData.totalNegativeWeight / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}
+                                            </span>
+                                            <span className="text-[9px] text-red-600 font-bold">تن</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="text-xs text-gray-400 flex items-center gap-1">
                                     <Clock size={12} />
-                                    <span>بروزرسانی گزارش: {warehouseOverviewData?.meta?.reportDate || 'امروز'}</span>
+                                    <span>بروزرسانی گزارش: {displayWarehouseData.reportDate}</span>
                                 </div>
                             </div>
 

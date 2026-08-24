@@ -168,6 +168,7 @@ export interface RolePermissions {
   canViewSayanSales?: boolean;
   canViewSayanProduction?: boolean;
   canViewSayanCheques?: boolean;
+  canViewSayanWarehouseWidget?: boolean;
   canAccessSayanReports?: boolean;
   canAccessSayanBalances?: boolean;
   canAccessSayanPendingDocs?: boolean;

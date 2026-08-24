@@ -501,6 +501,9 @@ export const WarehouseOverviewTab: React.FC = () => {
     const handleSave = async (silent = false) => {
         setIsSaving(true);
         try {
+            const totalNegativeWeight = negativeItems.reduce((sum, item) => sum + item.diffWeight, 0);
+            const totalPositiveWeight = growthItems.reduce((sum, item) => sum + item.diffWeight, 0);
+
             const payload = {
                 lastYearOverrides,
                 currentOverrides,
@@ -526,7 +529,9 @@ export const WarehouseOverviewTab: React.FC = () => {
                     totalCurrentYarnsWeight,
                     totalLastYearYarnsWeight,
                     totalCurrentRawWeight,
-                    totalLastYearRawWeight
+                    totalLastYearRawWeight,
+                    totalNegativeWeight,
+                    totalPositiveWeight
                 }
             };
 
