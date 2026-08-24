@@ -522,7 +522,11 @@ export const WarehouseOverviewTab: React.FC = () => {
                     allowedCompanies,
                     totalCurrentAllWeight,
                     diffAllWeight,
-                    ratioAllWeight
+                    ratioAllWeight,
+                    totalCurrentYarnsWeight,
+                    totalLastYearYarnsWeight,
+                    totalCurrentRawWeight,
+                    totalLastYearRawWeight
                 }
             };
 

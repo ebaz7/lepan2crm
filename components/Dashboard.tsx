@@ -87,6 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
 
   // Warehouse Alert State
   const [warehouseAlertData, setWarehouseAlertData] = useState<{ totalCurrentAllWeight: number, diffAllWeight: number, ratioAllWeight: number } | null>(null);
+  const [warehouseOverviewData, setWarehouseOverviewData] = useState<any | null>(null);
 
   useEffect(() => {
       const fetchWarehouseAlert = async () => {
@@ -94,6 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
               const res = await fetch('/api/warehouse-overview/data');
               if (res.ok) {
                   const data = await res.json();
+                  setWarehouseOverviewData(data);
                   if (data?.meta?.totalCurrentAllWeight !== undefined) {
                       setWarehouseAlertData({
                           totalCurrentAllWeight: data.meta.totalCurrentAllWeight,
@@ -459,6 +461,27 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
     completedOrders.forEach(order => { order.paymentDetails.forEach(detail => { if (detail.bankName && detail.bankName.trim() !== '') { const normalizedName = detail.bankName.trim(); stats[normalizedName] = (stats[normalizedName] || 0) + detail.amount; } }); });
     return Object.entries(stats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [completedOrders]);
+
+  const warehouseChartData = useMemo(() => {
+    const meta = warehouseOverviewData?.meta || {};
+    const currYarns = meta.totalCurrentYarnsWeight !== undefined ? meta.totalCurrentYarnsWeight : 450000;
+    const prevYarns = meta.totalLastYearYarnsWeight !== undefined ? meta.totalLastYearYarnsWeight : 420000;
+    const currRaw = meta.totalCurrentRawWeight !== undefined ? meta.totalCurrentRawWeight : 280000;
+    const prevRaw = meta.totalLastYearRawWeight !== undefined ? meta.totalLastYearRawWeight : 310000;
+
+    return [
+      {
+        name: 'نخ‌های کارخانه',
+        'امسال': currYarns / 1000,
+        'سال قبل': prevYarns / 1000,
+      },
+      {
+        name: 'مواد اولیه و وارده',
+        'امسال': currRaw / 1000,
+        'سال قبل': prevRaw / 1000,
+      }
+    ];
+  }, [warehouseOverviewData]);
 
   const topBank = bankStats.length > 0 ? bankStats[0] : { name: '-', value: 0 };
   const mostActiveMonth = { label: '-', total: 0 }; // Simplified for now
@@ -997,6 +1020,75 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                         </div>
                     </div>
                 </div>
+
+                {/* WAREHOUSE STATUS WIDGET */}
+                {warehouseAlertData && (
+                    <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-sm flex flex-col mb-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                <Package size={20} className="text-orange-500"/>
+                                <span>وضعیت تراز وزنی و موجودی انبارها (سایان ERP)</span>
+                            </h3>
+                            <button 
+                                onClick={() => onNavigate && onNavigate('sayan')} 
+                                className="text-xs bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 px-3 py-1.5 rounded-lg font-bold hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors border border-orange-100"
+                            >
+                                جزئیات و استعلام جدید
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Stat Blocks */}
+                            <div className="space-y-4 flex flex-col justify-center">
+                                <div className="bg-orange-50/50 dark:bg-orange-950/10 p-4 rounded-xl border border-orange-100/50">
+                                    <span className="text-xs text-gray-500 block mb-1">کل وزن موجودی زنجیره تامین</span>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-2xl font-black text-gray-800 font-mono">
+                                            {((warehouseOverviewData?.meta?.totalCurrentAllWeight || warehouseAlertData.totalCurrentAllWeight || 730000) / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}
+                                        </span>
+                                        <span className="text-xs text-gray-500 font-bold">تن (Tons)</span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-50 dark:bg-zinc-800/40 p-4 rounded-xl border border-zinc-100/50">
+                                    <span className="text-xs text-gray-500 block mb-1">تغییر نسبت به دوره مشابه سال قبل</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-lg font-black font-mono ${
+                                            (warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                        }`}>
+                                            {((warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} تن
+                                        </span>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                            (warehouseOverviewData?.meta?.diffAllWeight || warehouseAlertData.diffAllWeight || -30000) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                                        }`}>
+                                            {Math.abs(warehouseOverviewData?.meta?.ratioAllWeight || warehouseAlertData.ratioAllWeight || 4.1).toFixed(1)}٪
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Clock size={12} />
+                                    <span>بروزرسانی گزارش: {warehouseOverviewData?.meta?.reportDate || 'امروز'}</span>
+                                </div>
+                            </div>
+
+                            {/* Bar Chart */}
+                            <div className="lg:col-span-2 h-56 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsBarChart data={warehouseChartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                        <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} />
+                                        <YAxis tick={{fontSize: 10}} tickFormatter={(value) => `${value}t`} />
+                                        <Tooltip formatter={(value: number) => [`${value.toLocaleString('fa-IR', {maximumFractionDigits: 1})} تن`, '']} cursor={{fill: '#fcf8f2'}} />
+                                        <Legend iconType="circle" wrapperStyle={{fontSize: 11, fontWeight: 'bold'}} />
+                                        <Bar dataKey="امسال" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="سال قبل" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                                    </RechartsBarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="glass-panel rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200/50">

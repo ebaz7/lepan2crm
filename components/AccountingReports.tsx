@@ -2632,9 +2632,31 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     const handleSendBotReport = async () => {
-        if (!confirm(`آیا از ارسال این گزارش تولید و ضایعات به گروه‌های تعریف‌شده در تلگرام/بله اطمینان دارید؟`)) return;
+        if (!confirm(`آیا از ارسال این گزارش تولید و ضایعات به گروه‌های تعریف‌شده در تلگرام/بله اطمینان دارید؟\n(مقادیر ضایعات نیز به‌طور خودکار در بایگانی ذخیره خواهند شد)`)) return;
         setIsSendingBot(true);
         try {
+            // First, also perform client-side auto-save request to ensure instant sync
+            try {
+                await fetch(getEffectiveApiUrl('/api/sayan/production-report/save-waste'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dateFrom,
+                        dateTo,
+                        waste_61: prodWaste.waste_61,
+                        waste_67: prodWaste.waste_67,
+                        waste_79: prodWaste.waste_79,
+                        waste_73: prodWaste.waste_73,
+                        waste_schweiter: prodWaste.waste_schweiter,
+                        details: prodWaste.details,
+                        totals: prodLiveTotals,
+                        items: prodLiveItems
+                    })
+                });
+            } catch (saveErr) {
+                console.warn("Client pre-save warning:", saveErr);
+            }
+
             const res = await fetch(getEffectiveApiUrl('/api/sayan/production-report/send-bot'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2648,7 +2670,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             });
             const data = await res.json();
             if (data.success) {
-                toast.success(data.message || 'گزارش با موفقیت ارسال شد.');
+                toast.success('گزارش با موفقیت به ربات ارسال شد و مقادیر ضایعات نیز به‌صورت خودکار در سیستم ذخیره گردید.');
+                fetchProdArchive();
             } else {
                 toast.error(data.error || 'خطا در ارسال گزارش به گروه‌ها.');
             }

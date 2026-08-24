@@ -2275,6 +2275,56 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
             return res.status(400).json({ error: 'اطلاعات گزارش کامل نیست' });
         }
 
+        // Auto-save and archive waste values so user never loses them even if they didn't click save button
+        try {
+            const actualDateTo = dateTo || dateFrom;
+            const key = `${dateFrom}_${actualDateTo}`;
+            db.productionReportWastes = db.productionReportWastes || {};
+            db.productionReportWastes[key] = {
+                waste_61: parseFloat(waste.waste_61 || 0),
+                waste_67: parseFloat(waste.waste_67 || 0),
+                waste_79: parseFloat(waste.waste_79 || 0),
+                waste_73: parseFloat(waste.waste_73 || 0),
+                waste_schweiter: parseFloat(waste.waste_schweiter || 0),
+                details: String(waste.details || '').trim(),
+                updatedAt: new Date().toISOString()
+            };
+
+            db.productionWasteArchive = db.productionWasteArchive || [];
+            const existingIdx = db.productionWasteArchive.findIndex(entry => entry.dateFrom === dateFrom && entry.dateTo === actualDateTo);
+            const w_61 = parseFloat(waste.waste_61 || 0);
+            const w_67 = parseFloat(waste.waste_67 || 0);
+            const w_79 = parseFloat(waste.waste_79 || 0);
+            const w_73 = parseFloat(waste.waste_73 || 0);
+            const w_schweiter = parseFloat(waste.waste_schweiter || 0);
+            const totalW = w_61 + w_67 + w_79 + w_73 + w_schweiter;
+
+            const archiveEntry = {
+                id: existingIdx !== -1 ? db.productionWasteArchive[existingIdx].id : 'pwa_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                dateFrom,
+                dateTo: actualDateTo,
+                waste_61: w_61,
+                waste_67: w_67,
+                waste_79: w_79,
+                waste_73: w_73,
+                waste_schweiter: w_schweiter,
+                totalWaste: totalW,
+                details: String(waste.details || '').trim(),
+                totals: totals || null,
+                items: items || null,
+                updatedAt: new Date().toISOString()
+            };
+
+            if (existingIdx !== -1) {
+                db.productionWasteArchive[existingIdx] = archiveEntry;
+            } else {
+                db.productionWasteArchive.push(archiveEntry);
+            }
+            saveDb(db);
+        } catch (saveErr) {
+            console.error("Auto-save waste in send-bot warning:", saveErr.message);
+        }
+
         const title = `گزارش آمار کل تولید و ضایعات (${dateFrom})`;
         const pdfBuffer = await Renderer.generateProductionReportPDF(title, dateFrom, dateTo, items, totals, waste);
 
