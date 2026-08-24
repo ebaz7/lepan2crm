@@ -2358,14 +2358,22 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         }
 
         if (!sayanUrl || !sayanKey) {
-            // Generate highly realistic mock data for returns (Operation Code 44) matching user's specific document numbers (102, 103, 104, 105)
+            // Generate highly realistic mock data for returns (Operation Code 44) matching user's specific document numbers (102, 103, 104, 105) and archive code (2716)
             const mockItems = [
-                { DocId: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
-                { DocId: '102', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
-                { DocId: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
-                { DocId: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
-                { DocId: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
-                { DocId: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0104051001', ItemName: 'لاکرا شوایتر برگشتی', Quantity: 160 },
+                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50 },
+
+                { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200 },
+                { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850 },
+
+                { DocId: '2718', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
+                { DocId: '2719', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+                { DocId: '2719', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
             ];
             return res.json({
                 success: true,
@@ -2378,7 +2386,8 @@ app.get('/api/sayan/production-returns', async (req, res) => {
 
         const sql = `
             SELECT 
-                t10.Field_001 as DocId,
+                t10.Field_005 as DocId,
+                t10.Field_006 as SubCode,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
@@ -2395,7 +2404,6 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
-                                      AND t11.Field_012 = t10.Field_018
             LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
@@ -2648,18 +2656,27 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
 
     if (!sayanUrl || !sayanKey) {
         return [
-            { DocId: 'R-4401', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
-            { DocId: 'R-4402', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
-            { DocId: 'R-4403', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
-            { DocId: 'R-4404', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
-            { DocId: 'R-4405', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
-            { DocId: 'R-4406', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0104051001', ItemName: 'لاکرا شوایتر برگشتی', Quantity: 160 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50 },
+
+            { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200 },
+            { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850 },
+
+            { DocId: '2718', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
+            { DocId: '2719', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+            { DocId: '2719', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
         ];
     }
 
     const sql = `
         SELECT 
-            t10.Field_001 as DocId,
+            t10.Field_005 as DocId,
+            t10.Field_006 as SubCode,
             t10.Field_008 as Date,
             RTRIM(LTRIM(t10.Field_009)) as DocType,
             RTRIM(LTRIM(t11.Field_005)) as ItemCode,
@@ -2673,11 +2690,10 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
                 N'کالای بدون نام'
             ) as ItemName,
             t11.Field_006 as Quantity
-        FROM STR_TBL_010 t10
-        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                  AND t11.Field_003 = t10.Field_004
-                                  AND t11.Field_012 = t10.Field_018
-        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+    FROM STR_TBL_010 t10
+    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                              AND t11.Field_003 = t10.Field_004
+    LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
@@ -2718,14 +2734,14 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
         if (code.startsWith('0405')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
         if (code.startsWith('0407')) return { code: '0407', name: 'نایلون (0407)', isProduction: true };
         
-        if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: false };
-        if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: false };
-        if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: false };
-        if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: false };
-        if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: false };
-        if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: false };
-        if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: false };
-        if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: false };
+        if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: true };
+        if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: true };
+        if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: true };
+        if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: true };
+        if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: true };
+        if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: true };
+        if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: true };
+        if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: true };
 
         if (name.includes('اسپاندکس') || name.includes('spandex')) {
             return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
@@ -2737,7 +2753,7 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
             return { code: '0103', name: 'dty با پلی استر', isProduction: true };
         }
         if (name.includes('poy') || name.includes('پوی')) {
-            return { code: '0102', name: 'POY', isProduction: false };
+            return { code: '0102', name: 'POY', isProduction: true };
         }
         if (name.includes('شوایتر') || name.includes('schweiter')) {
             return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
@@ -2748,7 +2764,7 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
         if (name.includes('ضایعات') || name.includes('waste')) {
             return { code: '0108', name: 'نایلون (ضایعات)', isProduction: true };
         }
-        return { code: 'سایر', name: 'سایر ملزومات', isProduction: false };
+        return { code: 'سایر', name: 'سایر ملزومات', isProduction: true };
     };
 
     const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
@@ -2800,7 +2816,7 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
     // Group by DocId (Document Number)
     const documentsMap = new Map();
     items.forEach(item => {
-        const docId = String(item.DocId || 'بدون شماره سند').trim();
+        const docId = String(item.SubCode || item.DocId || 'بدون شماره سند').trim();
         let displayDate = '';
         if (item.Date) {
             try {
@@ -2968,7 +2984,7 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                 </div>
             </div>
 
-            <div class="section-title">بخش اول: کالاهای تولیدی (ادغام در سطح گروه کالا)</div>
+            <div class="section-title">بخش اول: برگشت از تولید (ادغام در سطح گروه کالا)</div>
             <table>
                 <thead>
                     <tr>
@@ -2992,45 +3008,14 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                         </tr>
                     `).join('')}
                     <tr class="sum-row">
-                        <td colspan="4">جمع کل کالاهای تولیدی</td>
-                        <td>${totalProdWeight.toLocaleString('fa-IR')}</td>
-                        <td>${totalWeight > 0 ? ((totalProdWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
+                        <td colspan="4">جمع کل برگشت از تولید</td>
+                        <td>${totalWeight.toLocaleString('fa-IR')}</td>
+                        <td>100%</td>
                     </tr>
                 </tbody>
             </table>
 
-            <div class="section-title">بخش دوم: مواد اولیه وارداتی و کمکی (تفکیک بر اساس گروه کالا)</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">ردیف</th>
-                        <th>کد گروه</th>
-                        <th>گروه کالا</th>
-                        <th>تعداد اقلام متمایز</th>
-                        <th>مجموع وزن برگشتی (کیلوگرم)</th>
-                        <th>سهم از کل</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${materialGroupsList.length === 0 ? '<tr><td colspan="6" style="padding: 12px; color: #64748b;">موردی ثبت نشده است</td></tr>' : materialGroupsList.map((g, idx) => `
-                        <tr>
-                            <td>${idx + 1}</td>
-                            <td>${g.code}</td>
-                            <td class="text-right">${g.name}</td>
-                            <td>${g.itemsCount}</td>
-                            <td style="font-weight: bold;">${g.totalQty.toLocaleString('fa-IR')}</td>
-                            <td>${totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                    `).join('')}
-                    <tr class="sum-row">
-                        <td colspan="4">جمع کل مواد اولیه و کمکی</td>
-                        <td>${totalMatWeight.toLocaleString('fa-IR')}</td>
-                        <td>${totalWeight > 0 ? ((totalMatWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="section-title">بخش سوم: گزارش ریز خود کالا (ادغام شده بر اساس نام کالا)</div>
+            <div class="section-title">بخش دوم: گزارش ریز خود کالا (ادغام شده بر اساس نام کالا)</div>
             <table>
                 <thead>
                     <tr>
@@ -3059,7 +3044,7 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                 </tbody>
             </table>
 
-            <div class="section-title" style="page-break-before: always;">بخش چهارم: ریز اسناد و مدارک برگشتی (کد عملیات ۴۴)</div>
+            <div class="section-title" style="page-break-before: always;">بخش سوم: ریز اسناد و مدارک برگشتی (کد عملیات ۴۴)</div>
             ${documentsList.map((doc) => `
                 <div class="doc-card-header">
                     <span style="color: #1e3a8a;">شماره سند: ${doc.docId}</span>

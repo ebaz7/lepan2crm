@@ -2376,14 +2376,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             if (code.startsWith('0405')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
             if (code.startsWith('0407')) return { code: '0407', name: 'نایلون (0407)', isProduction: true };
             
-            if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: false };
-            if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: false };
-            if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: false };
-            if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: false };
-            if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: false };
-            if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: false };
-            if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: false };
-            if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: false };
+            if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: true };
+            if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: true };
+            if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: true };
+            if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: true };
+            if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: true };
+            if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: true };
+            if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: true };
+            if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: true };
 
             if (name.includes('اسپاندکس') || name.includes('spandex')) {
                 return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
@@ -2395,7 +2395,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 return { code: '0103', name: 'dty با پلی استر', isProduction: true };
             }
             if (name.includes('poy') || name.includes('پوی')) {
-                return { code: '0102', name: 'POY', isProduction: false };
+                return { code: '0102', name: 'POY', isProduction: true };
             }
             if (name.includes('شوایتر') || name.includes('schweiter')) {
                 return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
@@ -2406,7 +2406,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             if (name.includes('ضایعات') || name.includes('waste')) {
                 return { code: '0108', name: 'نایلون (ضایعات)', isProduction: true };
             }
-            return { code: 'سایر', name: 'سایر ملزومات', isProduction: false };
+            return { code: 'سایر', name: 'سایر ملزومات', isProduction: true };
         };
 
         const filteredRaw = prodReturnsData.filter(item => {
@@ -2528,7 +2528,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         if (prodReturnsGrouping === 'group') {
             tablesHtml = `
-                <div class="section-title">بخش اول: کالاهای تولیدی (ادغام در سطح گروه کالا)</div>
+                <div class="section-title">گزارش برگشت از تولید (ادغام در سطح گروه کالا)</div>
                 <table>
                     <thead>
                         <tr>
@@ -2552,40 +2552,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             </tr>
                         `).join('')}
                         <tr class="sum-row">
-                            <td colspan="4">جمع کل کالاهای تولیدی</td>
-                            <td>${Math.round(totalProdWeight).toLocaleString('fa-IR')}</td>
-                            <td>${totalWeight > 0 ? ((totalProdWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="section-title" style="margin-top: 30px;">بخش دوم: مواد اولیه وارداتی و کمکی (تفکیک بر اساس گروه کالا)</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">ردیف</th>
-                            <th>کد گروه</th>
-                            <th>گروه کالا</th>
-                            <th>تعداد اقلام</th>
-                            <th>مجموع وزن برگشتی (کیلوگرم)</th>
-                            <th>سهم از کل</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${materialGroupsList.map((g, idx) => `
-                            <tr>
-                                <td>${idx + 1}</td>
-                                <td>${g.code}</td>
-                                <td class="text-right">${g.name}</td>
-                                <td>${g.itemsCount}</td>
-                                <td style="font-weight: bold;">${Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
-                                <td>${totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%</td>
-                            </tr>
-                        `).join('')}
-                        <tr class="sum-row">
-                            <td colspan="4">جمع کل مواد اولیه و کمکی</td>
-                            <td>${Math.round(totalMatWeight).toLocaleString('fa-IR')}</td>
-                            <td>${totalWeight > 0 ? ((totalMatWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
+                            <td colspan="4">جمع کل برگشت از تولید</td>
+                            <td>${Math.round(totalWeight).toLocaleString('fa-IR')}</td>
+                            <td>100%</td>
                         </tr>
                     </tbody>
                 </table>
@@ -7027,15 +6996,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 prodReturnsGrouping === 'group' ? (
                                     /* GROUPED VIEW (گروه‌بندی کالا در قالب جداول تفکیک‌شده) */
                                     <div className="space-y-6">
-                                        {/* SECTION 1: PRODUCTION GOODS TABLE */}
+                                        {/* UNIFIED PRODUCTION GOODS TABLE */}
                                         <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                                             <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
                                                 <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
                                                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                                                    بخش اول: کالاهای تولیدی (ادغام در سطح گروه کالا)
+                                                    برگشت از تولید (ادغام در سطح گروه کالا)
                                                 </h3>
                                                 <span className="text-xs font-bold text-slate-500">
-                                                    مجموع: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">{totalProdWeight.toLocaleString('fa-IR')}</span> کیلوگرم
+                                                    مجموع: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">{totalWeight.toLocaleString('fa-IR')}</span> کیلوگرم
                                                 </span>
                                             </div>
                                             <div className="overflow-x-auto custom-scrollbar">
@@ -7065,55 +7034,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                                     <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">{Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
                                                                     <td className="p-3 text-center">
                                                                         <span className="inline-block bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[11px] font-black font-mono px-2 py-0.5 rounded">
-                                                                            {totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                        {/* SECTION 2: IMPORTED & AUXILIARY MATERIALS TABLE */}
-                                        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                                            <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-                                                <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
-                                                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                                                    بخش دوم: مواد اولیه وارداتی و کمکی (تفکیک بر اساس گروه کالا)
-                                                </h3>
-                                                <span className="text-xs font-bold text-slate-500">
-                                                    مجموع: <span className="font-mono text-blue-600 dark:text-blue-400 font-extrabold">{totalMatWeight.toLocaleString('fa-IR')}</span> کیلوگرم
-                                                </span>
-                                            </div>
-                                            <div className="overflow-x-auto custom-scrollbar">
-                                                <table className="w-full border-collapse text-right text-xs">
-                                                    <thead>
-                                                        <tr className="bg-slate-50/50 dark:bg-zinc-950/20 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                                            <th className="p-3 w-16 text-center">ردیف</th>
-                                                            <th className="p-3 w-32">کد گروه</th>
-                                                            <th className="p-3">گروه کالا</th>
-                                                            <th className="p-3 text-center">تعداد اقلام متمایز</th>
-                                                            <th className="p-3 text-left">مجموع وزن برگشتی (کیلوگرم)</th>
-                                                            <th className="p-3 text-center w-28">سهم از کل</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                        {materialGroupsList.length === 0 ? (
-                                                            <tr>
-                                                                <td colSpan={6} className="p-4 text-center text-slate-400 dark:text-zinc-500 font-medium">موردی یافت نشد</td>
-                                                            </tr>
-                                                        ) : (
-                                                            materialGroupsList.map((g, idx) => (
-                                                                <tr key={idx} className="hover:bg-slate-50/30 dark:hover:bg-zinc-800/10 transition-colors">
-                                                                    <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                                                    <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{g.code}</td>
-                                                                    <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{g.name}</td>
-                                                                    <td className="p-3 text-center font-bold font-mono text-slate-700 dark:text-zinc-300">{g.itemsCount}</td>
-                                                                    <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">{Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
-                                                                    <td className="p-3 text-center">
-                                                                        <span className="inline-block bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 text-[11px] font-black font-mono px-2 py-0.5 rounded">
                                                                             {totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%
                                                                         </span>
                                                                     </td>
