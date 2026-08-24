@@ -2325,6 +2325,107 @@ app.get('/api/sayan/production-report', async (req, res) => {
     }
 });
 
+app.get('/api/sayan/production-returns', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const sayanUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+        const sayanKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+        const rawFrom = req.query.dateFrom || '';
+        const rawTo = req.query.dateTo || rawFrom;
+
+        const dateFrom = normalizeShamsiDate(rawFrom);
+        const dateTo = normalizeShamsiDate(rawTo) || dateFrom;
+
+        if (!dateFrom || !dateTo) {
+            return res.status(400).json({ error: 'تاریخ ابتدا و انتها الزامی است' });
+        }
+
+        const gregFromDate = parseJalaliStrToGregorian(dateFrom);
+        const gregToDate = parseJalaliStrToGregorian(dateTo);
+
+        if (!gregFromDate || !gregToDate) {
+            return res.status(400).json({ error: 'فرمت تاریخ شمسی وارد شده نامعتبر است' });
+        }
+
+        if (!sayanUrl || !sayanKey) {
+            // Generate highly realistic mock data for returns (Operation Code 44)
+            const mockItems = [
+                { DocId: 'R-4401', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
+                { DocId: 'R-4402', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
+                { DocId: 'R-4403', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
+                { DocId: 'R-4404', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
+                { DocId: 'R-4405', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+                { DocId: 'R-4406', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+            ];
+            return res.json({
+                success: true,
+                isMock: true,
+                dateFrom,
+                dateTo,
+                items: mockItems
+            });
+        }
+
+        const sql = `
+            SELECT 
+                t10.Field_001 as DocId,
+                t10.Field_008 as Date,
+                RTRIM(LTRIM(t10.Field_009)) as DocType,
+                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                COALESCE(
+                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    RTRIM(LTRIM(t11.Field_005)),
+                    N'کالای بدون نام'
+                ) as ItemName,
+                t11.Field_006 as Quantity
+            FROM STR_TBL_010 t10
+            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                      AND t11.Field_003 = t10.Field_004
+                                      AND t11.Field_012 = t10.Field_018
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+            LEFT JOIN (
+                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+                FROM IND_TBL_021 t21_sub
+                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+                GROUP BY t21_sub.Field_004
+            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+            WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
+              AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
+            ORDER BY t10.Field_008 DESC
+        `;
+
+        const queryRows = await executeSayanQuery(db, sql);
+        res.json({
+            success: true,
+            isMock: false,
+            dateFrom,
+            dateTo,
+            items: queryRows || []
+        });
+    } catch (e) {
+        console.error("Sayan Production Returns Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/sayan/production-report/save-waste', (req, res) => {
     try {
         const db = getDb();

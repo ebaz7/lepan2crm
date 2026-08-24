@@ -40,7 +40,8 @@ import {
     CheckCircle2,
     ArrowUp,
     ArrowDown,
-    Truck
+    Truck,
+    Undo2
 } from 'lucide-react';
 import * as jalaali from 'jalaali-js';
 import { 
@@ -138,6 +139,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [prodArchive, setProdArchive] = useState<any[]>([]);
     const [isFetchingArchive, setIsFetchingArchive] = useState(false);
     const [archiveSearch, setArchiveSearch] = useState('');
+
+    // --- NEW TAB: RETURN FROM PRODUCTION STATE (Operation Code 44) ---
+    const [prodReturnsData, setProdReturnsData] = useState<any[]>([]);
+    const [isFetchingProdReturns, setIsFetchingProdReturns] = useState(false);
+    const [prodReturnsIsMock, setProdReturnsIsMock] = useState(false);
+    const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'group' | 'detail'>('group');
+    const [prodReturnsSearch, setProdReturnsSearch] = useState('');
     const [isSendingBot, setIsSendingBot] = useState(false);
     const [productionData, setProductionData] = useState<any[]>([]);
     const [prodGrouping, setProdGrouping] = useState<'group' | 'item' | 'date'>('group');
@@ -2328,6 +2336,33 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // ==========================================
+    // NEW TAB: RETURN FROM PRODUCTION (گزارش برگشت از تولید - کد عملیات ۴۴)
+    // ==========================================
+    const fetchProdReturns = async () => {
+        setIsFetchingProdReturns(true);
+        try {
+            const url = `/api/sayan/production-returns?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setProdReturnsData(data.items || []);
+                    setProdReturnsIsMock(!!data.isMock);
+                } else {
+                    toast.error(data.message || 'خطا در بارگذاری اطلاعات برگشت از تولید');
+                }
+            } else {
+                toast.error('خطا در برقراری ارتباط با سرور');
+            }
+        } catch (err) {
+            console.error("Failed to fetch production returns", err);
+            toast.error('خطای ارتباط با سرور');
+        } finally {
+            setIsFetchingProdReturns(false);
+        }
+    };
+
+    // ==========================================
     // ==========================================
     // TAB 4: PRODUCTION (گزارش آمار کل تولید و ضایعات سایان)
     // ==========================================
@@ -3543,6 +3578,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             fetchProdArchive();
         } else if (activeTab === 'cheques') {
             fetchCheques();
+        } else if (activeTab === 'prodReturns') {
+            fetchProdReturns();
         }
     }, [activeTab, dateFrom, dateTo, trazCategory, compareMode, salesDateFromB, salesDateToB, prodGrouping]);
 
@@ -3664,10 +3701,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             if (activeTab === 'sales') fetchSalesData();
                             if (activeTab === 'production') { fetchProduction(); fetchProdArchive(); }
                             if (activeTab === 'cheques') fetchCheques();
+                            if (activeTab === 'prodReturns') fetchProdReturns();
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs px-3 py-1.5 font-semibold flex items-center gap-1 transition-colors cursor-pointer mr-auto lg:mr-0 mt-1 sm:mt-0"
                     >
-                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'بروزرسانی'}
+                        {isLoading || isFetchingProdReturns ? <Loader2 className="w-3 h-3 animate-spin" /> : 'بروزرسانی'}
                     </button>
                 </div>
             </div>
@@ -3699,6 +3737,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     >
                         <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                         <span className="truncate">آمار تولید و ضایعات کارخانه</span>
+                    </button>
+                )}
+                {isProductionAllowed && (
+                    <button 
+                        onClick={() => setActiveTab('prodReturns')} 
+                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'prodReturns' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    >
+                        <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 animate-pulse text-indigo-600 dark:text-indigo-400" />
+                        <span className="truncate">رسید برگشت از تولید (۴۴)</span>
                     </button>
                 )}
                 {isChequesAllowed && (
@@ -6405,6 +6452,317 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 {/* 7. WAREHOUSE OVERVIEW TAB */}
                 {activeTab === 'warehouseOverview' && (
                     <WarehouseOverviewTab />
+                )}
+
+                {/* 8. NEW TAB: RETURN FROM PRODUCTION RECEIPT (CODE 44) */}
+                {activeTab === 'prodReturns' && (
+                    <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 rtl">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                                    <Undo2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                    گزارش رسید برگشت از تولید کالا (کد عملیات ۴۴)
+                                </h2>
+                                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                                    پایش برخط و زنده رسیدهای برگشتی از تولید کارخانه و طبقه‌بندی هوشمند کالاها
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                                    prodReturnsIsMock 
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30' 
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800/30'
+                                }`}>
+                                    <span className={`w-2 h-2 rounded-full ${prodReturnsIsMock ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                                    {prodReturnsIsMock ? 'دیتای نمونه (آفلاین)' : 'برخط سایان ERP'}
+                                </span>
+
+                                <div className="bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-lg flex border border-slate-200 dark:border-zinc-700">
+                                    <button
+                                        onClick={() => setProdReturnsGrouping('group')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                                            prodReturnsGrouping === 'group'
+                                                ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
+                                                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        گروه‌بندی کالا
+                                    </button>
+                                    <button
+                                        onClick={() => setProdReturnsGrouping('detail')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                                            prodReturnsGrouping === 'detail'
+                                                ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
+                                                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        ریز خود کالا (تاریخ)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Search and Quick Filters */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 dark:bg-zinc-950/30 p-4 rounded-xl border border-slate-100 dark:border-zinc-800/50">
+                            <div className="relative w-full sm:w-80">
+                                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                                <input
+                                    type="text"
+                                    placeholder="جستجو در شرح، کد کالا یا شماره سند..."
+                                    value={prodReturnsSearch}
+                                    onChange={e => setProdReturnsSearch(e.target.value)}
+                                    className="w-full pl-3 pr-10 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                                />
+                                {prodReturnsSearch && (
+                                    <button 
+                                        onClick={() => setProdReturnsSearch('')} 
+                                        className="absolute left-3 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1">
+                                <span>تعداد رسیدها:</span>
+                                <span className="text-slate-800 dark:text-zinc-200 font-mono text-sm font-black">{prodReturnsData.length}</span>
+                                <span className="mr-3">مجموع وزن برگشتی:</span>
+                                <span className="text-indigo-600 dark:text-indigo-400 font-mono text-sm font-black">
+                                    {prodReturnsData.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0).toLocaleString('fa-IR')}
+                                </span>
+                                <span>کیلوگرم</span>
+                            </div>
+                        </div>
+
+                        {/* Loading / Empty States */}
+                        {isFetchingProdReturns ? (
+                            <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                                <span className="text-xs text-slate-500 font-bold">در حال استخراج رسیدهای برگشت از تولید از دیتابیس سایان...</span>
+                            </div>
+                        ) : prodReturnsData.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50/50 dark:bg-zinc-950/10">
+                                <Undo2 className="w-12 h-12 text-slate-300 dark:text-zinc-700 mb-3" />
+                                <h3 className="text-sm font-extrabold text-slate-700 dark:text-zinc-300">هیچ رسیدی در بازه زمانی تعیین‌شده یافت نشد</h3>
+                                <p className="text-xs text-slate-400 mt-1 max-w-md">لطفاً بازه زمانی تاریخ فیلتر بالای صفحه را بررسی کنید یا کلید بروزرسانی را کلیک نمایید.</p>
+                            </div>
+                        ) : (
+                            prodReturnsGrouping === 'group' ? (
+                                /* GROUPED VIEW (گروه‌بندی کالا) */
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {/* Group Statistics Cards */}
+                                        {(() => {
+                                            const classifyProductGroup = (itemCode: string, itemName: string) => {
+                                                const code = (itemCode || '').trim().replace(/[^0-9]/g, '');
+                                                const name = (itemName || '').toLowerCase();
+                                                
+                                                if (code.startsWith('0401') || name.includes('اسپاندکس') || name.includes('spandex')) {
+                                                    return { name: 'نخ اسپاندکس', color: 'text-indigo-600 bg-indigo-50 border-indigo-100', dot: 'bg-indigo-500' };
+                                                }
+                                                if (code.startsWith('0402') || name.includes('کش') || name.includes('elastic')) {
+                                                    return { name: 'انواع کش و قیطان', color: 'text-rose-600 bg-rose-50 border-rose-100', dot: 'bg-rose-500' };
+                                                }
+                                                if (code.startsWith('0103') || name.includes('dty') || name.includes('دی تی وای')) {
+                                                    return { name: 'نخ DTY (دی‌تی‌وای)', color: 'text-emerald-600 bg-emerald-50 border-emerald-100', dot: 'bg-emerald-500' };
+                                                }
+                                                if (code.startsWith('0101') || name.includes('poy') || name.includes('پوی')) {
+                                                    return { name: 'نخ POY (پوی)', color: 'text-blue-600 bg-blue-50 border-blue-100', dot: 'bg-blue-500' };
+                                                }
+                                                if (code.startsWith('0102') || name.includes('شوایتر') || name.includes('schweiter')) {
+                                                    return { name: 'نخ شوایتر / بوبین', color: 'text-amber-600 bg-amber-50 border-amber-100', dot: 'bg-amber-500' };
+                                                }
+                                                if (code.startsWith('0407') || name.includes('نایلون') || name.includes('nylon')) {
+                                                    return { name: 'نخ نایلون / پلی‌آمید', color: 'text-purple-600 bg-purple-50 border-purple-100', dot: 'bg-purple-500' };
+                                                }
+                                                if (code.startsWith('0108') || name.includes('ضایعات') || name.includes('waste')) {
+                                                    return { name: 'ضایعات نخ و مواد اولیه', color: 'text-stone-600 bg-stone-50 border-stone-100', dot: 'bg-stone-500' };
+                                                }
+                                                return { name: 'سایر ملزومات تولید', color: 'text-slate-600 bg-slate-50 border-slate-100', dot: 'bg-slate-400' };
+                                            };
+
+                                            // Perform grouping
+                                            const groups: { [key: string]: { name: string, itemsCount: number, totalQty: number, color: string, dot: string, list: any[] } } = {};
+                                            
+                                            prodReturnsData.forEach(item => {
+                                                // Search filter
+                                                if (prodReturnsSearch) {
+                                                    const s = prodReturnsSearch.toLowerCase();
+                                                    const matches = (item.ItemName || '').toLowerCase().includes(s) || 
+                                                                    (item.ItemCode || '').toLowerCase().includes(s) || 
+                                                                    (item.DocId || '').toLowerCase().includes(s);
+                                                    if (!matches) return;
+                                                }
+
+                                                const groupClass = classifyProductGroup(item.ItemCode, item.ItemName);
+                                                if (!groups[groupClass.name]) {
+                                                    groups[groupClass.name] = {
+                                                        name: groupClass.name,
+                                                        itemsCount: 0,
+                                                        totalQty: 0,
+                                                        color: groupClass.color,
+                                                        dot: groupClass.dot,
+                                                        list: []
+                                                    };
+                                                }
+                                                groups[groupClass.name].itemsCount += 1;
+                                                groups[groupClass.name].totalQty += parseFloat(item.Quantity || 0);
+                                                groups[groupClass.name].list.push(item);
+                                            });
+
+                                            const groupList = Object.values(groups).sort((a, b) => b.totalQty - a.totalQty);
+                                            const maxQty = groupList.length > 0 ? groupList[0].totalQty : 1;
+
+                                            return groupList.map((g, idx) => (
+                                                <div 
+                                                    key={idx} 
+                                                    className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col justify-between"
+                                                >
+                                                    <div>
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`w-3 h-3 rounded-full ${g.dot}`} />
+                                                                <h4 className="font-extrabold text-sm text-slate-800 dark:text-zinc-200">{g.name}</h4>
+                                                            </div>
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${g.color}`}>
+                                                                {g.itemsCount} مورد
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="mb-4">
+                                                            <div className="flex items-baseline justify-between mb-1.5">
+                                                                <span className="text-xs text-slate-400 font-bold">مجموع وزن برگشتی</span>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                                                                        {g.totalQty.toLocaleString('fa-IR')}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400 font-bold">کیلوگرم</span>
+                                                                </div>
+                                                            </div>
+                                                            {/* Percentage Share Indicator Bar */}
+                                                            <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className="bg-indigo-500 h-1.5 rounded-full" 
+                                                                    style={{ width: `${Math.max(5, (g.totalQty / maxQty) * 100)}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="border-t border-slate-50 dark:border-zinc-800/50 pt-3 mt-3">
+                                                        <h5 className="text-[10px] text-slate-400 font-black mb-2">لیست اقلام زیرمجموعه:</h5>
+                                                        <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                                                            {g.list.slice(0, 5).map((sub, sidx) => (
+                                                                <div key={sidx} className="flex justify-between items-center text-[11px] bg-slate-50/50 dark:bg-zinc-950/30 px-2 py-1.5 rounded border border-slate-100/50 dark:border-zinc-800/30">
+                                                                    <span className="text-slate-700 dark:text-zinc-300 font-bold truncate max-w-[140px]">{sub.ItemName}</span>
+                                                                    <span className="text-slate-500 dark:text-zinc-400 font-mono font-bold">{(parseFloat(sub.Quantity || 0)).toLocaleString('fa-IR')} kg</span>
+                                                                </div>
+                                                            ))}
+                                                            {g.list.length > 5 && (
+                                                                <div className="text-center text-[10px] text-slate-400 font-bold pt-1">
+                                                                    و {g.list.length - 5} قلم کالا دیگر...
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+                                </div>
+                            ) : (
+                                /* DETAILED LIST VIEW (ریز خود کالا گزارش براساس تاریخ) */
+                                <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full border-collapse text-right text-xs">
+                                            <thead>
+                                                <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
+                                                    <th className="p-3">شماره سند رسید</th>
+                                                    <th className="p-3">تاریخ رسید برگشت</th>
+                                                    <th className="p-3">کد کالا</th>
+                                                    <th className="p-3">شرح خود کالا</th>
+                                                    <th className="p-3">دسته‌بندی هوشمند</th>
+                                                    <th className="p-3 text-left">وزن برگشتی (کیلوگرم)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                                                {(() => {
+                                                    const classifyProductGroup = (itemCode: string, itemName: string) => {
+                                                        const code = (itemCode || '').trim().replace(/[^0-9]/g, '');
+                                                        const name = (itemName || '').toLowerCase();
+                                                        
+                                                        if (code.startsWith('0401') || name.includes('اسپاندکس') || name.includes('spandex')) {
+                                                            return { name: 'نخ اسپاندکس', color: 'text-indigo-600 bg-indigo-50 border-indigo-100', dot: 'bg-indigo-500' };
+                                                        }
+                                                        if (code.startsWith('0402') || name.includes('کش') || name.includes('elastic')) {
+                                                            return { name: 'انواع کش و قیطان', color: 'text-rose-600 bg-rose-50 border-rose-100', dot: 'bg-rose-500' };
+                                                        }
+                                                        if (code.startsWith('0103') || name.includes('dty') || name.includes('دی تی وای')) {
+                                                            return { name: 'نخ DTY (دی‌تی‌وای)', color: 'text-emerald-600 bg-emerald-50 border-emerald-100', dot: 'bg-emerald-500' };
+                                                        }
+                                                        if (code.startsWith('0101') || name.includes('poy') || name.includes('پوی')) {
+                                                            return { name: 'نخ POY (پوی)', color: 'text-blue-600 bg-blue-50 border-blue-100', dot: 'bg-blue-500' };
+                                                        }
+                                                        if (code.startsWith('0102') || name.includes('شوایتر') || name.includes('schweiter')) {
+                                                            return { name: 'نخ شوایتر / بوبین', color: 'text-amber-600 bg-amber-50 border-amber-100', dot: 'bg-amber-500' };
+                                                        }
+                                                        if (code.startsWith('0407') || name.includes('نایلون') || name.includes('nylon')) {
+                                                            return { name: 'نخ نایلون / پلی‌آمید', color: 'text-purple-600 bg-purple-50 border-purple-100', dot: 'bg-purple-500' };
+                                                        }
+                                                        if (code.startsWith('0108') || name.includes('ضایعات') || name.includes('waste')) {
+                                                            return { name: 'ضایعات نخ و مواد اولیه', color: 'text-stone-600 bg-stone-50 border-stone-100', dot: 'bg-stone-500' };
+                                                        }
+                                                        return { name: 'سایر ملزومات تولید', color: 'text-slate-600 bg-slate-50 border-slate-100', dot: 'bg-slate-400' };
+                                                    };
+
+                                                    return prodReturnsData
+                                                        .filter(item => {
+                                                            if (!prodReturnsSearch) return true;
+                                                            const s = prodReturnsSearch.toLowerCase();
+                                                            return (item.ItemName || '').toLowerCase().includes(s) || 
+                                                                   (item.ItemCode || '').toLowerCase().includes(s) || 
+                                                                   (item.DocId || '').toLowerCase().includes(s);
+                                                        })
+                                                        .map((item, idx) => {
+                                                            const groupClass = classifyProductGroup(item.ItemCode, item.ItemName);
+                                                            return (
+                                                                <tr 
+                                                                    key={idx} 
+                                                                    className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors"
+                                                                >
+                                                                    <td className="p-3 font-mono font-bold text-slate-800 dark:text-zinc-200">
+                                                                        {item.DocId}
+                                                                    </td>
+                                                                    <td className="p-3 font-semibold text-slate-500 dark:text-zinc-400">
+                                                                        {formatDateToJalali(item.Date)}
+                                                                    </td>
+                                                                    <td className="p-3 font-mono text-slate-600 dark:text-zinc-400">
+                                                                        {item.ItemCode}
+                                                                    </td>
+                                                                    <td className="p-3 font-black text-slate-900 dark:text-zinc-100">
+                                                                        {item.ItemName}
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border ${groupClass.color}`}>
+                                                                            <span className={`w-1.5 h-1.5 rounded-full ${groupClass.dot}`} />
+                                                                            {groupClass.name}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-3 text-left font-black text-slate-950 dark:text-white font-mono text-sm">
+                                                                        {parseFloat(item.Quantity || 0).toLocaleString('fa-IR')}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        });
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        )}
+                    </div>
                 )}
             </div>
 
