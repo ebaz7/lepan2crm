@@ -595,27 +595,27 @@ export const WarehouseOverviewTab: React.FC = () => {
         }
     };
 
-    // Sayan Group definitions (predefined 4-digit prefixes)
+    // Sayan Group definitions (predefined 4-digit prefixes exactly matching Sayan ERP)
     const MANUFACTURED_GROUPS = [
         { code: '0401', name: 'اسپاندکس (کاور)' },
         { code: '0402', name: 'کش' },
-        { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
+        { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )' },
         { code: '0405', name: 'پلی استر شوایتر' },
         { code: '0407', name: 'نایلون' },
-        { code: '0108', name: 'نایلون' },
-        { code: '0103', name: 'dty با پلی استر' }
+        { code: '0408', name: 'نخ ملت' },
+        { code: '0409', name: 'الیاف' },
+        { code: '0410', name: 'FDY' }
     ];
 
     const RAW_MATERIAL_GROUPS = [
         { code: '0101', name: 'چیپس' },
         { code: '0102', name: 'POY' },
+        { code: '0103', name: 'dty یا پلی استر' },
         { code: '0104', name: 'لاستیک' },
         { code: '0105', name: 'لاکرا' },
         { code: '0106', name: 'پلی استر اسپان' },
-        { code: '0107', name: 'مستربچ' },
-        { code: '0408', name: 'نخ ملت' },
-        { code: '0409', name: 'الیاف' },
-        { code: '0410', name: 'FDY' }
+        { code: '0107', name: 'مستر بچ' },
+        { code: '0108', name: 'نایلون' }
     ];
 
     // Helper function to classify Sayan items based on keywords and database group name
@@ -754,7 +754,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             case 'nylon': return 'نایلون وارداتی';
             case 'chips': return 'چیپس پلیمر (پتروشیمی)';
             case 'oil': return 'روغن‌های کمکی و ریسندگی';
-            default: return 'سایر مواد اولیه و ملزومات';
+            default: return 'سایر اقلام انبار';
         }
     };
 

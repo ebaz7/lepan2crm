@@ -2392,11 +2392,16 @@ app.get('/api/sayan/production-returns', async (req, res) => {
 
         const sql = `
             SELECT 
-                t10.Field_005 as DocId,
-                t10.Field_006 as ArchiveNo,
+                t10.Field_005 as ArchiveCode,
+                t10.Field_006 as DocNumber,
+                t10.Field_006 as DocId,
+                t10.Field_005 as ArchiveNo,
                 t10.Field_006 as SubCode,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
+                t10.Field_011 as WarehouseCode,
+                t10.Field_017 as HeaderDescription,
+                t10.Field_029 as DocDescription,
                 t11.Field_001 as LineId,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
@@ -2410,8 +2415,7 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                     N'کالای بدون نام'
                 ) as ItemName,
                 t11.Field_006 as Quantity,
-                t11.Field_031 as LineNotes,
-                t10.Field_029 as DocDescription
+                t11.Field_031 as LineNotes
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
@@ -2667,19 +2671,18 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
 
     if (!sayanUrl || !sayanKey) {
         return [
-            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (DTY)', Quantity: 393.2 },
             { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1 },
             { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9 },
             { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9 },
             { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7 },
-            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0104051001', ItemName: 'لاکرا شوایتر برگشتی', Quantity: 160 },
-            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50 },
+            { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0402010101', ItemName: 'نخ کش / قیطان', Quantity: 180 },
 
             { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200 },
             { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850 },
 
-            { DocId: '2718', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
-            { DocId: '2719', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+            { DocId: '2718', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال', Quantity: 850 },
+            { DocId: '2719', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '04030101', ItemName: 'اسپاندکس جوشی ساپورت', Quantity: 240 },
             { DocId: '2719', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
         ];
     }
@@ -2747,45 +2750,27 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
         const code = (itemCode || '').trim();
         const name = (itemName || '').toLowerCase();
         
-        if (code.startsWith('0103')) return { code: '0103', name: 'dty با پلی استر', isProduction: true };
-        if (code.startsWith('0108')) return { code: '0108', name: 'نایلون (0108)', isProduction: true };
-        if (code.startsWith('0401')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
-        if (code.startsWith('0402')) return { code: '0402', name: 'کش', isProduction: true };
-        if (code.startsWith('0403')) return { code: '0403', name: 'اسپاندکس جوشی (ساپورت)', isProduction: true };
-        if (code.startsWith('0405')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
-        if (code.startsWith('0407')) return { code: '0407', name: 'نایلون (0407)', isProduction: true };
+        // 1. محصولات (04xx)
+        if (code.startsWith('0401') || name.includes('کاور')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
+        if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) return { code: '0402', name: 'کش', isProduction: true };
+        if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
+        if (code.startsWith('0405') || name.includes('شوایتر')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
+        if (code.startsWith('0407')) return { code: '0407', name: 'نایلون', isProduction: true };
+        if (code.startsWith('0408') || name.includes('ملت')) return { code: '0408', name: 'نخ ملت', isProduction: true };
+        if (code.startsWith('0409') || name.includes('الیاف')) return { code: '0409', name: 'الیاف', isProduction: true };
+        if (code.startsWith('0410') || name.includes('fdy')) return { code: '0410', name: 'FDY', isProduction: true };
         
-        if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: true };
-        if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: true };
-        if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: true };
-        if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: true };
-        if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: true };
-        if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: true };
-        if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: true };
-        if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: true };
+        // 2. مواد اولیه (01xx)
+        if (code.startsWith('0101') || name.includes('چیپس')) return { code: '0101', name: 'چیپس', isProduction: false };
+        if (code.startsWith('0102') || name.includes('poy') || name.includes('پوی')) return { code: '0102', name: 'POY', isProduction: false };
+        if (code.startsWith('0103') || name.includes('dty') || name.includes('دی تی وای') || name.includes('پلی استر')) return { code: '0103', name: 'dty یا پلی استر', isProduction: false };
+        if (code.startsWith('0104') || name.includes('لاستیک')) return { code: '0104', name: 'لاستیک', isProduction: false };
+        if (code.startsWith('0105') || name.includes('لاکرا')) return { code: '0105', name: 'لاکرا', isProduction: false };
+        if (code.startsWith('0106') || name.includes('اسپان')) return { code: '0106', name: 'پلی استر اسپان', isProduction: false };
+        if (code.startsWith('0107') || name.includes('مستر بچ') || name.includes('مستربچ')) return { code: '0107', name: 'مستر بچ', isProduction: false };
+        if (code.startsWith('0108') || name.includes('نایلون')) return { code: '0108', name: 'نایلون', isProduction: false };
 
-        if (name.includes('اسپاندکس') || name.includes('spandex')) {
-            return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
-        }
-        if (name.includes('کش') || name.includes('elastic')) {
-            return { code: '0402', name: 'کش', isProduction: true };
-        }
-        if (name.includes('dty') || name.includes('دی تی وای')) {
-            return { code: '0103', name: 'dty با پلی استر', isProduction: true };
-        }
-        if (name.includes('poy') || name.includes('پوی')) {
-            return { code: '0102', name: 'POY', isProduction: true };
-        }
-        if (name.includes('شوایتر') || name.includes('schweiter')) {
-            return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
-        }
-        if (name.includes('نایلون') || name.includes('nylon')) {
-            return { code: '0407', name: 'نایلون (0407)', isProduction: true };
-        }
-        if (name.includes('ضایعات') || name.includes('waste')) {
-            return { code: '0108', name: 'نایلون (ضایعات)', isProduction: true };
-        }
-        return { code: 'سایر', name: 'سایر ملزومات', isProduction: true };
+        return { code: code.substring(0, 4) || 'سایر', name: itemName || `کد ${code}`, isProduction: code.startsWith('04') };
     };
 
     const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
@@ -3139,16 +3124,32 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
         const items = await queryProductionReturnsData(db, dateFrom, dateTo);
         const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
 
-        // Grouping summary for caption
+        // Grouping summary for caption (matching Sayan ERP categories)
         const classifyProductGroup = (itemCode, itemName) => {
             const code = (itemCode || '').trim();
             const name = (itemName || '').toLowerCase();
-            if (code.startsWith('0103') || name.includes('dty')) return 'نخ DTY';
-            if (code.startsWith('0401') || name.includes('اسپاندکس')) return 'نخ اسپاندکس';
-            if (code.startsWith('0402') || name.includes('کش')) return 'کش و قیطان';
-            if (code.startsWith('0102') || name.includes('poy')) return 'نخ POY';
-            if (code.startsWith('0108') || name.includes('ضایعات')) return 'ضایعات تولید';
-            return 'سایر ملزومات';
+            
+            // 1. محصولات (04xx)
+            if (code.startsWith('0401') || name.includes('کاور')) return 'اسپاندکس (کاور)';
+            if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) return 'کش';
+            if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) return 'اسپاندکس جوشی ( ساپورت )';
+            if (code.startsWith('0405') || name.includes('شوایتر')) return 'پلی استر شوایتر';
+            if (code.startsWith('0407')) return 'نایلون';
+            if (code.startsWith('0408') || name.includes('ملت')) return 'نخ ملت';
+            if (code.startsWith('0409') || name.includes('الیاف')) return 'الیاف';
+            if (code.startsWith('0410') || name.includes('fdy')) return 'FDY';
+
+            // 2. مواد اولیه (01xx)
+            if (code.startsWith('0101') || name.includes('چیپس')) return 'چیپس';
+            if (code.startsWith('0102') || name.includes('poy') || name.includes('پوی')) return 'POY';
+            if (code.startsWith('0103') || name.includes('dty') || name.includes('دی تی وای') || name.includes('پلی استر')) return 'dty یا پلی استر';
+            if (code.startsWith('0104') || name.includes('لاستیک')) return 'لاستیک';
+            if (code.startsWith('0105') || name.includes('لاکرا')) return 'لاکرا';
+            if (code.startsWith('0106') || name.includes('اسپان')) return 'پلی استر اسپان';
+            if (code.startsWith('0107') || name.includes('مستر بچ') || name.includes('مستربچ')) return 'مستر بچ';
+            if (code.startsWith('0108') || name.includes('نایلون')) return 'نایلون';
+
+            return itemName || `کد ${code}`;
         };
 
         const summaryMap = {};
@@ -7324,27 +7325,27 @@ async function executeReportJob(job) {
 
                 console.log(`📦 Sayan query done. LastYearStock rows: ${lastYearStock.length}, CurrentStock rows: ${currentStock.length}`);
 
-                // Setup groups
+                // Setup groups (matching Sayan ERP)
                 const MANUFACTURED_GROUPS = [
                     { code: '0401', name: 'اسپاندکس (کاور)' },
                     { code: '0402', name: 'کش' },
-                    { code: '0403', name: 'اسپاندکس جوشی (ساپورت)' },
+                    { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )' },
                     { code: '0405', name: 'پلی استر شوایتر' },
                     { code: '0407', name: 'نایلون' },
-                    { code: '0108', name: 'نایلون' },
-                    { code: '0103', name: 'dty با پلی استر' }
+                    { code: '0408', name: 'نخ ملت' },
+                    { code: '0409', name: 'الیاف' },
+                    { code: '0410', name: 'FDY' }
                 ];
 
                 const RAW_MATERIAL_GROUPS = [
                     { code: '0101', name: 'چیپس' },
                     { code: '0102', name: 'POY' },
+                    { code: '0103', name: 'dty یا پلی استر' },
                     { code: '0104', name: 'لاستیک' },
                     { code: '0105', name: 'لاکرا' },
                     { code: '0106', name: 'پلی استر اسپان' },
-                    { code: '0107', name: 'مستربچ' },
-                    { code: '0408', name: 'نخ ملت' },
-                    { code: '0409', name: 'الیاف' },
-                    { code: '0410', name: 'FDY' }
+                    { code: '0107', name: 'مستر بچ' },
+                    { code: '0108', name: 'نایلون' }
                 ];
 
                 const getSectionGroups = (isProduction, predefinedGroups) => {
