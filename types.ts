@@ -40,6 +40,15 @@ export interface User {
   canAccessSayanPendingDocs?: boolean;
   canAccessSayanDailySales?: boolean;
   canAccessSayanCompareSales?: boolean;
+  canViewSayan?: boolean;
+  canViewSayanTraz?: boolean;
+  canViewSayanSales?: boolean;
+  canViewSayanProduction?: boolean;
+  canViewSayanProdReturns?: boolean;
+  canViewSayanCheques?: boolean;
+  canViewSayanRemittances?: boolean;
+  canViewSayanWarehouseOverview?: boolean;
+  canViewSayanWarehouseWidget?: boolean;
 }
 
 export interface AppNotification {
@@ -167,7 +176,10 @@ export interface RolePermissions {
   canViewSayanTraz?: boolean;
   canViewSayanSales?: boolean;
   canViewSayanProduction?: boolean;
+  canViewSayanProdReturns?: boolean;
   canViewSayanCheques?: boolean;
+  canViewSayanRemittances?: boolean;
+  canViewSayanWarehouseOverview?: boolean;
   canViewSayanWarehouseWidget?: boolean;
   canAccessSayanReports?: boolean;
   canAccessSayanBalances?: boolean;

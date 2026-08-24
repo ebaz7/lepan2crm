@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, LayoutDashboard, Search, PlusCircle, ListChecks, FileText, Inbox, Users, LogOut, User as UserIcon, Settings, Bell, BellOff, MessageSquare, X, Check, Container, KeyRound, Save, Upload, Camera, Download, Share, ChevronRight, Home, Send, BrainCircuit, Mic, StopCircle, Loader2, Truck, ClipboardList, Package, Printer, CheckSquare, ShieldCheck, Shield, Phone, RefreshCw, Smartphone, MonitorDown, BellRing, Smartphone as MobileIcon, Trash2, Menu, Edit3, Sun, Moon, ShoppingCart, Wallet, Sparkles } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Search, PlusCircle, ListChecks, FileText, Inbox, Users, LogOut, User as UserIcon, Settings, Bell, BellOff, MessageSquare, X, Check, Container, KeyRound, Save, Upload, Camera, Download, Share, ChevronRight, Home, Send, BrainCircuit, Mic, StopCircle, Loader2, Truck, ClipboardList, Package, Printer, CheckSquare, ShieldCheck, Shield, Phone, RefreshCw, Smartphone, MonitorDown, BellRing, Smartphone as MobileIcon, Trash2, Menu, Edit3, Sun, Moon, ShoppingCart, Wallet, Sparkles, Pin, PinOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, UserRole, AppNotification, SystemSettings } from '../types';
 import { logout, hasPermission, getRolePermissions, updateUser } from '../services/authService';
@@ -141,7 +141,20 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   
   // Mobile Drawer State
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Desktop Sidebar State: Collapsed by default, opens on mouse hover, can be pinned permanently
+  const [isSidebarPinned, setIsSidebarPinned] = useState<boolean>(() => {
+    return localStorage.getItem('app_sidebar_pinned') === 'true';
+  });
+  const [isSidebarHovered, setIsSidebarHovered] = useState<boolean>(false);
+  const isSidebarOpen = isSidebarPinned || isSidebarHovered;
+
+  const toggleSidebarPin = () => {
+    setIsSidebarPinned(prev => {
+      const next = !prev;
+      localStorage.setItem('app_sidebar_pinned', String(next));
+      return next;
+    });
+  };
 
   // PWA & Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -418,7 +431,11 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     perms.canViewSayanTraz === true || 
     perms.canViewSayanSales === true || 
     perms.canViewSayanProduction === true || 
-    perms.canViewSayanCheques === true;
+    perms.canViewSayanProdReturns === true || 
+    perms.canViewSayanCheques === true || 
+    perms.canViewSayanRemittances === true || 
+    perms.canViewSayanWarehouseOverview === true || 
+    perms.canAccessSayanReports === true;
   const canSeeNotifications = true;
 
   const navItems = [
@@ -700,18 +717,63 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
             </div>
         </div>
       )}
-      <aside className={`flex-shrink-0 hidden md:flex flex-col no-print sticky top-4 transition-all duration-300 z-[60] text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'} h-[calc(100vh-2rem)] my-4 mr-4 ml-2 rounded-[24px] bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border border-white/40 dark:border-zinc-900/30 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden`}>
-          <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
-              <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'hidden'}`}>
-                  <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm"><Sparkles className="w-5 h-5" /></div>
-                  <div className="whitespace-nowrap">
-                      <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white">{settings?.appName || 'سیستم مالی'}</h1>
-                      <span className="text-[10px] text-zinc-400 font-bold block mt-0.5">سیستم مدیریت مالی و اداری</span>
+      <aside 
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          onMouseLeave={() => setIsSidebarHovered(false)}
+          className={`flex-shrink-0 hidden md:flex flex-col no-print sticky top-4 transition-all duration-300 z-[60] text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'} h-[calc(100vh-2rem)] my-4 mr-4 ml-2 rounded-[24px] bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border border-white/40 dark:border-zinc-900/30 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden`}
+      >
+          <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
+              <div className={`flex items-center gap-2.5 overflow-hidden transition-all duration-200 ${!isSidebarOpen ? 'hidden w-0' : 'flex-1 min-w-0'}`}>
+                  <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm shrink-0"><Sparkles className="w-4 h-4" /></div>
+                  <div className="whitespace-nowrap overflow-hidden">
+                      <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white truncate">{settings?.appName || 'سیستم مالی'}</h1>
+                      <span className="text-[10px] text-zinc-400 font-bold block truncate">سیستم مدیریت مالی و اداری</span>
                   </div>
               </div>
-              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors mx-auto">
-                 <Menu size={18}/>
-              </button>
+              
+              <div className={`flex items-center gap-1.5 shrink-0 ${!isSidebarOpen ? 'mx-auto' : ''}`}>
+                  {/* Pin Button */}
+                  {isSidebarOpen && (
+                      <button 
+                          type="button"
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSidebarPin();
+                          }} 
+                          className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                              isSidebarPinned 
+                                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
+                                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                          }`}
+                          title={isSidebarPinned ? 'منو پین شده است (کلیک برای خروج از پین و بسته‌شدن خودکار با خروج موس)' : 'پین کردن منو (ثابت ماندن منو)'}
+                      >
+                          <Pin size={16} className={`transition-transform duration-200 ${isSidebarPinned ? 'fill-current -rotate-45' : ''}`} />
+                      </button>
+                  )}
+
+                  {/* Hamburger Button */}
+                  <button 
+                      type="button"
+                      onClick={() => {
+                          if (isSidebarPinned) {
+                              setIsSidebarPinned(false);
+                              localStorage.setItem('app_sidebar_pinned', 'false');
+                              setIsSidebarHovered(false);
+                          } else {
+                              setIsSidebarPinned(true);
+                              localStorage.setItem('app_sidebar_pinned', 'true');
+                          }
+                      }} 
+                      className={`p-1.5 rounded-lg transition-all duration-200 ${
+                          isSidebarPinned 
+                              ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100' 
+                              : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                      }`}
+                      title={isSidebarPinned ? 'خروج از حالت پین منو' : 'پین کردن منو'}
+                  >
+                      <Menu size={18}/>
+                  </button>
+              </div>
           </div>
           
           <div className={`p-3 bg-zinc-50 dark:bg-zinc-900/30 mx-4 mt-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/30 relative group cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-all ${!isSidebarOpen && 'justify-center mx-2 px-0'}`} onClick={() => setShowProfileModal(true)} title="تنظیمات کاربری">

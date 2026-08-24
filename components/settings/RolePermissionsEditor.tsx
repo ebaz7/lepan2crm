@@ -127,7 +127,10 @@ const PERMISSION_GROUPS = [
             { id: 'canViewSayanTraz', label: 'مشاهده بخش تراز و مانده اشخاص سایان' },
             { id: 'canViewSayanSales', label: 'مشاهده بخش فروش و تحلیل مقایسه‌ای سایان' },
             { id: 'canViewSayanProduction', label: 'مشاهده بخش تولید روزانه سایان' },
+            { id: 'canViewSayanProdReturns', label: 'مشاهده بخش رسید برگشت از تولید سایان (۴۴)' },
             { id: 'canViewSayanCheques', label: 'مشاهده بخش لیست چک‌های سایان' },
+            { id: 'canViewSayanRemittances', label: 'مشاهده بخش حواله فروش و خروج کالا سایان' },
+            { id: 'canViewSayanWarehouseOverview', label: 'مشاهده بخش تراز وزنی و نمای کلی انبار سایان' },
             { id: 'canViewSayanWarehouseWidget', label: 'نمایش ویجت آمار انبار سایان در داشبورد (وزن منفی و مثبت کلی)' }
         ] 
     },

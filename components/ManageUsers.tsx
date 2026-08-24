@@ -21,12 +21,6 @@ const ManageUsers: React.FC = () => {
     canManageSales: false, 
     receiveNotifications: true, 
     canAccessSecretariat: false,
-    canAccessBotReports: false,
-    canAccessSayanReports: false,
-    canAccessSayanBalances: true,
-    canAccessSayanPendingDocs: true,
-    canAccessSayanDailySales: true,
-    canAccessSayanCompareSales: true,
     secretariatAllowedCompanies: [],
     canManageSecretariatSettings: false,
     avatar: '', 
@@ -87,12 +81,6 @@ const ManageUsers: React.FC = () => {
           canManageSales: false, 
           receiveNotifications: true, 
           canAccessSecretariat: false,
-          canAccessBotReports: false,
-          canAccessSayanReports: false,
-          canAccessSayanBalances: true,
-          canAccessSayanPendingDocs: true,
-          canAccessSayanDailySales: true,
-          canAccessSayanCompareSales: true,
           canManageSecretariatSettings: false,
           secretariatAllowedCompanies: [],
           avatar: '', 
@@ -116,12 +104,6 @@ const ManageUsers: React.FC = () => {
           canManageSales: user.canManageSales || false, 
           receiveNotifications: user.receiveNotifications !== false, 
           canAccessSecretariat: user.canAccessSecretariat || false,
-          canAccessBotReports: user.canAccessBotReports || false,
-          canAccessSayanReports: user.canAccessSayanReports ?? user.canAccessBotReports ?? false,
-          canAccessSayanBalances: user.canAccessSayanBalances !== false,
-          canAccessSayanPendingDocs: user.canAccessSayanPendingDocs !== false,
-          canAccessSayanDailySales: user.canAccessSayanDailySales !== false,
-          canAccessSayanCompareSales: user.canAccessSayanCompareSales !== false,
           canManageSecretariatSettings: user.canManageSecretariatSettings || false,
           secretariatAllowedCompanies: user.secretariatAllowedCompanies || [],
           avatar: user.avatar || '', 
@@ -145,12 +127,6 @@ const ManageUsers: React.FC = () => {
           canManageSales: false, 
           receiveNotifications: true, 
           canAccessSecretariat: false,
-          canAccessBotReports: false,
-          canAccessSayanReports: false,
-          canAccessSayanBalances: true,
-          canAccessSayanPendingDocs: true,
-          canAccessSayanDailySales: true,
-          canAccessSayanCompareSales: true,
           secretariatAllowedCompanies: [],
           canManageSecretariatSettings: false,
           avatar: '', 
@@ -353,32 +329,6 @@ const ManageUsers: React.FC = () => {
                   <input type="checkbox" checked={formData.canAccessSecretariat} onChange={e => setFormData({...formData, canAccessSecretariat: e.target.checked})} className="w-4 h-4 text-purple-600" />
                   <span>دسترسی به دبیرخانه</span>
               </label>
-              <label className="flex items-center gap-2 text-xs text-gray-700 bg-amber-50 px-2 py-1.5 rounded cursor-pointer border border-amber-200">
-                  <input type="checkbox" checked={formData.canAccessBotReports || false} onChange={e => setFormData({...formData, canAccessBotReports: e.target.checked, canAccessSayanReports: e.target.checked})} className="w-4 h-4 text-amber-600" />
-                  <span>دسترسی به بخش گزارشات سایان ERP</span>
-              </label>
-
-              {(formData.canAccessBotReports || formData.canAccessSayanReports) && (
-                  <div className="flex flex-col gap-1.5 p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 mr-2">
-                      <span className="text-[11px] font-bold text-amber-900 mb-0.5">زیربخش‌های مجاز گزارشات سایان:</span>
-                      <label className="flex items-center gap-1.5 text-xs text-amber-950 cursor-pointer">
-                          <input type="checkbox" checked={formData.canAccessSayanBalances !== false} onChange={e => setFormData({...formData, canAccessSayanBalances: e.target.checked})} className="w-3.5 h-3.5 text-amber-600 rounded" />
-                          <span>💳 استعلام و مانده حساب مشتریان</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-amber-950 cursor-pointer">
-                          <input type="checkbox" checked={formData.canAccessSayanPendingDocs !== false} onChange={e => setFormData({...formData, canAccessSayanPendingDocs: e.target.checked})} className="w-3.5 h-3.5 text-amber-600 rounded" />
-                          <span>📜 گزارش اسناد و چک‌های آویزان</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-amber-950 cursor-pointer">
-                          <input type="checkbox" checked={formData.canAccessSayanDailySales !== false} onChange={e => setFormData({...formData, canAccessSayanDailySales: e.target.checked})} className="w-3.5 h-3.5 text-amber-600 rounded" />
-                          <span>🧾 فاکتور فروش روزانه سایان</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-amber-950 cursor-pointer">
-                          <input type="checkbox" checked={formData.canAccessSayanCompareSales !== false} onChange={e => setFormData({...formData, canAccessSayanCompareSales: e.target.checked})} className="w-3.5 h-3.5 text-amber-600 rounded" />
-                          <span>⚖️ مقایسه تحلیل فروش</span>
-                      </label>
-                  </div>
-              )}
               
               {formData.canAccessSecretariat && settings?.companies && (
                   <div className="flex flex-col gap-1 col-span-1 md:col-span-2 p-3 bg-purple-50/50 rounded-xl border border-purple-100">

@@ -75,22 +75,33 @@ const getEffectiveApiUrl = (path: string) => {
 export default function AccountingReports({ currentUser, settings }: { currentUser?: any, settings?: any }) {
     // Determine Sayan permissions
     const perms = currentUser ? getRolePermissions(currentUser.role, settings || null, currentUser) : {
-        canViewSayan: true, canViewSayanTraz: true, canViewSayanSales: true, canViewSayanProduction: true, canViewSayanCheques: true
+        canViewSayan: true,
+        canViewSayanTraz: true,
+        canViewSayanSales: true,
+        canViewSayanProduction: true,
+        canViewSayanProdReturns: true,
+        canViewSayanCheques: true,
+        canViewSayanRemittances: true,
+        canViewSayanWarehouseOverview: true
     };
 
     const isTrazAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanTraz === true;
     const isSalesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanSales === true;
     const isProductionAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanProduction === true;
+    const isProdReturnsAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanProdReturns === true;
     const isChequesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanCheques === true;
-    const isRemittancesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanSales === true || (perms as any).canManageExitPermits === true || (perms as any).canCreateExitPermit === true;
-    const isWarehouseOverviewAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true;
+    const isRemittancesAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanRemittances === true || (perms as any).canManageExitPermits === true || (perms as any).canCreateExitPermit === true;
+    const isWarehouseOverviewAllowed = currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanWarehouseOverview === true;
 
     // Default to the first allowed tab
     const [activeTab, setActiveTab] = useState(() => {
-        if (currentUser?.role === UserRole.ADMIN || perms.canViewSayan === true || perms.canViewSayanTraz === true) return 'traz';
-        if (perms.canViewSayanSales === true) return 'sales';
-        if (perms.canViewSayanProduction === true) return 'production';
-        if (perms.canViewSayanCheques === true) return 'cheques';
+        if (isTrazAllowed) return 'traz';
+        if (isSalesAllowed) return 'sales';
+        if (isProductionAllowed) return 'production';
+        if (isProdReturnsAllowed) return 'prodReturns';
+        if (isChequesAllowed) return 'cheques';
+        if (isRemittancesAllowed) return 'remittances';
+        if (isWarehouseOverviewAllowed) return 'warehouseOverview';
         return 'traz';
     });
     const [isLoading, setIsLoading] = useState(false);
@@ -146,6 +157,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [prodReturnsIsMock, setProdReturnsIsMock] = useState(false);
     const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'group' | 'detail' | 'document'>('group');
     const [prodReturnsSearch, setProdReturnsSearch] = useState('');
+    const [selectedProductForReport, setSelectedProductForReport] = useState<string>('all');
     const [isSendingBot, setIsSendingBot] = useState(false);
     const [productionData, setProductionData] = useState<any[]>([]);
     const [prodGrouping, setProdGrouping] = useState<'group' | 'item' | 'date'>('group');
@@ -2410,6 +2422,24 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         };
 
         const filteredRaw = prodReturnsData.filter(item => {
+            const code = (item.ItemCode || '').trim();
+            const name = (item.ItemName || '').toLowerCase();
+            
+            // Exclude Lycra (0105) and Rubber (0104) and related keywords from production returns
+            if (code.startsWith('0104') || code.startsWith('0105') || 
+                name.includes('لاکرا') || name.includes('لاستیک') || 
+                name.includes('lycra') || name.includes('rubber')) {
+                return false;
+            }
+
+            // Support item-specific reports
+            if (selectedProductForReport && selectedProductForReport !== 'all') {
+                const productKey = `${code}_${item.ItemName || 'بدون نام'}`;
+                if (productKey !== selectedProductForReport) {
+                    return false;
+                }
+            }
+
             if (!prodReturnsSearch) return true;
             const s = prodReturnsSearch.toLowerCase();
             return (item.ItemName || '').toLowerCase().includes(s) || 
@@ -4129,7 +4159,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         <span className="truncate">آمار تولید و ضایعات کارخانه</span>
                     </button>
                 )}
-                {isProductionAllowed && (
+                {isProdReturnsAllowed && (
                     <button 
                         onClick={() => setActiveTab('prodReturns')} 
                         className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'prodReturns' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
@@ -6857,6 +6887,28 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         documentsList
                     } = getProdReturnsAnalyzed();
 
+                    const uniqueProducts = Array.from(
+                        prodReturnsData.reduce((map, item) => {
+                            const code = (item.ItemCode || '').trim();
+                            const name = (item.ItemName || '').trim();
+                            
+                            // Exclude Lycra (0105) and Rubber (0104) and related keywords from unique product options
+                            if (code.startsWith('0104') || code.startsWith('0105') || 
+                                name.toLowerCase().includes('لاکرا') || name.toLowerCase().includes('لاستیک') || 
+                                name.toLowerCase().includes('lycra') || name.toLowerCase().includes('rubber')) {
+                                return map;
+                            }
+                            
+                            const key = `${code}_${name || 'بدون نام'}`;
+                            if (!map.has(key)) {
+                                map.set(key, { code, name: name || 'کالای بدون نام' });
+                            }
+                            return map;
+                        }, new Map<string, { code: string; name: string }>()).values()
+                    ) as { code: string; name: string }[];
+
+                    uniqueProducts.sort((a, b) => a.name.localeCompare(b.name, 'fa'));
+
                     return (
                         <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 rtl">
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-4">
@@ -6949,24 +7001,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             </div>
 
                             {/* Search and Quick Filters */}
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 dark:bg-zinc-950/30 p-4 rounded-xl border border-slate-100 dark:border-zinc-800/50">
-                                <div className="relative w-full sm:w-80">
-                                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-                                    <input
-                                        type="text"
-                                        placeholder="جستجو در شرح، کد کالا یا گروه..."
-                                        value={prodReturnsSearch}
-                                        onChange={e => setProdReturnsSearch(e.target.value)}
-                                        className="w-full pl-3 pr-10 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
-                                    />
-                                    {prodReturnsSearch && (
-                                        <button 
-                                            onClick={() => setProdReturnsSearch('')} 
-                                            className="absolute left-3 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50 dark:bg-zinc-950/30 p-4 rounded-xl border border-slate-100 dark:border-zinc-800/50">
+                                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                                    <div className="relative w-full sm:w-72">
+                                        <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                                        <input
+                                            type="text"
+                                            placeholder="جستجو در شرح، کد کالا یا گروه..."
+                                            value={prodReturnsSearch}
+                                            onChange={e => setProdReturnsSearch(e.target.value)}
+                                            className="w-full pl-3 pr-10 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                                        />
+                                        {prodReturnsSearch && (
+                                            <button 
+                                                onClick={() => setProdReturnsSearch('')} 
+                                                className="absolute left-3 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Product Specific Filter Dropdown */}
+                                    <div className="w-full sm:w-80 flex items-center gap-1.5">
+                                        <span className="text-[11px] font-black text-slate-500 whitespace-nowrap">فیلتر کالا:</span>
+                                        <select
+                                            value={selectedProductForReport}
+                                            onChange={e => setSelectedProductForReport(e.target.value)}
+                                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                         >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
+                                            <option value="all">📊 گزارش کلی (همه کالاها)</option>
+                                            {uniqueProducts.map((p, pIdx) => (
+                                                <option key={pIdx} value={`${p.code}_${p.name}`}>
+                                                    📦 {p.name} ({p.code})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1">
@@ -6979,6 +7050,33 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <span>کیلوگرم</span>
                                 </div>
                             </div>
+
+                            {/* Active Product Report Banner */}
+                            {selectedProductForReport !== 'all' && (() => {
+                                const activeProdName = selectedProductForReport.split('_')[1];
+                                const activeProdCode = selectedProductForReport.split('_')[0];
+                                return (
+                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="p-2 bg-indigo-600 text-white rounded-lg">
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black text-indigo-900 dark:text-indigo-200">گزارش تفکیکی و اختصاصی کالا</h4>
+                                                <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 mt-0.5">
+                                                    در حال مشاهده برگشت از تولید برای کالا: <span className="font-extrabold underline">{activeProdName}</span> با کد کالا: <span className="font-mono font-bold text-xs">{activeProdCode}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setSelectedProductForReport('all')}
+                                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-black transition-all shadow-sm cursor-pointer"
+                                        >
+                                            لغو فیلتر اختصاصی کالا
+                                        </button>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Loading / Empty States */}
                             {isFetchingProdReturns ? (

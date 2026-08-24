@@ -2380,7 +2380,16 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                 isMock: true,
                 dateFrom,
                 dateTo,
-                items: mockItems
+                items: mockItems.filter(item => {
+                    const code = (item.ItemCode || '').trim();
+                    const name = (item.ItemName || '').toLowerCase();
+                    if (code.startsWith('0104') || code.startsWith('0105') || 
+                        name.includes('لاکرا') || name.includes('لاستیک') || 
+                        name.includes('lycra') || name.includes('rubber')) {
+                        return false;
+                    }
+                    return true;
+                })
             });
         }
 
@@ -2718,7 +2727,17 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
     `;
 
     const rows = await executeSayanQuery(db, sql);
-    return rows || [];
+    const results = rows || [];
+    return results.filter(item => {
+        const code = (item.ItemCode || '').trim();
+        const name = (item.ItemName || '').toLowerCase();
+        if (code.startsWith('0104') || code.startsWith('0105') || 
+            name.includes('لاکرا') || name.includes('لاستیک') || 
+            name.includes('lycra') || name.includes('rubber')) {
+            return false;
+        }
+        return true;
+    });
 }
 
 const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
