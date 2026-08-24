@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Database, DownloadCloud, UploadCloud, Clock, Loader2, CheckCircle, ShieldCheck, FileJson, WifiOff, RefreshCw, FolderOpen, FileArchive, Save } from 'lucide-react';
+import { Database, DownloadCloud, UploadCloud, Clock, Loader2, CheckCircle, ShieldCheck, FileJson, WifiOff, RefreshCw, FolderOpen, FileArchive, Save, Zap } from 'lucide-react';
 import { apiCall, LS_KEYS, getServerHost, resolveImageUrl } from '../../services/apiService';
 import { saveBlobAndOpenFile, downloadAndOpenFile } from '../../services/fileService';
 import { Capacitor } from '@capacitor/core';
@@ -10,6 +10,11 @@ const BackupManager: React.FC = () => {
     const [restoring, setRestoring] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [message, setMessage] = useState('');
+    
+    // Database Optimization States
+    const [optimizing, setOptimizing] = useState(false);
+    const [optProgress, setOptProgress] = useState({ current: 0, total: 0, savedBytes: 0, originalBytes: 0, updatedCount: 0 });
+    const [optStatus, setOptStatus] = useState('');
     
     // Auto Backup List
     const [autoBackups, setAutoBackups] = useState<any[]>([]);
@@ -210,6 +215,133 @@ const BackupManager: React.FC = () => {
         }
     };
 
+    const handleOptimizeDatabase = async () => {
+        if (!confirm('⚠️ عملیات سبک‌سازی دیتابیس:\n\nآیا مایل به اسکن و فشرده‌سازی هوشمند پیوست‌های قدیمی (حواله‌های فروش و تصاویر بارگذاری شده) هستید؟\n\nاین فرآیند هیچ سندی را حذف نخواهد کرد، بلکه با تبدیل تصاویر خام به JPEG فشرده و استاندارد، حجم فایل دیتابیس و پشتیبان‌ها را تا ۹۵٪ سبک‌تر می‌کند.')) {
+            return;
+        }
+
+        setOptimizing(true);
+        setOptStatus('در حال دریافت اطلاعات حواله‌های خروج از سرور...');
+        setOptProgress({ current: 0, total: 0, savedBytes: 0, originalBytes: 0, updatedCount: 0 });
+
+        try {
+            const permits = await apiCall<any[]>('/exit-permits');
+            if (!permits || permits.length === 0) {
+                alert('هیچ برگه خروجی جهت بهینه‌سازی پیدا نشد.');
+                setOptimizing(false);
+                return;
+            }
+
+            setOptProgress(prev => ({ ...prev, total: permits.length }));
+            let totalSaved = 0;
+            let totalOriginal = 0;
+            let updatedCount = 0;
+
+            const compressFn = (base64Str: string, maxDim: number = 1200, quality: number = 0.7): Promise<string> => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.src = base64Str;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        } else {
+                            resolve(base64Str);
+                        }
+                    };
+                    img.onerror = () => resolve(base64Str);
+                });
+            };
+
+            for (let i = 0; i < permits.length; i++) {
+                const permit = permits[i];
+                let permitChanged = false;
+                const updatedAttachments = [];
+
+                setOptStatus(`در حال پایش و بهینه‌سازی برگه شماره ${permit.permitNumber || i + 1}...`);
+                setOptProgress(prev => ({ ...prev, current: i + 1 }));
+
+                if (permit.attachments && permit.attachments.length > 0) {
+                    for (const att of permit.attachments) {
+                        const isBase64Image = att.data && att.data.startsWith('data:image/');
+                        const originalLength = att.data ? att.data.length : 0;
+                        
+                        // Treat as large base64 if it exceeds 150KB length
+                        if (isBase64Image && originalLength > 150000) {
+                            try {
+                                const compressedData = await compressFn(att.data);
+                                const newLength = compressedData.length;
+
+                                if (newLength < originalLength) {
+                                    totalOriginal += originalLength;
+                                    totalSaved += (originalLength - newLength);
+                                    
+                                    const newName = att.fileName.replace(/\.[^/.]+$/, "") + ".jpg";
+                                    updatedAttachments.push({
+                                        fileName: newName,
+                                        data: compressedData
+                                    });
+                                    permitChanged = true;
+                                } else {
+                                    updatedAttachments.push(att);
+                                }
+                            } catch (err) {
+                                updatedAttachments.push(att);
+                            }
+                        } else {
+                            updatedAttachments.push(att);
+                        }
+                    }
+                }
+
+                if (permitChanged) {
+                    updatedCount++;
+                    setOptProgress(prev => ({ 
+                        ...prev, 
+                        updatedCount, 
+                        originalBytes: totalOriginal, 
+                        savedBytes: totalSaved 
+                    }));
+
+                    await apiCall(`/exit-permits/${permit.id}`, 'PUT', {
+                        ...permit,
+                        attachments: updatedAttachments
+                    });
+                }
+            }
+
+            const savedMb = (totalSaved / 1024 / 1024 * 0.75).toFixed(1);
+            if (updatedCount > 0) {
+                alert(`✅ بهینه‌سازی با موفقیت پایان یافت!\n\nتعداد ${updatedCount} برگه خروج با پیوست‌های حجیم فشرده و سبک‌سازی شدند.\nتقریباً حدود ${savedMb} مگابایت از فضا آزاد شد و حجم فایل بکاپ کاهش یافت.`);
+            } else {
+                alert('🔍 بررسی کامل شد.\n\nتمامی پیوست‌های موجود در دیتابیس از قبل فشرده و سبک بوده‌اند و نیازی به بهینه‌سازی مجدد نداشتند.');
+            }
+
+        } catch (err: any) {
+            alert('خطا در اجرای بهینه‌سازی دیتابیس: ' + err.message);
+        } finally {
+            setOptimizing(false);
+            setOptStatus('');
+        }
+    };
+
     return (
         <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-sm relative overflow-hidden animate-fade-in mb-6">
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
@@ -334,6 +466,58 @@ const BackupManager: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Database Optimization Tool */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+                <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1.5">
+                    <Zap size={16} className="text-orange-500 animate-pulse"/>
+                    <span>سبک‌سازی و بهینه‌سازی حجم دیتابیس (فشرده‌ساز پیوست‌ها)</span>
+                </h4>
+                
+                <div className="bg-orange-50/50 border border-orange-100 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1 text-right flex-1">
+                        <span className="text-xs font-bold text-orange-800 block">فشرده‌سازی خودکار تصاویر حواله‌های خروج و پیوست‌ها</span>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">
+                            این ابزار کل اسناد ثبت شده در سیستم را بررسی کرده و پیوست‌های خام و حجیم سنگین (مانند عکس‌های آپلود شده از گوشی یا تصاویر رسیدهای سایان) را بدون تغییر در کیفیت خوانایی، با الگوریتم مینی‌فای استاندارد به JPEG سبک فشرده می‌کند. این کار به شدت روی کاهش حجم فایل پشتیبان و سرعت برنامه تاثیرگذار است.
+                        </p>
+                    </div>
+                    
+                    <button
+                        type="button"
+                        onClick={handleOptimizeDatabase}
+                        disabled={optimizing}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-3 rounded-xl text-xs font-black transition-colors flex items-center gap-2 shadow-md shadow-orange-100 shrink-0 disabled:opacity-50"
+                    >
+                        {optimizing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        {optimizing ? 'در حال بهینه‌سازی دیتابیس...' : 'بهینه‌سازی و سبک‌سازی دیتابیس'}
+                    </button>
+                </div>
+                
+                {optimizing && (
+                    <div className="mt-4 bg-white border rounded-xl p-4 space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-gray-400 font-bold">{optStatus}</span>
+                            <span className="text-indigo-600 font-black" dir="ltr">
+                                {optProgress.current} / {optProgress.total} ({Math.round((optProgress.current / (optProgress.total || 1)) * 100)}٪)
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div 
+                                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${(optProgress.current / (optProgress.total || 1)) * 100}%` }}
+                            ></div>
+                        </div>
+                        {optProgress.updatedCount > 0 && (
+                            <div className="flex justify-between items-center text-[10px] bg-green-50 text-green-800 p-2 rounded-lg border border-green-100">
+                                <span className="font-bold">تعداد کل برگه‌های سبک شده: {optProgress.updatedCount} عدد</span>
+                                <span className="font-black" dir="ltr">
+                                    کاهش حجم تقریبی: {((optProgress.savedBytes / 1024 / 1024) * 0.75).toFixed(1)} MB
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -25,7 +25,44 @@ const SecurityFinalizeModal: React.FC<Props> = ({ permit, onClose, onConfirm }) 
           const reader = new FileReader();
           reader.onload = (evt) => {
               if (evt.target?.result) {
-                  setAttachments(prev => [...prev, { fileName: file.name, data: evt.target!.result as string }]);
+                  const base64 = evt.target.result as string;
+                  if (file.type.startsWith('image/')) {
+                      const img = new Image();
+                      img.src = base64;
+                      img.onload = () => {
+                          const maxDim = 1200;
+                          let width = img.width;
+                          let height = img.height;
+                          if (width > maxDim || height > maxDim) {
+                              if (width > height) {
+                                  height = Math.round((height * maxDim) / width);
+                                  width = maxDim;
+                              } else {
+                                  width = Math.round((width * maxDim) / height);
+                                  height = maxDim;
+                              }
+                          }
+                          const canvas = document.createElement('canvas');
+                          canvas.width = width;
+                          canvas.height = height;
+                          const ctx = canvas.getContext('2d');
+                          if (ctx) {
+                              ctx.fillStyle = '#ffffff';
+                              ctx.fillRect(0, 0, width, height);
+                              ctx.drawImage(img, 0, 0, width, height);
+                              const compressedData = canvas.toDataURL('image/jpeg', 0.75);
+                              const compressedName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                              setAttachments(prev => [...prev, { fileName: compressedName, data: compressedData }]);
+                          } else {
+                              setAttachments(prev => [...prev, { fileName: file.name, data: base64 }]);
+                          }
+                      };
+                      img.onerror = () => {
+                          setAttachments(prev => [...prev, { fileName: file.name, data: base64 }]);
+                      };
+                  } else {
+                      setAttachments(prev => [...prev, { fileName: file.name, data: base64 }]);
+                  }
               }
           };
           reader.readAsDataURL(file);

@@ -190,10 +190,10 @@ export const captureElementToDataUrl = async (elementId: string): Promise<string
     throw new Error(`Element #${elementId} not found`);
   }
   const canvas = await html2canvas(el, {
-    scale: 2,
+    scale: 1.2,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
   });
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL('image/jpeg', 0.75);
 };
