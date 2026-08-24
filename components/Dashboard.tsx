@@ -88,27 +88,34 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
   // Warehouse Alert State
   const [warehouseAlertData, setWarehouseAlertData] = useState<{ totalCurrentAllWeight: number, diffAllWeight: number, ratioAllWeight: number } | null>(null);
   const [warehouseOverviewData, setWarehouseOverviewData] = useState<any | null>(null);
+  const [isRefreshingWarehouse, setIsRefreshingWarehouse] = useState(false);
+  const [warehouseIsMock, setWarehouseIsMock] = useState(false);
+
+  const fetchWarehouseAlert = async (isManual = false) => {
+      if (isManual) setIsRefreshingWarehouse(true);
+      try {
+          const res = await fetch('/api/warehouse-overview/live-status');
+          if (res.ok) {
+              const data = await res.json();
+              setWarehouseOverviewData(data);
+              setWarehouseIsMock(!!data.isMock);
+              if (data?.meta?.totalCurrentAllWeight !== undefined) {
+                  setWarehouseAlertData({
+                      totalCurrentAllWeight: data.meta.totalCurrentAllWeight,
+                      diffAllWeight: data.meta.diffAllWeight,
+                      ratioAllWeight: data.meta.ratioAllWeight
+                  });
+              }
+          }
+      } catch (err) {
+          console.error("Failed to fetch warehouse overview alert", err);
+      } finally {
+          if (isManual) setIsRefreshingWarehouse(false);
+      }
+  };
 
   useEffect(() => {
-      const fetchWarehouseAlert = async () => {
-          try {
-              const res = await fetch('/api/warehouse-overview/data');
-              if (res.ok) {
-                  const data = await res.json();
-                  setWarehouseOverviewData(data);
-                  if (data?.meta?.totalCurrentAllWeight !== undefined) {
-                      setWarehouseAlertData({
-                          totalCurrentAllWeight: data.meta.totalCurrentAllWeight,
-                          diffAllWeight: data.meta.diffAllWeight,
-                          ratioAllWeight: data.meta.ratioAllWeight
-                      });
-                  }
-              }
-          } catch (err) {
-              console.error("Failed to fetch warehouse overview alert", err);
-          }
-      };
-      fetchWarehouseAlert();
+      fetchWarehouseAlert(false);
   }, []);
 
   // Automatically fetch an online poem from Iranian sites on mount
@@ -1004,7 +1011,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 mb-6">
                     <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-sm flex flex-col">
                         <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><PieChart size={20} className="text-blue-500"/> توزیع روش‌های پرداخت</h3>
                         <div className="h-64 w-full">
@@ -1019,47 +1026,66 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                             </ResponsiveContainer>
                         </div>
                     </div>
-
-                    <div className="glass-panel p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-gray-800 flex items-center gap-2"><BarChart size={20} className="text-indigo-500"/> پرداخت‌ها بر اساس بانک</h3>
-                            <button onClick={() => setShowBankReport(true)} className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 transition-colors">گزارش کامل</button>
-                        </div>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsBarChart data={bankStats.slice(0, 5)}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" tick={{fontSize: 10}} />
-                                    <YAxis tick={{fontSize: 10}} tickFormatter={(value) => `${value/1000000}M`} />
-                                    <Tooltip formatter={(value: number) => formatCurrency(value)} cursor={{fill: '#f3f4f6'}} />
-                                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
-                                </RechartsBarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
                 </div>
 
-                {/* WAREHOUSE STATUS WIDGET */}
+                  {/* WAREHOUSE STATUS WIDGET */}
                 {permissions.canViewSayanWarehouseWidget && (
-                    <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-sm flex flex-col mb-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                                <Package size={20} className="text-orange-500"/>
-                                <span>وضعیت تراز وزنی و موجودی انبارها (سایان ERP)</span>
-                            </h3>
-                            <button 
-                                onClick={() => onNavigate && onNavigate('sayan')} 
-                                className="text-xs bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 px-3 py-1.5 rounded-lg font-bold hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors border border-orange-100"
-                            >
-                                جزئیات و استعلام جدید
-                            </button>
+                    <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 dark:border-white/10 shadow-md flex flex-col mb-6 relative overflow-hidden">
+                        {/* Sub-background decoration to emphasize managerial feel */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+                            <div className="space-y-1">
+                                <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                    <Package size={20} className="text-orange-500 animate-pulse"/>
+                                    <span>داشبورد تراز وزنی کل زنجیره تامین و انبارها</span>
+                                </h3>
+                                <p className="text-[11px] text-gray-500 font-medium">پایش برخط موجودی مواد اولیه، کالاهای وارده، گمرک، ترانزیت و تولیدی کارخانجات</p>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-stretch md:self-auto justify-between md:justify-end">
+                                {/* Live Status Badge */}
+                                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide shadow-sm border ${
+                                    warehouseIsMock 
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                        warehouseIsMock ? 'bg-amber-500' : 'bg-emerald-500 animate-ping'
+                                    }`} />
+                                    <span>{warehouseIsMock ? 'نمایش آفلاین (دیتا بیس)' : 'برخط (Sayan Live)'}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                    <button 
+                                        onClick={() => fetchWarehouseAlert(true)}
+                                        disabled={isRefreshingWarehouse}
+                                        className={`p-1.5 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-all border border-gray-200/60 flex items-center justify-center ${
+                                            isRefreshingWarehouse ? 'animate-spin text-orange-500' : ''
+                                        }`}
+                                        title="بروزرسانی مستقیم از هسته سایان"
+                                    >
+                                        <RotateCw size={14} />
+                                    </button>
+
+                                    <button 
+                                        onClick={() => onNavigate && onNavigate('sayan')} 
+                                        className="text-[11px] bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-orange-600 transition-colors shadow-sm flex items-center gap-1"
+                                    >
+                                        <span>سامانه انبار</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Stat Blocks */}
                             <div className="space-y-4 flex flex-col justify-center">
-                                <div className="bg-orange-50/50 dark:bg-orange-950/10 p-4 rounded-xl border border-orange-100/50">
-                                    <span className="text-xs text-gray-500 block mb-1">کل وزن موجودی زنجیره تامین</span>
+                                <div className="bg-orange-50/40 dark:bg-orange-950/10 p-4 rounded-xl border border-orange-100/50">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs text-gray-500 font-bold">کل وزن موجودی زنجیره تامین</span>
+                                        <span className="text-[9px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded">تناژ فعال</span>
+                                    </div>
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-2xl font-black text-gray-800 font-mono">
                                             {(displayWarehouseData.totalCurrentAllWeight / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}

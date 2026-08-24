@@ -1524,6 +1524,147 @@ app.get('/api/warehouse-overview/data', (req, res) => {
     }
 });
 
+app.get('/api/warehouse-overview/live-status', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const sayanUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+        const sayanKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+        if (!sayanUrl || !sayanKey) {
+            const meta = db.warehouseOverview?.meta || {};
+            return res.json({
+                success: false,
+                isMock: true,
+                message: 'تنظیمات آدرس API یا کلید امنیتی سایان ثبت نشده است.',
+                meta: {
+                    totalCurrentAllWeight: meta.totalCurrentAllWeight !== undefined ? meta.totalCurrentAllWeight : 730000,
+                    diffAllWeight: meta.diffAllWeight !== undefined ? meta.diffAllWeight : -30000,
+                    ratioAllWeight: meta.ratioAllWeight !== undefined ? meta.ratioAllWeight : -4.1,
+                    totalPositiveWeight: meta.totalPositiveWeight !== undefined ? meta.totalPositiveWeight : 45000,
+                    totalNegativeWeight: meta.totalNegativeWeight !== undefined ? meta.totalNegativeWeight : -75000,
+                    reportDate: meta.reportDate || '۱۴۰۵/۰۵/۳۱'
+                }
+            });
+        }
+
+        const lastYearDateFrom = '2024-03-20';
+        const lastYearDateTo = '2025-03-20';
+        const currentYearDateFrom = '2025-03-21';
+        const currentYearDateTo = new Date().toISOString().split('T')[0];
+
+        const getStockWeights = async (targetDate, fromDate) => {
+            const dateFromFilter = fromDate ? `AND t10.Field_008 >= '${fromDate}T00:00:00.000Z'` : '';
+            const sql = `
+                WITH GroupedStock AS (
+                    SELECT 
+                        t11.Field_005 as ItemCode,
+                        SUM(CASE 
+                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '24', '26', '29', '40', '44', '46', '83') THEN t11.Field_006 
+                            WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN -t11.Field_006 
+                            ELSE 0 
+                        END) as StockQty
+                    FROM STR_TBL_011 t11
+                    INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                              AND t11.Field_003 = t10.Field_004 
+                                              AND t11.Field_012 = t10.Field_018
+                    WHERE t10.Field_008 <= '${targetDate}T23:59:59.000Z'
+                      ${dateFromFilter}
+                    GROUP BY t11.Field_005
+                )
+                SELECT ItemCode, StockQty FROM GroupedStock
+            `;
+            const rows = await executeSayanQuery(db, sql);
+            return rows || [];
+        };
+
+        const [lastYearStock, currentStock] = await Promise.all([
+            getStockWeights(lastYearDateTo, lastYearDateFrom),
+            getStockWeights(currentYearDateTo, currentYearDateFrom)
+        ]);
+
+        const lastYearMap = {};
+        lastYearStock.forEach(item => {
+            const code = item.ItemCode ? item.ItemCode.trim() : '';
+            if (code) lastYearMap[code] = parseFloat(item.StockQty || 0);
+        });
+
+        const currentMap = {};
+        currentStock.forEach(item => {
+            const code = item.ItemCode ? item.ItemCode.trim() : '';
+            if (code) currentMap[code] = parseFloat(item.StockQty || 0);
+        });
+
+        const allCodes = new Set([...Object.keys(lastYearMap), ...Object.keys(currentMap)]);
+
+        let totalCurrentAllWeight = 0;
+        let totalLastYearAllWeight = 0;
+        let totalPositiveWeight = 0;
+        let totalNegativeWeight = 0;
+
+        allCodes.forEach(code => {
+            if (!code.startsWith('01') && !code.startsWith('04')) return;
+
+            const wLast = lastYearMap[code] || 0;
+            const wCurr = currentMap[code] || 0;
+            const diff = wCurr - wLast;
+
+            totalCurrentAllWeight += wCurr;
+            totalLastYearAllWeight += wLast;
+
+            if (diff > 0) {
+                totalPositiveWeight += diff;
+            } else if (diff < 0) {
+                totalNegativeWeight += diff;
+            }
+        });
+
+        const diffAllWeight = totalCurrentAllWeight - totalLastYearAllWeight;
+        const ratioAllWeight = totalLastYearAllWeight > 0 ? (diffAllWeight / totalLastYearAllWeight) * 100 : 0;
+
+        const today = new Date();
+        const option = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
+        const persDate = today.toLocaleDateString('fa-IR', option);
+
+        const liveMeta = {
+            totalCurrentAllWeight,
+            diffAllWeight,
+            ratioAllWeight,
+            totalPositiveWeight,
+            totalNegativeWeight,
+            reportDate: persDate
+        };
+
+        if (!db.warehouseOverview) db.warehouseOverview = {};
+        if (!db.warehouseOverview.meta) db.warehouseOverview.meta = {};
+        Object.assign(db.warehouseOverview.meta, liveMeta);
+        saveDb(db);
+
+        res.json({
+            success: true,
+            isMock: false,
+            meta: liveMeta
+        });
+    } catch (err) {
+        console.error("Live Warehouse Status calculation error:", err);
+        const db = getDb();
+        const meta = db.warehouseOverview?.meta || {};
+        res.json({
+            success: false,
+            isMock: true,
+            message: 'خطا در اتصال به سرور سایان: نمایش آمار ذخیره‌شده قبلی',
+            meta: {
+                totalCurrentAllWeight: meta.totalCurrentAllWeight !== undefined ? meta.totalCurrentAllWeight : 730000,
+                diffAllWeight: meta.diffAllWeight !== undefined ? meta.diffAllWeight : -30000,
+                ratioAllWeight: meta.ratioAllWeight !== undefined ? meta.ratioAllWeight : -4.1,
+                totalPositiveWeight: meta.totalPositiveWeight !== undefined ? meta.totalPositiveWeight : 45000,
+                totalNegativeWeight: meta.totalNegativeWeight !== undefined ? meta.totalNegativeWeight : -75000,
+                reportDate: meta.reportDate || '۱۴۰۵/۰۵/۳۱'
+            }
+        });
+    }
+});
+
 app.post('/api/warehouse-overview/data', (req, res) => {
     try {
         const db = getDb();
