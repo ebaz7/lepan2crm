@@ -41,7 +41,11 @@ import {
     ArrowUp,
     ArrowDown,
     Truck,
-    Undo2
+    Undo2,
+    FileSpreadsheet,
+    Eye,
+    EyeOff,
+    ListFilter
 } from 'lucide-react';
 import * as jalaali from 'jalaali-js';
 import { 
@@ -158,6 +162,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'group' | 'detail' | 'document'>('group');
     const [prodReturnsSearch, setProdReturnsSearch] = useState('');
     const [selectedProductForReport, setSelectedProductForReport] = useState<string>('all');
+    const [showRawDocsVerification, setShowRawDocsVerification] = useState(false);
+    const [rawDocsSearch, setRawDocsSearch] = useState('');
     const [isSendingBot, setIsSendingBot] = useState(false);
     const [productionData, setProductionData] = useState<any[]>([]);
     const [prodGrouping, setProdGrouping] = useState<'group' | 'item' | 'date'>('group');
@@ -2375,6 +2381,67 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // --- PRODUCTION RETURNS HELPERS ---
+    const resolveProdItemName = (code: string, rawName: string): string => {
+        const c = (code || '').trim();
+        const n = (rawName || '').trim();
+        
+        // If rawName is meaningful text (contains Persian letters and is not just numeric code or placeholder)
+        if (n && n !== c && !/^\d+$/.test(n) && !n.includes('کالای بدون نام')) {
+            return n;
+        }
+        
+        // Fallback known codings
+        if (c === '01011001' || c.startsWith('0101')) return 'چیپس پلی استر (Chips)';
+        if (c === '0102020601') return 'نخ شوایتر 300/96';
+        if (c === '010202031001') return 'نخ شوایتر 150/48';
+        if (c === '010202041001') return 'نخ شوایتر 100/36';
+        if (c === '010202051001') return 'نخ شوایتر 75/36';
+        if (c === '010202091001') return 'نخ شوایتر 150/144';
+        if (c === '010202141001') return 'نخ شوایتر 50/24';
+        if (c === '010202161001') return 'نخ شوایتر 75/72';
+        if (c.startsWith('0102')) return `نخ شوایتر / POY (${c})`;
+        
+        if (c === '010301011001') return 'پلی استر ۱۰۰ سفید (DTY)';
+        if (c === '010301021001') return 'نخ پلی استر ماتی';
+        if (c === '010302011001') return 'نخ پلی استر رنگی';
+        if (c === '010302111001') return 'نخ DTY 150/48 رنگی';
+        if (c === '010302171001') return 'نخ DTY 75/36 ملانژ';
+        if (c.startsWith('010301')) return `نخ DTY سفید (${c})`;
+        if (c.startsWith('010302')) return `نخ DTY رنگی (${c})`;
+        if (c.startsWith('0103')) return `نخ پلی استر DTY (${c})`;
+
+        if (c.startsWith('0106')) return `پلی استر اسپان (${c})`;
+        if (c === '01071001001' || c.startsWith('0107')) return `مستربچ پایه (${c})`;
+        if (c.startsWith('0108')) return `نایلون و ضایعات (${c})`;
+
+        if (c === '0201011001' || c === '0201011002') return `نخ دوخت و مصرفی (${c})`;
+        if (c.startsWith('020101')) return `نخ دوخت و مصرفی (${c})`;
+        if (c.startsWith('020102')) return `نخ و مواد کمکی (${c})`;
+        if (c.startsWith('020104')) return `مواد اولیه نساجی (${c})`;
+        if (c.startsWith('020106')) return `ملزومات و قطعات مصرفی (${c})`;
+        if (c.startsWith('0201')) return `مواد اولیه و ملزومات تولید (${c})`;
+
+        if (c.startsWith('020201')) return `مستربچ سفید/مشکی (${c})`;
+        if (c.startsWith('020202')) return `مستربچ رنگی (${c})`;
+        if (c.startsWith('020203')) return `افزودنی مستربچ (${c})`;
+        if (c === '0202051002' || c === '0202051006' || c.startsWith('020205')) return `مستربچ و رنگ (${c})`;
+        if (c.startsWith('020207')) return `مستربچ خاص (${c})`;
+        if (c.startsWith('0202')) return `مستربچ و رنگدانه‌ها (${c})`;
+
+        if (c === '020302' || c === '02031001' || c.startsWith('0203')) return `ملزومات بسته‌بندی و تولید (${c})`;
+
+        if (c === '0401020410021001' || c.startsWith('0401')) return `اسپاندکس کاور رونیز (${c})`;
+        if (c.startsWith('0402')) return `نخ کش / قیطان (${c})`;
+        if (c.startsWith('0403')) return `اسپاندکس جوشی ساپورت (${c})`;
+        if (c.startsWith('0405')) return `پلی استر شوایتر (${c})`;
+        if (c.startsWith('0407')) return `نخ نایلون (${c})`;
+        if (c.startsWith('0408')) return `نخ ملت (${c})`;
+        if (c.startsWith('0409')) return `الیاف (${c})`;
+        if (c.startsWith('0810')) return `ضایعات و نوار کاغذی (${c})`;
+
+        return n || `کالای کد ${c}`;
+    };
+
     const getProdReturnsAnalyzed = () => {
         const classifyProductGroup = (itemCode: string, itemName: string) => {
             const code = (itemCode || '').trim();
@@ -2394,8 +2461,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: true };
             if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: true };
             if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: true };
+            if (code.startsWith('0201')) return { code: '0201', name: 'مواد اولیه و ملزومات تولید', isProduction: true };
+            if (code.startsWith('0202')) return { code: '0202', name: 'مستربچ و رنگ', isProduction: true };
+            if (code.startsWith('0203')) return { code: '0203', name: 'ملزومات بسته‌بندی', isProduction: true };
             if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: true };
             if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: true };
+            if (code.startsWith('0810')) return { code: '0810', name: 'ضایعات و رول کاغذی', isProduction: true };
 
             if (name.includes('اسپاندکس') || name.includes('spandex')) {
                 return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
@@ -2423,18 +2494,20 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const filteredRaw = prodReturnsData.filter(item => {
             const code = (item.ItemCode || '').trim();
-            const name = (item.ItemName || '').toLowerCase();
+            const rawName = (item.ItemName || '').toLowerCase();
+            const resolvedName = resolveProdItemName(code, item.ItemName).toLowerCase();
             
             // Exclude Lycra (0105) and Rubber (0104) and related keywords from production returns
             if (code.startsWith('0104') || code.startsWith('0105') || 
-                name.includes('لاکرا') || name.includes('لاستیک') || 
-                name.includes('lycra') || name.includes('rubber')) {
+                rawName.includes('لاکرا') || rawName.includes('لاستیک') || 
+                rawName.includes('lycra') || rawName.includes('rubber') ||
+                resolvedName.includes('لاکرا') || resolvedName.includes('لاستیک')) {
                 return false;
             }
 
             // Support item-specific reports
             if (selectedProductForReport && selectedProductForReport !== 'all') {
-                const productKey = `${code}_${item.ItemName || 'بدون نام'}`;
+                const productKey = `${code}_${resolveProdItemName(code, item.ItemName)}`;
                 if (productKey !== selectedProductForReport) {
                     return false;
                 }
@@ -2442,9 +2515,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             if (!prodReturnsSearch) return true;
             const s = prodReturnsSearch.toLowerCase();
+            const archiveNo = String(item.ArchiveNo || item.SubCode || '').toLowerCase();
             return (item.ItemName || '').toLowerCase().includes(s) || 
+                   resolvedName.includes(s) ||
                    (item.ItemCode || '').toLowerCase().includes(s) || 
-                   (item.DocId || '').toLowerCase().includes(s);
+                   (item.DocId || '').toLowerCase().includes(s) ||
+                   archiveNo.includes(s);
         });
 
         const totalWeight = filteredRaw.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
@@ -2453,7 +2529,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const materialGroupsMap = new Map<string, { code: string; name: string; itemsCount: number; totalQty: number }>();
 
         filteredRaw.forEach(item => {
-            const groupInfo = classifyProductGroup(item.ItemCode, item.ItemName);
+            const resolvedName = resolveProdItemName(item.ItemCode, item.ItemName);
+            const groupInfo = classifyProductGroup(item.ItemCode, resolvedName);
             const mapToUse = groupInfo.isProduction ? productionGroupsMap : materialGroupsMap;
             
             if (!mapToUse.has(groupInfo.code)) {
@@ -2477,13 +2554,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const detailedMap = new Map<string, { code: string; name: string; groupName: string; color: string; dot: string; totalQty: number }>();
         filteredRaw.forEach(item => {
-            const key = `${item.ItemCode || ''}_${item.ItemName || ''}`;
-            const groupInfo = classifyProductGroup(item.ItemCode, item.ItemName);
+            const code = (item.ItemCode || '').trim();
+            const resolvedName = resolveProdItemName(code, item.ItemName);
+            const key = `${code}_${resolvedName}`;
+            const groupInfo = classifyProductGroup(code, resolvedName);
             
             if (!detailedMap.has(key)) {
                 detailedMap.set(key, {
-                    code: item.ItemCode || '',
-                    name: item.ItemName || '',
+                    code,
+                    name: resolvedName,
                     groupName: groupInfo.name,
                     color: groupInfo.isProduction ? 'text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-800/30' : 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800/30',
                     dot: groupInfo.isProduction ? 'bg-indigo-500' : 'bg-blue-500',
@@ -2496,9 +2575,10 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         const detailedList = Array.from(detailedMap.values()).sort((a, b) => b.totalQty - a.totalQty);
 
         // Group by DocId (Document Number)
-        const documentsMap = new Map<string, { docId: string; date: string; totalQty: number; items: any[] }>();
+        const documentsMap = new Map<string, { docId: string; archiveNo: string; date: string; totalQty: number; items: any[] }>();
         filteredRaw.forEach(item => {
             const docId = String(item.DocId || 'بدون شماره سند').trim();
+            const archiveNo = String(item.ArchiveNo || item.SubCode || '—').trim();
             let displayDate = '';
             if (item.Date) {
                 try {
@@ -2512,6 +2592,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             if (!documentsMap.has(docId)) {
                 documentsMap.set(docId, {
                     docId,
+                    archiveNo,
                     date: displayDate,
                     totalQty: 0,
                     items: []
@@ -2519,11 +2600,14 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             }
             const doc = documentsMap.get(docId)!;
             doc.totalQty += parseFloat(item.Quantity || 0);
+            const resolvedName = resolveProdItemName(item.ItemCode, item.ItemName);
             doc.items.push({
-                itemCode: item.ItemCode || '',
-                itemName: item.ItemName || '',
+                lineId: item.LineId || '',
+                itemCode: (item.ItemCode || '').trim(),
+                itemName: resolvedName,
                 quantity: parseFloat(item.Quantity || 0),
-                groupName: classifyProductGroup(item.ItemCode, item.ItemName).name
+                groupName: classifyProductGroup(item.ItemCode, resolvedName).name,
+                lineNotes: item.LineNotes || item.DocDescription || ''
             });
         });
 
@@ -2536,6 +2620,44 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             return b.docId.localeCompare(a.docId);
         });
 
+        // Detailed flat list of raw document rows for precise 104-row verification
+        const rawDocumentRows = filteredRaw.map((item, idx) => {
+            const code = (item.ItemCode || '').trim();
+            const resolvedName = resolveProdItemName(code, item.ItemName);
+            const grp = classifyProductGroup(code, resolvedName);
+            let displayDate = '';
+            if (item.Date) {
+                try {
+                    displayDate = new Date(item.Date).toLocaleDateString('fa-IR');
+                } catch(e) {
+                    displayDate = item.Date;
+                }
+            } else {
+                displayDate = dateFrom;
+            }
+            return {
+                id: item.LineId || `line_${idx}`,
+                lineId: item.LineId || `${idx + 1}`,
+                docId: String(item.DocId || '—').trim(),
+                archiveNo: String(item.ArchiveNo || item.SubCode || '—').trim(),
+                date: displayDate,
+                rawDate: item.Date,
+                itemCode: code,
+                itemName: resolvedName,
+                groupName: grp.name,
+                groupCode: grp.code,
+                quantity: parseFloat(item.Quantity || 0),
+                lineNotes: item.LineNotes || item.DocDescription || ''
+            };
+        }).sort((a, b) => {
+            const numDocA = parseInt(a.docId, 10);
+            const numDocB = parseInt(b.docId, 10);
+            if (!isNaN(numDocA) && !isNaN(numDocB) && numDocA !== numDocB) {
+                return numDocB - numDocA;
+            }
+            return a.itemCode.localeCompare(b.itemCode);
+        });
+
         return {
             filteredRaw,
             totalWeight,
@@ -2544,7 +2666,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             totalProdWeight,
             totalMatWeight,
             detailedList,
-            documentsList
+            documentsList,
+            rawDocumentRows
         };
     };
 
@@ -2624,7 +2747,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <div class="section-title">گزارش تفکیکی اسناد برگشت از تولید (کد عملیات ۴۴)</div>
                 ${documentsList.map((doc) => `
                     <div style="margin-top: 15px; margin-bottom: 5px; font-weight: bold; background: #f2f2f2; padding: 8px 12px; border: 1px solid #000; display: flex; justify-content: space-between; font-size: 11px;">
-                        <span>سند شماره: ${doc.docId}</span>
+                        <span>سند شماره: ${doc.docId} (بایگانی: ${doc.archiveNo})</span>
                         <span>تاریخ ثبت: ${doc.date}</span>
                         <span>مجموع وزن سند: ${Math.round(doc.totalQty).toLocaleString('fa-IR')} کیلوگرم</span>
                     </div>
@@ -6884,30 +7007,44 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         totalProdWeight, 
                         totalMatWeight, 
                         detailedList,
-                        documentsList
+                        documentsList,
+                        rawDocumentRows
                     } = getProdReturnsAnalyzed();
 
                     const uniqueProducts = Array.from(
                         prodReturnsData.reduce((map, item) => {
                             const code = (item.ItemCode || '').trim();
-                            const name = (item.ItemName || '').trim();
+                            const rawName = (item.ItemName || '').trim();
+                            const resolvedName = resolveProdItemName(code, rawName);
                             
                             // Exclude Lycra (0105) and Rubber (0104) and related keywords from unique product options
                             if (code.startsWith('0104') || code.startsWith('0105') || 
-                                name.toLowerCase().includes('لاکرا') || name.toLowerCase().includes('لاستیک') || 
-                                name.toLowerCase().includes('lycra') || name.toLowerCase().includes('rubber')) {
+                                rawName.toLowerCase().includes('لاکرا') || rawName.toLowerCase().includes('لاستیک') || 
+                                rawName.toLowerCase().includes('lycra') || rawName.toLowerCase().includes('rubber') ||
+                                resolvedName.toLowerCase().includes('لاکرا') || resolvedName.toLowerCase().includes('لاستیک')) {
                                 return map;
                             }
                             
-                            const key = `${code}_${name || 'بدون نام'}`;
+                            const key = `${code}_${resolvedName}`;
                             if (!map.has(key)) {
-                                map.set(key, { code, name: name || 'کالای بدون نام' });
+                                map.set(key, { code, name: resolvedName });
                             }
                             return map;
                         }, new Map<string, { code: string; name: string }>()).values()
                     ) as { code: string; name: string }[];
 
                     uniqueProducts.sort((a, b) => a.name.localeCompare(b.name, 'fa'));
+
+                    const displayedRawRows = rawDocumentRows.filter(r => {
+                        if (!rawDocsSearch) return true;
+                        const s = rawDocsSearch.toLowerCase();
+                        return r.docId.toLowerCase().includes(s) ||
+                               r.archiveNo.toLowerCase().includes(s) ||
+                               r.itemName.toLowerCase().includes(s) ||
+                               r.itemCode.toLowerCase().includes(s) ||
+                               r.groupName.toLowerCase().includes(s) ||
+                               r.lineNotes.toLowerCase().includes(s);
+                    });
 
                     return (
                         <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 rtl">
@@ -7007,7 +7144,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                         <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
                                         <input
                                             type="text"
-                                            placeholder="جستجو در شرح، کد کالا یا گروه..."
+                                            placeholder="جستجو در شرح، کد کالا یا سند..."
                                             value={prodReturnsSearch}
                                             onChange={e => setProdReturnsSearch(e.target.value)}
                                             className="w-full pl-3 pr-10 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
@@ -7033,7 +7170,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             <option value="all">📊 گزارش کلی (همه کالاها)</option>
                                             {uniqueProducts.map((p, pIdx) => (
                                                 <option key={pIdx} value={`${p.code}_${p.name}`}>
-                                                    📦 {p.name} ({p.code})
+                                                    📦 {p.name} {p.name.includes(p.code) ? '' : `(کد: ${p.code})`}
                                                 </option>
                                             ))}
                                         </select>
@@ -7198,9 +7335,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <div key={docIdx} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-200 dark:hover:border-zinc-700 transition-all">
                                                     {/* Document Card Header */}
                                                     <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex flex-wrap items-center gap-3">
                                                             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-900/30">
                                                                 سند شماره {doc.docId}
+                                                            </span>
+                                                            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                                                                شماره بایگانی: <span className="font-mono">{doc.archiveNo}</span>
                                                             </span>
                                                             <span className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
                                                                 تاریخ ثبت: <span className="font-mono">{doc.date}</span>
@@ -7220,6 +7360,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                                     <th className="p-3">نام و شرح کالا</th>
                                                                     <th className="p-3">گروه کالا</th>
                                                                     <th className="p-3 text-left w-36">وزن برگشتی (کیلوگرم)</th>
+                                                                    <th className="p-3">توضیحات و مشخصات</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
@@ -7230,6 +7371,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                                         <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.itemName}</td>
                                                                         <td className="p-3 font-bold text-slate-500 dark:text-zinc-400">{item.groupName}</td>
                                                                         <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-xs">{Math.round(item.quantity).toLocaleString('fa-IR')}</td>
+                                                                        <td className="p-3 text-slate-500 dark:text-zinc-400 text-[11px]">{item.lineNotes || '—'}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
@@ -7241,6 +7383,142 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     </div>
                                 )
                             )}
+
+                            {/* RAW DOCUMENT ROWS VERIFICATION SECTION (نمایش ردیف‌های اسناد جهت راستی‌آزمایی دقیق) */}
+                            <div className="mt-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                                <div className="p-4 bg-slate-50 dark:bg-zinc-950/60 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                                            <FileSpreadsheet className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                                                ریز اسناد ثبت‌شده برگشت از تولید
+                                                <span className="text-xs font-mono font-black px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full">
+                                                    {rawDocumentRows.length} ردیف سند
+                                                </span>
+                                            </h3>
+                                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                                                نمایش ردیف‌های اسناد همراه با شماره سند، شماره بایگانی و وزن برگشتی جهت تطبیق و راستی‌آزمایی
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setShowRawDocsVerification(!showRawDocsVerification)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                                                showRawDocsVerification 
+                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/20' 
+                                                    : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800/80'
+                                            }`}
+                                        >
+                                            {showRawDocsVerification ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                            <span>{showRawDocsVerification ? 'بستن جدول ریز اسناد' : `مشاهده ریز اسناد (${rawDocumentRows.length} ردیف)`}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {showRawDocsVerification && (
+                                    <div className="p-4 space-y-3 animate-fade-in">
+                                        {/* Search & Totals Summary */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-zinc-950/30 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                                            <div className="relative w-full sm:w-72">
+                                                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="جستجو در شماره سند، بایگانی یا کالا..."
+                                                    value={rawDocsSearch}
+                                                    onChange={e => setRawDocsSearch(e.target.value)}
+                                                    className="w-full pl-3 pr-9 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                                                />
+                                                {rawDocsSearch && (
+                                                    <button onClick={() => setRawDocsSearch('')} className="absolute left-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-zinc-400">
+                                                <span>تعداد ردیف‌ها: <span className="font-mono text-slate-900 dark:text-zinc-100 font-extrabold">{displayedRawRows.length}</span></span>
+                                                <span>|</span>
+                                                <span>مجموع وزن ردیف‌ها: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">{Math.round(displayedRawRows.reduce((s, r) => s + r.quantity, 0)).toLocaleString('fa-IR')}</span> کیلوگرم</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Verification Table */}
+                                        <div className="overflow-x-auto custom-scrollbar border border-slate-200/80 dark:border-zinc-800 rounded-lg max-h-[500px]">
+                                            <table className="w-full border-collapse text-right text-xs">
+                                                <thead className="sticky top-0 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-black z-10 shadow-sm">
+                                                    <tr>
+                                                        <th className="p-2.5 w-12 text-center">ردیف</th>
+                                                        <th className="p-2.5 w-24 text-center">شماره سند</th>
+                                                        <th className="p-2.5 w-24 text-center">شماره بایگانی</th>
+                                                        <th className="p-2.5 w-24 text-center">تاریخ سند</th>
+                                                        <th className="p-2.5">نام و شرح کالا</th>
+                                                        <th className="p-2.5 w-28">کد کالا</th>
+                                                        <th className="p-2.5 w-32">گروه کالا</th>
+                                                        <th className="p-2.5 text-left w-32">وزن برگشتی (kg)</th>
+                                                        <th className="p-2.5">توضیحات و مشخصات ردیف</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                                                    {displayedRawRows.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={9} className="p-4 text-center text-slate-400 font-medium">موردی یافت نشد</td>
+                                                        </tr>
+                                                    ) : (
+                                                        displayedRawRows.map((row, idx) => (
+                                                            <tr key={idx} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-colors">
+                                                                <td className="p-2.5 text-center font-mono text-slate-400 font-bold">{idx + 1}</td>
+                                                                <td className="p-2.5 text-center">
+                                                                    <span className="font-mono font-extrabold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/30">
+                                                                        {row.docId}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-2.5 text-center">
+                                                                    <span className="font-mono font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                                                                        {row.archiveNo}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-2.5 text-center font-mono text-slate-600 dark:text-zinc-400 font-medium whitespace-nowrap">
+                                                                    {row.date}
+                                                                </td>
+                                                                <td className="p-2.5 font-bold text-slate-900 dark:text-zinc-100">
+                                                                    {row.itemName}
+                                                                </td>
+                                                                <td className="p-2.5 font-mono text-slate-500 dark:text-zinc-400 text-[11px]">
+                                                                    {row.itemCode}
+                                                                </td>
+                                                                <td className="p-2.5">
+                                                                    <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                                                                        {row.groupName}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-2.5 text-left font-mono font-black text-slate-900 dark:text-zinc-100 text-sm">
+                                                                    {Math.round(row.quantity).toLocaleString('fa-IR')}
+                                                                </td>
+                                                                <td className="p-2.5 text-slate-500 dark:text-zinc-400 text-[11px] max-w-xs truncate" title={row.lineNotes}>
+                                                                    {row.lineNotes || '—'}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                                <tfoot className="sticky bottom-0 bg-slate-100 dark:bg-zinc-800 font-extrabold text-slate-800 dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 shadow-sm">
+                                                    <tr>
+                                                        <td colSpan={7} className="p-2.5 text-left">مجموع وزن ردیف‌های اسناد:</td>
+                                                        <td className="p-2.5 text-left font-mono text-indigo-700 dark:text-indigo-400 font-black text-sm">
+                                                            {Math.round(displayedRawRows.reduce((s, r) => s + r.quantity, 0)).toLocaleString('fa-IR')}
+                                                        </td>
+                                                        <td className="p-2.5 text-slate-500 text-xs">کیلوگرم</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     );
                 })()}

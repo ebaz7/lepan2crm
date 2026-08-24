@@ -2360,20 +2360,17 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         if (!sayanUrl || !sayanKey) {
             // Generate highly realistic mock data for returns (Operation Code 44) matching user's specific document numbers (102, 103, 104, 105) and archive code (2716)
             const mockItems = [
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0104051001', ItemName: 'لاکرا شوایتر برگشتی', Quantity: 160 },
-                { DocId: '2716', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50 },
-
-                { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200 },
-                { DocId: '2717', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850 },
-
-                { DocId: '2718', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
-                { DocId: '2719', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
-                { DocId: '2719', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '1', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2, LineNotes: 'تعداد کارتن: 20 | سری: P-102' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '2', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1, LineNotes: 'تعداد کارتن: 28 | سری: P-103' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '3', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9, LineNotes: 'تعداد کارتن: 16 | سری: SP-44' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '4', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9, LineNotes: 'تعداد کارتن: 11' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '5', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7, LineNotes: 'تعداد کارتن: 10' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '6', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50, LineNotes: 'رول کاغذی' },
+                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', LineId: '1', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200, LineNotes: 'جامبو بگ' },
+                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', LineId: '2', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850, LineNotes: 'پالت 1' },
+                { DocId: '2718', ArchiveNo: '104', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', LineId: '1', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال', Quantity: 850, LineNotes: 'تعداد کارتن: 40' },
+                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', LineId: '1', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310, LineNotes: 'عدل 2' },
+                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', LineId: '2', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680, LineNotes: 'تعداد کارتن: 34' }
             ];
             return res.json({
                 success: true,
@@ -2396,9 +2393,11 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         const sql = `
             SELECT 
                 t10.Field_005 as DocId,
+                t10.Field_006 as ArchiveNo,
                 t10.Field_006 as SubCode,
                 t10.Field_008 as Date,
                 RTRIM(LTRIM(t10.Field_009)) as DocType,
+                t11.Field_001 as LineId,
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
@@ -2406,10 +2405,13 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                     NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
                     NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                     NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                     RTRIM(LTRIM(t11.Field_005)),
                     N'کالای بدون نام'
                 ) as ItemName,
-                t11.Field_006 as Quantity
+                t11.Field_006 as Quantity,
+                t11.Field_031 as LineNotes,
+                t10.Field_029 as DocDescription
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
@@ -2434,7 +2436,7 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
-            ORDER BY t10.Field_008 DESC
+            ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_001 ASC
         `;
 
         const queryRows = await executeSayanQuery(db, sql);
