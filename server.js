@@ -568,12 +568,24 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     return uniqueSalesTargets;
 };
 
-// Helper to generate and send daily sales report for a specific Date
-const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', targetsOverride = null, selectedPlatforms = null) => {
+// Helper to generate and send daily sales report for a specific Date or Date Range
+const sendDailySalesReportForDate = async (db, dateObjOrRange, labelSuffix = '', targetsOverride = null, selectedPlatforms = null) => {
     const settings = db.settings || {};
-    const shamsiFull = utils.toShamsiFull(dateObj.toISOString());
-    const shamsiDate = shamsiFull ? shamsiFull.split(' ')[0].replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)) : ''; // e.g. "1404/05/07"
-    const gregDate = utils.getTehranDateString(dateObj); // e.g. "2026-07-29"
+    
+    let dateFromInput = dateObjOrRange;
+    let dateToInput = dateObjOrRange;
+    let isRange = false;
+
+    if (dateObjOrRange && typeof dateObjOrRange === 'object' && !(dateObjOrRange instanceof Date)) {
+        dateFromInput = dateObjOrRange.dateFrom || dateObjOrRange.from || dateObjOrRange.date;
+        dateToInput = dateObjOrRange.dateTo || dateObjOrRange.to || dateFromInput;
+        isRange = dateFromInput !== dateToInput;
+    }
+
+    const { gregFrom, gregTo, shamsiFrom, shamsiTo } = normalizeToYmdStrings(dateFromInput, dateToInput);
+    const dateLabel = (shamsiFrom && shamsiTo && shamsiFrom !== shamsiTo) 
+        ? `از ${shamsiFrom} تا ${shamsiTo}` 
+        : (shamsiFrom || 'روز جاری');
 
     const platforms = selectedPlatforms && selectedPlatforms.length > 0 ? selectedPlatforms : ['telegram', 'bale', 'whatsapp'];
     const uniqueSalesTargets = collectBotTargets(db, { category: 'sales', platforms, customTargets: targetsOverride });
@@ -598,14 +610,14 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     // Fetch sales and returns data using fetchProcessedSayanSalesData
     let salesData;
     try {
-        salesData = await fetchProcessedSayanSalesData(db, dateObj, dateObj);
+        salesData = await fetchProcessedSayanSalesData(db, dateFromInput, dateToInput);
     } catch (e) {
         console.warn("Sayan ERP query failed, attempting local invoices fallback:", e.message);
         const localInvs = Array.isArray(db.invoices) ? db.invoices : (Array.isArray(db.exitPermits) ? db.exitPermits : []);
         const rawSalesRows = localInvs.map(inv => ({
             DocId: inv.id || inv.number,
             InvoiceNum: inv.number || inv.id,
-            Date: inv.date || gregDate,
+            Date: inv.date || gregFrom,
             Notes: inv.description || '',
             HeaderPayable: inv.amount || inv.totalPrice || 0,
             ItemCode: inv.itemCode || '',
@@ -638,10 +650,10 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
                 avgFee: 0,
                 invoiceCount: rawSalesRows.length,
                 customerCount: 1,
-                shamsiFrom: shamsiDate,
-                shamsiTo: shamsiDate,
-                gregFrom: gregDate,
-                gregTo: gregDate
+                shamsiFrom: shamsiFrom,
+                shamsiTo: shamsiTo,
+                gregFrom: gregFrom,
+                gregTo: gregTo
             }
         };
     }
@@ -649,7 +661,7 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
     const { categoryList, summary } = salesData;
 
     if (categoryList.length > 0) {
-        const title = `گزارش رسمی فروش روزانه و مرجوعی سایان - مورخ ${shamsiDate} (${labelSuffix})`;
+        const title = `گزارش رسمی فروش و مرجوعی سایان - مورخ ${dateLabel} (${labelSuffix})`;
         const columns = ['ردیف', 'سرفصل کالا', 'فروش (ک‌گ / ریال)', 'مرجوعی کد ۱۳ (ک‌گ / ریال)', 'خالص نهایی (ک‌گ / ریال)', 'فی متوسط (ریال)'];
         
         let idx = 1;
@@ -677,17 +689,26 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             throw new Error('خطا در تولید فایل PDF گزارش. لطفاً اطمینان حاصل کنید که مرورگر Chrome یا Edge روی سرور نصب شده باشد.');
         }
 
-        const filename = `Sayan_Daily_Sales_${gregDate}_${labelSuffix === 'دیروز' ? 'Yesterday' : 'Today'}.pdf`;
+        const filename = `Sayan_Sales_${gregFrom}_${labelSuffix.includes('دیروز') ? 'Yesterday' : 'Report'}.pdf`;
         
-        const caption = `📊 *گزارش فروش و مرجوعی روزانه سایان ERP*
-📅 *تاریخ:* ${shamsiDate} (${labelSuffix})
+        // Build detailed item & category breakdown text for bot message
+        let categoryBreakdown = '';
+        categoryList.forEach(cat => {
+            if (cat.salesQty > 0 || cat.returnQty > 0) {
+                categoryBreakdown += `🔹 *${cat.name}:* ${Math.round(cat.netWgt).toLocaleString('fa-IR')} ک‌گ | ${Math.round(cat.netAmt).toLocaleString('fa-IR')} ریال\n`;
+            }
+        });
+
+        const caption = `📊 *گزارش فروش و مرجوعی سایان ERP*
+📅 *تاریخ:* ${dateLabel} (${labelSuffix})
 📦 *وزن فروش ناخالص:* ${summary.totalSalesQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 💵 *مبلغ فروش ناخالص:* ${Math.round(summary.totalSalesAmt).toLocaleString('fa-IR')} ریال
 🔄 *وزن مرجوعی (کد ۱۳):* ${summary.totalReturnQty.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 ❌ *مبلغ مرجوعی:* ${Math.round(summary.totalReturnAmt).toLocaleString('fa-IR')} ریال
 ✅ *وزن خالص کل:* ${summary.netWeight.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} کیلوگرم
 💰 *فروش خالص کل:* ${Math.round(summary.netAmount).toLocaleString('fa-IR')} ریال
-🏷️ *فی نهایی میانگین:* ${Math.round(summary.avgFee).toLocaleString('fa-IR')} ریال/کیلوگرم`;
+🏷️ *فی نهایی میانگین:* ${Math.round(summary.avgFee).toLocaleString('fa-IR')} ریال/کیلوگرم
+${categoryBreakdown ? `\n📋 *تفکیک عملکرد بر اساس نام اقلام:*\n${categoryBreakdown}` : ''}`;
 
         let successfulSends = 0;
         const sendDetails = [];
@@ -727,10 +748,9 @@ const sendDailySalesReportForDate = async (db, dateObj, labelSuffix = '', target
             throw new Error(`ارسال گزارش فروش ناموفق بود: ${lastErr || 'خطا در اتصال به پیام‌رسان‌ها'}`);
         }
 
-        return { count: salesRows.length, totalSalesQty, totalSalesAmt, grandNetAmt, grandNetQty, grandFinalPrice, sent: true, successfulSends, totalTargets: uniqueSalesTargets.length, sendDetails };
-
+        return { count: categoryList.length, totalSalesQty: summary.totalSalesQty, totalSalesAmt: summary.totalSalesAmt, grandNetAmt: summary.netAmount, grandNetQty: summary.netWeight, grandFinalPrice: summary.avgFee, sent: true, successfulSends, totalTargets: uniqueSalesTargets.length, sendDetails };
     } else {
-        const emptyMsg = `⚠️ هیچ فاکتور فروشی برای ${labelSuffix} (${shamsiDate}) در سرور سایان ثبت نشده است.`;
+        const emptyMsg = `⚠️ هیچ فاکتور فروشی برای ${dateLabel} (${labelSuffix}) در سرور سایان ثبت نشده است.`;
         let successfulSends = 0;
         const sendDetails = [];
         let lastErr = null;
@@ -2333,6 +2353,65 @@ app.get('/api/sayan/production-report', async (req, res) => {
     }
 });
 
+// Helper to resolve product names from Sayan ERP coding
+const resolveSayanItemName = (itemCode, rawItemName) => {
+    const c = String(itemCode || '').trim().replace(/[^0-9]/g, '');
+    const n = String(rawItemName || '').trim();
+
+    const hasPersian = /[\u0600-\u06FF]/.test(n);
+    const isPureCode = n === itemCode || !hasPersian || /^\d+$/.test(n.replace(/[\s\-\_\.]/g, '')) || n.includes('کالای بدون نام') || n.startsWith('کد ') || n.startsWith('کالای کد');
+
+    if (hasPersian && !isPureCode) {
+        return n;
+    }
+
+    // Specific product definitions (both 02xx in-process/returns and 04xx finished products)
+    if (c === '02020101' || c.startsWith('02020101') || c.startsWith('04020101')) return 'کش ۱۱۰ سفید بشقابی';
+    if (c === '02020103' || c.startsWith('02020103') || c.startsWith('04020103')) return 'کش ۱۱۰ مشکی بشقابی';
+    if (c === '02020201' || c.startsWith('02020201') || c.startsWith('04020201')) return 'کش ۱۱۰ سفید مغزی';
+    if (c === '02020302' || c.startsWith('02020302') || c.startsWith('04020302')) return 'کش ۹۰/۱۰۰ رنگی بشقابی';
+    if (c === '0202051002' || c.startsWith('0202051002') || c.startsWith('0402051002')) return 'کش کاغذی باریک';
+    if (c === '0202051006' || c.startsWith('0202051006') || c.startsWith('0402051006')) return 'کش سوزنی';
+    if (c === '02020701' || c.startsWith('02020701') || c.startsWith('04020701')) return 'کش قیطان / گرد';
+
+    if (c === '0201041002' || c.startsWith('0201041002') || c.startsWith('0401041002')) return 'اسپاندکس کاور نمره ۷۰/۴۰ رونیز';
+    if (c === '02010601' || c.startsWith('02010601') || c.startsWith('04010601')) return 'اسپاندکس کاور دولا';
+    
+    if (c === '020302' || c.startsWith('020302') || c.startsWith('040302')) return 'اسپاندکس جوشی سفید (ساپورت)';
+    if (c === '02031001' || c.startsWith('02031001') || c.startsWith('04031001')) return 'اسپاندکس جوشی مشکی (ساپورت)';
+
+    if (c === '02041001' || c.startsWith('02041001') || c.startsWith('04041001') || c.startsWith('04051001')) return 'پلی استر شوایتر سفید';
+    if (c === '02041003' || c.startsWith('02041003') || c.startsWith('04041003') || c.startsWith('04051003')) return 'پلی استر شوایتر مشکی';
+    if (c === '02041004' || c.startsWith('02041004') || c.startsWith('04041004') || c.startsWith('04051004')) return 'پلی استر شوایتر طوسی';
+    if (c === '02041005' || c.startsWith('02041005') || c.startsWith('04041005') || c.startsWith('04051005')) return 'پلی استر شوایتر سرمه‌ای / رنگی';
+
+    if (c === '020501' || c.startsWith('020501') || c.startsWith('040701')) return 'نخ نایلون خام';
+    if (c === '020601' || c.startsWith('020601') || c.startsWith('040801')) return 'نخ ملت بلون';
+    if (c === '020701' || c.startsWith('020701') || c.startsWith('040901')) return 'الیاف و منسوجات';
+
+    // Group prefixes
+    if (c.startsWith('0201') || c.startsWith('0401')) return 'اسپاندکس (کاور)';
+    if (c.startsWith('0202') || c.startsWith('0402')) return 'کش';
+    if (c.startsWith('0203') || c.startsWith('0403')) return 'اسپاندکس جوشی ( ساپورت )';
+    if (c.startsWith('0204') || c.startsWith('0404') || c.startsWith('0405')) return 'پلی استر شوایتر';
+    if (c.startsWith('0205') || c.startsWith('0407')) return 'نایلون';
+    if (c.startsWith('0206') || c.startsWith('0408')) return 'نخ ملت';
+    if (c.startsWith('0207') || c.startsWith('0409')) return 'الیاف';
+    if (c.startsWith('0208') || c.startsWith('0410')) return 'FDY';
+
+    if (c.startsWith('0101')) return 'چیپس پلی استر';
+    if (c.startsWith('0102')) return 'نخ POY';
+    if (c.startsWith('0103')) return 'dty یا پلی استر';
+    if (c.startsWith('0104')) return 'لاستیک';
+    if (c.startsWith('0105')) return 'لاکرا';
+    if (c.startsWith('0106')) return 'پلی استر اسپان';
+    if (c.startsWith('0107')) return 'مستر بچ';
+    if (c.startsWith('0108')) return 'نایلون';
+    if (c.startsWith('0109')) return 'الیاف خام';
+
+    return n && !isPureCode ? n : (itemCode ? `کالای تولیدی (کد ${itemCode})` : 'کالای بدون نام');
+};
+
 app.get('/api/sayan/production-returns', async (req, res) => {
     try {
         const db = getDb();
@@ -2406,11 +2485,16 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(s04.Field_004)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                    NULLIF(RTRIM(LTRIM(t22.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_exact.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                     NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
                     NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_prefix4.Field_003)), ''),
+                    NULLIF(RTRIM(LTRIM(t02_prefix2.Field_003)), ''),
                     RTRIM(LTRIM(t11.Field_005)),
                     N'کالای بدون نام'
                 ) as ItemName,
@@ -2419,24 +2503,40 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005)) 
+                                      OR RTRIM(LTRIM(s04.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+                                      OR RTRIM(LTRIM(t22.Field_003)) = RTRIM(LTRIM(t11.Field_005))
+                                      OR RTRIM(LTRIM(t22.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+                                            OR REPLACE(t02_exact.Field_008, '.', '') = RTRIM(LTRIM(t11.Field_005))
+                                            OR RTRIM(LTRIM(t02_exact.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                                      OR RTRIM(LTRIM(c01.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                              OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
                 GROUP BY t21_sub.Field_004
             ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                              OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
                 LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
                 LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+            LEFT JOIN IND_TBL_002 t02_prefix4 ON (
+                RTRIM(LTRIM(t02_prefix4.Field_008)) = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4)
+                OR REPLACE(t02_prefix4.Field_008, '.', '') = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4)
+            )
+            LEFT JOIN IND_TBL_002 t02_prefix2 ON (
+                RTRIM(LTRIM(t02_prefix2.Field_008)) = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2)
+                OR REPLACE(t02_prefix2.Field_008, '.', '') = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2)
+            )
             WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
               AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
               AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
@@ -2444,12 +2544,17 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         `;
 
         const queryRows = await executeSayanQuery(db, sql);
+        const resolvedItems = (queryRows || []).map(r => ({
+            ...r,
+            ItemName: resolveSayanItemName(r.ItemCode, r.ItemName)
+        }));
+
         res.json({
             success: true,
             isMock: false,
             dateFrom,
             dateTo,
-            items: queryRows || []
+            items: resolvedItems
         });
     } catch (e) {
         console.error("Sayan Production Returns Error:", e);
@@ -2696,35 +2801,57 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
             RTRIM(LTRIM(t11.Field_005)) as ItemCode,
             COALESCE(
                 NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(s04.Field_004)), ''),
                 NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                NULLIF(RTRIM(LTRIM(t22.Field_002)), ''),
                 NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t02_exact.Field_002)), ''),
                 NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                 NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t02_prefix4.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t02_prefix2.Field_003)), ''),
                 RTRIM(LTRIM(t11.Field_005)),
                 N'کالای بدون نام'
             ) as ItemName,
             t11.Field_006 as Quantity
-    FROM STR_TBL_010 t10
-    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                              AND t11.Field_003 = t10.Field_004
-    LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+        FROM STR_TBL_010 t10
+        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                  AND t11.Field_003 = t10.Field_004
+        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                                  OR RTRIM(LTRIM(s04.Field_002)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+                                  OR RTRIM(LTRIM(t22.Field_003)) = RTRIM(LTRIM(t11.Field_005))
+                                  OR RTRIM(LTRIM(t22.Field_002)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+                                        OR REPLACE(t02_exact.Field_008, '.', '') = RTRIM(LTRIM(t11.Field_005))
+                                        OR RTRIM(LTRIM(t02_exact.Field_002)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                                  OR RTRIM(LTRIM(c01.Field_002)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
             SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                          OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
             GROUP BY t21_sub.Field_004
         ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
         LEFT JOIN (
             SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+                                          OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
             LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
             LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
             GROUP BY t21_sub.Field_004
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+        LEFT JOIN IND_TBL_002 t02_prefix4 ON (
+            RTRIM(LTRIM(t02_prefix4.Field_008)) = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4)
+            OR REPLACE(t02_prefix4.Field_008, '.', '') = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 4)
+        )
+        LEFT JOIN IND_TBL_002 t02_prefix2 ON (
+            RTRIM(LTRIM(t02_prefix2.Field_008)) = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2)
+            OR REPLACE(t02_prefix2.Field_008, '.', '') = SUBSTRING(RTRIM(LTRIM(t11.Field_005)), 1, 2)
+        )
         WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
           AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
           AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
@@ -2732,7 +2859,11 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
     `;
 
     const rows = await executeSayanQuery(db, sql);
-    const results = rows || [];
+    const results = (rows || []).map(r => ({
+        ...r,
+        ItemName: resolveSayanItemName(r.ItemCode, r.ItemName)
+    }));
+
     return results.filter(item => {
         const code = (item.ItemCode || '').trim();
         const name = (item.ItemName || '').toLowerCase();
@@ -2750,15 +2881,15 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
         const code = (itemCode || '').trim();
         const name = (itemName || '').toLowerCase();
         
-        // 1. محصولات (04xx)
-        if (code.startsWith('0401') || name.includes('کاور')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
-        if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) return { code: '0402', name: 'کش', isProduction: true };
-        if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
-        if (code.startsWith('0405') || name.includes('شوایتر')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
-        if (code.startsWith('0407')) return { code: '0407', name: 'نایلون', isProduction: true };
-        if (code.startsWith('0408') || name.includes('ملت')) return { code: '0408', name: 'نخ ملت', isProduction: true };
-        if (code.startsWith('0409') || name.includes('الیاف')) return { code: '0409', name: 'الیاف', isProduction: true };
-        if (code.startsWith('0410') || name.includes('fdy')) return { code: '0410', name: 'FDY', isProduction: true };
+        // 1. محصولات و نیمه ساخته (04xx و 02xx)
+        if (code.startsWith('0401') || code.startsWith('0201') || name.includes('کاور')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
+        if (code.startsWith('0402') || code.startsWith('0202') || name.includes('کش') || name.includes('قیطان')) return { code: '0402', name: 'کش', isProduction: true };
+        if (code.startsWith('0403') || code.startsWith('0203') || name.includes('ساپورت') || name.includes('جوشی')) return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
+        if (code.startsWith('0405') || code.startsWith('0404') || code.startsWith('0204') || name.includes('شوایتر')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
+        if (code.startsWith('0407') || code.startsWith('0205')) return { code: '0407', name: 'نایلون', isProduction: true };
+        if (code.startsWith('0408') || code.startsWith('0206') || name.includes('ملت')) return { code: '0408', name: 'نخ ملت', isProduction: true };
+        if (code.startsWith('0409') || code.startsWith('0207') || name.includes('الیاف')) return { code: '0409', name: 'الیاف', isProduction: true };
+        if (code.startsWith('0410') || code.startsWith('0208') || name.includes('fdy')) return { code: '0410', name: 'FDY', isProduction: true };
         
         // 2. مواد اولیه (01xx)
         if (code.startsWith('0101') || name.includes('چیپس')) return { code: '0101', name: 'چیپس', isProduction: false };
@@ -3124,7 +3255,7 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
         const items = await queryProductionReturnsData(db, dateFrom, dateTo);
         const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
 
-        // Grouping summary for caption (matching Sayan ERP categories)
+        // Grouping summary for caption (strictly matching Sayan ERP categories)
         const classifyProductGroup = (itemCode, itemName) => {
             const code = (itemCode || '').trim();
             const name = (itemName || '').toLowerCase();
@@ -3149,13 +3280,22 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
             if (code.startsWith('0107') || name.includes('مستر بچ') || name.includes('مستربچ')) return 'مستر بچ';
             if (code.startsWith('0108') || name.includes('نایلون')) return 'نایلون';
 
-            return itemName || `کد ${code}`;
+            return itemName || 'سایر اقلام';
         };
 
         const summaryMap = {};
+        const itemsMap = new Map();
+
         items.forEach(item => {
             const grp = classifyProductGroup(item.ItemCode, item.ItemName);
             summaryMap[grp] = (summaryMap[grp] || 0) + parseFloat(item.Quantity || 0);
+
+            // Clean item name resolution (never display raw numeric codes)
+            const rawName = (item.ItemName || '').trim();
+            const cleanName = (rawName && !rawName.startsWith('0') && isNaN(Number(rawName))) 
+                ? rawName 
+                : grp;
+            itemsMap.set(cleanName, (itemsMap.get(cleanName) || 0) + parseFloat(item.Quantity || 0));
         });
 
         let summaryText = '';
@@ -3163,12 +3303,21 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
             summaryText += `🔹 *${grp}:* ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ\n`;
         });
 
+        // Top returned items by name
+        const topItems = Array.from(itemsMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        let topItemsText = '';
+        if (topItems.length > 0) {
+            topItemsText = `\n📦 *اقلام شاخص برگشتی:*\n` + 
+                topItems.map(([name, qty]) => `▪️ ${name}: ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ`).join('\n') + `\n`;
+        }
+
         const dateStr = dateFrom === dateTo ? dateFrom : `از ${dateFrom} تا ${dateTo}`;
         const caption = `🚨 *گزارش تراز رسید برگشت از تولید کالا (کد عملیات ۴۴)* 🚨\n\n` +
                         `📅 *دوره گزارش:* ${dateStr}\n` +
                         `⚖️ *مجموع وزن برگشتی:* ${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم\n` +
                         `📄 *تعداد کل اسناد:* ${items.length.toLocaleString('fa-IR')} فقره سند\n\n` +
-                        `📊 *خلاصه وزنی گروه‌ها:*\n${summaryText}\n` +
+                        `📊 *خلاصه وزنی گروه‌ها:*\n${summaryText}` +
+                        `${topItemsText}\n` +
                         `⚙️ _گزارش کامل PDF تراز برگشتی پیوست گردید._`;
 
         const html = compileProductionReturnsHtml(dateFrom, dateTo, items);
@@ -3307,12 +3456,15 @@ app.post('/api/sayan/production-report/send-compare-bot', async (req, res) => {
 app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
     try {
         const db = getDb();
-        const { targetDate, date, label, selectedPlatforms, customTargets, activeYear } = req.body;
+        const { targetDate, date, dateFrom, dateTo, label, selectedPlatforms, customTargets, activeYear } = req.body;
         
-        let dateObj = new Date();
-        let labelSuffix = label || 'امروز';
+        let datePayload = null;
+        let labelSuffix = label || '';
 
-        if (targetDate === 'today' || targetDate === 'yesterday') {
+        if (dateFrom && dateTo) {
+            datePayload = { dateFrom, dateTo };
+            labelSuffix = label || (dateFrom === dateTo ? dateFrom : `از ${dateFrom} تا ${dateTo}`);
+        } else if (targetDate === 'today' || targetDate === 'yesterday') {
             const today = new Date();
             const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
             let targetY = activeYear ? parseInt(activeYear, 10) : jToday.jy;
@@ -3329,29 +3481,16 @@ app.post('/api/sayan/sales-report/send-manual', async (req, res) => {
                 targetJalaliStr = `${targetY}/${String(jYest.jm).padStart(2, '0')}/${String(jYest.jd).padStart(2, '0')}`;
                 labelSuffix = label || `دیروز (${targetJalaliStr})`;
             }
-
-            if (targetJalaliStr) {
-                const gregStr = parseJalaliStrToGregorian(targetJalaliStr);
-                if (gregStr) {
-                    const parts = gregStr.split('-').map(x => parseInt(x, 10));
-                    dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
-                }
-            }
+            datePayload = targetJalaliStr;
         } else if (date) {
-            if (typeof date === 'string' && (date.includes('/') || date.includes('.') || date.includes('-'))) {
-                // Shamsi date passed e.g. "1404/05/10" or "1.1.404"
-                const gregStr = parseJalaliStrToGregorian(date);
-                if (gregStr) {
-                    const parts = gregStr.split('-').map(x => parseInt(x, 10));
-                    dateObj = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
-                }
-            } else {
-                dateObj = new Date(date);
-            }
+            datePayload = date;
             labelSuffix = label || date;
+        } else {
+            datePayload = new Date();
+            labelSuffix = label || 'روز جاری';
         }
 
-        const result = await sendDailySalesReportForDate(db, dateObj, labelSuffix, customTargets, selectedPlatforms);
+        const result = await sendDailySalesReportForDate(db, datePayload, labelSuffix, customTargets, selectedPlatforms);
         res.json({
             success: true,
             message: `گزارش فروش ${labelSuffix} با موفقیت به پیام‌رسان‌ها ارسال شد.`,

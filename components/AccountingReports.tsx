@@ -1416,22 +1416,39 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return salesData.filter(row => normalizeJalali(row.Date) === targetNorm);
     };
 
-    const handleSendSalesBotReport = async (targetDate: 'today' | 'yesterday') => {
-        const label = targetDate === 'today' ? 'امروز' : 'دیروز';
-        if (!confirm(`آیا از ارسال گزارش فروش ${label} به گروه‌های تلگرام / بله اطمینان دارید؟`)) return;
+    const handleSendSalesBotReport = async (mode?: 'current' | 'today' | 'yesterday') => {
+        let targetMode = mode || (salesViewMode === 'today' && !compareMode ? 'today' : 'current');
+        let label = '';
+        let body: any = { 
+            activeYear: getActiveFiscalYearLabel()
+        };
+
+        if (targetMode === 'today') {
+            label = 'امروز';
+            body.targetDate = 'today';
+        } else if (targetMode === 'yesterday') {
+            label = 'دیروز';
+            body.targetDate = 'yesterday';
+        } else {
+            const fromD = dateFrom || formatDateToJalali(new Date().toISOString());
+            const toD = dateTo || fromD;
+            label = fromD === toD ? fromD : `از ${fromD} تا ${toD}`;
+            body.dateFrom = fromD;
+            body.dateTo = toD;
+            body.label = label;
+        }
+
+        if (!confirm(`آیا از ارسال گزارش فروش (${label}) به گروه‌های تلگرام / بله اطمینان دارید؟`)) return;
         setIsSendingSalesBot(true);
         try {
             const res = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-manual'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    targetDate,
-                    activeYear: getActiveFiscalYearLabel()
-                })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
             if (data.success) {
-                toast.success(data.message || `گزارش فروش ${label} با موفقیت ارسال شد.`);
+                toast.success(data.message || `گزارش فروش (${label}) با موفقیت ارسال شد.`);
             } else {
                 toast.error(data.error || 'خطا در ارسال گزارش فروش.');
             }
@@ -2387,34 +2404,63 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
     // --- PRODUCTION RETURNS HELPERS (Exactly matching Sayan ERP Chart of Accounts) ---
     const resolveProdItemName = (code: string, rawName: string): string => {
-        const c = (code || '').trim();
-        const n = (rawName || '').trim();
+        const c = String(code || '').trim().replace(/[^0-9]/g, '');
+        const n = String(rawName || '').trim();
         
         // If rawName is meaningful text (contains Persian letters and is not just numeric code or placeholder)
-        if (n && n !== c && !/^\d+$/.test(n) && !n.includes('کالای بدون نام')) {
+        const hasPersian = /[\u0600-\u06FF]/.test(n);
+        const isPureCode = n === code || !hasPersian || /^\d+$/.test(n.replace(/[\s\-\_\.]/g, '')) || n.includes('کالای بدون نام') || n.startsWith('کد ') || n.startsWith('کالای کد');
+
+        if (hasPersian && !isPureCode) {
             return n;
         }
         
-        // Known fallback names matching Sayan
-        if (c.startsWith('0401')) return `اسپاندکس (کاور) (${c})`;
-        if (c.startsWith('0402')) return `کش (${c})`;
-        if (c.startsWith('0403')) return `اسپاندکس جوشی ( ساپورت ) (${c})`;
-        if (c.startsWith('0405')) return `پلی استر شوایتر (${c})`;
-        if (c.startsWith('0407')) return `نایلون (${c})`;
-        if (c.startsWith('0408')) return `نخ ملت (${c})`;
-        if (c.startsWith('0409')) return `الیاف (${c})`;
-        if (c.startsWith('0410')) return `FDY (${c})`;
+        // Specific known item codes (02xx semi-finished/returns and 04xx finished products)
+        if (c === '02020101' || c.startsWith('02020101') || c.startsWith('04020101')) return 'کش ۱۱۰ سفید بشقابی';
+        if (c === '02020103' || c.startsWith('02020103') || c.startsWith('04020103')) return 'کش ۱۱۰ مشکی بشقابی';
+        if (c === '02020201' || c.startsWith('02020201') || c.startsWith('04020201')) return 'کش ۱۱۰ سفید مغزی';
+        if (c === '02020302' || c.startsWith('02020302') || c.startsWith('04020302')) return 'کش ۹۰/۱۰۰ رنگی بشقابی';
+        if (c === '0202051002' || c.startsWith('0202051002') || c.startsWith('0402051002')) return 'کش کاغذی باریک';
+        if (c === '0202051006' || c.startsWith('0202051006') || c.startsWith('0402051006')) return 'کش سوزنی';
+        if (c === '02020701' || c.startsWith('02020701') || c.startsWith('04020701')) return 'کش قیطان / گرد';
 
-        if (c.startsWith('0101')) return `چیپس (${c})`;
-        if (c.startsWith('0102')) return `POY (${c})`;
-        if (c.startsWith('0103')) return `dty یا پلی استر (${c})`;
-        if (c.startsWith('0104')) return `لاستیک (${c})`;
-        if (c.startsWith('0105')) return `لاکرا (${c})`;
-        if (c.startsWith('0106')) return `پلی استر اسپان (${c})`;
-        if (c.startsWith('0107')) return `مستر بچ (${c})`;
-        if (c.startsWith('0108')) return `نایلون (${c})`;
+        if (c === '0201041002' || c.startsWith('0201041002') || c.startsWith('0401041002')) return 'اسپاندکس کاور نمره ۷۰/۴۰ رونیز';
+        if (c === '02010601' || c.startsWith('02010601') || c.startsWith('04010601')) return 'اسپاندکس کاور دولا';
+        
+        if (c === '020302' || c.startsWith('020302') || c.startsWith('040302')) return 'اسپاندکس جوشی سفید (ساپورت)';
+        if (c === '02031001' || c.startsWith('02031001') || c.startsWith('04031001')) return 'اسپاندکس جوشی مشکی (ساپورت)';
 
-        return n || `کالای کد ${c}`;
+        if (c === '02041001' || c.startsWith('02041001') || c.startsWith('04041001') || c.startsWith('04051001')) return 'پلی استر شوایتر سفید';
+        if (c === '02041003' || c.startsWith('02041003') || c.startsWith('04041003') || c.startsWith('04051003')) return 'پلی استر شوایتر مشکی';
+        if (c === '02041004' || c.startsWith('02041004') || c.startsWith('04041004') || c.startsWith('04051004')) return 'پلی استر شوایتر طوسی';
+        if (c === '02041005' || c.startsWith('02041005') || c.startsWith('04041005') || c.startsWith('04051005')) return 'پلی استر شوایتر سرمه‌ای / رنگی';
+
+        if (c === '020501' || c.startsWith('020501') || c.startsWith('040701')) return 'نخ نایلون خام';
+        if (c === '020601' || c.startsWith('020601') || c.startsWith('040801')) return 'نخ ملت بلون';
+        if (c === '020701' || c.startsWith('020701') || c.startsWith('040901')) return 'الیاف و منسوجات';
+
+        // Group prefixes for 02xx and 04xx
+        if (c.startsWith('0201') || c.startsWith('0401')) return 'اسپاندکس (کاور)';
+        if (c.startsWith('0202') || c.startsWith('0402')) return 'کش';
+        if (c.startsWith('0203') || c.startsWith('0403')) return 'اسپاندکس جوشی ( ساپورت )';
+        if (c.startsWith('0204') || c.startsWith('0404') || c.startsWith('0405')) return 'پلی استر شوایتر';
+        if (c.startsWith('0205') || c.startsWith('0407')) return 'نایلون';
+        if (c.startsWith('0206') || c.startsWith('0408')) return 'نخ ملت';
+        if (c.startsWith('0207') || c.startsWith('0409')) return 'الیاف';
+        if (c.startsWith('0208') || c.startsWith('0410')) return 'FDY';
+
+        // Raw materials 01xx
+        if (c.startsWith('0101')) return 'چیپس پلی استر';
+        if (c.startsWith('0102')) return 'نخ POY';
+        if (c.startsWith('0103')) return 'dty یا پلی استر';
+        if (c.startsWith('0104')) return 'لاستیک';
+        if (c.startsWith('0105')) return 'لاکرا';
+        if (c.startsWith('0106')) return 'پلی استر اسپان';
+        if (c.startsWith('0107')) return 'مستر بچ';
+        if (c.startsWith('0108')) return 'نایلون';
+        if (c.startsWith('0109')) return 'الیاف خام';
+
+        return n && !isPureCode ? n : (code ? `کالای تولیدی (کد ${code})` : 'کالای بدون نام');
     };
 
     const getProdReturnsAnalyzed = () => {
@@ -2422,29 +2468,29 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const code = (itemCode || '').trim();
             const name = (itemName || '').toLowerCase();
             
-            // 1. محصولات (04xx)
-            if (code.startsWith('0401') || name.includes('کاور')) {
+            // 1. محصولات و نیمه ساخته (04xx و 02xx)
+            if (code.startsWith('0401') || code.startsWith('0201') || name.includes('کاور')) {
                 return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
             }
-            if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) {
+            if (code.startsWith('0402') || code.startsWith('0202') || name.includes('کش') || name.includes('قیطان')) {
                 return { code: '0402', name: 'کش', isProduction: true };
             }
-            if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) {
+            if (code.startsWith('0403') || code.startsWith('0203') || name.includes('ساپورت') || name.includes('جوشی')) {
                 return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
             }
-            if (code.startsWith('0405') || name.includes('شوایتر')) {
+            if (code.startsWith('0405') || code.startsWith('0404') || code.startsWith('0204') || name.includes('شوایتر')) {
                 return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
             }
-            if (code.startsWith('0407')) {
+            if (code.startsWith('0407') || code.startsWith('0205') || name.includes('نایلون')) {
                 return { code: '0407', name: 'نایلون', isProduction: true };
             }
-            if (code.startsWith('0408') || name.includes('ملت')) {
+            if (code.startsWith('0408') || code.startsWith('0206') || name.includes('ملت')) {
                 return { code: '0408', name: 'نخ ملت', isProduction: true };
             }
-            if (code.startsWith('0409') || name.includes('الیاف')) {
+            if (code.startsWith('0409') || code.startsWith('0207') || name.includes('الیاف')) {
                 return { code: '0409', name: 'الیاف', isProduction: true };
             }
-            if (code.startsWith('0410') || name.includes('fdy')) {
+            if (code.startsWith('0410') || code.startsWith('0208') || name.includes('fdy')) {
                 return { code: '0410', name: 'FDY', isProduction: true };
             }
 
@@ -2474,7 +2520,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 return { code: '0108', name: 'نایلون', isProduction: false };
             }
 
-            return { code: code.substring(0, 4) || 'سایر', name: itemName || `کد ${code}`, isProduction: code.startsWith('04') };
+            return { code: code.substring(0, 4) || 'سایر', name: itemName || `کد ${code}`, isProduction: code.startsWith('04') || code.startsWith('02') };
         };
 
         const filteredRaw = prodReturnsData.filter(item => {
@@ -3071,7 +3117,27 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             };
 
             const getKnownYarnNameByCode = (code: string, docType?: string): string => {
-                const c = code.replace(/[^0-9]/g, '');
+                const c = String(code || '').trim().replace(/[^0-9]/g, '');
+
+                if (c === '02020101' || c.startsWith('02020101') || c.startsWith('04020101')) return 'کش ۱۱۰ سفید بشقابی';
+                if (c === '02020103' || c.startsWith('02020103') || c.startsWith('04020103')) return 'کش ۱۱۰ مشکی بشقابی';
+                if (c === '02020201' || c.startsWith('02020201') || c.startsWith('04020201')) return 'کش ۱۱۰ سفید مغزی';
+                if (c === '02020302' || c.startsWith('02020302') || c.startsWith('04020302')) return 'کش ۹۰/۱۰۰ رنگی بشقابی';
+                if (c === '0202051002' || c.startsWith('0202051002') || c.startsWith('0402051002')) return 'کش کاغذی باریک';
+                if (c === '0202051006' || c.startsWith('0202051006') || c.startsWith('0402051006')) return 'کش سوزنی';
+                if (c === '02020701' || c.startsWith('02020701') || c.startsWith('04020701')) return 'کش قیطان / گرد';
+
+                if (c === '0201041002' || c.startsWith('0201041002') || c.startsWith('0401041002')) return 'اسپاندکس کاور نمره ۷۰/۴۰ رونیز';
+                if (c === '02010601' || c.startsWith('02010601') || c.startsWith('04010601')) return 'اسپاندکس کاور دولا';
+                
+                if (c === '020302' || c.startsWith('020302') || c.startsWith('040302')) return 'اسپاندکس جوشی سفید (ساپورت)';
+                if (c === '02031001' || c.startsWith('02031001') || c.startsWith('04031001')) return 'اسپاندکس جوشی مشکی (ساپورت)';
+
+                if (c === '02041001' || c.startsWith('02041001') || c.startsWith('04041001') || c.startsWith('04051001')) return 'پلی استر شوایتر سفید';
+                if (c === '02041003' || c.startsWith('02041003') || c.startsWith('04041003') || c.startsWith('04051003')) return 'پلی استر شوایتر مشکی';
+                if (c === '02041004' || c.startsWith('02041004') || c.startsWith('04041004') || c.startsWith('04051004')) return 'پلی استر شوایتر طوسی';
+                if (c === '02041005' || c.startsWith('02041005') || c.startsWith('04041005') || c.startsWith('04051005')) return 'پلی استر شوایتر سرمه‌ای / رنگی';
+
                 if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
                 if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
                 if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
@@ -3081,15 +3147,20 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
                 if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
                 if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
-                if (c.startsWith('0101')) return 'نخ POY';
-                if (c.startsWith('0104')) return 'نخ کش';
-                if (c.startsWith('0105')) return 'نخ اسپاندکس';
-                if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
+                if (c.startsWith('0101')) return 'چیپس پلی استر';
+                if (c.startsWith('0102')) return 'نخ POY';
+                if (c.startsWith('0104') || c.startsWith('0202') || c.startsWith('0402')) return 'کش';
+                if (c.startsWith('0105') || c.startsWith('0201') || c.startsWith('0401')) return 'اسپاندکس (کاور)';
+                if (c.startsWith('0203') || c.startsWith('0403')) return 'اسپاندکس جوشی (ساپورت)';
+                if (c.startsWith('0204') || c.startsWith('0405') || docType === '70') return 'پلی استر شوایتر';
+                if (c.startsWith('0205') || c.startsWith('0407')) return 'نایلون';
+                if (c.startsWith('0206') || c.startsWith('0408')) return 'نخ ملت';
+                if (c.startsWith('0207') || c.startsWith('0409')) return 'الیاف';
                 if (docType === '61') return 'نخ POY';
                 if (docType === '67') return 'نخ DTY';
                 if (docType === '79') return 'نخ کش';
                 if (docType === '73') return 'نخ اسپاندکس';
-                return 'کالای تولیدی';
+                return code ? `کالای تولیدی (کد ${code})` : 'کالای تولیدی';
             };
 
             const fetchSingleRange = async (from: string, to: string) => {
@@ -4883,22 +4954,31 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 </button>
 
                                 <button 
-                                    onClick={() => handleSendSalesBotReport('today')}
+                                    onClick={() => handleSendSalesBotReport('current')}
                                     disabled={isSendingSalesBot}
-                                    className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
-                                    title="ارسال دستی آمار و گزارش فروش امروز به کانال‌ها و گروه‌های بله و تلگرام"
+                                    className="flex items-center gap-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2 px-4 rounded-lg text-xs transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50"
+                                    title="ارسال دستی گزارش فروش بازه/روز فعلی که روی صفحه است به ربات تلگرام و بله"
                                 >
                                     <Send className="w-3.5 h-3.5" />
-                                    <span>{isSendingSalesBot ? 'در حال ارسال امروز...' : 'ارسال دستی فروش امروز به بات'}</span>
+                                    <span>{isSendingSalesBot ? 'در حال ارسال گزارش...' : 'ارسال این گزارش فروش به بات'}</span>
+                                </button>
+                                <button 
+                                    onClick={() => handleSendSalesBotReport('today')}
+                                    disabled={isSendingSalesBot}
+                                    className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 text-white font-medium py-2 px-3 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
+                                    title="ارسال سریع آمار و گزارش فروش امروز به کانال‌ها و گروه‌های بله و تلگرام"
+                                >
+                                    <Send className="w-3.5 h-3.5 text-amber-300" />
+                                    <span>فروش امروز</span>
                                 </button>
                                 <button 
                                     onClick={() => handleSendSalesBotReport('yesterday')}
                                     disabled={isSendingSalesBot}
-                                    className="flex items-center gap-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold py-2 px-3.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
-                                    title="ارسال دستی آمار و گزارش فروش دیروز به کانال‌ها و گروه‌های بله و تلگرام"
+                                    className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-800 text-white font-medium py-2 px-3 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50"
+                                    title="ارسال سریع آمار و گزارش فروش دیروز به کانال‌ها و گروه‌های بله و تلگرام"
                                 >
-                                    <Send className="w-3.5 h-3.5" />
-                                    <span>{isSendingSalesBot ? 'در حال ارسال دیروز...' : 'ارسال دستی فروش دیروز به بات'}</span>
+                                    <Send className="w-3.5 h-3.5 text-amber-300" />
+                                    <span>فروش دیروز</span>
                                 </button>
 
                                 <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 select-none shadow-inner">

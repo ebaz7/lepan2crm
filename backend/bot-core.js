@@ -184,14 +184,14 @@ export function classifyMajorCategory(groupName = '', itemName = '', itemCode = 
   if (code.startsWith('0501') || text.includes('ضایعات poy') || text.includes('ضایعات پی او وای')) return 'ضایعات POY';
   if (code.startsWith('0502') || (text.includes('ضایعات') && !text.includes('poy'))) return 'ضایعات تولید';
 
-  if (code.startsWith('0401') || text.includes('کاور') || text.includes('کاورینگ')) return 'اسپاندکس (کاور)';
-  if (code.startsWith('0402') || (text.includes('کش') && !text.includes('روکش') && !text.includes('سرکش'))) return 'کش';
-  if (code.startsWith('0403') || text.includes('ساپورت') || text.includes('جوشی') || text.includes('پوشش')) return 'اسپاندکس جوشی ( ساپورت )';
-  if (code.startsWith('0405') || text.includes('شواتیز') || text.includes('شوایتر')) return 'پلی استر شوایتر';
-  if (code.startsWith('0407') || code.startsWith('0108') || text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
-  if (code.startsWith('0408') || text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
-  if (code.startsWith('0409') || text.includes('الیاف')) return 'الیاف';
-  if (code.startsWith('0410') || text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
+  if (code.startsWith('0401') || code.startsWith('0201') || text.includes('کاور') || text.includes('کاورینگ')) return 'اسپاندکس (کاور)';
+  if (code.startsWith('0402') || code.startsWith('0202') || (text.includes('کش') && !text.includes('روکش') && !text.includes('سرکش'))) return 'کش';
+  if (code.startsWith('0403') || code.startsWith('0203') || text.includes('ساپورت') || text.includes('جوشی') || text.includes('پوشش')) return 'اسپاندکس جوشی ( ساپورت )';
+  if (code.startsWith('0405') || code.startsWith('0404') || code.startsWith('0204') || text.includes('شواتیز') || text.includes('شوایتر')) return 'پلی استر شوایتر';
+  if (code.startsWith('0407') || code.startsWith('0205') || code.startsWith('0108') || text.includes('نایلون') || text.includes('nylon')) return 'نایلون';
+  if (code.startsWith('0408') || code.startsWith('0206') || text.includes('ملت') || text.includes('melt')) return 'نخ ملت';
+  if (code.startsWith('0409') || code.startsWith('0207') || text.includes('الیاف')) return 'الیاف';
+  if (code.startsWith('0410') || code.startsWith('0208') || text.includes('fdy') || text.includes('اف دی ای')) return 'FDY';
 
   if (code.startsWith('0101') || text.includes('چیپس') || text.includes('chip')) return 'چیپس';
   if (code.startsWith('0102') || text.includes('poy') || text.includes('پی او وای')) return 'POY';
