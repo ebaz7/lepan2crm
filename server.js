@@ -2358,14 +2358,14 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         }
 
         if (!sayanUrl || !sayanKey) {
-            // Generate highly realistic mock data for returns (Operation Code 44)
+            // Generate highly realistic mock data for returns (Operation Code 44) matching user's specific document numbers (102, 103, 104, 105)
             const mockItems = [
-                { DocId: 'R-4401', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
-                { DocId: 'R-4402', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
-                { DocId: 'R-4403', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
-                { DocId: 'R-4404', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
-                { DocId: 'R-4405', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
-                { DocId: 'R-4406', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+                { DocId: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
+                { DocId: '102', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
+                { DocId: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
+                { DocId: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
+                { DocId: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+                { DocId: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
             ];
             return res.json({
                 success: true,
@@ -2796,6 +2796,48 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
     });
 
     const detailedList = Array.from(detailedMap.values()).sort((a, b) => b.totalQty - a.totalQty);
+
+    // Group by DocId (Document Number)
+    const documentsMap = new Map();
+    items.forEach(item => {
+        const docId = String(item.DocId || 'بدون شماره سند').trim();
+        let displayDate = '';
+        if (item.Date) {
+            try {
+                displayDate = new Date(item.Date).toLocaleDateString('fa-IR');
+            } catch(e) {
+                displayDate = item.Date;
+            }
+        } else {
+            displayDate = dateFrom;
+        }
+        if (!documentsMap.has(docId)) {
+            documentsMap.set(docId, {
+                docId,
+                date: displayDate,
+                totalQty: 0,
+                items: []
+            });
+        }
+        const doc = documentsMap.get(docId);
+        doc.totalQty += parseFloat(item.Quantity || 0);
+        doc.items.push({
+            itemCode: item.ItemCode || '',
+            itemName: item.ItemName || '',
+            quantity: parseFloat(item.Quantity || 0),
+            groupName: classifyProductGroup(item.ItemCode, item.ItemName).name
+        });
+    });
+
+    const documentsList = Array.from(documentsMap.values()).sort((a, b) => {
+        const numA = parseInt(a.docId, 10);
+        const numB = parseInt(b.docId, 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return numB - numA;
+        }
+        return b.docId.localeCompare(a.docId);
+    });
+
     const dateStr = dateFrom === dateTo ? dateFrom : `از ${dateFrom} تا ${dateTo}`;
 
     return `
@@ -2883,6 +2925,26 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                     background: #f8fafc;
                     color: #0f172a;
                 }
+                .doc-card-header {
+                    margin-top: 25px;
+                    margin-bottom: 8px;
+                    font-weight: bold;
+                    background: #f1f5f9;
+                    padding: 8px 12px;
+                    border: 1.5px solid #cbd5e1;
+                    border-radius: 6px;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                }
+                .signatures-container {
+                    margin-top: 40px;
+                    display: flex;
+                    justify-content: space-around;
+                    font-weight: bold;
+                    font-size: 12px;
+                    color: #1e293b;
+                }
             </style>
         </head>
         <body>
@@ -2898,11 +2960,11 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                 </div>
                 <div class="meta-item">
                     <div>تعداد اسناد رسیدگی‌شده</div>
-                    <div class="meta-val">${items.length.toLocaleString('fa-IR')} اسناد</div>
+                    <div class="meta-val">${documentsList.length.toLocaleString('fa-IR')} سند</div>
                 </div>
                 <div class="meta-item">
                     <div>مجموع وزن برگشتی</div>
-                    <div class="meta-val" style="color: #ef4444;">${totalWeight.toLocaleString('fa-IR')} کیلوگرم</div>
+                    <div class="meta-val" style="color: #ef4444;">${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم</div>
                 </div>
             </div>
 
@@ -2996,6 +3058,43 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
                     </tr>
                 </tbody>
             </table>
+
+            <div class="section-title" style="page-break-before: always;">بخش چهارم: ریز اسناد و مدارک برگشتی (کد عملیات ۴۴)</div>
+            ${documentsList.map((doc) => `
+                <div class="doc-card-header">
+                    <span style="color: #1e3a8a;">شماره سند: ${doc.docId}</span>
+                    <span>تاریخ ثبت: ${doc.date}</span>
+                    <span style="color: #0f172a;">مجموع وزن برگشتی سند: ${Math.round(doc.totalQty).toLocaleString('fa-IR')} کیلوگرم</span>
+                </div>
+                <table style="margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">ردیف</th>
+                            <th style="width: 120px;">کد کالا</th>
+                            <th>نام و شرح کالا</th>
+                            <th style="width: 150px;">گروه کالا</th>
+                            <th style="width: 120px;">وزن برگشتی (ک‌گ)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${doc.items.map((item, itemIdx) => `
+                            <tr>
+                                <td>${itemIdx + 1}</td>
+                                <td>${item.itemCode}</td>
+                                <td class="text-right">${item.itemName}</td>
+                                <td>${item.groupName}</td>
+                                <td style="font-weight: bold;">${Math.round(item.quantity).toLocaleString('fa-IR')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `).join('')}
+
+            <div class="signatures-container">
+                <div>امضا کننده ۱ (مسئول انبار تولید)<br><br><br>_______________</div>
+                <div>امضا کننده ۲ (مدیر تولید)<br><br><br>_______________</div>
+                <div>امضا کننده ۳ (مدیریت بازرگانی)<br><br><br>_______________</div>
+            </div>
         </body>
         </html>
     `;

@@ -144,7 +144,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [prodReturnsData, setProdReturnsData] = useState<any[]>([]);
     const [isFetchingProdReturns, setIsFetchingProdReturns] = useState(false);
     const [prodReturnsIsMock, setProdReturnsIsMock] = useState(false);
-    const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'group' | 'detail'>('group');
+    const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'group' | 'detail' | 'document'>('group');
     const [prodReturnsSearch, setProdReturnsSearch] = useState('');
     const [isSendingBot, setIsSendingBot] = useState(false);
     const [productionData, setProductionData] = useState<any[]>([]);
@@ -2465,6 +2465,47 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
         const detailedList = Array.from(detailedMap.values()).sort((a, b) => b.totalQty - a.totalQty);
 
+        // Group by DocId (Document Number)
+        const documentsMap = new Map<string, { docId: string; date: string; totalQty: number; items: any[] }>();
+        filteredRaw.forEach(item => {
+            const docId = String(item.DocId || 'بدون شماره سند').trim();
+            let displayDate = '';
+            if (item.Date) {
+                try {
+                    displayDate = new Date(item.Date).toLocaleDateString('fa-IR');
+                } catch(e) {
+                    displayDate = item.Date;
+                }
+            } else {
+                displayDate = dateFrom;
+            }
+            if (!documentsMap.has(docId)) {
+                documentsMap.set(docId, {
+                    docId,
+                    date: displayDate,
+                    totalQty: 0,
+                    items: []
+                });
+            }
+            const doc = documentsMap.get(docId)!;
+            doc.totalQty += parseFloat(item.Quantity || 0);
+            doc.items.push({
+                itemCode: item.ItemCode || '',
+                itemName: item.ItemName || '',
+                quantity: parseFloat(item.Quantity || 0),
+                groupName: classifyProductGroup(item.ItemCode, item.ItemName).name
+            });
+        });
+
+        const documentsList = Array.from(documentsMap.values()).sort((a, b) => {
+            const numA = parseInt(a.docId, 10);
+            const numB = parseInt(b.docId, 10);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numB - numA; // newest/highest first
+            }
+            return b.docId.localeCompare(a.docId);
+        });
+
         return {
             filteredRaw,
             totalWeight,
@@ -2472,12 +2513,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             materialGroupsList,
             totalProdWeight,
             totalMatWeight,
-            detailedList
+            detailedList,
+            documentsList
         };
     };
 
     const handlePrintReturns = () => {
-        const { productionGroupsList, materialGroupsList, totalProdWeight, totalMatWeight, detailedList, totalWeight } = getProdReturnsAnalyzed();
+        const { productionGroupsList, materialGroupsList, totalProdWeight, totalMatWeight, detailedList, totalWeight, documentsList } = getProdReturnsAnalyzed();
         
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
@@ -2548,7 +2590,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     </tbody>
                 </table>
             `;
-        } else {
+        } else if (prodReturnsGrouping === 'detail') {
             tablesHtml = `
                 <div class="section-title">گزارش ریز کالا (ادغام شده بر اساس نام کالا)</div>
                 <table>
@@ -2577,6 +2619,42 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         </tr>
                     </tbody>
                 </table>
+            `;
+        } else {
+            tablesHtml = `
+                <div class="section-title">گزارش تفکیکی اسناد برگشت از تولید (کد عملیات ۴۴)</div>
+                ${documentsList.map((doc) => `
+                    <div style="margin-top: 15px; margin-bottom: 5px; font-weight: bold; background: #f2f2f2; padding: 8px 12px; border: 1px solid #000; display: flex; justify-content: space-between; font-size: 11px;">
+                        <span>سند شماره: ${doc.docId}</span>
+                        <span>تاریخ ثبت: ${doc.date}</span>
+                        <span>مجموع وزن سند: ${Math.round(doc.totalQty).toLocaleString('fa-IR')} کیلوگرم</span>
+                    </div>
+                    <table style="margin-bottom: 15px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">ردیف</th>
+                                <th style="width: 120px;">کد کالا</th>
+                                <th>نام و شرح کالا</th>
+                                <th style="width: 150px;">گروه کالا</th>
+                                <th style="width: 120px;">وزن برگشتی (ک‌گ)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${doc.items.map((item, itemIdx) => `
+                                <tr>
+                                    <td>${itemIdx + 1}</td>
+                                    <td>${item.itemCode}</td>
+                                    <td class="text-right">${item.itemName}</td>
+                                    <td>${item.groupName}</td>
+                                    <td style="font-weight: bold;">${Math.round(item.quantity).toLocaleString('fa-IR')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `).join('')}
+                <div style="font-weight: bold; font-size: 13px; text-align: left; padding: 12px; border-top: 2px solid #000; margin-top: 20px;">
+                    جمع کل وزن برگشتی تمامی اسناد: ${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم
+                </div>
             `;
         }
 
@@ -6806,7 +6884,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         materialGroupsList, 
                         totalProdWeight, 
                         totalMatWeight, 
-                        detailedList 
+                        detailedList,
+                        documentsList
                     } = getProdReturnsAnalyzed();
 
                     return (
@@ -6852,6 +6931,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             }`}
                                         >
                                             ریز کالا (تجمعی)
+                                        </button>
+                                        <button
+                                            onClick={() => setProdReturnsGrouping('document')}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                                                prodReturnsGrouping === 'document'
+                                                    ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
+                                                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                                            }`}
+                                        >
+                                            تفکیک بر اساس سند
                                         </button>
                                     </div>
 
@@ -7036,7 +7125,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                             </div>
                                         </div>
                                     </div>
-                                ) : (
+                                ) : prodReturnsGrouping === 'detail' ? (
                                     /* DETAILED VIEW AGGREGATED BY PRODUCT NAME */
                                     <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
                                         <div className="overflow-x-auto custom-scrollbar">
@@ -7080,6 +7169,57 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 </tbody>
                                             </table>
                                         </div>
+                                    </div>
+                                ) : (
+                                    /* DOCUMENT-LEVEL VIEW (تفکیک به تفکیک اسناد) */
+                                    <div className="space-y-4 animate-fade-in">
+                                        {documentsList.length === 0 ? (
+                                            <div className="text-center py-12 text-slate-400 dark:text-zinc-500 font-bold">موردی یافت نشد</div>
+                                        ) : (
+                                            documentsList.map((doc, docIdx) => (
+                                                <div key={docIdx} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-200 dark:hover:border-zinc-700 transition-all">
+                                                    {/* Document Card Header */}
+                                                    <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-900/30">
+                                                                سند شماره {doc.docId}
+                                                            </span>
+                                                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
+                                                                تاریخ ثبت: <span className="font-mono">{doc.date}</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
+                                                            وزن برگشتی سند: <span className="font-mono text-sm font-black text-indigo-600 dark:text-indigo-400">{Math.round(doc.totalQty).toLocaleString('fa-IR')}</span> کیلوگرم
+                                                        </div>
+                                                    </div>
+                                                    {/* Document Card Content Table */}
+                                                    <div className="overflow-x-auto custom-scrollbar">
+                                                        <table className="w-full border-collapse text-right text-xs">
+                                                            <thead>
+                                                                <tr className="bg-slate-50/50 dark:bg-zinc-950/10 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
+                                                                    <th className="p-3 w-16 text-center">ردیف</th>
+                                                                    <th className="p-3 w-32">کد کالا</th>
+                                                                    <th className="p-3">نام و شرح کالا</th>
+                                                                    <th className="p-3">گروه کالا</th>
+                                                                    <th className="p-3 text-left w-36">وزن برگشتی (کیلوگرم)</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                                                                {doc.items.map((item, itemIdx) => (
+                                                                    <tr key={itemIdx} className="hover:bg-slate-50/20 dark:hover:bg-zinc-800/10 transition-colors">
+                                                                        <td className="p-3 text-center text-slate-400 font-bold">{itemIdx + 1}</td>
+                                                                        <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{item.itemCode}</td>
+                                                                        <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.itemName}</td>
+                                                                        <td className="p-3 font-bold text-slate-500 dark:text-zinc-400">{item.groupName}</td>
+                                                                        <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-xs">{Math.round(item.quantity).toLocaleString('fa-IR')}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 )
                             )}

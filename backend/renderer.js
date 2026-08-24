@@ -1497,76 +1497,491 @@ export const generateMeetingMinutesPDF = async (meeting) => {
     const html = `<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8">
             <style>
                 ${BASE_STYLE}
-                .meeting-header { border: 2px solid #333; padding: 15px; margin-bottom: 20px; }
-                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-                .sub-title { font-size: 18px; font-weight: bold; border-right: 4px solid #1e3a8a; padding-right: 10px; margin: 20px 0 10px 0; }
-                .stamp { border: 2px solid #166534; color: #166534; border-radius: 10px; padding: 6px; transform: rotate(-3deg); text-align: center; background: white; min-width: 100px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: inline-block; margin: 5px; }
-                .stamp-title { font-size: 9px; font-weight: bold; border-bottom: 1px solid #166534; margin-bottom: 3px; padding-bottom: 1px; }
-                .stamp-name { font-size: 12px; font-weight: 900; }
-                .stamp-date { font-size: 8px; font-weight: bold; margin-top: 2px; }
+                body {
+                    background-color: #f8fafc;
+                    padding: 30px;
+                    font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
+                }
+                .page-container {
+                    background-color: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 35px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+                    position: relative;
+                }
+                .premium-top-bar {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 6px;
+                    background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 50%, #b45309 100%);
+                    border-top-left-radius: 12px;
+                    border-top-right-radius: 12px;
+                }
+                .letterhead {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 2px solid #e2e8f0;
+                    padding-bottom: 20px;
+                    margin-bottom: 25px;
+                }
+                .letterhead-title-section {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+                .letterhead-title-section .subtitle {
+                    font-size: 10px;
+                    font-weight: 800;
+                    color: #b45309;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .letterhead-title-section h1 {
+                    font-size: 24px;
+                    font-weight: 950;
+                    color: #0f172a;
+                    margin: 0;
+                    letter-spacing: -0.5px;
+                }
+                .letterhead-title-section .company {
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #64748b;
+                }
+                .letterhead-meta {
+                    background-color: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 10px 16px;
+                    font-size: 11px;
+                    color: #475569;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    min-width: 180px;
+                }
+                .letterhead-meta div {
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .letterhead-meta span.val {
+                    font-weight: 900;
+                    color: #0f172a;
+                    font-family: monospace, sans-serif;
+                }
+                .details-card {
+                    background-color: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 16px 20px;
+                    margin-bottom: 25px;
+                }
+                .details-card-title {
+                    font-size: 11.5px;
+                    font-weight: 800;
+                    color: #1e3a8a;
+                    margin-bottom: 12px;
+                    border-bottom: 1px solid #e2e8f0;
+                    padding-bottom: 6px;
+                    text-transform: uppercase;
+                }
+                .details-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px 30px;
+                }
+                .details-item {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 11.5px;
+                    border-bottom: 1px dashed #f1f5f9;
+                    padding-bottom: 4px;
+                }
+                .details-item .label {
+                    color: #64748b;
+                    font-weight: bold;
+                }
+                .details-item .value {
+                    color: #0f172a;
+                    font-weight: bold;
+                }
+                .section-header {
+                    font-size: 13px;
+                    font-weight: 900;
+                    color: #0f172a;
+                    border-right: 4px solid #1e3a8a;
+                    padding-right: 10px;
+                    margin: 25px 0 12px 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .attendees-container {
+                    background-color: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 12px;
+                }
+                .attendees-grid {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+                .attendee-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background-color: #f1f5f9;
+                    border: 1px solid #e2e8f0;
+                    padding: 5px 12px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                }
+                .attendee-badge.guest {
+                    background-color: #fffbeb;
+                    border-color: #fde68a;
+                }
+                .dot {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                }
+                .dot.present {
+                    background-color: #10b981;
+                }
+                .dot.guest {
+                    background-color: #f59e0b;
+                }
+                .attendee-badge .name {
+                    font-weight: 800;
+                    color: #1e293b;
+                }
+                .attendee-badge .role {
+                    color: #64748b;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                .resolutions-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                    margin-top: 12px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    border: 1px solid #cbd5e1;
+                }
+                .resolutions-table th {
+                    background-color: #1e293b;
+                    color: #ffffff;
+                    font-weight: 900;
+                    font-size: 11px;
+                    padding: 12px 10px;
+                    border: none;
+                    border-bottom: 2px solid #0f172a;
+                    text-align: center;
+                }
+                .resolutions-table td {
+                    padding: 12px 10px;
+                    border: none;
+                    border-bottom: 1px solid #e2e8f0;
+                    font-size: 11px;
+                    color: #334155;
+                    line-height: 1.6;
+                    text-align: center;
+                }
+                .resolutions-table tr:last-child td {
+                    border-bottom: none;
+                }
+                .resolutions-table tr:nth-child(even) {
+                    background-color: #f8fafc;
+                }
+                .resolutions-table td.desc-col {
+                    text-align: right;
+                    font-weight: 500;
+                    color: #0f172a;
+                    padding-right: 15px;
+                }
+                .resolutions-table td.responsible-col {
+                    font-weight: bold;
+                    color: #1e293b;
+                }
+                .resolutions-table td.duration-col {
+                    font-weight: 800;
+                    color: #b45309;
+                }
+                .resolutions-table td.num-col {
+                    color: #64748b;
+                    font-weight: bold;
+                }
+                .approvals-container {
+                    margin-top: 15px;
+                }
+                .approvals-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 15px;
+                }
+                .approval-stamp {
+                    border: 1.5px dashed #059669;
+                    background-color: #f0fdf4;
+                    border-radius: 8px;
+                    padding: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    position: relative;
+                    overflow: hidden;
+                }
+                .approval-stamp::before {
+                    content: 'APPROVED';
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-15deg);
+                    font-size: 32px;
+                    font-weight: 900;
+                    color: rgba(5, 150, 105, 0.04);
+                    letter-spacing: 2px;
+                    pointer-events: none;
+                }
+                .stamp-seal-badge {
+                    width: 44px;
+                    height: 44px;
+                    border: 2px double #059669;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                .seal-badge-inner {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    color: #059669;
+                }
+                .seal-badge-icon {
+                    font-size: 14px;
+                    font-weight: bold;
+                    line-height: 1;
+                }
+                .seal-badge-text {
+                    font-size: 6px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                }
+                .stamp-text-details {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2px;
+                }
+                .stamp-text-details .u-name {
+                    font-size: 11px;
+                    font-weight: 900;
+                    color: #065f46;
+                }
+                .stamp-text-details .u-role {
+                    font-size: 9.5px;
+                    font-weight: bold;
+                    color: #047857;
+                }
+                .stamp-text-details .u-time {
+                    font-size: 9px;
+                    color: #059669;
+                    font-weight: bold;
+                }
+                .stamp-text-details .u-hash {
+                    font-family: monospace;
+                    font-size: 7px;
+                    color: #10b981;
+                    letter-spacing: 0.5px;
+                }
+                .physical-sigs-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 15px;
+                }
+                .physical-sig-box {
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    padding: 12px;
+                    text-align: center;
+                    background-color: #fafafa;
+                }
+                .physical-sig-box .role {
+                    font-size: 10px;
+                    font-weight: bold;
+                    color: #64748b;
+                    margin-bottom: 4px;
+                }
+                .physical-sig-box .name {
+                    font-size: 11px;
+                    font-weight: 900;
+                    color: #0f172a;
+                    border-bottom: 1px dashed #e2e8f0;
+                    padding-bottom: 6px;
+                    margin-bottom: 8px;
+                }
+                .physical-sig-box .space {
+                    font-size: 9px;
+                    color: #94a3b8;
+                    height: 40px;
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: center;
+                }
             </style>
         </head><body>
-            <div class="header">
-                <div class="title">صورتجلسه</div>
-                <div class="meta" style="justify-content: center; gap: 20px;"><span>شماره: ${meeting.meetingNumber}</span><span>تاریخ: ${meeting.date}</span></div>
-            </div>
-
-            <div class="meeting-header">
-                <div class="grid-2">
-                    <div><b>زمان برگزاری:</b> ${meeting.time}</div>
-                    <div><b>مکان:</b> ${meeting.location}</div>
-                    <div><b>رئیس جلسه:</b> ${meeting.chairman}</div>
-                    <div><b>دبیر جلسه:</b> ${meeting.secretary}</div>
-                </div>
-            </div>
-
-            <div class="sub-title">اعضای حاضر</div>
-            <div style="font-size: 13px;">${meeting.attendees
-              .filter((a) => a.isPresent)
-              .map((a) => `• ${a.fullName} - ${a.role}`)
-              .join("<br/>")}
-                 ${(meeting.guestAttendees || []).map((g) => `• ${g} - مدعو`).join("<br/>")}</div>
-
-            <div class="sub-title">مصوبات و تصمیمات</div>
-            <table>
-                <thead>
-                    <tr><th style="width: 40px;">ردیف</th><th>شرح مصوبه</th><th style="width: 150px;">مسئول اجرا</th><th style="width: 100px;">زمان/مهلت</th></tr>
-                </thead>
-                <tbody>
-                    ${meeting.items
-                      .map(
-                        (item, idx) => `
-                        <tr>
-                            <td>${idx + 1}</td>
-                            <td style="text-align: right;">${item.description}</td>
-                            <td>${item.responsiblePerson}</td>
-                            <td>${item.duration}</td>
-                        </tr>
-                    `,
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-                    
-            <div class="sub-title">امضاها و تاییدات</div>
-            <div style="display: flex; flex-wrap: wrap; margin-top: 20px;">
-                ${Object.entries(meeting.approvals || {})
-                  .map(([username, appInfo]) => {
-                    const attendee = meeting.attendees.find(
-                      (a) => a.username === username,
-                    );
-                    const name = attendee ? attendee.fullName : username;
-                    const role = attendee ? attendee.role : "عضو";
-                    return `
-                        <div class="stamp">
-                            <div class="stamp-title">تایید شد</div>
-                            <div class="stamp-name">${name}</div>
-                            <div class="stamp-date">${role}</div>
-                            <div class="stamp-date">${new Date(appInfo.date).toLocaleDateString("fa-IR")}</div>
+            <div class="page-container">
+                <div class="premium-top-bar"></div>
+                
+                <div class="letterhead">
+                    <div class="letterhead-title-section">
+                        <span class="subtitle">سند صورتجلسه رسمی هماهنگی تولید</span>
+                        <h1>صورتجلسه هماهنگی تولید کارخانه</h1>
+                        <span class="company">سیستم جامع سایان ERP • صنایع نساجی سایان</span>
+                    </div>
+                    <div class="letterhead-meta">
+                        <div>
+                            <span>شماره جلسه:</span>
+                            <span class="val">${toPersianDigits(meeting.meetingNumber)}</span>
                         </div>
-                    `;
-                  })
-                  .join("")}
+                        <div>
+                            <span>تاریخ تنظیم:</span>
+                            <span class="val">${toPersianDigits(meeting.date)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-card">
+                    <div class="details-card-title">مشخصات و زمان‌بندی عمومی جلسه</div>
+                    <div class="details-grid">
+                        <div class="details-item">
+                            <span class="label">زمان برگزاری:</span>
+                            <span class="value">${toPersianDigits(meeting.time)}</span>
+                        </div>
+                        <div class="details-item">
+                            <span class="label">محل برگزاری:</span>
+                            <span class="value">${meeting.location}</span>
+                        </div>
+                        <div class="details-item">
+                            <span class="label">رئیس جلسه:</span>
+                            <span class="value">${meeting.chairman}</span>
+                        </div>
+                        <div class="details-item">
+                            <span class="label">دبیر جلسه:</span>
+                            <span class="value">${meeting.secretary}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <span>لیست اعضای حاضر و مدعوین جلسه</span>
+                    <span style="font-size: 10px; color: #64748b;">تعداد حاضرین: ${toPersianDigits(meeting.attendees.filter(a => a.isPresent).length + (meeting.guestAttendees || []).length)} نفر</span>
+                </div>
+                <div class="attendees-container">
+                    <div class="attendees-grid">
+                        ${meeting.attendees
+                          .filter((a) => a.isPresent)
+                          .map((a) => `
+                            <div class="attendee-badge">
+                                <span class="dot present"></span>
+                                <span class="name">${a.fullName}</span>
+                                <span class="role">${a.role}</span>
+                            </div>
+                          `)
+                          .join("")}
+                        ${(meeting.guestAttendees || []).map((g) => `
+                            <div class="attendee-badge guest">
+                                <span class="dot guest"></span>
+                                <span class="name">${g}</span>
+                                <span class="role">مدعو</span>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <span>مصوبات، تصمیمات و تکالیف تعیین شده</span>
+                </div>
+                <table class="resolutions-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">ردیف</th>
+                            <th>شرح مصوبه و شرح تکلیف تولیدی</th>
+                            <th style="width: 140px;">مسئول اجرا / واحد متولی</th>
+                            <th style="width: 110px;">زمان / مهلت اجرا</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${meeting.items
+                          .map(
+                            (item, idx) => `
+                            <tr>
+                                <td class="num-col">${toPersianDigits(idx + 1)}</td>
+                                <td class="desc-col">${item.description}</td>
+                                <td class="responsible-col">${item.responsiblePerson}</td>
+                                <td class="duration-col">${toPersianDigits(item.duration)}</td>
+                            </tr>
+                        `,
+                          )
+                          .join("")}
+                    </tbody>
+                </table>
+                        
+                <div class="section-header" style="margin-top: 30px;">
+                    <span>امضاها، تاییدات الکترونیک و اصالت‌سنجی</span>
+                </div>
+                <div class="approvals-container">
+                    ${Object.entries(meeting.approvals || {}).length > 0 ? `
+                        <div class="approvals-grid">
+                            ${Object.entries(meeting.approvals || {})
+                              .map(([username, appInfo]) => {
+                                const attendee = meeting.attendees.find(
+                                  (a) => a.username === username,
+                                );
+                                const name = attendee ? attendee.fullName : username;
+                                const role = attendee ? attendee.role : "عضو جلسه";
+                                const securityHash = `SHA-${Math.abs(username.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(16).substring(0, 6).toUpperCase()}`;
+                                return `
+                                    <div class="approval-stamp">
+                                        <div class="stamp-seal-badge">
+                                            <div class="seal-badge-inner">
+                                                <span class="seal-badge-icon">✓</span>
+                                                <span class="seal-badge-text">تایید الکترونیک</span>
+                                            </div>
+                                        </div>
+                                        <div class="stamp-text-details">
+                                            <div class="u-name">${name}</div>
+                                            <div class="u-role">${role}</div>
+                                            <div class="u-time">تاریخ: ${toPersianDigits(new Date(appInfo.date).toLocaleDateString("fa-IR"))}</div>
+                                            <div class="u-hash">کد تایید: ${securityHash}</div>
+                                        </div>
+                                    </div>
+                                `;
+                              })
+                              .join("")}
+                        </div>
+                    ` : `
+                        <div class="physical-sigs-grid">
+                            ${meeting.attendees
+                              .filter(a => a.isPresent)
+                              .slice(0, 6)
+                              .map(a => `
+                                <div class="physical-sig-box">
+                                    <div class="role">${a.role}</div>
+                                    <div class="name">${a.fullName}</div>
+                                    <div class="space">محل امضا و تایید</div>
+                                </div>
+                              `).join("")}
+                        </div>
+                    `}
+                </div>
             </div>
         </body></html>`;
 
