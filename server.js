@@ -6891,7 +6891,7 @@ async function executeReportJob(job) {
             } catch (whErr) {
                 console.error("Error generating/sending warehouse report:", whErr);
             }
-        } else if (job.reportType === 'production_overview' || job.module === 'production') {
+        } else if ((job.reportType === 'production_overview' || job.module === 'production') && job.reportType !== 'production_comparison') {
             // Dispatch Production Daily Overview to configured groups
             try {
                 const archive = db.productionWasteArchive || [];
