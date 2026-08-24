@@ -438,6 +438,9 @@ export interface SystemSettings {
   miniAppCarEstimatorUrl?: string;
   miniAppMobilePriceUrl?: string;
   purchaseRolePermissions?: Record<string, PurchaseRolePermissions>;
+  prodReturnsTelegramGroupId?: string;
+  prodReturnsBaleGroupId?: string;
+  prodReturnsWhatsappGroupId?: string;
 }
 
 export interface PurchaseRolePermissions {

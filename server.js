@@ -417,6 +417,12 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
         { key: 'productionCompareWhatsappGroupId', plat: 'whatsapp' },
     ];
 
+    const productionReturnsKeys = [
+        { key: 'prodReturnsTelegramGroupId', plat: 'telegram' },
+        { key: 'prodReturnsBaleGroupId', plat: 'bale' },
+        { key: 'prodReturnsWhatsappGroupId', plat: 'whatsapp' },
+    ];
+
     const warehouseKeys = [
         { key: 'warehouseTelegramGroupId', plat: 'telegram' },
         { key: 'warehouseTelegramGroupIds', plat: 'telegram' },
@@ -451,6 +457,8 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
         keysToUse = productionKeys;
     } else if (category === 'production_compare') {
         keysToUse = productionCompareKeys;
+    } else if (category === 'production_returns') {
+        keysToUse = productionReturnsKeys;
     } else if (category === 'warehouse') {
         keysToUse = warehouseKeys;
     } else if (category === 'sales') {
@@ -458,7 +466,7 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     } else if (category === 'accounting') {
         keysToUse = accountingKeys;
     } else {
-        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...warehouseKeys, ...reportsKeys, ...generalKeys];
+        keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...productionReturnsKeys, ...warehouseKeys, ...reportsKeys, ...generalKeys];
     }
 
     keysToUse.forEach(({ key, plat }) => {
@@ -2618,6 +2626,494 @@ app.post('/api/sayan/production-report/send-bot', async (req, res) => {
         });
     } catch (e) {
         console.error("Send Production Report Bot Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- PRODUCTION RETURNS (CODE 44) PRIVATE HELPERS & ENDPOINTS ---
+async function queryProductionReturnsData(db, dateFrom, dateTo) {
+    const settings = db.settings || {};
+    const sayanUrl = settings.sayanApiUrl || process.env.SAYAN_API_URL;
+    const sayanKey = settings.sayanApiKey || process.env.SAYAN_API_KEY;
+
+    const normFrom = normalizeShamsiDate(dateFrom);
+    const normTo = normalizeShamsiDate(dateTo) || normFrom;
+
+    const gregFromDate = parseJalaliStrToGregorian(normFrom);
+    const gregToDate = parseJalaliStrToGregorian(normTo);
+
+    if (!gregFromDate || !gregToDate) {
+        throw new Error('فرمت تاریخ شمسی نامعتبر است');
+    }
+
+    if (!sayanUrl || !sayanKey) {
+        return [
+            { DocId: 'R-4401', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', ItemCode: '0401012', ItemName: 'اسپاندکس ۷۰ دنیر سفید رونیز (برگشتی تولید)', Quantity: 420 },
+            { DocId: 'R-4402', Date: `${gregFromDate}T11:30:00.000Z`, DocType: '44', ItemCode: '0402051', ItemName: 'کش کاغذی ۳ سانت مشکی (برگشتی تولید)', Quantity: 180 },
+            { DocId: 'R-4403', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', ItemCode: '0103022', ItemName: 'نخ پلی استر DTY ۱۵۰/۴۸ خام کارخانه تبريز', Quantity: 1550 },
+            { DocId: 'R-4404', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال (برگشتی ریسندگی)', Quantity: 850 },
+            { DocId: 'R-4405', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310 },
+            { DocId: 'R-4406', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680 }
+        ];
+    }
+
+    const sql = `
+        SELECT 
+            t10.Field_001 as DocId,
+            t10.Field_008 as Date,
+            RTRIM(LTRIM(t10.Field_009)) as DocType,
+            RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+            COALESCE(
+                NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                RTRIM(LTRIM(t11.Field_005)),
+                N'کالای بدون نام'
+            ) as ItemName,
+            t11.Field_006 as Quantity
+        FROM STR_TBL_010 t10
+        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                  AND t11.Field_003 = t10.Field_004
+                                  AND t11.Field_012 = t10.Field_018
+        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+            LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+        WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
+          AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+          AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
+        ORDER BY t10.Field_008 DESC
+    `;
+
+    const rows = await executeSayanQuery(db, sql);
+    return rows || [];
+}
+
+const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
+    const classifyProductGroup = (itemCode, itemName) => {
+        const code = (itemCode || '').trim();
+        const name = (itemName || '').toLowerCase();
+        
+        if (code.startsWith('0103')) return { code: '0103', name: 'dty با پلی استر', isProduction: true };
+        if (code.startsWith('0108')) return { code: '0108', name: 'نایلون (0108)', isProduction: true };
+        if (code.startsWith('0401')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
+        if (code.startsWith('0402')) return { code: '0402', name: 'کش', isProduction: true };
+        if (code.startsWith('0403')) return { code: '0403', name: 'اسپاندکس جوشی (ساپورت)', isProduction: true };
+        if (code.startsWith('0405')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
+        if (code.startsWith('0407')) return { code: '0407', name: 'نایلون (0407)', isProduction: true };
+        
+        if (code.startsWith('0101')) return { code: '0101', name: 'چیپس', isProduction: false };
+        if (code.startsWith('0102')) return { code: '0102', name: 'POY', isProduction: false };
+        if (code.startsWith('0104')) return { code: '0104', name: 'لاستیک', isProduction: false };
+        if (code.startsWith('0105')) return { code: '0105', name: 'لاکرا', isProduction: false };
+        if (code.startsWith('0106')) return { code: '0106', name: 'پلی استر اسپان', isProduction: false };
+        if (code.startsWith('0107')) return { code: '0107', name: 'مستربچ', isProduction: false };
+        if (code.startsWith('0408')) return { code: '0408', name: 'نخ ملت', isProduction: false };
+        if (code.startsWith('0409')) return { code: '0409', name: 'الیاف', isProduction: false };
+
+        if (name.includes('اسپاندکس') || name.includes('spandex')) {
+            return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
+        }
+        if (name.includes('کش') || name.includes('elastic')) {
+            return { code: '0402', name: 'کش', isProduction: true };
+        }
+        if (name.includes('dty') || name.includes('دی تی وای')) {
+            return { code: '0103', name: 'dty با پلی استر', isProduction: true };
+        }
+        if (name.includes('poy') || name.includes('پوی')) {
+            return { code: '0102', name: 'POY', isProduction: false };
+        }
+        if (name.includes('شوایتر') || name.includes('schweiter')) {
+            return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
+        }
+        if (name.includes('نایلون') || name.includes('nylon')) {
+            return { code: '0407', name: 'نایلون (0407)', isProduction: true };
+        }
+        if (name.includes('ضایعات') || name.includes('waste')) {
+            return { code: '0108', name: 'نایلون (ضایعات)', isProduction: true };
+        }
+        return { code: 'سایر', name: 'سایر ملزومات', isProduction: false };
+    };
+
+    const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
+
+    const productionGroupsMap = new Map();
+    const materialGroupsMap = new Map();
+
+    items.forEach(item => {
+        const groupInfo = classifyProductGroup(item.ItemCode, item.ItemName);
+        const mapToUse = groupInfo.isProduction ? productionGroupsMap : materialGroupsMap;
+        
+        if (!mapToUse.has(groupInfo.code)) {
+            mapToUse.set(groupInfo.code, {
+                code: groupInfo.code,
+                name: groupInfo.name,
+                itemsCount: 0,
+                totalQty: 0
+            });
+        }
+        const grp = mapToUse.get(groupInfo.code);
+        grp.itemsCount += 1;
+        grp.totalQty += parseFloat(item.Quantity || 0);
+    });
+
+    const productionGroupsList = Array.from(productionGroupsMap.values()).sort((a, b) => b.totalQty - a.totalQty);
+    const materialGroupsList = Array.from(materialGroupsMap.values()).sort((a, b) => b.totalQty - a.totalQty);
+
+    const totalProdWeight = productionGroupsList.reduce((sum, g) => sum + g.totalQty, 0);
+    const totalMatWeight = materialGroupsList.reduce((sum, g) => sum + g.totalQty, 0);
+
+    const detailedMap = new Map();
+    items.forEach(item => {
+        const key = `${item.ItemCode || ''}_${item.ItemName || ''}`;
+        const groupInfo = classifyProductGroup(item.ItemCode, item.ItemName);
+        
+        if (!detailedMap.has(key)) {
+            detailedMap.set(key, {
+                code: item.ItemCode || '',
+                name: item.ItemName || '',
+                groupName: groupInfo.name,
+                totalQty: 0
+            });
+        }
+        detailedMap.get(key).totalQty += parseFloat(item.Quantity || 0);
+    });
+
+    const detailedList = Array.from(detailedMap.values()).sort((a, b) => b.totalQty - a.totalQty);
+    const dateStr = dateFrom === dateTo ? dateFrom : `از ${dateFrom} تا ${dateTo}`;
+
+    return `
+        <!DOCTYPE html>
+        <html lang="fa" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {
+                    font-family: 'Tahoma', 'Arial', sans-serif;
+                    direction: rtl;
+                    padding: 40px;
+                    background: #fff;
+                    color: #1e293b;
+                }
+                .header {
+                    text-align: center;
+                    border-bottom: 2px solid #1e3b8a;
+                    padding-bottom: 15px;
+                    margin-bottom: 25px;
+                }
+                .title {
+                    font-size: 20px;
+                    font-weight: 900;
+                    color: #1e3a8a;
+                }
+                .subtitle {
+                    font-size: 12px;
+                    margin-top: 5px;
+                    color: #475569;
+                }
+                .meta-box {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 15px;
+                    margin-bottom: 25px;
+                    background: #f8fafc;
+                    padding: 12px 15px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                }
+                .meta-item {
+                    text-align: center;
+                    font-size: 11px;
+                    color: #64748b;
+                    font-weight: bold;
+                }
+                .meta-val {
+                    font-size: 15px;
+                    font-weight: 900;
+                    color: #0f172a;
+                    margin-top: 4px;
+                }
+                .section-title {
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-right: 4px solid #1e3a8a;
+                    padding-right: 8px;
+                    margin-top: 25px;
+                    margin-bottom: 12px;
+                    color: #1e3a8a;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 25px;
+                    font-size: 11px;
+                }
+                th, td {
+                    border: 1px solid #cbd5e1;
+                    padding: 8px;
+                    text-align: center;
+                }
+                th {
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    color: #334155;
+                }
+                .text-right {
+                    text-align: right;
+                    padding-right: 12px;
+                }
+                .sum-row {
+                    font-weight: bold;
+                    background: #f8fafc;
+                    color: #0f172a;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title">تراز رسید برگشت از تولید کالا (کد عملیات ۴۴)</div>
+                <div class="subtitle">دوره زمانی گزارش: ${dateStr}</div>
+            </div>
+            
+            <div class="meta-box">
+                <div class="meta-item">
+                    <div>تاریخ استخراج گزارش</div>
+                    <div class="meta-val">${new Date().toLocaleDateString('fa-IR')}</div>
+                </div>
+                <div class="meta-item">
+                    <div>تعداد اسناد رسیدگی‌شده</div>
+                    <div class="meta-val">${items.length.toLocaleString('fa-IR')} اسناد</div>
+                </div>
+                <div class="meta-item">
+                    <div>مجموع وزن برگشتی</div>
+                    <div class="meta-val" style="color: #ef4444;">${totalWeight.toLocaleString('fa-IR')} کیلوگرم</div>
+                </div>
+            </div>
+
+            <div class="section-title">بخش اول: کالاهای تولیدی (ادغام در سطح گروه کالا)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">ردیف</th>
+                        <th>کد گروه</th>
+                        <th>گروه کالا</th>
+                        <th>تعداد اقلام متمایز</th>
+                        <th>مجموع وزن برگشتی (کیلوگرم)</th>
+                        <th>سهم از کل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${productionGroupsList.length === 0 ? '<tr><td colspan="6" style="padding: 12px; color: #64748b;">موردی ثبت نشده است</td></tr>' : productionGroupsList.map((g, idx) => `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>${g.code}</td>
+                            <td class="text-right">${g.name}</td>
+                            <td>${g.itemsCount}</td>
+                            <td style="font-weight: bold;">${g.totalQty.toLocaleString('fa-IR')}</td>
+                            <td>${totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                    `).join('')}
+                    <tr class="sum-row">
+                        <td colspan="4">جمع کل کالاهای تولیدی</td>
+                        <td>${totalProdWeight.toLocaleString('fa-IR')}</td>
+                        <td>${totalWeight > 0 ? ((totalProdWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">بخش دوم: مواد اولیه وارداتی و کمکی (تفکیک بر اساس گروه کالا)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">ردیف</th>
+                        <th>کد گروه</th>
+                        <th>گروه کالا</th>
+                        <th>تعداد اقلام متمایز</th>
+                        <th>مجموع وزن برگشتی (کیلوگرم)</th>
+                        <th>سهم از کل</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${materialGroupsList.length === 0 ? '<tr><td colspan="6" style="padding: 12px; color: #64748b;">موردی ثبت نشده است</td></tr>' : materialGroupsList.map((g, idx) => `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>${g.code}</td>
+                            <td class="text-right">${g.name}</td>
+                            <td>${g.itemsCount}</td>
+                            <td style="font-weight: bold;">${g.totalQty.toLocaleString('fa-IR')}</td>
+                            <td>${totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%</td>
+                        </tr>
+                    `).join('')}
+                    <tr class="sum-row">
+                        <td colspan="4">جمع کل مواد اولیه و کمکی</td>
+                        <td>${totalMatWeight.toLocaleString('fa-IR')}</td>
+                        <td>${totalWeight > 0 ? ((totalMatWeight / totalWeight) * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">بخش سوم: گزارش ریز خود کالا (ادغام شده بر اساس نام کالا)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">ردیف</th>
+                        <th>کد کالا</th>
+                        <th>نام کالا</th>
+                        <th>گروه کالا</th>
+                        <th>مجموع وزن برگشتی (کیلوگرم)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detailedList.slice(0, 40).map((item, idx) => `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>${item.code}</td>
+                            <td class="text-right">${item.name}</td>
+                            <td>${item.groupName}</td>
+                            <td style="font-weight: bold;">${item.totalQty.toLocaleString('fa-IR')}</td>
+                        </tr>
+                    `).join('')}
+                    ${detailedList.length > 40 ? `<tr><td colspan="5" style="color: #64748b; font-style: italic; background: #f8fafc; padding: 10px;">... و تعداد ${detailedList.length - 40} قلم کالا دیگر ...</td></tr>` : ''}
+                    <tr class="sum-row">
+                        <td colspan="4">جمع کل وزن ریز اقلام</td>
+                        <td>${totalWeight.toLocaleString('fa-IR')}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+};
+
+app.get('/api/sayan/production-returns/pdf', async (req, res) => {
+    try {
+        const db = getDb();
+        const dateFrom = req.query.dateFrom || '';
+        const dateTo = req.query.dateTo || dateFrom;
+
+        const items = await queryProductionReturnsData(db, dateFrom, dateTo);
+        const html = compileProductionReturnsHtml(dateFrom, dateTo, items);
+
+        const Renderer = await import('./backend/renderer.js');
+        const pdfBuffer = await Renderer.generatePdfBuffer(html);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=Sayan_Production_Returns_${dateFrom}.pdf`);
+        res.send(pdfBuffer);
+    } catch (e) {
+        console.error("PDF Generate Error Sayan Returns:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
+    try {
+        const db = getDb();
+        const { dateFrom, dateTo } = req.body;
+
+        if (!dateFrom || !dateTo) {
+            return res.status(400).json({ error: 'تاریخ ابتدا و انتها الزامی است' });
+        }
+
+        const items = await queryProductionReturnsData(db, dateFrom, dateTo);
+        const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
+
+        // Grouping summary for caption
+        const classifyProductGroup = (itemCode, itemName) => {
+            const code = (itemCode || '').trim();
+            const name = (itemName || '').toLowerCase();
+            if (code.startsWith('0103') || name.includes('dty')) return 'نخ DTY';
+            if (code.startsWith('0401') || name.includes('اسپاندکس')) return 'نخ اسپاندکس';
+            if (code.startsWith('0402') || name.includes('کش')) return 'کش و قیطان';
+            if (code.startsWith('0102') || name.includes('poy')) return 'نخ POY';
+            if (code.startsWith('0108') || name.includes('ضایعات')) return 'ضایعات تولید';
+            return 'سایر ملزومات';
+        };
+
+        const summaryMap = {};
+        items.forEach(item => {
+            const grp = classifyProductGroup(item.ItemCode, item.ItemName);
+            summaryMap[grp] = (summaryMap[grp] || 0) + parseFloat(item.Quantity || 0);
+        });
+
+        let summaryText = '';
+        Object.entries(summaryMap).forEach(([grp, qty]) => {
+            summaryText += `🔹 *${grp}:* ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ\n`;
+        });
+
+        const dateStr = dateFrom === dateTo ? dateFrom : `از ${dateFrom} تا ${dateTo}`;
+        const caption = `🚨 *گزارش تراز رسید برگشت از تولید کالا (کد عملیات ۴۴)* 🚨\n\n` +
+                        `📅 *دوره گزارش:* ${dateStr}\n` +
+                        `⚖️ *مجموع وزن برگشتی:* ${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم\n` +
+                        `📄 *تعداد کل اسناد:* ${items.length.toLocaleString('fa-IR')} فقره سند\n\n` +
+                        `📊 *خلاصه وزنی گروه‌ها:*\n${summaryText}\n` +
+                        `⚙️ _گزارش کامل PDF تراز برگشتی پیوست گردید._`;
+
+        const html = compileProductionReturnsHtml(dateFrom, dateTo, items);
+        const Renderer = await import('./backend/renderer.js');
+        const pdfBuffer = await Renderer.generatePdfBuffer(html);
+
+        const filename = `Sayan_Returns_${dateFrom.replace(/[\/\\]/g, '-')}.pdf`;
+        const uniqueTargets = collectBotTargets(db, { category: 'production_returns' });
+
+        if (uniqueTargets.length === 0) {
+            return res.status(400).json({ error: 'هیچ شناسه گروه برگشت از تولید (کد ۴۴) در تنظیمات بات یافت نشد. لطفا ابتدا شناسه گروه‌های مربوطه را در بخش تنظیمات سیستم ذخیره نمایید.' });
+        }
+
+        let sentCount = 0;
+        let lastError = null;
+
+        for (const target of uniqueTargets) {
+            try {
+                if (target.platform === 'telegram' && telegram) {
+                    await telegram.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    sentCount++;
+                } else if (target.platform === 'bale' && bale) {
+                    await bale.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    sentCount++;
+                } else if (target.platform === 'whatsapp') {
+                    const wa = await safeImport('./backend/whatsapp.js');
+                    if (wa && wa.sendMessage) {
+                        await wa.sendMessage(target.id, caption, {
+                            data: pdfBuffer.toString('base64'),
+                            mimeType: 'application/pdf',
+                            filename: filename
+                        });
+                        sentCount++;
+                    }
+                }
+            } catch (err) {
+                lastError = err.message;
+                console.error(`[Send Sayan Returns Report] Failed for ${target.platform}:${target.id}:`, err.message);
+            }
+        }
+
+        if (sentCount === 0) {
+            return res.status(400).json({ error: `ارسال ناموفق بود: ${lastError || 'خطا در ارتباط با سرور پیام‌رسان‌ها'}` });
+        }
+
+        res.json({
+            success: true,
+            message: `گزارش تراز برگشت از تولید کالا با موفقیت به ${sentCount} گروه تلگرام/بله/واتساپ ارسال شد. ✅`
+        });
+    } catch (e) {
+        console.error("Send Sayan Returns Bot Error:", e);
         res.status(500).json({ error: e.message });
     }
 });

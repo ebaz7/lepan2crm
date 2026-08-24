@@ -4402,6 +4402,63 @@ const Settings: React.FC<SettingsProps> = ({
                           />
                         </div>
                       </div>
+
+                      <h4 className="font-bold text-sm text-indigo-800 pt-2 border-t border-dashed">
+                        ⚙️ تنظیمات گروه ارسال رسید برگشت از تولید کالا (کد ۴۴)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه تلگرام برگشت از تولید (۴۴)
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.prodReturnsTelegramGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                prodReturnsTelegramGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="-100..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه بله برگشت از تولید (۴۴)
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.prodReturnsBaleGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                prodReturnsBaleGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="ID..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-600 block mb-1">
+                            شناسه گروه واتساپ برگشت از تولید (۴۴)
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.prodReturnsWhatsappGroupId || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                prodReturnsWhatsappGroupId: e.target.value,
+                              })
+                            }
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr"
+                            placeholder="120363... یا 0912..."
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
