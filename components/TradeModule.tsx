@@ -1395,7 +1395,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         const guaranteeDepositsTotal = selectedRecord.greenLeafData?.guarantees?.reduce((acc: number, g: any) => acc + (g.cashAmount || 0), 0) || 0;
         const totalOverheadsRialWithoutDeposits = overheadStages.reduce((sum, stage) => 
             sum + (selectedRecord.stages[stage]?.costRial || 0), 0);
-        const totalOverheadsRial = totalOverheadsRialWithoutDeposits + guaranteeDepositsTotal;
+        const totalOverheadsRial = totalOverheadsRialWithoutDeposits; // Guarantee deposits are part of the guarantee amount, not an extra overhead
 
         const grandTotalRialProject = netCurrencyRialCost + totalOverheadsRial;
         const totalWeight = selectedRecord.items.reduce((sum, item) => sum + item.weight, 0);

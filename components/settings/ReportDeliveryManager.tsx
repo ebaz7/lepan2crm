@@ -11,14 +11,15 @@ import { apiCall } from '../../services/apiService';
 export interface ReportDeliveryJob {
   id: string;
   title: string;
-  module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr';
-  reportType: 'daily_sales' | 'sales_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'cheque_not_due' | 'cheque_overdue' | 'cheque_matured' | 'warehouse_overview' | 'production_overview' | 'custom';
+  module: 'sales' | 'purchasing' | 'inventory' | 'accounting' | 'hr' | 'production';
+  reportType: 'daily_sales' | 'sales_comparison' | 'production_comparison' | 'inventory_stock' | 'customer_balances' | 'cheque_alerts' | 'cheque_vault' | 'cheque_not_due' | 'cheque_overdue' | 'cheque_matured' | 'warehouse_overview' | 'production_overview' | 'custom';
   botPlatforms: ('telegram' | 'bale' | 'eitaa' | 'whatsapp')[];
   destinationGroup?: string;
   telegramGroup?: string;
   baleGroup?: string;
   whatsappGroup?: string;
   scheduleType: 'daily_custom' | 'daily_1900' | 'daily_comp_1900' | 'weekly' | 'monthly' | 'cron';
+  comparisonPeriod?: 'yesterday_vs_last_year' | 'today_vs_last_year' | 'month_to_date_vs_last_year' | 'last_month_vs_last_year' | 'quarter_vs_last_year' | 'year_to_date_vs_last_year' | 'today_vs_yesterday';
   sendTime?: string; // HH:MM (e.g. 19:00, 09:00, 15:30)
   sendHour?: number;
   sendMinute?: number;
@@ -34,6 +35,7 @@ export interface ReportDeliveryJob {
 
 const MODULE_OPTIONS = [
   { value: 'sales', label: 'فروش و بازاریابی (Sales)' },
+  { value: 'production', label: 'تولید و کارخانه (Production)' },
   { value: 'purchasing', label: 'خرید و تدارکات (Purchasing)' },
   { value: 'inventory', label: 'انبار و انبارداری (Inventory)' },
   { value: 'accounting', label: 'حسابداری و خزانه‌داری (Accounting/Treasury)' },
@@ -43,8 +45,9 @@ const MODULE_OPTIONS = [
 const REPORT_TYPE_OPTIONS = [
   { value: 'daily_sales', label: 'گزارش فروش و برگشت از فروش (Sayan ERP)' },
   { value: 'sales_comparison', label: 'گزارش مقایسه‌ای فروش کارخانه (Sayan ERP)' },
-  { value: 'warehouse_overview', label: '📊 گزارش آمار انبار (Sayan ERP)' },
+  { value: 'production_comparison', label: '🏭 گزارش مقایسه‌ای آمار تولید کارخانه (Sayan ERP)' },
   { value: 'production_overview', label: '🏭 گزارش آمار کل تولید و ضایعات کارخانه (Sayan ERP)' },
+  { value: 'warehouse_overview', label: '📊 گزارش تراز وزنی و نمای کلی انبار (Sayan ERP)' },
   { value: 'cheque_vault', label: '🏛️ گزارش اسناد دریافتنی نزد صندوق خزانه‌داری (سال ۱۴۰۴ به بعد)' },
   { value: 'cheque_not_due', label: '⏳ گزارش اسناد دریافتنی سررسید نشده نزد صندوق (آتی)' },
   { value: 'cheque_overdue', label: '⚠️ گزارش اسناد معوق و سررسید گذشته نزد صندوق (پیگیری فوری)' },
@@ -52,6 +55,16 @@ const REPORT_TYPE_OPTIONS = [
   { value: 'cheque_alerts', label: 'گزارش جامع سررسید چک‌ها و اسناد خزانه‌داری' },
   { value: 'customer_balances', label: 'گزارش تراز معین تفصیلی و مانده حساب مشتریان' },
   { value: 'inventory_stock', label: 'گزارش کاردکس و تراز گردش موجودی کالا' },
+];
+
+const COMPARISON_PERIOD_OPTIONS = [
+  { value: 'yesterday_vs_last_year', label: '📅 دیروز با دیروز سال قبل (پیش‌فرض هوشمند روزانه)' },
+  { value: 'today_vs_last_year', label: '📅 امروز با روز مشابه سال قبل' },
+  { value: 'today_vs_yesterday', label: '⚡ امروز با دیروز (پایش ۲۴ ساعته)' },
+  { value: 'month_to_date_vs_last_year', label: '📊 ماه جاری تا امروز با مدت مشابه سال قبل (ماه به ماه)' },
+  { value: 'last_month_vs_last_year', label: '🗓️ کل ماه گذشته با ماه مشابه سال قبل' },
+  { value: 'quarter_vs_last_year', label: '📈 فصل جاری با مدت مشابه فصل سال قبل' },
+  { value: 'year_to_date_vs_last_year', label: '📆 از ابتدای سال جاری تا امروز با مدت مشابه سال قبل (سال به سال)' },
 ];
 
 const SCHEDULE_OPTIONS = [
@@ -95,6 +108,7 @@ export const ReportDeliveryManager: React.FC = () => {
       title: '',
       module: 'sales',
       reportType: 'daily_sales',
+      comparisonPeriod: 'yesterday_vs_last_year',
       botPlatforms: ['telegram', 'bale'],
       destinationGroup: '',
       telegramGroup: '',
@@ -117,6 +131,7 @@ export const ReportDeliveryManager: React.FC = () => {
     const timeVal = job.sendTime || (job.sendHour !== undefined ? `${String(job.sendHour).padStart(2, '0')}:${String(job.sendMinute || 0).padStart(2, '0')}` : '19:00');
     setEditingJob({
       ...job,
+      comparisonPeriod: job.comparisonPeriod || 'yesterday_vs_last_year',
       sendTime: timeVal,
       telegramGroup: job.telegramGroup || (job.botPlatforms?.includes('telegram') ? job.destinationGroup || '' : ''),
       baleGroup: job.baleGroup || (job.botPlatforms?.includes('bale') ? job.destinationGroup || '' : ''),
@@ -292,6 +307,15 @@ export const ReportDeliveryManager: React.FC = () => {
                     </span>
                   </span>
 
+                  {(job.reportType === 'production_comparison' || job.reportType === 'sales_comparison') && (
+                    <span className="flex items-center gap-1 bg-purple-50 text-purple-800 font-bold px-2.5 py-1 rounded-xl border border-purple-200">
+                      <Sparkles size={13} className="text-purple-600" />
+                      <span>
+                        مقایسه: {COMPARISON_PERIOD_OPTIONS.find(c => c.value === job.comparisonPeriod)?.label.split('(')[0].trim() || 'دیروز با دیروز سال قبل'}
+                      </span>
+                    </span>
+                  )}
+
                   <span className="flex items-center gap-1">
                     <Send size={14} className="text-emerald-500" />
                     <span>پلتفرم‌ها: {job.botPlatforms.join('، ')}</span>
@@ -412,7 +436,16 @@ export const ReportDeliveryManager: React.FC = () => {
                   <label className="block font-bold text-slate-700 mb-1">نوع گزارش:</label>
                   <select
                     value={editingJob.reportType || 'daily_sales'}
-                    onChange={(e) => setEditingJob(prev => ({ ...prev, reportType: e.target.value as any }))}
+                    onChange={(e) => {
+                      const rt = e.target.value as any;
+                      setEditingJob(prev => ({ 
+                        ...prev, 
+                        reportType: rt,
+                        comparisonPeriod: (rt === 'production_comparison' || rt === 'sales_comparison') 
+                          ? (prev?.comparisonPeriod || 'yesterday_vs_last_year') 
+                          : prev?.comparisonPeriod
+                      }));
+                    }}
                     className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-500 bg-white"
                   >
                     {REPORT_TYPE_OPTIONS.map(r => (
@@ -421,6 +454,42 @@ export const ReportDeliveryManager: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* COMPARISON PERIOD OPTIONS FOR COMPARISON REPORTS */}
+              {(editingJob.reportType === 'production_comparison' || editingJob.reportType === 'sales_comparison') && (
+                <div className="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50/70 rounded-2xl border border-purple-200/90 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-extrabold text-xs text-purple-950 flex items-center gap-1.5">
+                      <Sparkles size={15} className="text-purple-600" />
+                      <span>نحوه و بازه تطبیق و مقایسه دوره‌ها (Comparison Mode):</span>
+                    </label>
+                    <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-2 py-0.5 rounded-lg border border-purple-200">
+                      پایش تحلیلی
+                    </span>
+                  </div>
+
+                  <select
+                    value={editingJob.comparisonPeriod || 'yesterday_vs_last_year'}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, comparisonPeriod: e.target.value as any }))}
+                    className="w-full p-2.5 border border-purple-300 rounded-xl font-bold text-slate-900 outline-none focus:border-purple-600 bg-white shadow-2xs"
+                  >
+                    {COMPARISON_PERIOD_OPTIONS.map(cp => (
+                      <option key={cp.value} value={cp.value}>{cp.label}</option>
+                    ))}
+                  </select>
+
+                  <div className="text-[10px] text-purple-900/80 bg-white/70 p-2 rounded-xl border border-purple-100 leading-relaxed font-medium">
+                    {editingJob.comparisonPeriod === 'yesterday_vs_last_year' && '📌 ربات در زمان مشخص، آمار دیروز را استخراج کرده و با دقیقاً همان روز در سال قبل مقایسه و درصد رشد/کاهش را محاسبه می‌کند.'}
+                    {editingJob.comparisonPeriod === 'today_vs_last_year' && '📌 ربات آمار امروز را با روز مشابه سال قبل تطبیق داده و گزارش تحلیلی صادر می‌کند.'}
+                    {editingJob.comparisonPeriod === 'today_vs_yesterday' && '📌 ربات عملکرد ۲۴ ساعت اخیر (امروز) را با دیروز مقایسه می‌نماید.'}
+                    {editingJob.comparisonPeriod === 'month_to_date_vs_last_year' && '📌 ربات از اول ماه جاری تا امروز را با مدت مشابه در سال قبل (ماه به ماه) تجمیع و مقایسه می‌کند.'}
+                    {editingJob.comparisonPeriod === 'last_month_vs_last_year' && '📌 ربات کل ماه گذشته را با همان ماه در سال قبل مقایسه می‌کند.'}
+                    {editingJob.comparisonPeriod === 'quarter_vs_last_year' && '📌 ربات عملکرد فصل جاری تا امروز را با مدت مشابه در فصل سال قبل مقایسه می‌کند.'}
+                    {editingJob.comparisonPeriod === 'year_to_date_vs_last_year' && '📌 ربات کل سال جاری تا به امروز را با مدت مشابه سال قبل (سال به سال) مقایسه می‌نماید.'}
+                    {!editingJob.comparisonPeriod && '📌 ربات در زمان مشخص، آمار دیروز را استخراج کرده و با دقیقاً همان روز در سال قبل مقایسه و درصد رشد/کاهش را محاسبه می‌کند.'}
+                  </div>
+                </div>
+              )}
 
               {/* SEPARATE TARGET GROUPS FOR BALE, TELEGRAM, WHATSAPP */}
               <div className="space-y-2 p-3 bg-slate-50/90 rounded-2xl border border-slate-200">

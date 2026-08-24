@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
+// @ts-ignore
+import DatePicker from "react-multi-date-picker";
+// @ts-ignore
+import persian from "react-date-object/calendars/persian";
+// @ts-ignore
+import persian_fa from "react-date-object/locales/persian_fa";
 import { 
     Search, 
     Loader2, 
@@ -301,7 +307,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         fetchTafsilis();
     }, [settings?.activeFiscalYearId]);
 
-    const applyQuickDate = (mode: 'today' | 'yesterday' | 'month' | 'quarter' | 'default') => {
+    const applyQuickDate = (mode: 'today' | 'yesterday' | 'month' | 'last_month' | 'quarter' | 'default') => {
         const today = new Date();
         const jToday = jalaali.toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
         
@@ -330,6 +336,24 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             setDateFrom(startStr);
             setDateTo(endStr);
             toast.success(`بازه زمانی به ماه جاری (${startStr} تا ${endStr}) تغییر یافت.`);
+        } else if (mode === 'last_month') {
+            let lastM = jToday.jm - 1;
+            let year = jToday.jy;
+            if (lastM === 0) {
+                lastM = 12;
+                year -= 1;
+            }
+            const startStr = `${year}/${String(lastM).padStart(2, '0')}/01`;
+            let endDay = '30';
+            if (lastM >= 1 && lastM <= 6) {
+                endDay = '31';
+            } else if (lastM === 12) {
+                endDay = jalaali.isLeapJalaaliYear(year) ? '30' : '29';
+            }
+            const endStr = `${year}/${String(lastM).padStart(2, '0')}/${endDay}`;
+            setDateFrom(startStr);
+            setDateTo(endStr);
+            toast.success(`بازه زمانی به ماه قبل (${startStr} تا ${endStr}) تغییر یافت.`);
         } else if (mode === 'quarter') {
             let startMonth = 1;
             let endMonth = 3;
@@ -3533,22 +3557,26 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             <span>بازه زمانی گزارش:</span>
                         </div>
                         <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 shadow-inner">
-                            <input 
-                                type="text" 
-                                placeholder="۱۴۰۴/۰۱/۰۱"
+                            <DatePicker
+                                calendar={persian}
+                                locale={persian_fa}
+                                format="YYYY/MM/DD"
                                 value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center"
+                                onChange={(date: any) => setDateFrom(date?.format?.('YYYY/MM/DD') || '')}
+                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center cursor-pointer"
+                                containerClassName="w-full"
                             />
                         </div>
                         <span className="text-xs text-slate-400 font-bold">تا</span>
                         <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 shadow-inner">
-                            <input 
-                                type="text" 
-                                placeholder="۱۴۰۴/۱۲/۲۹"
+                            <DatePicker
+                                calendar={persian}
+                                locale={persian_fa}
+                                format="YYYY/MM/DD"
                                 value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center"
+                                onChange={(date: any) => setDateTo(date?.format?.('YYYY/MM/DD') || '')}
+                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center cursor-pointer"
+                                containerClassName="w-full"
                             />
                         </div>
                     </div>
@@ -3575,6 +3603,13 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             title="تنظیم بازه روی کل ماه جاری"
                         >
                             ماه جاری
+                        </button>
+                        <button
+                            onClick={() => applyQuickDate('last_month')}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
+                            title="تنظیم بازه روی کل ماه قبل"
+                        >
+                            ماه قبل
                         </button>
                         <button
                             onClick={() => applyQuickDate('quarter')}

@@ -1816,138 +1816,281 @@ app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
     }
 });
 
+export function getComparisonDateRanges(mode = 'yesterday_vs_last_year') {
+    const now = new Date();
+    const tehranStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }); // "YYYY-MM-DD"
+    const [gy, gm, gd] = tehranStr.split('-').map(Number);
+    const jToday = jalaali.toJalaali ? jalaali.toJalaali(gy, gm, gd) : { jy: 1404, jm: 6, jd: 1 };
+
+    // Yesterday
+    const yestDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yestStr = yestDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+    const [ygy, ygm, ygd] = yestStr.split('-').map(Number);
+    const jYest = jalaali.toJalaali ? jalaali.toJalaali(ygy, ygm, ygd) : { jy: 1404, jm: 6, jd: 1 };
+
+    const formatJ = (jy, jm, jd) => `${jy}/${String(jm).padStart(2, '0')}/${String(jd).padStart(2, '0')}`;
+
+    if (mode === 'yesterday_vs_last_year') {
+        const dateA = formatJ(jYest.jy, jYest.jm, jYest.jd);
+        const dateB = formatJ(jYest.jy - 1, jYest.jm, jYest.jd);
+        return {
+            dateFromA: dateA,
+            dateToA: dateA,
+            dateFromB: dateB,
+            dateToB: dateB,
+            labelA: `دیروز (${dateA})`,
+            labelB: `دیروز سال قبل (${dateB})`
+        };
+    } else if (mode === 'today_vs_last_year') {
+        const dateA = formatJ(jToday.jy, jToday.jm, jToday.jd);
+        const dateB = formatJ(jToday.jy - 1, jToday.jm, jToday.jd);
+        return {
+            dateFromA: dateA,
+            dateToA: dateA,
+            dateFromB: dateB,
+            dateToB: dateB,
+            labelA: `امروز (${dateA})`,
+            labelB: `امروز سال قبل (${dateB})`
+        };
+    } else if (mode === 'today_vs_yesterday') {
+        const dateA = formatJ(jToday.jy, jToday.jm, jToday.jd);
+        const dateB = formatJ(jYest.jy, jYest.jm, jYest.jd);
+        return {
+            dateFromA: dateA,
+            dateToA: dateA,
+            dateFromB: dateB,
+            dateToB: dateB,
+            labelA: `امروز (${dateA})`,
+            labelB: `دیروز (${dateB})`
+        };
+    } else if (mode === 'month_to_date_vs_last_year') {
+        const dateFromA = formatJ(jToday.jy, jToday.jm, 1);
+        const dateToA = formatJ(jToday.jy, jToday.jm, jToday.jd);
+        const dateFromB = formatJ(jToday.jy - 1, jToday.jm, 1);
+        const dateToB = formatJ(jToday.jy - 1, jToday.jm, jToday.jd);
+        return {
+            dateFromA,
+            dateToA,
+            dateFromB,
+            dateToB,
+            labelA: `ماه جاری (${dateFromA} تا ${dateToA})`,
+            labelB: `مدت مشابه سال قبل (${dateFromB} تا ${dateToB})`
+        };
+    } else if (mode === 'last_month_vs_last_year') {
+        let lastJm = jToday.jm - 1;
+        let lastJy = jToday.jy;
+        if (lastJm < 1) {
+            lastJm = 12;
+            lastJy -= 1;
+        }
+        const isLeapA = jalaali.isLeapJalaaliYear ? jalaali.isLeapJalaaliYear(lastJy) : false;
+        const isLeapB = jalaali.isLeapJalaaliYear ? jalaali.isLeapJalaaliYear(lastJy - 1) : false;
+        const daysInMonth = lastJm <= 6 ? 31 : (lastJm <= 11 ? 30 : (isLeapA ? 30 : 29));
+        const daysInMonthPrev = lastJm <= 6 ? 31 : (lastJm <= 11 ? 30 : (isLeapB ? 30 : 29));
+        
+        const dateFromA = formatJ(lastJy, lastJm, 1);
+        const dateToA = formatJ(lastJy, lastJm, daysInMonth);
+        const dateFromB = formatJ(lastJy - 1, lastJm, 1);
+        const dateToB = formatJ(lastJy - 1, lastJm, daysInMonthPrev);
+        return {
+            dateFromA,
+            dateToA,
+            dateFromB,
+            dateToB,
+            labelA: `کل ماه گذشته (${dateFromA} تا ${dateToA})`,
+            labelB: `ماه مشابه سال قبل (${dateFromB} تا ${dateToB})`
+        };
+    } else if (mode === 'quarter_vs_last_year') {
+        const q = Math.ceil(jToday.jm / 3);
+        const startM = (q - 1) * 3 + 1;
+        const dateFromA = formatJ(jToday.jy, startM, 1);
+        const dateToA = formatJ(jToday.jy, jToday.jm, jToday.jd);
+        const dateFromB = formatJ(jToday.jy - 1, startM, 1);
+        const dateToB = formatJ(jToday.jy - 1, jToday.jm, jToday.jd);
+        return {
+            dateFromA,
+            dateToA,
+            dateFromB,
+            dateToB,
+            labelA: `فصل جاری (${dateFromA} تا ${dateToA})`,
+            labelB: `فصل مشابه سال قبل (${dateFromB} تا ${dateToB})`
+        };
+    } else if (mode === 'year_to_date_vs_last_year') {
+        const dateFromA = formatJ(jToday.jy, 1, 1);
+        const dateToA = formatJ(jToday.jy, jToday.jm, jToday.jd);
+        const dateFromB = formatJ(jToday.jy - 1, 1, 1);
+        const dateToB = formatJ(jToday.jy - 1, jToday.jm, jToday.jd);
+        return {
+            dateFromA,
+            dateToA,
+            dateFromB,
+            dateToB,
+            labelA: `سال جاری (${dateFromA} تا ${dateToA})`,
+            labelB: `مدت مشابه سال قبل (${dateFromB} تا ${dateToB})`
+        };
+    }
+
+    const dateA = formatJ(jYest.jy, jYest.jm, jYest.jd);
+    const dateB = formatJ(jYest.jy - 1, jYest.jm, jYest.jd);
+    return {
+        dateFromA: dateA,
+        dateToA: dateA,
+        dateFromB: dateB,
+        dateToB: dateB,
+        labelA: `دیروز (${dateA})`,
+        labelB: `دیروز سال قبل (${dateB})`
+    };
+}
+
+export async function fetchProductionDataForDateRange(db, rawFrom, rawTo) {
+    const dateFrom = normalizeShamsiDate(rawFrom);
+    const dateTo = normalizeShamsiDate(rawTo) || dateFrom;
+
+    if (!dateFrom) {
+        throw new Error('تاریخ ابتدا مشخص نشده است');
+    }
+
+    const gregFromDate = parseJalaliStrToGregorian(dateFrom);
+    const gregToDate = parseJalaliStrToGregorian(dateTo);
+
+    if (!gregFromDate || !gregToDate) {
+        throw new Error('فرمت تاریخ شمسی وارد شده نامعتبر است (مثال: 1405/05/02)');
+    }
+
+    const sql = `
+        SELECT 
+            t10.Field_001 as DocId,
+            t10.Field_008 as Date,
+            RTRIM(LTRIM(t10.Field_009)) as DocType,
+            RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+            COALESCE(
+                NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
+                NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
+                NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
+                NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
+                RTRIM(LTRIM(t11.Field_005)),
+                N'کالای بدون نام'
+            ) as ItemName,
+            t11.Field_006 as Quantity
+        FROM STR_TBL_010 t10
+        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                  AND t11.Field_003 = t10.Field_004
+                                  AND t11.Field_012 = t10.Field_018
+        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
+        LEFT JOIN (
+            SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
+            FROM IND_TBL_021 t21_sub
+            LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
+            LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
+            LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
+            GROUP BY t21_sub.Field_004
+        ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
+        WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
+          AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+          AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
+        ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
+    `;
+
+    const rawRows = await executeSayanQuery(db, sql);
+
+    const itemsMap = new Map();
+    let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
+
+    const getKnownYarnNameByCode = (code, docType) => {
+        const c = String(code || '').replace(/[^0-9]/g, '');
+        if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
+        if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
+        if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
+        if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
+        if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
+        if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
+        if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
+        if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
+        if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
+        if (c.startsWith('0101')) return 'نخ POY';
+        if (c.startsWith('0104')) return 'نخ کش';
+        if (c.startsWith('0105')) return 'نخ اسپاندکس';
+        if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
+        if (docType === '61') return 'نخ POY';
+        if (docType === '67') return 'نخ DTY';
+        if (docType === '79') return 'نخ کش';
+        if (docType === '73') return 'نخ اسپاندکس';
+        return 'کالای تولیدی';
+    };
+
+    rawRows.forEach(r => {
+        const itemCode = String(r.ItemCode || '').trim();
+        let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
+        const qty = parseFloat(r.Quantity || 0);
+        const docType = String(r.DocType || '').trim();
+
+        const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
+        const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
+
+        if (isPureCode) {
+            rawName = getKnownYarnNameByCode(itemCode, docType);
+        }
+
+        if (!itemsMap.has(rawName)) {
+            itemsMap.set(rawName, {
+                name: rawName,
+                unit: 'کیلوگرم',
+                qty_61: 0,
+                qty_67: 0,
+                qty_79: 0,
+                qty_73: 0,
+                qty_schweiter: 0,
+                total: 0
+            });
+        }
+
+        const item = itemsMap.get(rawName);
+        if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
+        else if (docType === '67') { item.qty_67 += qty; qty_67 += qty; }
+        else if (docType === '79') { item.qty_79 += qty; qty_79 += qty; }
+        else if (docType === '73') { item.qty_73 += qty; qty_73 += qty; }
+        else if (docType === '70') { item.qty_schweiter += qty; qty_schweiter += qty; }
+        item.total += qty;
+    });
+
+    const items = Array.from(itemsMap.values());
+    const grandTotal = qty_61 + qty_67 + qty_79 + qty_73 + qty_schweiter;
+
+    return {
+        dateFrom,
+        dateTo,
+        items,
+        totals: {
+            qty_61,
+            qty_67,
+            qty_79,
+            qty_73,
+            qty_schweiter,
+            grandTotal
+        }
+    };
+}
+
 app.get('/api/sayan/production-report', async (req, res) => {
     try {
         const db = getDb();
         const rawFrom = req.query.dateFrom || '';
         const rawTo = req.query.dateTo || rawFrom;
 
-        const dateFrom = normalizeShamsiDate(rawFrom);
-        const dateTo = normalizeShamsiDate(rawTo) || dateFrom;
-
-        if (!dateFrom) {
-            return res.status(400).json({ error: 'تاریخ ابتدا مشخص نشده است' });
-        }
-
-        const gregFromDate = parseJalaliStrToGregorian(dateFrom);
-        const gregToDate = parseJalaliStrToGregorian(dateTo);
-
-        if (!gregFromDate || !gregToDate) {
-            return res.status(400).json({ error: 'فرمت تاریخ شمسی وارد شده نامعتبر است (مثال: 1405/05/02)' });
-        }
-
-        const cleanDateFrom = dateFrom;
-        const cleanDateTo = dateTo;
-
-        const sql = `
-            SELECT 
-                t10.Field_001 as DocId,
-                t10.Field_008 as Date,
-                RTRIM(LTRIM(t10.Field_009)) as DocType,
-                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                COALESCE(
-                    NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
-                    NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
-                    NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
-                    RTRIM(LTRIM(t11.Field_005)),
-                    N'کالای بدون نام'
-                ) as ItemName,
-                t11.Field_006 as Quantity
-            FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                      AND t11.Field_003 = t10.Field_004
-                                      AND t11.Field_012 = t10.Field_018
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
-            LEFT JOIN (
-                SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
-                FROM IND_TBL_021 t21_sub
-                LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
-                LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
-                GROUP BY t21_sub.Field_004
-            ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE RTRIM(LTRIM(t10.Field_009)) IN ('61', '67', '79', '73', '70')
-              AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
-              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
-            ORDER BY COALESCE(s04.Field_003, t22.Field_004, t02_exact.Field_003, t_name.ItemName, t_group.GroupName, t11.Field_005, N'کالای بدون نام'), t10.Field_008
-        `;
-
-        const rawRows = await executeSayanQuery(db, sql);
-
-        const itemsMap = new Map();
-        let qty_61 = 0, qty_67 = 0, qty_79 = 0, qty_73 = 0, qty_schweiter = 0;
-
-        const getKnownYarnNameByCode = (code, docType) => {
-            const c = String(code || '').replace(/[^0-9]/g, '');
-            if (c.startsWith('01020203') || c.startsWith('010203')) return 'نخ شوایتر 150/48';
-            if (c.startsWith('01020204') || c.startsWith('010204')) return 'نخ شوایتر 100/36';
-            if (c.startsWith('01020205') || c.startsWith('010205')) return 'نخ شوایتر 75/36';
-            if (c.startsWith('01020206') || c.startsWith('010206')) return 'نخ شوایتر 300/96';
-            if (c.startsWith('01020209') || c.startsWith('010209')) return 'نخ شوایتر 150/144';
-            if (c.startsWith('01020214') || c.startsWith('010214')) return 'نخ شوایتر 50/24';
-            if (c.startsWith('01020216') || c.startsWith('010216')) return 'نخ شوایتر 75/72';
-            if (c.startsWith('01030211') || c.startsWith('010311')) return 'نخ DTY 150/48';
-            if (c.startsWith('010302') || c.startsWith('0103')) return 'نخ DTY';
-            if (c.startsWith('0101')) return 'نخ POY';
-            if (c.startsWith('0104')) return 'نخ کش';
-            if (c.startsWith('0105')) return 'نخ اسپاندکس';
-            if (c.startsWith('0102') || docType === '70') return 'نخ شوایتر 150';
-            if (docType === '61') return 'نخ POY';
-            if (docType === '67') return 'نخ DTY';
-            if (docType === '79') return 'نخ کش';
-            if (docType === '73') return 'نخ اسپاندکس';
-            return 'کالای تولیدی';
-        };
-
-        rawRows.forEach(r => {
-            const itemCode = String(r.ItemCode || '').trim();
-            let rawName = String(r.ItemName || itemCode || 'کالای بدون نام').trim();
-            const qty = parseFloat(r.Quantity || 0);
-            const docType = String(r.DocType || '').trim();
-
-            const hasPersianLetters = /[\u0600-\u06FF]/.test(rawName);
-            const isPureCode = rawName === itemCode || !hasPersianLetters || /^\d+$/.test(rawName.replace(/[\s\-\_]/g, ''));
-
-            if (isPureCode) {
-                rawName = getKnownYarnNameByCode(itemCode, docType);
-            }
-
-            if (!itemsMap.has(rawName)) {
-                itemsMap.set(rawName, {
-                    name: rawName,
-                    unit: 'کیلوگرم',
-                    qty_61: 0,
-                    qty_67: 0,
-                    qty_79: 0,
-                    qty_73: 0,
-                    qty_schweiter: 0,
-                    total: 0
-                });
-            }
-
-            const item = itemsMap.get(rawName);
-            if (docType === '61') { item.qty_61 += qty; qty_61 += qty; }
-            else if (docType === '67') { item.qty_67 += qty; qty_67 += qty; }
-            else if (docType === '79') { item.qty_79 += qty; qty_79 += qty; }
-            else if (docType === '73') { item.qty_73 += qty; qty_73 += qty; }
-            else if (docType === '70') { item.qty_schweiter += qty; qty_schweiter += qty; }
-            item.total += qty;
-        });
-
-        const items = Array.from(itemsMap.values());
-        const grandTotal = qty_61 + qty_67 + qty_79 + qty_73 + qty_schweiter;
+        const prodData = await fetchProductionDataForDateRange(db, rawFrom, rawTo);
+        const { dateFrom, dateTo, items, totals } = prodData;
+        const { qty_61, qty_67, qty_79, qty_73, qty_schweiter, grandTotal } = totals;
 
         const key = `${dateFrom}_${dateTo}`;
         db.productionReportWastes = db.productionReportWastes || {};
@@ -2031,8 +2174,6 @@ app.get('/api/sayan/production-report', async (req, res) => {
                 pct_79,
                 pct_73,
                 pct_schweiter,
-                totalPct,
-                pct_73,
                 totalPct,
                 details: detailsList.join(' | ') || ''
             }
@@ -5929,12 +6070,114 @@ function setupDailyReports() {
     }
 }
 
+async function fetchAndDispatchProductionCompareReport(db, customTargets, job, compRanges) {
+    const { dateFromA, dateToA, dateFromB, dateToB, labelA, labelB } = compRanges;
+    console.log(`🏭 Compiling Production Compare Report: [${labelA}] vs [${labelB}]...`);
+
+    // Fetch Period A
+    let resA = { items: [], totals: {} };
+    let resB = { items: [], totals: {} };
+    try {
+        resA = await fetchProductionDataForDateRange(db, dateFromA, dateToA);
+    } catch (eA) {
+        console.warn(`Could not fetch production period A (${dateFromA} to ${dateToA}):`, eA.message);
+    }
+    try {
+        resB = await fetchProductionDataForDateRange(db, dateFromB, dateToB);
+    } catch (eB) {
+        console.warn(`Could not fetch production period B (${dateFromB} to ${dateToB}):`, eB.message);
+    }
+
+    // Merge by Item Name
+    const map = new Map();
+    (resA.items || []).forEach(item => {
+        map.set(item.name, {
+            name: item.name,
+            totalA: item.total || 0,
+            totalB: 0
+        });
+    });
+    (resB.items || []).forEach(item => {
+        if (!map.has(item.name)) {
+            map.set(item.name, {
+                name: item.name,
+                totalA: 0,
+                totalB: item.total || 0
+            });
+        } else {
+            map.get(item.name).totalB = item.total || 0;
+        }
+    });
+
+    const items = Array.from(map.values()).sort((a, b) => (b.totalA + b.totalB) - (a.totalA + a.totalB));
+    const sumA = resA.totals?.grandTotal ?? items.reduce((s, x) => s + (x.totalA || 0), 0);
+    const sumB = resB.totals?.grandTotal ?? items.reduce((s, x) => s + (x.totalB || 0), 0);
+    const totalDiff = sumA - sumB;
+    const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
+
+    const title = `گزارش مقایسه‌ای آمار تولید کارخانه (${labelA} در مقایسه با ${labelB})`;
+    const Renderer = await safeImport('./backend/renderer.js');
+    let pdfBuffer = null;
+    if (Renderer && Renderer.generateProductionCompareReportPDF) {
+        try {
+            pdfBuffer = await Renderer.generateProductionCompareReportPDF(title, dateFromA, dateToA, dateFromB, dateToB, items);
+        } catch (pdfErr) {
+            console.error("Error creating production compare PDF:", pdfErr);
+        }
+    }
+
+    const caption = `📊 *گزارش مقایسه‌ای آمار تولید کارخانه*
+
+📅 *بازه اول:* ${labelA}
+📅 *بازه دوم:* ${labelB}
+
+📈 *خلاصه وضعیت تولید:*
+🔹 مجموع بازه اول: *${sumA.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg*
+🔸 مجموع بازه دوم: *${sumB.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg*
+📊 اختلاف کل (اول - دوم): *${(totalDiff >= 0 ? '+' : '')}${totalDiff.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg*
+📉 درصد تغییر: *${sumB ? `${totalDiffPct >= 0 ? '+' : ''}${totalDiffPct.toFixed(1)}%` : '-'}*
+
+📎 جدول کامل مقایسه‌ای اقلام در فایل PDF پیوست ارسال گردید.`;
+
+    const filename = `Production_Compare_${dateFromA.replace(/[\/\\]/g, '-')}_vs_${dateFromB.replace(/[\/\\]/g, '-')}.pdf`;
+
+    const targets = customTargets && customTargets.length > 0 ? customTargets : collectBotTargets(db, { category: 'production_compare' });
+
+    for (const target of targets) {
+        try {
+            if (target.platform === 'telegram' && telegram) {
+                if (pdfBuffer && job.attachPdf !== false) {
+                    await telegram.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                } else {
+                    await telegram.sendBotMessage(target.id, caption);
+                }
+            } else if (target.platform === 'bale' && bale) {
+                if (pdfBuffer && job.attachPdf !== false) {
+                    await bale.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                } else {
+                    await bale.sendBotMessage(target.id, caption);
+                }
+            } else if (target.platform === 'whatsapp' && whatsapp) {
+                if (pdfBuffer && job.attachPdf !== false) {
+                    const b64 = pdfBuffer.toString('base64');
+                    await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename });
+                } else {
+                    await whatsapp.sendMessage(target.id, caption);
+                }
+            }
+        } catch (targetErr) {
+            console.error(`Error sending production compare report to ${target.platform} (${target.id}):`, targetErr.message);
+        }
+    }
+    console.log(`✅ Production compare report successfully dispatched to ${targets.length} targets.`);
+}
+
 async function executeReportJob(job) {
     const db = getDb();
     try {
         console.log(`🚀 Dispatching Scheduled Report Job [${job.title}] to platforms [${(job.botPlatforms || []).join(', ')}]...`);
         
-        const isProdJob = job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'inventory_stock';
+        const isProdJob = job.module === 'inventory' || job.module === 'production' || job.reportType === 'production' || job.reportType === 'production_overview' || job.reportType === 'production_comparison' || job.reportType === 'inventory_stock';
         const isSalesJob = job.module === 'sales' || job.reportType === 'daily_sales' || job.reportType === 'sales_comparison';
         const isChequeJob = job.module === 'accounting' || 
             job.reportType === 'cheque_vault' || 
@@ -6647,6 +6890,9 @@ async function executeReportJob(job) {
             } catch (prodErr) {
                 console.error("Error generating/sending production report:", prodErr);
             }
+        } else if (job.reportType === 'production_comparison') {
+            const compRanges = getComparisonDateRanges(job.comparisonPeriod || 'yesterday_vs_last_year');
+            await fetchAndDispatchProductionCompareReport(db, customTargets, job, compRanges);
         } else if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
@@ -6675,12 +6921,21 @@ async function executeReportJob(job) {
                 }
             };
 
-            const todayTehran = utils.getTehranDateString ? utils.getTehranDateString() : new Date().toISOString().split('T')[0];
-            const yesterdayDate = new Date();
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterdayTehran = utils.getTehranDateString ? utils.getTehranDateString(yesterdayDate) : yesterdayDate.toISOString().split('T')[0];
+            const compMode = job.comparisonPeriod || (job.scheduleType === 'daily_comp_1900' ? 'today_vs_yesterday' : 'yesterday_vs_last_year');
+            const compRanges = getComparisonDateRanges(compMode);
 
-            await generateAndSendComparisonPDF(db, teleGroup || baleGroup || waGroup || 'default', sendFn, sendDocFn, todayTehran, todayTehran, yesterdayTehran, yesterdayTehran, "امروز", "دیروز");
+            await generateAndSendComparisonPDF(
+                db, 
+                teleGroup || baleGroup || waGroup || 'default', 
+                sendFn, 
+                sendDocFn, 
+                compRanges.dateFromA, 
+                compRanges.dateToA, 
+                compRanges.dateFromB, 
+                compRanges.dateToB, 
+                compRanges.labelA, 
+                compRanges.labelB
+            );
         } else {
             // Standard daily sales report
             const timeLabel = job.sendTime ? `ساعت ${job.sendTime}` : 'گزارش روزانه';

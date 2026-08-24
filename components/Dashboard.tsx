@@ -488,24 +488,40 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
     <div className="space-y-6 pb-20 md:pb-0 animate-fade-in">
         
         {/* WAREHOUSE ALERT WIDGET */}
-        {warehouseAlertData && warehouseAlertData.diffAllWeight < 0 && (
+        {warehouseAlertData && (
             <div 
-                onClick={() => onNavigate && onNavigate('warehouse-overview')}
-                className="cursor-pointer bg-red-50 hover:bg-red-100 border border-red-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors group"
+                onClick={() => onNavigate && onNavigate('sayan')}
+                className={`cursor-pointer border rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors group ${
+                    warehouseAlertData.diffAllWeight < 0 
+                        ? 'bg-red-50 hover:bg-red-100 border-red-200' 
+                        : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                }`}
             >
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-red-500 text-white rounded-xl shadow-inner group-hover:scale-105 transition-transform animate-pulse">
-                        <TrendingDown size={24} />
+                    <div className={`p-3 text-white rounded-xl shadow-inner group-hover:scale-105 transition-transform ${
+                        warehouseAlertData.diffAllWeight < 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'
+                    }`}>
+                        {warehouseAlertData.diffAllWeight < 0 ? <TrendingDown size={24} /> : <TrendingUp size={24} />}
                     </div>
                     <div>
-                        <h4 className="font-extrabold text-red-900 text-sm md:text-base mb-0.5">هشدار: افت تراز وزنی انبارها</h4>
-                        <p className="text-xs text-red-700 font-medium">
-                            موجودی انبار نسبت به سال گذشته <span className="font-bold text-red-800" dir="ltr">{Math.abs(warehouseAlertData.diffAllWeight).toLocaleString('fa-IR', { maximumFractionDigits: 0 })} kg</span> 
-                            {' '}({(Math.abs(warehouseAlertData.ratioAllWeight)).toFixed(1)}٪) کاهش یافته است.
+                        <h4 className={`font-extrabold text-sm md:text-base mb-0.5 ${
+                            warehouseAlertData.diffAllWeight < 0 ? 'text-red-900' : 'text-emerald-900'
+                        }`}>
+                            {warehouseAlertData.diffAllWeight < 0 ? 'هشدار: افت تراز وزنی انبارها' : 'وضعیت مطلوب: رشد تراز وزنی انبارها'}
+                        </h4>
+                        <p className={`text-xs font-medium ${
+                            warehouseAlertData.diffAllWeight < 0 ? 'text-red-700' : 'text-emerald-700'
+                        }`}>
+                            موجودی انبار نسبت به سال گذشته <span className={`font-bold ${
+                                warehouseAlertData.diffAllWeight < 0 ? 'text-red-800' : 'text-emerald-800'
+                            }`} dir="ltr">{Math.abs(warehouseAlertData.diffAllWeight).toLocaleString('fa-IR', { maximumFractionDigits: 0 })} kg</span> 
+                            {' '}({(Math.abs(warehouseAlertData.ratioAllWeight)).toFixed(1)}٪) {warehouseAlertData.diffAllWeight < 0 ? 'کاهش' : 'افزایش'} یافته است.
                         </p>
                     </div>
                 </div>
-                <div className="text-red-400 group-hover:text-red-600 transition-colors hidden sm:block">
+                <div className={`transition-colors hidden sm:block ${
+                    warehouseAlertData.diffAllWeight < 0 ? 'text-red-400 group-hover:text-red-600' : 'text-emerald-400 group-hover:text-emerald-600'
+                }`}>
                     <ChevronLeft size={24} />
                 </div>
             </div>
