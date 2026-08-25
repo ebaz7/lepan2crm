@@ -717,163 +717,175 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
             </div>
         </div>
       )}
-      <aside 
+      {/* Desktop Sidebar Container - Layout slot stays fixed unless pinned */}
+      <div 
           onMouseEnter={() => setIsSidebarHovered(true)}
           onMouseLeave={() => setIsSidebarHovered(false)}
-          className={`flex-shrink-0 hidden md:flex flex-col no-print sticky top-4 transition-all duration-300 z-[60] text-zinc-900 dark:text-zinc-100 ${isSidebarOpen ? 'w-64' : 'w-20'} h-[calc(100vh-2rem)] my-4 mr-4 ml-2 rounded-[24px] bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border border-white/40 dark:border-zinc-900/30 shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden`}
+          className={`hidden md:block flex-shrink-0 relative transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)] my-4 mr-4 ml-2 z-[70] ${
+              isSidebarPinned ? 'w-64' : 'w-20'
+          }`}
       >
-          <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-              <div className={`flex items-center gap-2.5 overflow-hidden transition-all duration-200 ${!isSidebarOpen ? 'hidden w-0' : 'flex-1 min-w-0'}`}>
-                  <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm shrink-0"><Sparkles className="w-4 h-4" /></div>
-                  <div className="whitespace-nowrap overflow-hidden">
-                      <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white truncate">{settings?.appName || 'سیستم مالی'}</h1>
-                      <span className="text-[10px] text-zinc-400 font-bold block truncate">سیستم مدیریت مالی و اداری</span>
+          <aside 
+              className={`flex flex-col no-print h-[calc(100vh-2rem)] rounded-[24px] text-zinc-900 dark:text-zinc-100 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                  isSidebarPinned
+                      ? 'w-64 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border border-white/50 dark:border-zinc-800/40 shadow-[0_8px_30px_rgba(0,0,0,0.03)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.25)]'
+                      : isSidebarHovered
+                          ? 'absolute top-0 right-0 w-64 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-2xl border border-blue-500/25 dark:border-blue-400/25 ring-1 ring-blue-500/15 dark:ring-blue-400/15 shadow-[0_20px_50px_rgba(0,0,0,0.14),0_10px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_65px_rgba(0,0,0,0.7)] z-[80]'
+                          : 'w-20 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-xl border border-white/40 dark:border-zinc-900/30 shadow-[0_8px_24px_rgba(0,0,0,0.02)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.2)]'
+              }`}
+          >
+              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
+                  <div className={`flex items-center gap-2.5 overflow-hidden transition-all duration-200 ${!isSidebarOpen ? 'hidden w-0 opacity-0' : 'flex-1 min-w-0 opacity-100'}`}>
+                      <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm shrink-0"><Sparkles className="w-4 h-4" /></div>
+                      <div className="whitespace-nowrap overflow-hidden">
+                          <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white truncate">{settings?.appName || 'سیستم مالی'}</h1>
+                          <span className="text-[10px] text-zinc-400 font-bold block truncate">سیستم مدیریت مالی و اداری</span>
+                      </div>
                   </div>
-              </div>
-              
-              <div className={`flex items-center gap-1.5 shrink-0 ${!isSidebarOpen ? 'mx-auto' : ''}`}>
-                  {/* Pin Button */}
-                  {isSidebarOpen && (
-                      <button 
-                          type="button"
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSidebarPin();
-                          }} 
-                          className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
-                              isSidebarPinned 
-                                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
-                                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800'
-                          }`}
-                          title={isSidebarPinned ? 'منو پین شده است (کلیک برای خروج از پین و بسته‌شدن خودکار با خروج موس)' : 'پین کردن منو (ثابت ماندن منو)'}
-                      >
-                          <Pin size={16} className={`transition-transform duration-200 ${isSidebarPinned ? 'fill-current -rotate-45' : ''}`} />
-                      </button>
-                  )}
-
-                  {/* Hamburger Button */}
-                  <button 
-                      type="button"
-                      onClick={() => {
-                          if (isSidebarPinned) {
-                              setIsSidebarPinned(false);
-                              localStorage.setItem('app_sidebar_pinned', 'false');
-                              setIsSidebarHovered(false);
-                          } else {
-                              setIsSidebarPinned(true);
-                              localStorage.setItem('app_sidebar_pinned', 'true');
-                          }
-                      }} 
-                      className={`p-1.5 rounded-lg transition-all duration-200 ${
-                          isSidebarPinned 
-                              ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100' 
-                              : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
-                      }`}
-                      title={isSidebarPinned ? 'خروج از حالت پین منو' : 'پین کردن منو'}
-                  >
-                      <Menu size={18}/>
-                  </button>
-              </div>
-          </div>
-          
-          <div className={`p-3 bg-zinc-50 dark:bg-zinc-900/30 mx-4 mt-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/30 relative group cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-all ${!isSidebarOpen && 'justify-center mx-2 px-0'}`} onClick={() => setShowProfileModal(true)} title="تنظیمات کاربری">
-              <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 overflow-hidden shrink-0">
-                  {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300">{currentUser.fullName.charAt(0)}</div>}
-              </div>
-              {isSidebarOpen && (
-                 <div className="overflow-hidden flex-1">
-                     <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{currentUser.fullName}</p>
-                     <p className="text-[10px] text-zinc-400 truncate font-bold inline-flex items-center gap-1 mt-0.5"><span>نقش:</span> <span className="text-blue-600 dark:text-blue-400">{currentUser.role}</span></p>
-                 </div>
-              )}
-          </div>
-          
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar relative z-10">
-              {navItems.map((item) => { 
-                  const Icon = item.icon; 
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button 
-                        key={item.id} 
-                        onClick={() => setActiveTab(item.id)} 
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-900/30'} ${!isSidebarOpen && 'justify-center'}`} 
-                        title={item.label}
-                    >
-                        {isActive && (
-                            <motion.div 
-                                layoutId="activeSidebarTab"
-                                className="absolute inset-0 bg-blue-50/70 dark:bg-blue-950/20 rounded-xl border border-blue-100/50 dark:border-blue-900/30 -z-0"
-                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                            />
-                        )}
-                        <div className="relative z-10 flex items-center justify-between w-full">
-                            <div className="flex items-center gap-3">
-                                <Icon size={18} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-colors'} />
-                                {isSidebarOpen && <span className="text-xs whitespace-nowrap">{item.label}</span>}
-                            </div>
-                            {item.id === 'chat' && unreadChatCount > 0 && isSidebarOpen && (
-                                <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full min-w-[16px] text-center font-bold shadow-sm">{unreadChatCount}</span>
-                            )}
-                            {item.id === 'chat' && unreadChatCount > 0 && !isSidebarOpen && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-900"></span>
-                            )}
-                        </div>
-                    </button>
-                  ); 
-              })}
-              
-              {canSeeNotifications && (
-                  <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 relative" ref={notifRef}>
-                      <button onClick={() => {
-                          const nextState = !showNotifDropdown;
-                          setShowNotifDropdown(nextState);
-                          if (nextState && markAllNotificationsAsRead) {
-                              markAllNotificationsAsRead();
-                          }
-                      }} className={`notification-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-xs relative ${unreadCount > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'} ${!isSidebarOpen && 'justify-center'}`} title="اعلان‌ها">
-                          <div className="relative">
-                              <Bell size={18} className={unreadCount > 0 ? 'text-blue-600' : 'text-zinc-400'} />
-                              {unreadCount > 0 && (<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white">{unreadCount}</span>)}
-                          </div>
-                          {isSidebarOpen && <span className="font-bold whitespace-nowrap">مرکز اعلان‌ها</span>}
-                      </button>
-                      {showNotifDropdown && <NotificationDropdown />}
-                      
-                      {!notifEnabled && isSidebarOpen && (
-                          <button onClick={handleToggleNotif} className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs bg-red-50 text-red-600 hover:bg-red-100 transition-all font-black border border-red-100">
-                              <BellRing size={16} />
-                              <span>فعال‌سازی نوتیفیکیشن</span>
+                  
+                  <div className={`flex items-center gap-1.5 shrink-0 ${!isSidebarOpen ? 'mx-auto' : ''}`}>
+                      {/* Pin Button */}
+                      {isSidebarOpen && (
+                          <button 
+                              type="button"
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSidebarPin();
+                              }} 
+                              className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                                  isSidebarPinned 
+                                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
+                                      : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                              }`}
+                              title={isSidebarPinned ? 'منو پین شده است (کلیک برای خروج از پین و بسته‌شدن خودکار با خروج موس)' : 'پین کردن منو (ثابت ماندن منو)'}
+                          >
+                              <Pin size={16} className={`transition-transform duration-200 ${isSidebarPinned ? 'fill-current -rotate-45' : ''}`} />
                           </button>
                       )}
+
+                      {/* Hamburger Button */}
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              if (isSidebarPinned) {
+                                  setIsSidebarPinned(false);
+                                  localStorage.setItem('app_sidebar_pinned', 'false');
+                              } else {
+                                  setIsSidebarPinned(true);
+                                  localStorage.setItem('app_sidebar_pinned', 'true');
+                              }
+                          }} 
+                          className={`p-1.5 rounded-lg transition-all duration-200 ${
+                              isSidebarPinned 
+                                  ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100' 
+                                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                          }`}
+                          title={isSidebarPinned ? 'خروج از حالت پین منو' : 'پین کردن منو'}
+                      >
+                          <Menu size={18}/>
+                      </button>
                   </div>
-              )}
-          </nav>
-          
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
-              {onToggleDarkMode && (
-                <button onClick={onToggleDarkMode} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title={isDarkMode ? 'حالت روشن' : 'حالت دارک'}>
-                    {isDarkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-indigo-500" />}
-                    {isSidebarOpen && (
-                        <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
-                            {isDarkMode ? 'حالت روشن' : 'دارک مود (شب)'}
-                        </span>
-                    )}
-                </button>
-              )}
-              <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="تغییر پوسته">
-                  <Sparkles size={18} className="text-purple-500 animate-pulse" />
+              </div>
+              
+              <div className={`p-3 bg-zinc-50 dark:bg-zinc-900/30 mx-4 mt-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/30 relative group cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-all ${!isSidebarOpen ? 'justify-center mx-2 px-0' : ''}`} onClick={() => setShowProfileModal(true)} title="تنظیمات کاربری">
+                  <div className="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-800 overflow-hidden shrink-0">
+                      {currentUser.avatar ? <img src={resolveImageUrl(currentUser.avatar)} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-700 dark:text-zinc-300">{currentUser.fullName.charAt(0)}</div>}
+                  </div>
                   {isSidebarOpen && (
-                      <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300">
-                          {theme === 'light-aurora' ? 'پوسته شیشه‌ای' : theme === 'theme-bento' ? 'پوسته بنتو گرید' : theme === 'theme-claymorphism' ? 'پوسته سفالی ۳D' : theme === 'theme-skeuomorphism' ? 'پوسته واقع‌گرایانه' : theme === 'theme-minimalism' ? 'پوسته مینیمال' : theme === 'theme-maximalism' ? 'پوسته ماکسیمال' : 'تغییر پوسته'}
-                      </span>
+                     <div className="overflow-hidden flex-1 animate-fade-in">
+                         <p className="text-xs font-bold truncate text-zinc-800 dark:text-zinc-200">{currentUser.fullName}</p>
+                         <p className="text-[10px] text-zinc-400 truncate font-bold inline-flex items-center gap-1 mt-0.5"><span>نقش:</span> <span className="text-blue-600 dark:text-blue-400">{currentUser.role}</span></p>
+                     </div>
                   )}
-              </button>
-              <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen && 'justify-center'}`} title="خروج از سیستم">
-                  <LogOut size={18} />
-                  {isSidebarOpen && <span className="whitespace-nowrap">خروج از سیستم</span>}
-              </button>
-          </div>
-      </aside>
+              </div>
+              
+              <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar relative z-10">
+                  {navItems.map((item) => { 
+                      const Icon = item.icon; 
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button 
+                            key={item.id} 
+                            onClick={() => setActiveTab(item.id)} 
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-white/50 dark:hover:bg-zinc-900/30'} ${!isSidebarOpen ? 'justify-center' : ''}`} 
+                            title={item.label}
+                        >
+                            {isActive && (
+                                <motion.div 
+                                    layoutId="activeSidebarTab"
+                                    className="absolute inset-0 bg-blue-50/70 dark:bg-blue-950/20 rounded-xl border border-blue-100/50 dark:border-blue-900/30 -z-0"
+                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                />
+                            )}
+                            <div className="relative z-10 flex items-center justify-between w-full">
+                                <div className="flex items-center gap-3">
+                                    <Icon size={18} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-colors'} />
+                                    {isSidebarOpen && <span className="text-xs whitespace-nowrap animate-fade-in">{item.label}</span>}
+                                </div>
+                                {item.id === 'chat' && unreadChatCount > 0 && isSidebarOpen && (
+                                    <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full min-w-[16px] text-center font-bold shadow-sm">{unreadChatCount}</span>
+                                )}
+                                {item.id === 'chat' && unreadChatCount > 0 && !isSidebarOpen && (
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-900"></span>
+                                )}
+                            </div>
+                        </button>
+                      ); 
+                  })}
+                  
+                  {canSeeNotifications && (
+                      <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 relative" ref={notifRef}>
+                          <button onClick={() => {
+                              const nextState = !showNotifDropdown;
+                              setShowNotifDropdown(nextState);
+                              if (nextState && markAllNotificationsAsRead) {
+                                  markAllNotificationsAsRead();
+                              }
+                          }} className={`notification-trigger w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-xs relative ${unreadCount > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-bold' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'} ${!isSidebarOpen ? 'justify-center' : ''}`} title="اعلان‌ها">
+                              <div className="relative">
+                                  <Bell size={18} className={unreadCount > 0 ? 'text-blue-600' : 'text-zinc-400'} />
+                                  {unreadCount > 0 && (<span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white">{unreadCount}</span>)}
+                              </div>
+                              {isSidebarOpen && <span className="font-bold whitespace-nowrap animate-fade-in">مرکز اعلان‌ها</span>}
+                          </button>
+                          {showNotifDropdown && <NotificationDropdown />}
+                          
+                          {!notifEnabled && isSidebarOpen && (
+                              <button onClick={handleToggleNotif} className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs bg-red-50 text-red-600 hover:bg-red-100 transition-all font-black border border-red-100 animate-fade-in">
+                                  <BellRing size={16} />
+                                  <span>فعال‌سازی نوتیفیکیشن</span>
+                              </button>
+                          )}
+                      </div>
+                  )}
+              </nav>
+              
+              <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
+                  {onToggleDarkMode && (
+                    <button onClick={onToggleDarkMode} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title={isDarkMode ? 'حالت روشن' : 'حالت دارک'}>
+                        {isDarkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-indigo-500" />}
+                        {isSidebarOpen && (
+                            <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300 animate-fade-in">
+                                {isDarkMode ? 'حالت روشن' : 'دارک مود (شب)'}
+                            </span>
+                        )}
+                    </button>
+                  )}
+                  <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title="تغییر پوسته">
+                      <Sparkles size={18} className="text-purple-500 animate-pulse" />
+                      {isSidebarOpen && (
+                          <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300 animate-fade-in">
+                              {theme === 'light-aurora' ? 'پوسته شیشه‌ای' : theme === 'theme-bento' ? 'پوسته بنتو گرید' : theme === 'theme-claymorphism' ? 'پوسته سفالی ۳D' : theme === 'theme-skeuomorphism' ? 'پوسته واقع‌گرایانه' : theme === 'theme-minimalism' ? 'پوسته مینیمال' : theme === 'theme-maximalism' ? 'پوسته ماکسیمال' : 'تغییر پوسته'}
+                          </span>
+                      )}
+                  </button>
+                  <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title="خروج از سیستم">
+                      <LogOut size={18} />
+                      {isSidebarOpen && <span className="whitespace-nowrap animate-fade-in">خروج از سیستم</span>}
+                  </button>
+              </div>
+          </aside>
+      </div>
       
       {/* Mobile Drawer - Option 2: Elegant shadcn/ui style Slide-Up Bottom Sheet */}
       <AnimatePresence>
