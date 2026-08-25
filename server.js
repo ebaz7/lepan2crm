@@ -8690,7 +8690,7 @@ app.get('/api/ai/status', (req, res) => {
         res.json({
             configured: hasKey,
             source: settingsKey ? 'settings' : (envKey ? 'env' : 'none'),
-            model: 'gemini-2.5-flash'
+            model: 'gemini-3.1-flash-lite'
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -8699,22 +8699,25 @@ app.get('/api/ai/status', (req, res) => {
 
 app.post('/api/ai/test-connection', async (req, res) => {
     try {
-        const { apiKey } = req.body || {};
+        const { apiKey, baseUrl } = req.body || {};
         const aiService = await safeImport('./backend/ai-service.js');
         if (!aiService) throw new Error("ماژول هوش مصنوعی لود نشد.");
-        const result = await aiService.testAiConnection(apiKey);
+        const result = await aiService.testAiConnection(apiKey, baseUrl);
         res.json({ success: true, ...result });
     } catch (e) {
         console.error("AI test connection error:", e);
-        let errorMsg = e.message || 'خطا در برقراری ارتباط با مدل Gemini';
-        if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid') || errorMsg.includes('400')) {
-            errorMsg = 'کلید API وارد شده نامعتبر است. لطفاً کلید صحیح Google Gemini را وارد نمایید.';
-        } else if (errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('429')) {
+        let rawError = e.message || '';
+        let errorMsg = rawError || 'خطا در برقراری ارتباط با مدل Gemini';
+        if (rawError.includes('403') || rawError.includes('Forbidden') || rawError.includes('does not have permission')) {
+            errorMsg = '⛔ خطای ۴۰۳ (تحریم IP / منطقه جغرافیایی گوگل):\nسرور شما (لوکیشن ایران) به دلیل تحریم‌های شرکت گوگل نمی‌تواند به طور مستقیم به Gemini متصل شود.\n\nراهکارهای حل:\n۱) تنظیم DNS تحریم‌شکن (مانند شکن Shecan با آی‌پی 178.22.122.100 یا 403.online با آی‌پی 10.202.10.202) روی سرور لینوکس/ویندوز شما.\n۲) یا وارد کردن آدرس پروکسی معکوس (Reverse Proxy) در کادر زیر.';
+        } else if (rawError.includes('API_KEY_INVALID') || rawError.includes('API key not valid') || rawError.includes('400')) {
+            errorMsg = 'کلید API وارد شده نامعتبر است. لطفاً کلید صحیح Google Gemini را بررسی و وارد نمایید.';
+        } else if (rawError.includes('RESOURCE_EXHAUSTED') || rawError.includes('429')) {
             errorMsg = 'سهمیه مجاز استفاده از این کلید API به پایان رسیده است (Rate Limit / Quota Exceeded).';
-        } else if (errorMsg.includes('NOT_FOUND') || errorMsg.includes('404')) {
+        } else if (rawError.includes('NOT_FOUND') || rawError.includes('404')) {
             errorMsg = 'مدل انتخاب شده یافت نشد یا در دسترس نیست.';
         }
-        res.json({ success: false, error: errorMsg });
+        res.json({ success: false, error: errorMsg, rawError });
     }
 });
 

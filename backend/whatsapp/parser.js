@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { getGeminiClient, safeGenerateContent } from "../ai-service.js";
 
 export const parseMessage = async (text, db) => {
     // Clean text: Normalize Persian numbers to English
@@ -78,13 +78,12 @@ export const parseMessage = async (text, db) => {
     // --- 4. AI FALLBACK ---
     if (db.settings.geminiApiKey && !cleanText.startsWith('!')) {
         try {
-            const ai = new GoogleGenAI({ apiKey: db.settings.geminiApiKey });
+            const ai = getGeminiClient(db.settings.geminiApiKey, db.settings.geminiBaseUrl);
             const prompt = `Extract entities from this Persian command. Output JSON ONLY: { "intent": "...", "args": { ... } }. 
             Intents: CREATE_PAYMENT (args: amount, payee, description, bank), CREATE_BIJAK (args: count, itemName, recipient, driver, plate), REPORT. 
             Input: "${cleanText}"`;
             
-            const response = await ai.models.generateContent({ 
-                model: "gemini-2.5-flash", 
+            const { response } = await safeGenerateContent(ai, { 
                 contents: [{ role: 'user', parts: [{ text: prompt }] }] 
             });
             

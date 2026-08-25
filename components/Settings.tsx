@@ -224,6 +224,7 @@ const Settings: React.FC<SettingsProps> = ({
     sayanApiUrl: "http://192.168.41.225:3000/api/external/v1",
     sayanApiKey: "s_gate_live_urp2vvxzpik4",
     geminiApiKey: "",
+    geminiBaseUrl: "",
     warehouseSequences: {},
     companyNotifications: {},
     defaultWarehouseGroup: "",
@@ -256,7 +257,8 @@ const Settings: React.FC<SettingsProps> = ({
     setGeminiTestResult(null);
     try {
       const res = await apiCall<{ success: boolean; reply?: string; error?: string }>('/ai/test-connection', 'POST', {
-        apiKey: settings.geminiApiKey.trim()
+        apiKey: settings.geminiApiKey.trim(),
+        baseUrl: settings.geminiBaseUrl?.trim() || undefined
       });
       if (res.success) {
         setGeminiTestResult({ success: true, message: `اتصال برقرار شد: ${res.reply || 'پاسخ هوش مصنوعی دریافت شد.'}` });
@@ -3857,8 +3859,28 @@ const Settings: React.FC<SettingsProps> = ({
                             <span>تست اتصال هوش مصنوعی</span>
                           </button>
                         </div>
+
+                        {/* Optional Base URL / Reverse Proxy for Iran servers */}
+                        <div className="mt-2 pt-2 border-t border-indigo-100/60 dark:border-gray-800">
+                          <label className="text-[11px] font-medium text-gray-500 dark:text-gray-400 block mb-1 flex items-center justify-between">
+                            <span>آدرس Reverse Proxy / Base URL هوش مصنوعی (اختیاری برای سرور ایران):</span>
+                            <span className="text-[10px] text-gray-400">پیش‌فرض: مستقیم از گوگل</span>
+                          </label>
+                          <input
+                            className="w-full border rounded-lg p-2 text-xs dir-ltr font-mono bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+                            value={settings.geminiBaseUrl || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                geminiBaseUrl: e.target.value,
+                              })
+                            }
+                            placeholder="https://generativelanguage.googleapis.com یا آدرس پروکسی"
+                          />
+                        </div>
+
                         {geminiTestResult && (
-                          <div className={`mt-2 p-2.5 rounded-lg text-xs font-medium border flex items-start gap-2 ${
+                          <div className={`mt-2.5 p-3 rounded-lg text-xs font-medium border flex items-start gap-2 ${
                             geminiTestResult.success 
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
                               : 'bg-rose-50 text-rose-800 border-rose-200'
@@ -3868,7 +3890,7 @@ const Settings: React.FC<SettingsProps> = ({
                             ) : (
                               <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
                             )}
-                            <div className="flex-1 text-[11px] leading-relaxed">
+                            <div className="flex-1 text-[11px] leading-relaxed whitespace-pre-line">
                               {geminiTestResult.message}
                             </div>
                           </div>

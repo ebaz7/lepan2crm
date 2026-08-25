@@ -28,18 +28,46 @@ export const getActiveGeminiApiKey = (customKey) => {
 };
 
 /**
- * Initializes GoogleGenAI client with the active or provided API key
+ * Dynamically resolves custom Base URL / Proxy from settings or environment variables
  */
-export const getGeminiClient = (customKey) => {
+export const getActiveGeminiBaseUrl = (customBaseUrl) => {
+    if (customBaseUrl && typeof customBaseUrl === 'string' && customBaseUrl.trim()) {
+        return customBaseUrl.trim().replace(/\/+$/, '');
+    }
+    try {
+        const db = getDb();
+        const settingsUrl = db?.settings?.geminiBaseUrl || db?.settings?.aiProxyUrl;
+        if (settingsUrl && typeof settingsUrl === 'string' && settingsUrl.trim()) {
+            return settingsUrl.trim().replace(/\/+$/, '');
+        }
+    } catch (e) {
+        // ignore DB read error
+    }
+    const envUrl = process.env.GEMINI_BASE_URL || process.env.AI_PROXY_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+        return envUrl.trim().replace(/\/+$/, '');
+    }
+    return '';
+};
+
+/**
+ * Initializes GoogleGenAI client with active API key and optional proxy/base URL
+ */
+export const getGeminiClient = (customKey, customBaseUrl) => {
     const apiKey = getActiveGeminiApiKey(customKey);
     if (!apiKey) {
         throw new Error("کلید Google Gemini AI تنظیم نشده است. لطفاً کلید API را از بخش تنظیمات وارد نمایید.");
     }
-    return new GoogleGenAI({ apiKey });
+    const baseUrl = getActiveGeminiBaseUrl(customBaseUrl);
+    const options = { apiKey };
+    if (baseUrl) {
+        options.httpOptions = { baseUrl };
+    }
+    return new GoogleGenAI(options);
 };
 
 /**
- * Helper to generate content using primary model (gemini-3.7-flash) or fallback (gemini-2.5-flash)
+ * Helper to generate content using primary model or fallback
  */
 export const safeGenerateContent = async (ai, params) => {
     const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-2.5-flash'];
@@ -53,7 +81,7 @@ export const safeGenerateContent = async (ai, params) => {
             return { response, model };
         } catch (err) {
             lastError = err;
-            console.warn(`Gemini generation with ${model} failed, trying next candidate:`, err.message);
+            console.warn(`Gemini generation with ${model} failed, trying next candidate:`, err.message || err);
         }
     }
     throw lastError;
@@ -62,8 +90,8 @@ export const safeGenerateContent = async (ai, params) => {
 /**
  * Live test of AI connection with given or stored key
  */
-export const testAiConnection = async (customKey) => {
-    const ai = getGeminiClient(customKey);
+export const testAiConnection = async (customKey, customBaseUrl) => {
+    const ai = getGeminiClient(customKey, customBaseUrl);
     const { response, model } = await safeGenerateContent(ai, {
         contents: [
             {
