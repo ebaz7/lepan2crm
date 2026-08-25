@@ -3,6 +3,24 @@ import fs from 'fs';
 import path from 'path';
 import { getDb, saveDb } from './db-manager.js';
 import * as utils from './utils.js';
+import { setGlobalDispatcher, ProxyAgent, EnvHttpProxyAgent } from 'undici';
+
+// Initialize global fetch proxy dispatcher using system / custom proxy settings
+const proxyUrl = process.env.PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+if (proxyUrl) {
+    console.log(`[Proxy Setup - AI Service] Setting global fetch dispatcher proxy to: ${proxyUrl}`);
+    try {
+        setGlobalDispatcher(new ProxyAgent(proxyUrl));
+    } catch (err) {
+        console.error('[Proxy Setup - AI Service] Failed to set global ProxyAgent:', err);
+    }
+} else {
+    try {
+        setGlobalDispatcher(new EnvHttpProxyAgent());
+    } catch (err) {
+        console.error('[Proxy Setup - AI Service] Failed to set global EnvHttpProxyAgent:', err);
+    }
+}
 
 /**
  * Dynamically resolves the Gemini API Key from settings or environment variables
@@ -71,7 +89,7 @@ export const getGeminiClient = (customKey, customBaseUrl) => {
  */
 export const safeGenerateContent = async (ai, params) => {
     const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-2.5-flash'];
-    let lastError = null;
+    const errors = [];
     for (const model of candidateModels) {
         try {
             const response = await ai.models.generateContent({
@@ -80,11 +98,14 @@ export const safeGenerateContent = async (ai, params) => {
             });
             return { response, model };
         } catch (err) {
-            lastError = err;
-            console.warn(`Gemini generation with ${model} failed, trying next candidate:`, err.message || err);
+            const errMsg = err.message || String(err);
+            errors.push(`${model}: ${errMsg}`);
+            console.warn(`Gemini generation with ${model} failed, trying next candidate:`, errMsg);
         }
     }
-    throw lastError;
+    const combinedError = new Error(`تمامی تلاش‌ها برای اتصال به مدل‌های Gemini با خطا مواجه شدند:\n${errors.join('\n')}`);
+    combinedError.rawErrors = errors;
+    throw combinedError;
 };
 
 /**

@@ -1,6 +1,25 @@
 
 // --- SYSTEM RESTARTED TO RESOLVE DEPLOYMENT ERROR ---
 import 'dotenv/config'; 
+import { setGlobalDispatcher, ProxyAgent, EnvHttpProxyAgent } from 'undici';
+
+// Initialize global fetch proxy dispatcher using system / custom proxy settings
+const proxyUrl = process.env.PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+if (proxyUrl) {
+    console.log(`[Proxy Setup] Setting global fetch dispatcher proxy to: ${proxyUrl}`);
+    try {
+        setGlobalDispatcher(new ProxyAgent(proxyUrl));
+    } catch (err) {
+        console.error('[Proxy Setup] Failed to set global ProxyAgent:', err);
+    }
+} else {
+    try {
+        setGlobalDispatcher(new EnvHttpProxyAgent());
+    } catch (err) {
+        console.error('[Proxy Setup] Failed to set global EnvHttpProxyAgent:', err);
+    }
+}
+
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
@@ -8709,7 +8728,11 @@ app.post('/api/ai/test-connection', async (req, res) => {
         let rawError = e.message || '';
         let errorMsg = rawError || 'خطا در برقراری ارتباط با مدل Gemini';
         if (rawError.includes('403') || rawError.includes('Forbidden') || rawError.includes('does not have permission')) {
-            errorMsg = '⛔ خطای ۴۰۳ (تحریم IP / منطقه جغرافیایی گوگل):\nسرور شما (لوکیشن ایران) به دلیل تحریم‌های شرکت گوگل نمی‌تواند به طور مستقیم به Gemini متصل شود.\n\nراهکارهای حل:\n۱) تنظیم DNS تحریم‌شکن (مانند شکن Shecan با آی‌پی 178.22.122.100 یا 403.online با آی‌پی 10.202.10.202) روی سرور لینوکس/ویندوز شما.\n۲) یا وارد کردن آدرس پروکسی معکوس (Reverse Proxy) در کادر زیر.';
+            errorMsg = '⛔ خطای ۴۰۳ (خطای عدم دسترسی یا تحریم گوگل):\nاین خطا معمولاً به یکی از دو دلیل زیر رخ می‌دهد:\n\n' +
+                '۱) محدودیت یا عدم دسترسی کلید API (بسیار احتمال دارد):\n' +
+                'اگر کلید خود را به جای Google AI Studio از پنل اصلی Google Cloud Console ساخته‌اید، حتماً بررسی کنید که دسترسی به سرویس Generative Language API (یا Semantic Retriever API) برای این کلید فعال باشد و کلید دارای محدودیت‌های خاص (مانند محدودیت آی‌پی یا رفرر) نباشد.\n\n' +
+                '۲) تحریم آی‌پی توسط گوگل:\n' +
+                'اگر برنامه روی سرور با لوکیشن ایران اجرا می‌شود، گوگل درخواست را بلاک می‌کند. برای حل آن باید از DNS تحریم‌شکن (مانند شکن Shecan با آی‌پی 178.22.122.100 یا 403.online با آی‌پی 10.202.10.202) روی سرور لینوکس/ویندوز شما، یا از کادر تنظیم Reverse Proxy استفاده نمایید.';
         } else if (rawError.includes('API_KEY_INVALID') || rawError.includes('API key not valid') || rawError.includes('400')) {
             errorMsg = 'کلید API وارد شده نامعتبر است. لطفاً کلید صحیح Google Gemini را بررسی و وارد نمایید.';
         } else if (rawError.includes('RESOURCE_EXHAUSTED') || rawError.includes('429')) {
