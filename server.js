@@ -2353,65 +2353,6 @@ app.get('/api/sayan/production-report', async (req, res) => {
     }
 });
 
-// Helper to resolve product names from Sayan ERP coding
-const resolveSayanItemName = (itemCode, rawItemName) => {
-    const c = String(itemCode || '').trim().replace(/[^0-9]/g, '');
-    const n = String(rawItemName || '').trim();
-
-    const hasPersian = /[\u0600-\u06FF]/.test(n);
-    const isPureCode = n === itemCode || !hasPersian || /^\d+$/.test(n.replace(/[\s\-\_\.]/g, '')) || n.includes('کالای بدون نام') || n.startsWith('کد ') || n.startsWith('کالای کد');
-
-    if (hasPersian && !isPureCode) {
-        return n;
-    }
-
-    // Specific product definitions (both 02xx in-process/returns and 04xx finished products)
-    if (c === '02020101' || c.startsWith('02020101') || c.startsWith('04020101')) return 'کش ۱۱۰ سفید بشقابی';
-    if (c === '02020103' || c.startsWith('02020103') || c.startsWith('04020103')) return 'کش ۱۱۰ مشکی بشقابی';
-    if (c === '02020201' || c.startsWith('02020201') || c.startsWith('04020201')) return 'کش ۱۱۰ سفید مغزی';
-    if (c === '02020302' || c.startsWith('02020302') || c.startsWith('04020302')) return 'کش ۹۰/۱۰۰ رنگی بشقابی';
-    if (c === '0202051002' || c.startsWith('0202051002') || c.startsWith('0402051002')) return 'کش کاغذی باریک';
-    if (c === '0202051006' || c.startsWith('0202051006') || c.startsWith('0402051006')) return 'کش سوزنی';
-    if (c === '02020701' || c.startsWith('02020701') || c.startsWith('04020701')) return 'کش قیطان / گرد';
-
-    if (c === '0201041002' || c.startsWith('0201041002') || c.startsWith('0401041002')) return 'اسپاندکس کاور نمره ۷۰/۴۰ رونیز';
-    if (c === '02010601' || c.startsWith('02010601') || c.startsWith('04010601')) return 'اسپاندکس کاور دولا';
-    
-    if (c === '020302' || c.startsWith('020302') || c.startsWith('040302')) return 'اسپاندکس جوشی سفید (ساپورت)';
-    if (c === '02031001' || c.startsWith('02031001') || c.startsWith('04031001')) return 'اسپاندکس جوشی مشکی (ساپورت)';
-
-    if (c === '02041001' || c.startsWith('02041001') || c.startsWith('04041001') || c.startsWith('04051001')) return 'پلی استر شوایتر سفید';
-    if (c === '02041003' || c.startsWith('02041003') || c.startsWith('04041003') || c.startsWith('04051003')) return 'پلی استر شوایتر مشکی';
-    if (c === '02041004' || c.startsWith('02041004') || c.startsWith('04041004') || c.startsWith('04051004')) return 'پلی استر شوایتر طوسی';
-    if (c === '02041005' || c.startsWith('02041005') || c.startsWith('04041005') || c.startsWith('04051005')) return 'پلی استر شوایتر سرمه‌ای / رنگی';
-
-    if (c === '020501' || c.startsWith('020501') || c.startsWith('040701')) return 'نخ نایلون خام';
-    if (c === '020601' || c.startsWith('020601') || c.startsWith('040801')) return 'نخ ملت بلون';
-    if (c === '020701' || c.startsWith('020701') || c.startsWith('040901')) return 'الیاف و منسوجات';
-
-    // Group prefixes
-    if (c.startsWith('0201') || c.startsWith('0401')) return 'اسپاندکس (کاور)';
-    if (c.startsWith('0202') || c.startsWith('0402')) return 'کش';
-    if (c.startsWith('0203') || c.startsWith('0403')) return 'اسپاندکس جوشی ( ساپورت )';
-    if (c.startsWith('0204') || c.startsWith('0404') || c.startsWith('0405')) return 'پلی استر شوایتر';
-    if (c.startsWith('0205') || c.startsWith('0407')) return 'نایلون';
-    if (c.startsWith('0206') || c.startsWith('0408')) return 'نخ ملت';
-    if (c.startsWith('0207') || c.startsWith('0409')) return 'الیاف';
-    if (c.startsWith('0208') || c.startsWith('0410')) return 'FDY';
-
-    if (c.startsWith('0101')) return 'چیپس پلی استر';
-    if (c.startsWith('0102')) return 'نخ POY';
-    if (c.startsWith('0103')) return 'dty یا پلی استر';
-    if (c.startsWith('0104')) return 'لاستیک';
-    if (c.startsWith('0105')) return 'لاکرا';
-    if (c.startsWith('0106')) return 'پلی استر اسپان';
-    if (c.startsWith('0107')) return 'مستر بچ';
-    if (c.startsWith('0108')) return 'نایلون';
-    if (c.startsWith('0109')) return 'الیاف خام';
-
-    return n && !isPureCode ? n : (itemCode ? `کالای تولیدی (کد ${itemCode})` : 'کالای بدون نام');
-};
-
 app.get('/api/sayan/production-returns', async (req, res) => {
     try {
         const db = getDb();
@@ -2429,8 +2370,6 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             return res.status(400).json({ error: 'تاریخ ابتدا و انتها الزامی است' });
         }
 
-        const opCodeParam = (req.query.opCode || req.query.docType || 'all_returns').trim();
-
         const gregFromDate = parseJalaliStrToGregorian(dateFrom);
         const gregToDate = parseJalaliStrToGregorian(dateTo);
 
@@ -2441,37 +2380,34 @@ app.get('/api/sayan/production-returns', async (req, res) => {
         if (!sayanUrl || !sayanKey) {
             // Generate highly realistic mock data for returns (Operation Code 44) matching user's specific document numbers (102, 103, 104, 105) and archive code (2716)
             const mockItems = [
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '1', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2, LineNotes: 'تعداد کارتن: 20 | سری: P-102' },
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '2', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1, LineNotes: 'تعداد کارتن: 28 | سری: P-103' },
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '3', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9, LineNotes: 'تعداد کارتن: 16 | سری: SP-44' },
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '4', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9, LineNotes: 'تعداد کارتن: 11' },
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '5', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7, LineNotes: 'تعداد کارتن: 10' },
-                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate} 09:15:00`, DocType: '44', LineId: '6', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50, LineNotes: 'رول کاغذی' },
-                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate} 15:20:00`, DocType: '44', LineId: '1', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200, LineNotes: 'جامبو بگ' },
-                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate} 15:20:00`, DocType: '44', LineId: '2', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850, LineNotes: 'پالت 1' },
-                { DocId: '2718', ArchiveNo: '104', SubCode: '104', Date: `${gregToDate} 10:00:00`, DocType: '44', LineId: '1', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال', Quantity: 850, LineNotes: 'تعداد کارتن: 40' },
-                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate} 14:45:00`, DocType: '44', LineId: '1', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310, LineNotes: 'عدل 2' },
-                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate} 16:10:00`, DocType: '44', LineId: '2', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680, LineNotes: 'تعداد کارتن: 34' }
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '1', ItemCode: '010301011001', ItemName: 'پلی استر ۱۰۰ سفید (برگشتی تولید)', Quantity: 393.2, LineNotes: 'تعداد کارتن: 20 | سری: P-102' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '2', ItemCode: '010301021001', ItemName: 'نخ پلی استر ماتی', Quantity: 551.1, LineNotes: 'تعداد کارتن: 28 | سری: P-103' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '3', ItemCode: '0401020410021001', ItemName: 'اسپاندکس کاور رونیز', Quantity: 311.9, LineNotes: 'تعداد کارتن: 16 | سری: SP-44' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '4', ItemCode: '010302011001', ItemName: 'نخ پلی استر رنگی', Quantity: 214.9, LineNotes: 'تعداد کارتن: 11' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '5', ItemCode: '0103012001', ItemName: 'نخ DTY سفید', Quantity: 202.7, LineNotes: 'تعداد کارتن: 10' },
+                { DocId: '2716', ArchiveNo: '102', SubCode: '102', Date: `${gregFromDate}T09:15:00.000Z`, DocType: '44', LineId: '6', ItemCode: '08100210101055', ItemName: 'ضایعات نوار کاغذی', Quantity: 50, LineNotes: 'رول کاغذی' },
+                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', LineId: '1', ItemCode: '010101001', ItemName: 'چیپس پلی استر گرید A', Quantity: 1200, LineNotes: 'جامبو بگ' },
+                { DocId: '2717', ArchiveNo: '103', SubCode: '103', Date: `${gregFromDate}T15:20:00.000Z`, DocType: '44', LineId: '2', ItemCode: '010201002', ItemName: 'نخ POY سفید خام', Quantity: 850, LineNotes: 'پالت 1' },
+                { DocId: '2718', ArchiveNo: '104', SubCode: '104', Date: `${gregToDate}T10:00:00.000Z`, DocType: '44', LineId: '1', ItemCode: '0407119', ItemName: 'نخ نایلون آپشنال', Quantity: 850, LineNotes: 'تعداد کارتن: 40' },
+                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', LineId: '1', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310, LineNotes: 'عدل 2' },
+                { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', LineId: '2', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680, LineNotes: 'تعداد کارتن: 34' }
             ];
             return res.json({
                 success: true,
                 isMock: true,
                 dateFrom,
                 dateTo,
-                items: mockItems
+                items: mockItems.filter(item => {
+                    const code = (item.ItemCode || '').trim();
+                    const name = (item.ItemName || '').toLowerCase();
+                    if (code.startsWith('0104') || code.startsWith('0105') || 
+                        name.includes('لاکرا') || name.includes('لاستیک') || 
+                        name.includes('lycra') || name.includes('rubber')) {
+                        return false;
+                    }
+                    return true;
+                })
             });
-        }
-
-        let opCodeClause = `(RTRIM(LTRIM(t10.Field_009)) IN ('44', '42', '24', '26', '40', '46', '13', '044', '042') OR TRY_CAST(t10.Field_009 AS INT) IN (44, 42, 24, 26, 40, 46, 13))`;
-        if (opCodeParam === '44') {
-            opCodeClause = `(RTRIM(LTRIM(t10.Field_009)) IN ('44', '044') OR TRY_CAST(t10.Field_009 AS INT) = 44)`;
-        } else if (opCodeParam === '42') {
-            opCodeClause = `(RTRIM(LTRIM(t10.Field_009)) IN ('42', '042') OR TRY_CAST(t10.Field_009 AS INT) = 42)`;
-        } else if (opCodeParam === '13') {
-            opCodeClause = `(RTRIM(LTRIM(t10.Field_009)) IN ('13', '013') OR TRY_CAST(t10.Field_009 AS INT) = 13)`;
-        } else if (opCodeParam && opCodeParam !== 'all' && opCodeParam !== 'all_returns') {
-            const sanitizedOp = opCodeParam.replace(/'/g, "''");
-            opCodeClause = `(RTRIM(LTRIM(t10.Field_009)) = '${sanitizedOp}' OR TRY_CAST(t10.Field_009 AS INT) = TRY_CAST('${sanitizedOp}' AS INT))`;
         }
 
         const sql = `
@@ -2490,11 +2426,8 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                 RTRIM(LTRIM(t11.Field_005)) as ItemCode,
                 COALESCE(
                     NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(s04.Field_004)), ''),
                     NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                    NULLIF(RTRIM(LTRIM(t22.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                    NULLIF(RTRIM(LTRIM(t02_exact.Field_002)), ''),
                     NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                     NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
                     NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
@@ -2506,87 +2439,37 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             FROM STR_TBL_010 t10
             INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
                                       AND t11.Field_003 = t10.Field_004
-            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005)) 
-                                      OR RTRIM(LTRIM(s04.Field_002)) = RTRIM(LTRIM(t11.Field_005))
+            LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                                      OR RTRIM(LTRIM(t22.Field_003)) = RTRIM(LTRIM(t11.Field_005))
-                                      OR RTRIM(LTRIM(t22.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-                                            OR REPLACE(t02_exact.Field_008, '.', '') = RTRIM(LTRIM(t11.Field_005))
-                                            OR RTRIM(LTRIM(t02_exact.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
-                                      OR RTRIM(LTRIM(c01.Field_002)) = RTRIM(LTRIM(t11.Field_005))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                                              OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
                 GROUP BY t21_sub.Field_004
             ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
             LEFT JOIN (
                 SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
                 FROM IND_TBL_021 t21_sub
                 LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                                              OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
                 LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
                 LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
                 GROUP BY t21_sub.Field_004
             ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-            WHERE ${opCodeClause}
-              AND (
-                  (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59.999')
-                  OR (CONVERT(DATE, t10.Field_008) >= '${gregFromDate}' AND CONVERT(DATE, t10.Field_008) <= '${gregToDate}')
-                  OR (t10.Field_008 >= '${dateFrom}' AND t10.Field_008 <= '${dateTo}')
-              )
+            WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
+              AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+              AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
             ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_001 ASC
         `;
 
-        let queryRows = [];
-        try {
-            queryRows = await executeSayanQuery(db, sql);
-        } catch (queryErr) {
-            console.warn("Primary Sayan Production Returns query failed, trying simplified fallback query:", queryErr.message);
-            const fallbackSql = `
-                SELECT 
-                    t10.Field_005 as ArchiveCode,
-                    t10.Field_006 as DocNumber,
-                    t10.Field_006 as DocId,
-                    t10.Field_005 as ArchiveNo,
-                    t10.Field_006 as SubCode,
-                    t10.Field_008 as Date,
-                    RTRIM(LTRIM(t10.Field_009)) as DocType,
-                    t10.Field_011 as WarehouseCode,
-                    t10.Field_017 as HeaderDescription,
-                    t10.Field_029 as DocDescription,
-                    t11.Field_001 as LineId,
-                    RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                    RTRIM(LTRIM(t11.Field_005)) as ItemName,
-                    t11.Field_006 as Quantity,
-                    t11.Field_031 as LineNotes
-                FROM STR_TBL_010 t10
-                INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                          AND t11.Field_003 = t10.Field_004
-                WHERE ${opCodeClause}
-                  AND (
-                      (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59.999')
-                      OR (t10.Field_008 >= '${dateFrom}' AND t10.Field_008 <= '${dateTo}')
-                  )
-                ORDER BY t10.Field_008 DESC, t10.Field_005 DESC, t11.Field_001 ASC
-            `;
-            queryRows = await executeSayanQuery(db, fallbackSql);
-        }
-
-        const resolvedItems = (queryRows || []).map(r => ({
-            ...r,
-            ItemName: resolveSayanItemName(r.ItemCode, r.ItemName)
-        }));
-
+        const queryRows = await executeSayanQuery(db, sql);
         res.json({
             success: true,
             isMock: false,
             dateFrom,
             dateTo,
-            items: resolvedItems
+            items: queryRows || []
         });
     } catch (e) {
         console.error("Sayan Production Returns Error:", e);
@@ -2833,83 +2716,53 @@ async function queryProductionReturnsData(db, dateFrom, dateTo) {
             RTRIM(LTRIM(t11.Field_005)) as ItemCode,
             COALESCE(
                 NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
-                NULLIF(RTRIM(LTRIM(s04.Field_004)), ''),
                 NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
-                NULLIF(RTRIM(LTRIM(t22.Field_002)), ''),
                 NULLIF(RTRIM(LTRIM(t02_exact.Field_003)), ''),
-                NULLIF(RTRIM(LTRIM(t02_exact.Field_002)), ''),
                 NULLIF(RTRIM(LTRIM(t_name.ItemName)), ''),
                 NULLIF(RTRIM(LTRIM(t_group.GroupName)), ''),
-                NULLIF(RTRIM(LTRIM(c01.Field_003)), ''),
                 RTRIM(LTRIM(t11.Field_005)),
                 N'کالای بدون نام'
             ) as ItemName,
             t11.Field_006 as Quantity
-        FROM STR_TBL_010 t10
-        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                  AND t11.Field_003 = t10.Field_004
-        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005)) 
-                                  OR RTRIM(LTRIM(s04.Field_002)) = RTRIM(LTRIM(t11.Field_005))
+    FROM STR_TBL_010 t10
+    INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                              AND t11.Field_003 = t10.Field_004
+    LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(t11.Field_005))
-                                  OR RTRIM(LTRIM(t22.Field_003)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN IND_TBL_002 t02_exact ON RTRIM(LTRIM(t02_exact.Field_008)) = RTRIM(LTRIM(t11.Field_005))
-                                        OR REPLACE(t02_exact.Field_008, '.', '') = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t11.Field_005))
         LEFT JOIN (
             SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(t02_sub.Field_003) as ItemName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                                          OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
             GROUP BY t21_sub.Field_004
         ) t_name ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_name.ItemCode))
         LEFT JOIN (
             SELECT RTRIM(LTRIM(t21_sub.Field_004)) as ItemCode, MIN(COALESCE(t02_grandparent.Field_003, t02_parent.Field_003, t02_sub.Field_003)) as GroupName
             FROM IND_TBL_021 t21_sub
             LEFT JOIN IND_TBL_002 t02_sub ON RTRIM(LTRIM(t21_sub.Field_003)) = RTRIM(LTRIM(t02_sub.Field_008))
-                                          OR REPLACE(t02_sub.Field_008, '.', '') = RTRIM(LTRIM(t21_sub.Field_003))
             LEFT JOIN IND_TBL_002 t02_parent ON RTRIM(LTRIM(t02_sub.Field_009)) = RTRIM(LTRIM(t02_parent.Field_008))
             LEFT JOIN IND_TBL_002 t02_grandparent ON RTRIM(LTRIM(t02_parent.Field_009)) = RTRIM(LTRIM(t02_grandparent.Field_008))
             GROUP BY t21_sub.Field_004
         ) t_group ON RTRIM(LTRIM(t11.Field_005)) = RTRIM(LTRIM(t_group.ItemCode))
-        WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('44', '42', '24', '26', '40', '46', '13', '044', '042') OR TRY_CAST(t10.Field_009 AS INT) IN (44, 42, 24, 26, 40, 46, 13))
-          AND (
-              (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59.999')
-              OR (CONVERT(DATE, t10.Field_008) >= '${gregFromDate}' AND CONVERT(DATE, t10.Field_008) <= '${gregToDate}')
-              OR (t10.Field_008 >= '${normFrom}' AND t10.Field_008 <= '${normTo}')
-          )
+        WHERE RTRIM(LTRIM(t10.Field_009)) = '44'
+          AND t10.Field_008 >= '${gregFromDate}T00:00:00.000Z'
+          AND t10.Field_008 <= '${gregToDate}T23:59:59.999Z'
         ORDER BY t10.Field_008 DESC
     `;
 
-    let rows = [];
-    try {
-        rows = await executeSayanQuery(db, sql);
-    } catch (e) {
-        console.warn("queryProductionReturnsData fallback to simple query:", e.message);
-        const simpleSql = `
-            SELECT 
-                t10.Field_005 as DocId,
-                t10.Field_006 as SubCode,
-                t10.Field_008 as Date,
-                RTRIM(LTRIM(t10.Field_009)) as DocType,
-                RTRIM(LTRIM(t11.Field_005)) as ItemCode,
-                RTRIM(LTRIM(t11.Field_005)) as ItemName,
-                t11.Field_006 as Quantity
-            FROM STR_TBL_010 t10
-            INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
-                                      AND t11.Field_003 = t10.Field_004
-            WHERE (RTRIM(LTRIM(t10.Field_009)) IN ('44', '42', '24', '26', '40', '46', '13', '044', '042') OR TRY_CAST(t10.Field_009 AS INT) IN (44, 42, 24, 26, 40, 46, 13))
-              AND (
-                  (t10.Field_008 >= '${gregFromDate} 00:00:00' AND t10.Field_008 <= '${gregToDate} 23:59:59.999')
-                  OR (t10.Field_008 >= '${normFrom}' AND t10.Field_008 <= '${normTo}')
-              )
-            ORDER BY t10.Field_008 DESC
-        `;
-        rows = await executeSayanQuery(db, simpleSql);
-    }
-    return (rows || []).map(r => ({
-        ...r,
-        ItemName: resolveSayanItemName(r.ItemCode, r.ItemName)
-    }));
+    const rows = await executeSayanQuery(db, sql);
+    const results = rows || [];
+    return results.filter(item => {
+        const code = (item.ItemCode || '').trim();
+        const name = (item.ItemName || '').toLowerCase();
+        if (code.startsWith('0104') || code.startsWith('0105') || 
+            name.includes('لاکرا') || name.includes('لاستیک') || 
+            name.includes('lycra') || name.includes('rubber')) {
+            return false;
+        }
+        return true;
+    });
 }
 
 const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
@@ -2917,15 +2770,15 @@ const compileProductionReturnsHtml = (dateFrom, dateTo, items) => {
         const code = (itemCode || '').trim();
         const name = (itemName || '').toLowerCase();
         
-        // 1. محصولات و نیمه ساخته (04xx و 02xx)
-        if (code.startsWith('0401') || code.startsWith('0201') || name.includes('کاور')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
-        if (code.startsWith('0402') || code.startsWith('0202') || name.includes('کش') || name.includes('قیطان')) return { code: '0402', name: 'کش', isProduction: true };
-        if (code.startsWith('0403') || code.startsWith('0203') || name.includes('ساپورت') || name.includes('جوشی')) return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
-        if (code.startsWith('0405') || code.startsWith('0404') || code.startsWith('0204') || name.includes('شوایتر')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
-        if (code.startsWith('0407') || code.startsWith('0205')) return { code: '0407', name: 'نایلون', isProduction: true };
-        if (code.startsWith('0408') || code.startsWith('0206') || name.includes('ملت')) return { code: '0408', name: 'نخ ملت', isProduction: true };
-        if (code.startsWith('0409') || code.startsWith('0207') || name.includes('الیاف')) return { code: '0409', name: 'الیاف', isProduction: true };
-        if (code.startsWith('0410') || code.startsWith('0208') || name.includes('fdy')) return { code: '0410', name: 'FDY', isProduction: true };
+        // 1. محصولات (04xx)
+        if (code.startsWith('0401') || name.includes('کاور')) return { code: '0401', name: 'اسپاندکس (کاور)', isProduction: true };
+        if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) return { code: '0402', name: 'کش', isProduction: true };
+        if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) return { code: '0403', name: 'اسپاندکس جوشی ( ساپورت )', isProduction: true };
+        if (code.startsWith('0405') || name.includes('شوایتر')) return { code: '0405', name: 'پلی استر شوایتر', isProduction: true };
+        if (code.startsWith('0407')) return { code: '0407', name: 'نایلون', isProduction: true };
+        if (code.startsWith('0408') || name.includes('ملت')) return { code: '0408', name: 'نخ ملت', isProduction: true };
+        if (code.startsWith('0409') || name.includes('الیاف')) return { code: '0409', name: 'الیاف', isProduction: true };
+        if (code.startsWith('0410') || name.includes('fdy')) return { code: '0410', name: 'FDY', isProduction: true };
         
         // 2. مواد اولیه (01xx)
         if (code.startsWith('0101') || name.includes('چیپس')) return { code: '0101', name: 'چیپس', isProduction: false };
@@ -3328,9 +3181,8 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
 
             // Clean item name resolution (never display raw numeric codes)
             const rawName = (item.ItemName || '').trim();
-            const resolvedName = resolveSayanItemName(item.ItemCode, rawName);
-            const cleanName = (resolvedName && !resolvedName.startsWith('0') && isNaN(Number(resolvedName))) 
-                ? resolvedName 
+            const cleanName = (rawName && !rawName.startsWith('0') && isNaN(Number(rawName))) 
+                ? rawName 
                 : grp;
             itemsMap.set(cleanName, (itemsMap.get(cleanName) || 0) + parseFloat(item.Quantity || 0));
         });
