@@ -3,11 +3,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PaymentOrder, OrderStatus, SystemSettings, User, ExitPermit, ExitPermitStatus, WarehouseTransaction, UserRole, SystemAnnouncement } from '../types';
 import { formatCurrency, getShamsiDateFromIso } from '../constants';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy, Flame, Sparkles, Zap } from 'lucide-react';
 import { getRolePermissions } from '../services/authService';
 import { getExitPermits, getWarehouseTransactions, getNotes, getPurchaseRequests, getTaskGroups, getTasks, updateTask } from '../services/storageService';
 import { isInFinancialYear } from '../utils/dateUtils';
-import { getRandomQuote, persianQuotes } from '../utils/quotes';
+import { getRandomPoem, getRandomMotivationalQuote, persianPoems, persianMotivationalQuotes } from '../utils/quotes';
 import { Note, PurchaseRequest, PurchaseRequestStatus, GroupTask, TaskGroup } from '../types';
 
 interface DashboardProps {
@@ -80,10 +80,17 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
     }
   }, [currentUser]);
 
-  const [quotesList, setQuotesList] = useState<Array<{text: string; author: string; source?: string; title?: string}>>(() => [...persianQuotes]);
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
-  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
-  const [copiedQuote, setCopiedQuote] = useState(false);
+  // Poetry State
+  const [poemList, setPoemList] = useState<Array<{text: string; author: string; source?: string; title?: string}>>(() => [...persianPoems]);
+  const [currentPoemIndex, setCurrentPoemIndex] = useState(0);
+  const [isLoadingPoem, setIsLoadingPoem] = useState(false);
+  const [copiedPoem, setCopiedPoem] = useState(false);
+
+  // Motivational Quotes State
+  const [motivationalList, setMotivationalList] = useState<Array<{text: string; author: string; source?: string; title?: string}>>(() => [...persianMotivationalQuotes]);
+  const [currentMotivationalIndex, setCurrentMotivationalIndex] = useState(0);
+  const [isLoadingMotivational, setIsLoadingMotivational] = useState(false);
+  const [copiedMotivational, setCopiedMotivational] = useState(false);
 
   // Warehouse Alert State
   const [warehouseAlertData, setWarehouseAlertData] = useState<{ totalCurrentAllWeight: number, diffAllWeight: number, ratioAllWeight: number } | null>(null);
@@ -118,94 +125,178 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
       fetchWarehouseAlert(false);
   }, []);
 
-  // Automatically fetch an online poem from Iranian sites on mount
+  // Automatically fetch online poem & online motivational quote on mount
   useEffect(() => {
     let isMounted = true;
-    const fetchInitialOnlineQuote = async () => {
+    
+    const fetchInitialPoem = async () => {
       try {
-        const response = await fetch('/api/quote/random');
+        const response = await fetch('/api/quote/poem');
         if (response.ok && isMounted) {
           const data = await response.json();
           if (data && data.text) {
-            setQuotesList(prev => {
+            setPoemList(prev => {
               if (prev.some(q => q.text === data.text)) return prev;
               return [data, ...prev];
             });
-            setCurrentQuoteIndex(0);
+            setCurrentPoemIndex(0);
           }
         }
       } catch (e) {
-        console.error("Mount quote fetch error:", e);
+        console.error("Mount poem fetch error:", e);
       }
     };
-    fetchInitialOnlineQuote();
+
+    const fetchInitialMotivational = async () => {
+      try {
+        const response = await fetch('/api/quote/motivational');
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          if (data && data.text) {
+            setMotivationalList(prev => {
+              if (prev.some(q => q.text === data.text)) return prev;
+              return [data, ...prev];
+            });
+            setCurrentMotivationalIndex(0);
+          }
+        }
+      } catch (e) {
+        console.error("Mount motivational fetch error:", e);
+      }
+    };
+
+    fetchInitialPoem();
+    fetchInitialMotivational();
+
     return () => { isMounted = false; };
   }, []);
 
-  const dailyQuote = useMemo(() => {
-    return quotesList[currentQuoteIndex] || quotesList[0] || { text: 'بنی آدم اعضای یک پیکرند', author: 'سعدی' };
-  }, [currentQuoteIndex, quotesList]);
+  const dailyPoem = useMemo(() => {
+    return poemList[currentPoemIndex] || poemList[0] || { text: 'بنی آدم اعضای یک پیکرند\nکه در آفرینش ز یک گوهرند', author: 'سعدی' };
+  }, [currentPoemIndex, poemList]);
 
-  const handlePrevQuote = () => {
-    setCurrentQuoteIndex(prev => (prev - 1 + quotesList.length) % quotesList.length);
+  const dailyMotivational = useMemo(() => {
+    return motivationalList[currentMotivationalIndex] || motivationalList[0] || { text: 'موفقیت حاصل تلاش‌های کوچک اما مداوم است.', author: 'رابرت کالیر' };
+  }, [currentMotivationalIndex, motivationalList]);
+
+  // Poetry handlers
+  const handlePrevPoem = () => {
+    setCurrentPoemIndex(prev => (prev - 1 + poemList.length) % poemList.length);
   };
 
-  const handleNextQuote = async () => {
-    if (currentQuoteIndex === quotesList.length - 1) {
-      // If at end of history, fetch a brand new online poem from Iranian poetry sites
-      setIsLoadingQuote(true);
+  const handleNextPoem = async () => {
+    if (currentPoemIndex === poemList.length - 1) {
+      setIsLoadingPoem(true);
       try {
-        const response = await fetch('/api/quote/random');
+        const response = await fetch('/api/quote/poem');
         if (response.ok) {
           const data = await response.json();
           if (data && data.text) {
-            setQuotesList(prev => [...prev, data]);
-            setCurrentQuoteIndex(prev => prev + 1);
-            setIsLoadingQuote(false);
+            setPoemList(prev => [...prev, data]);
+            setCurrentPoemIndex(prev => prev + 1);
+            setIsLoadingPoem(false);
             return;
           }
         }
       } catch (err) {
-        console.error("Failed to fetch next online quote:", err);
+        console.error("Failed to fetch next online poem:", err);
       }
-      setIsLoadingQuote(false);
+      setIsLoadingPoem(false);
     }
-    
-    // Fallback or normal next navigation
-    setCurrentQuoteIndex(prev => (prev + 1) % quotesList.length);
+    setCurrentPoemIndex(prev => (prev + 1) % poemList.length);
   };
 
-  const handleFetchNewQuote = async () => {
-    setIsLoadingQuote(true);
+  const handleFetchNewPoem = async () => {
+    setIsLoadingPoem(true);
     try {
-      const response = await fetch('/api/quote/random');
+      const response = await fetch('/api/quote/poem');
       if (response.ok) {
         const data = await response.json();
         if (data && data.text) {
-          setQuotesList(prev => {
+          setPoemList(prev => {
             const existsIdx = prev.findIndex(q => q.text === data.text);
             if (existsIdx !== -1) {
-              setCurrentQuoteIndex(existsIdx);
+              setCurrentPoemIndex(existsIdx);
               return prev;
             }
             const newList = [...prev, data];
-            setCurrentQuoteIndex(newList.length - 1);
+            setCurrentPoemIndex(newList.length - 1);
             return newList;
           });
         }
       }
     } catch (err) {
-      console.error("Failed to fetch fresh online quote:", err);
+      console.error("Failed to fetch fresh online poem:", err);
     }
-    setIsLoadingQuote(false);
+    setIsLoadingPoem(false);
   };
 
-  const handleCopyQuote = () => {
-    if (!dailyQuote) return;
-    const fullText = `«${dailyQuote.text}»\n— ${dailyQuote.author || 'شاعر'}${dailyQuote.source ? ` (${dailyQuote.source})` : ''}`;
+  const handleCopyPoem = () => {
+    if (!dailyPoem) return;
+    const fullText = `«${dailyPoem.text}»\n— ${dailyPoem.author || 'شاعر پارسی'}${dailyPoem.source ? ` (${dailyPoem.source})` : ''}`;
     navigator.clipboard.writeText(fullText);
-    setCopiedQuote(true);
-    setTimeout(() => setCopiedQuote(false), 2000);
+    setCopiedPoem(true);
+    setTimeout(() => setCopiedPoem(false), 2000);
+  };
+
+  // Motivational handlers
+  const handlePrevMotivational = () => {
+    setCurrentMotivationalIndex(prev => (prev - 1 + motivationalList.length) % motivationalList.length);
+  };
+
+  const handleNextMotivational = async () => {
+    if (currentMotivationalIndex === motivationalList.length - 1) {
+      setIsLoadingMotivational(true);
+      try {
+        const response = await fetch('/api/quote/motivational');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.text) {
+            setMotivationalList(prev => [...prev, data]);
+            setCurrentMotivationalIndex(prev => prev + 1);
+            setIsLoadingMotivational(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next online motivational quote:", err);
+      }
+      setIsLoadingMotivational(false);
+    }
+    setCurrentMotivationalIndex(prev => (prev + 1) % motivationalList.length);
+  };
+
+  const handleFetchNewMotivational = async () => {
+    setIsLoadingMotivational(true);
+    try {
+      const response = await fetch('/api/quote/motivational');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.text) {
+          setMotivationalList(prev => {
+            const existsIdx = prev.findIndex(q => q.text === data.text);
+            if (existsIdx !== -1) {
+              setCurrentMotivationalIndex(existsIdx);
+              return prev;
+            }
+            const newList = [...prev, data];
+            setCurrentMotivationalIndex(newList.length - 1);
+            return newList;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch fresh online motivational quote:", err);
+    }
+    setIsLoadingMotivational(false);
+  };
+
+  const handleCopyMotivational = () => {
+    if (!dailyMotivational) return;
+    const fullText = `«${dailyMotivational.text}»\n— ${dailyMotivational.author || 'سخنان بزرگان'}${dailyMotivational.title ? ` (${dailyMotivational.title})` : ''}`;
+    navigator.clipboard.writeText(fullText);
+    setCopiedMotivational(true);
+    setTimeout(() => setCopiedMotivational(false), 2000);
   };
 
   const shamsiDate = useMemo(() => {
@@ -575,99 +666,172 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
             </div>
         )}
 
-        {/* TOP SECTION: MINIMAL DATE, PRICES & SLICK POETRY */}
-        <div className="flex flex-col lg:flex-row gap-4">
+        {/* TOP SECTION: MINIMAL DATE + DUAL ONLINE PANELS (POETRY & MOTIVATIONAL) */}
+        <div className="flex flex-col xl:flex-row gap-4 items-stretch">
             {/* Minimal Date Card - Smaller & Sleek */}
-            <div className="glass-panel rounded-2xl p-4 border border-indigo-100 shadow-sm flex items-center gap-4 min-w-[220px] shrink-0 relative group overflow-hidden">
+            <div className="glass-panel rounded-2xl p-4 border border-indigo-100 dark:border-indigo-900/30 shadow-sm flex items-center gap-4 min-w-[210px] xl:w-[220px] shrink-0 relative group overflow-hidden">
                 <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity"><CalendarIcon size={40}/></div>
-                <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600 flex items-center justify-center relative z-10">
+                <div className="bg-indigo-50 dark:bg-indigo-950/50 p-3 rounded-xl text-indigo-600 dark:text-indigo-400 flex items-center justify-center relative z-10">
                     <CalendarIcon size={24} />
                 </div>
                 <div className="flex flex-col relative z-10">
                     <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
                         {shamsiDate.weekday}
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-auto" title="همگام‌سازی با گوگل کلندر"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse ml-auto" title="همگام‌سازی با تقویم"></span>
                     </div>
                     <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-black text-gray-800 dark:text-gray-200">{shamsiDate.day}</span>
-                        <span className="text-sm font-bold text-gray-600">{shamsiDate.month}</span>
+                        <span className="text-sm font-bold text-gray-600 dark:text-gray-400">{shamsiDate.month}</span>
                     </div>
                     <div className="text-[9px] text-gray-400 dark:text-gray-500 font-bold mt-1 line-clamp-1">{shamsiDate.year} شمسی</div>
                 </div>
             </div>
 
-            {/* Slick Poetry - Interactive & Online Iranian Poetry */}
-            <div className="flex-1 glass-panel rounded-2xl px-4 py-3.5 border border-rose-100 dark:border-rose-900/30 shadow-sm flex items-center justify-between relative overflow-hidden group min-h-[105px]">
-                <div className="absolute right-0 top-0 h-full w-1.5 bg-gradient-to-b from-rose-400 to-amber-400"></div>
-                
-                {/* Previous Button (Right arrow in RTL - moves to earlier quotes) */}
-                <button 
-                    onClick={handlePrevQuote}
-                    disabled={isLoadingQuote}
-                    className="p-2 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-400 hover:text-rose-600 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
-                    title="شعر قبلی"
-                >
-                    <ChevronRight size={20} />
-                </button>
+            {/* DUAL PANELS CONTAINER: POETRY + MOTIVATION */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* SECTION 1: PERSIAN POETRY (شعر و ادب کهن) */}
+                <div className="glass-panel rounded-2xl px-3.5 py-3 border border-rose-100 dark:border-rose-900/30 shadow-sm flex items-center justify-between relative overflow-hidden group min-h-[110px] hover:border-rose-300 dark:hover:border-rose-800/60 transition-colors">
+                    <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-rose-400 to-indigo-500"></div>
+                    
+                    {/* Previous Button */}
+                    <button 
+                        onClick={handlePrevPoem}
+                        disabled={isLoadingPoem}
+                        className="p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-400 hover:text-rose-600 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                        title="شعر قبلی"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
 
-                <div className="relative z-10 flex flex-col items-center flex-1 px-3 select-none">
-                    <div className="text-[10px] font-bold text-rose-500 dark:text-rose-400 mb-1 flex items-center justify-between w-full border-b border-rose-100/60 dark:border-rose-900/40 pb-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <PenTool size={11} className="text-rose-500" /> 
-                            <span className="font-black">زمزمه ({currentQuoteIndex + 1} از {quotesList.length})</span>
-                            {dailyQuote.source && (
-                                <span className="bg-rose-100/80 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded text-[9px] font-medium border border-rose-200/50">
-                                    {dailyQuote.source}
-                                </span>
-                            )}
+                    <div className="relative z-10 flex flex-col items-center flex-1 px-2.5 select-none min-w-0">
+                        <div className="text-[10px] font-bold text-rose-500 dark:text-rose-400 mb-1 flex items-center justify-between w-full border-b border-rose-100/60 dark:border-rose-900/40 pb-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <PenTool size={11} className="text-rose-500 shrink-0" /> 
+                                <span className="font-black whitespace-nowrap">زمزمه و شعر روز</span>
+                                <span className="text-[9px] text-rose-400 font-medium">({currentPoemIndex + 1}/{poemList.length})</span>
+                                {dailyPoem.source && (
+                                    <span className="bg-rose-100/80 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded text-[8.5px] font-medium border border-rose-200/50 truncate max-w-[100px] hidden sm:inline-block">
+                                        {dailyPoem.source}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                    onClick={handleCopyPoem}
+                                    className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-400 hover:text-rose-600 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
+                                    title="کپی متن شعر"
+                                >
+                                    {copiedPoem ? <Check size={11} className="text-green-600 dark:text-green-400" /> : <Copy size={11} />}
+                                    {copiedPoem && <span className="text-[8.5px] font-bold text-green-600">کپی شد</span>}
+                                </button>
+                                <button
+                                    onClick={handleFetchNewPoem}
+                                    disabled={isLoadingPoem}
+                                    className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-400 hover:text-rose-600 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
+                                    title="دریافت شعر آنلاین جدید"
+                                >
+                                    <RotateCw size={11} className={`${isLoadingPoem ? 'animate-spin text-rose-600' : ''}`} />
+                                    <span className="text-[8.5px] font-medium hidden sm:inline">آنلاین</span>
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                                onClick={handleCopyQuote}
-                                className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-400 hover:text-rose-600 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
-                                title="کپی متن شعر"
-                            >
-                                {copiedQuote ? <Check size={11} className="text-green-600 dark:text-green-400" /> : <Copy size={11} />}
-                                <span className="text-[9px] font-bold text-green-600">{copiedQuote ? 'کپی شد' : ''}</span>
-                            </button>
-                            <button
-                                onClick={handleFetchNewQuote}
-                                disabled={isLoadingQuote}
-                                className="p-1 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-400 hover:text-rose-600 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
-                                title="دریافت آنلاین شعر جدید"
-                            >
-                                <RotateCw size={11} className={`${isLoadingQuote ? 'animate-spin text-rose-600' : ''}`} />
-                                <span className="text-[9px] font-medium hidden sm:inline">دریافت آنلاین</span>
-                            </button>
-                        </div>
+
+                        {dailyPoem.title && (
+                            <span className="text-[9.5px] text-amber-600 dark:text-amber-400 font-bold mb-0.5 truncate max-w-full">
+                                {dailyPoem.title}
+                            </span>
+                        )}
+
+                        <p className="text-gray-800 dark:text-gray-200 font-bold text-xs sm:text-[13px] text-center italic leading-relaxed py-0.5 line-clamp-3" style={{ whiteSpace: 'pre-line' }}>
+                            {dailyPoem.text}
+                        </p>
+
+                        {dailyPoem.author && (
+                            <span className="text-[9.5px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
+                                — {dailyPoem.author}
+                            </span>
+                        )}
                     </div>
 
-                    {dailyQuote.title && (
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mb-0.5">
-                            {dailyQuote.title}
-                        </span>
-                    )}
-
-                    <p className="text-gray-800 dark:text-gray-200 font-bold text-xs sm:text-sm text-center italic leading-relaxed py-1" style={{ whiteSpace: 'pre-line' }}>
-                        {dailyQuote.text}
-                    </p>
-
-                    {dailyQuote.author && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                            — {dailyQuote.author}
-                        </span>
-                    )}
+                    {/* Next Button */}
+                    <button 
+                        onClick={handleNextPoem}
+                        disabled={isLoadingPoem}
+                        className="p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-400 hover:text-rose-600 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                        title="شعر بعدی (آنلاین)"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
                 </div>
 
-                {/* Next Button (Left arrow in RTL - moves to next quote or fetches online) */}
-                <button 
-                    onClick={handleNextQuote}
-                    disabled={isLoadingQuote}
-                    className="p-2 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-400 hover:text-rose-600 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
-                    title="شعر بعدی (آنلاین)"
-                >
-                    <ChevronLeft size={20} />
-                </button>
+                {/* SECTION 2: MOTIVATIONAL & UPLIFTING QUOTES (انگیزه و روحیه‌بخش) */}
+                <div className="glass-panel rounded-2xl px-3.5 py-3 border border-amber-100 dark:border-amber-900/30 shadow-sm flex items-center justify-between relative overflow-hidden group min-h-[110px] hover:border-amber-300 dark:hover:border-amber-800/60 transition-colors">
+                    <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-amber-400 to-emerald-500"></div>
+                    
+                    {/* Previous Button */}
+                    <button 
+                        onClick={handlePrevMotivational}
+                        disabled={isLoadingMotivational}
+                        className="p-1.5 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-500 hover:text-amber-700 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                        title="جمله قبلی"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+
+                    <div className="relative z-10 flex flex-col items-center flex-1 px-2.5 select-none min-w-0">
+                        <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mb-1 flex items-center justify-between w-full border-b border-amber-100/60 dark:border-amber-900/40 pb-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <Flame size={11} className="text-amber-500 shrink-0" /> 
+                                <span className="font-black whitespace-nowrap">انگیزه و روحیه‌بخش</span>
+                                <span className="text-[9px] text-amber-500 font-medium">({currentMotivationalIndex + 1}/{motivationalList.length})</span>
+                                {dailyMotivational.title && (
+                                    <span className="bg-amber-100/80 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-[8.5px] font-medium border border-amber-200/50 truncate max-w-[100px] hidden sm:inline-block">
+                                        {dailyMotivational.title}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                    onClick={handleCopyMotivational}
+                                    className="p-1 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/60 text-amber-500 hover:text-amber-700 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
+                                    title="کپی متن انگیزشی"
+                                >
+                                    {copiedMotivational ? <Check size={11} className="text-green-600 dark:text-green-400" /> : <Copy size={11} />}
+                                    {copiedMotivational && <span className="text-[8.5px] font-bold text-green-600">کپی شد</span>}
+                                </button>
+                                <button
+                                    onClick={handleFetchNewMotivational}
+                                    disabled={isLoadingMotivational}
+                                    className="p-1 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/60 text-amber-500 hover:text-amber-700 transition-all cursor-pointer inline-flex items-center justify-center gap-1"
+                                    title="دریافت جمله انگیزشی آنلاین جدید"
+                                >
+                                    <RotateCw size={11} className={`${isLoadingMotivational ? 'animate-spin text-amber-600' : ''}`} />
+                                    <span className="text-[8.5px] font-medium hidden sm:inline">آنلاین</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p className="text-gray-800 dark:text-gray-200 font-bold text-xs sm:text-[13px] text-center leading-relaxed py-0.5 line-clamp-3">
+                            «{dailyMotivational.text}»
+                        </p>
+
+                        {dailyMotivational.author && (
+                            <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                                — {dailyMotivational.author}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Next Button */}
+                    <button 
+                        onClick={handleNextMotivational}
+                        disabled={isLoadingMotivational}
+                        className="p-1.5 rounded-full hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-500 hover:text-amber-700 active:scale-90 transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                        title="جمله بعدی (آنلاین)"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                </div>
             </div>
         </div>
 

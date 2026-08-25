@@ -6489,6 +6489,19 @@ app.post('/api/emergency-restore', (req, res) => {
 app.get('/api/version', (req, res) => { res.json({ version: '1.3.1' }); });
 
 app.get('/api/quote/random', async (req, res) => {
+    const quoteType = req.query.type || 'poem'; // 'poem' or 'motivational'
+    return handleQuoteRequest(req, res, quoteType);
+});
+
+app.get('/api/quote/poem', async (req, res) => {
+    return handleQuoteRequest(req, res, 'poem');
+});
+
+app.get('/api/quote/motivational', async (req, res) => {
+    return handleQuoteRequest(req, res, 'motivational');
+});
+
+async function handleQuoteRequest(req, res, type = 'poem') {
     const fetchWithTimeout = async (url, ms = 3000) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), ms);
@@ -6502,7 +6515,69 @@ app.get('/api/quote/random', async (req, res) => {
         }
     };
 
-    const fallbacks = [
+    if (type === 'motivational') {
+        const motivationalFallbacks = [
+            { text: "موفقیت مجموعه‌ای از تلاش‌های کوچک روزانه است که بارها و بارها تکرار می‌شوند.", author: "رابرت کالیر", title: "تلاش مستمر" },
+            { text: "بزرگترین افتخار ما در این نیست که هرگز زمین نخوریم، بلکه در این است که پس از هر بار افتادن دوباره برخیزیم.", author: "کنفوسیوس", title: "تاب‌آوری و استقامت" },
+            { text: "فرصت‌ها خودبه‌خود اتفاق نمی‌افتند، شما هستید که با اراده و عمل آن‌ها را خلق می‌کنید.", author: "کریس گروسر", title: "فرصت‌سازی" },
+            { text: "شجاعت به معنای نترسیدن نیست، بلکه تصمیم‌گیری برای ادامه دادن با وجود تمام ترس‌هاست.", author: "نلسون ماندلا", title: "قدرت اراده" },
+            { text: "هیچ آسانسوری برای رسیدن به قله موفقیت وجود ندارد، باید پله‌ها را یکی‌یکی با افتخار طی کنی.", author: "زیگ زیگلار", title: "مسیر رشد" },
+            { text: "امروز کارهایی را انجام بده که دیگران حوصله‌اش را ندارند، تا فردا کارهایی را تجربه کنی که دیگران توانش را ندارند.", author: "برایان تریسی", title: "تعهد فردی" },
+            { text: "تنها راه انجام کارهای درخشان و ماندگار، عشق ورزیدن خالصانه به کاری است که انجام می‌دهید.", author: "استیو جابز", title: "اشتیاق کاری" },
+            { text: "در هر چالش و بحرانی، بذر یک فرصت طلایی و جهش بزرگ‌تر نهفته است.", author: "ناپلئون هیل", title: "نگاه به آینده" },
+            { text: "خوش‌بینی و امیدواری مغناطیس موفقیت است؛ انرژی مثبت شما اتفاقات ناب را جذب می‌کند.", author: "مری لو رتون", title: "انرژی مثبت" },
+            { text: "بزرگترین سرمایه شما طرز فکر شما، عزت نفس شما و ایمانی است که به توانایی‌هایتان دارید.", author: "دکتر محمود حسابی", title: "باور به خود" },
+            { text: "شکست پایان راه نیست، بلکه یک یادآوری هوشمندانه برای تغییر زاویه دید و تلاش هدفمندتر است.", author: "هنری فورد", title: "درس‌های رشد" },
+            { text: "مسیر هزار فرسنگی با اولین قدم برداشته می‌شود؛ محکم و امیدوار گام بردارید.", author: "لائوتسه", title: "آغاز حرکت" },
+            { text: "ارزش واقعی در آن چیزی است که به سازمان، همکاران و جامعه‌ات ارزش می‌افزاید.", author: "آلبرت اینشتین", title: "خلق ارزش" },
+            { text: "هیچ گلی به فکر رقابت با گل کناری نیست، او شکوفا می‌شود و عطرش را جاری می‌سازد.", author: "حکمت کهن", title: "شکوفایی درونی" },
+            { text: "تغییر در ابتدا سخت و دشوار است، در میانه نامنظم و چالش‌برانگیز، اما در انتها فوق‌العاده و شکوهمند است.", author: "رابین شارما", title: "استقبال از تغییر" },
+            { text: "نور در دل تاریکی زاده می‌شود و عیار انسان‌های بزرگ در گذر از طوفان‌ها آشکار می‌گردد.", author: "جبران خلیل جبران", title: "امید و تاب‌آوری" },
+            { text: "آینده در دستان کسانی است که به زیبایی آرمان‌ها و رویاهای شغلی و فردی خود ایمان راسخ دارند.", author: "النور روزولت", title: "آینده‌نگری" },
+            { text: "همیشه به یاد داشته باشید: تمرکز، نظم و پیگیری مداوم از نبوغِ بدون تلاش بسیار قدرتمندتر است.", author: "آنتونی رابینز", title: "تمرکز و انگیزه" }
+        ];
+
+        const motivationalSources = [
+            async () => {
+                // Online ZenQuotes / Inspiring API
+                const res = await fetchWithTimeout('https://zenquotes.io/api/random', 3000);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data[0] && data[0].q) {
+                        return {
+                            text: data[0].q,
+                            author: data[0].a || 'بزرگان جهان',
+                            source: 'ZenQuotes Online',
+                            title: 'انگیزه و اندیشه جهانی'
+                        };
+                    }
+                }
+                throw new Error("ZenQuotes failed");
+            }
+        ];
+
+        for (const fetchSrc of motivationalSources) {
+            try {
+                const quote = await fetchSrc();
+                if (quote && quote.text) {
+                    return res.json(quote);
+                }
+            } catch (e) {
+                // Fallback to rich curated list
+            }
+        }
+
+        const randIdx = Math.floor(Math.random() * motivationalFallbacks.length);
+        const sel = motivationalFallbacks[randIdx];
+        return res.json({
+            ...sel,
+            source: 'بانک انگیزه و انرژی مثبت',
+            title: sel.title || 'انرژی و موفقیت'
+        });
+    }
+
+    // Default: Poem
+    const poemFallbacks = [
         { text: "سعدیا مرد نکونام نمیرد هرگز\nمرده آن است که نامش به نکویی نبرند", author: "سعدی" },
         { text: "بنی آدم اعضای یک پیکرند\nکه در آفرینش ز یک گوهرند", author: "سعدی" },
         { text: "در نومیدی بسی امید است\nپایان شب سیه سپید است", author: "نظامی" },
@@ -6538,9 +6613,9 @@ app.get('/api/quote/random', async (req, res) => {
         { text: "اگر هنر داری و فضل و کمال\nبه کوش و دگرگون مکن این جمال", author: "سعدی" }
     ];
 
-    const sources = [
+    const poemSources = [
         async () => {
-            // Source 1: Ganjoor Random Single Verse (c.ganjoor.net/beyt-json.php) - highly fast and reliable
+            // Source 1: Ganjoor Random Single Verse (c.ganjoor.net/beyt-json.php)
             const res = await fetchWithTimeout('https://c.ganjoor.net/beyt-json.php', 3000);
             if (res.ok) {
                 const data = await res.json();
@@ -6605,29 +6680,26 @@ app.get('/api/quote/random', async (req, res) => {
         }
     ];
 
-    // Shuffle sources to rotate requests nicely
-    const shuffledSources = [...sources].sort(() => Math.random() - 0.5);
-
-    for (const fetchSource of shuffledSources) {
+    const shuffled = [...poemSources].sort(() => Math.random() - 0.5);
+    for (const fetchSource of shuffled) {
         try {
             const quote = await fetchSource();
             if (quote && quote.text) {
                 return res.json(quote);
             }
         } catch (e) {
-            console.log("Online source fetch failed, trying next. Error:", e.message);
+            // continue next source
         }
     }
 
-    // Curated offline fallback if all online attempts fail
-    const randomIdx = Math.floor(Math.random() * fallbacks.length);
-    const selected = fallbacks[randomIdx];
-    res.json({
+    const randomIdx = Math.floor(Math.random() * poemFallbacks.length);
+    const selected = poemFallbacks[randomIdx];
+    return res.json({
         ...selected,
-        source: 'دیوان اشعار پارسی (آفلاین)',
+        source: 'دیوان اشعار پارسی',
         title: 'شعر پارسی'
     });
-});
+}
 
 app.get('/manifest.json', (req, res) => {
     const db = getDb();
