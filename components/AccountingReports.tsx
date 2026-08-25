@@ -163,6 +163,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [isFetchingProdReturns, setIsFetchingProdReturns] = useState(false);
     const [prodReturnsIsMock, setProdReturnsIsMock] = useState(false);
     const [prodReturnsGrouping, setProdReturnsGrouping] = useState<'archive' | 'group' | 'detail' | 'document'>('archive');
+    const [prodReturnsOpFilter, setProdReturnsOpFilter] = useState<'all_returns' | '44' | '42' | '24' | '13'>('all_returns');
     const [selectedDocModal, setSelectedDocModal] = useState<any | null>(null);
     const [selectedDocRowKey, setSelectedDocRowKey] = useState<string | null>(null);
     const [prodReturnsSearch, setProdReturnsSearch] = useState('');
@@ -2378,10 +2379,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     // ==========================================
     // NEW TAB: RETURN FROM PRODUCTION (گزارش برگشت از تولید - کد عملیات ۴۴)
     // ==========================================
-    const fetchProdReturns = async () => {
+    const fetchProdReturns = async (opOverride?: string) => {
         setIsFetchingProdReturns(true);
         try {
-            const url = `/api/sayan/production-returns?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+            const currentOp = opOverride || prodReturnsOpFilter;
+            const url = `/api/sayan/production-returns?dateFrom=${dateFrom}&dateTo=${dateTo}&opCode=${currentOp}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -2392,7 +2394,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     toast.error(data.message || 'خطا در بارگذاری اطلاعات برگشت از تولید');
                 }
             } else {
-                toast.error('خطا در برقراری ارتباط با سرور');
+                toast.error('خطا در برقراری ارتباط با سرور سایان');
             }
         } catch (err) {
             console.error("Failed to fetch production returns", err);
@@ -2527,14 +2529,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             const code = (item.ItemCode || '').trim();
             const rawName = (item.ItemName || '').toLowerCase();
             const resolvedName = resolveProdItemName(code, item.ItemName).toLowerCase();
-            
-            // Exclude Lycra (0105) and Rubber (0104) and related keywords from production returns
-            if (code.startsWith('0104') || code.startsWith('0105') || 
-                rawName.includes('لاکرا') || rawName.includes('لاستیک') || 
-                rawName.includes('lycra') || rawName.includes('rubber') ||
-                resolvedName.includes('لاکرا') || resolvedName.includes('لاستیک')) {
-                return false;
-            }
 
             // Support item-specific reports
             if (selectedProductForReport && selectedProductForReport !== 'all') {
@@ -4345,7 +4339,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         } else if (activeTab === 'prodReturns') {
             fetchProdReturns();
         }
-    }, [activeTab, dateFrom, dateTo, trazCategory, compareMode, salesDateFromB, salesDateToB, prodGrouping]);
+    }, [activeTab, dateFrom, dateTo, trazCategory, compareMode, salesDateFromB, salesDateToB, prodGrouping, prodReturnsOpFilter]);
 
     // Sales calculations
     const stats = getSalesOverviewStats();
@@ -7247,14 +7241,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             const rawName = (item.ItemName || '').trim();
                             const resolvedName = resolveProdItemName(code, rawName);
                             
-                            // Exclude Lycra (0105) and Rubber (0104) and related keywords from unique product options
-                            if (code.startsWith('0104') || code.startsWith('0105') || 
-                                rawName.toLowerCase().includes('لاکرا') || rawName.toLowerCase().includes('لاستیک') || 
-                                rawName.toLowerCase().includes('lycra') || rawName.toLowerCase().includes('rubber') ||
-                                resolvedName.toLowerCase().includes('لاکرا') || resolvedName.toLowerCase().includes('لاستیک')) {
-                                return map;
-                            }
-                            
                             const key = `${code}_${resolvedName}`;
                             if (!map.has(key)) {
                                 map.set(key, { code, name: resolvedName });
@@ -7382,7 +7368,27 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             {/* Search and Quick Filters */}
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50 dark:bg-zinc-950/30 p-4 rounded-xl border border-slate-100 dark:border-zinc-800/50">
                                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                                    <div className="relative w-full sm:w-72">
+                                    {/* Operation Code Selector Dropdown */}
+                                    <div className="w-full sm:w-60 flex items-center gap-1.5">
+                                        <span className="text-[11px] font-black text-slate-500 whitespace-nowrap">نوع عملیات:</span>
+                                        <select
+                                            value={prodReturnsOpFilter}
+                                            onChange={e => {
+                                                const val = e.target.value as any;
+                                                setProdReturnsOpFilter(val);
+                                                fetchProdReturns(val);
+                                            }}
+                                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        >
+                                            <option value="all_returns">📋 همه اسناد برگشتی (۴۴، ۴۲، ۲۴، ۱۳)</option>
+                                            <option value="44">↩️ کد ۴۴: رسید برگشت از تولید</option>
+                                            <option value="42">🔄 کد ۴۲: برگشت از مصرف</option>
+                                            <option value="24">📦 کد ۲۴: برگشت انبار / انتقال</option>
+                                            <option value="13">🏷️ کد ۱۳: حواله برگشت از فروش</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="relative w-full sm:w-64">
                                         <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
                                         <input
                                             type="text"
@@ -7402,7 +7408,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     </div>
 
                                     {/* Product Specific Filter Dropdown */}
-                                    <div className="w-full sm:w-80 flex items-center gap-1.5">
+                                    <div className="w-full sm:w-72 flex items-center gap-1.5">
                                         <span className="text-[11px] font-black text-slate-500 whitespace-nowrap">فیلتر کالا:</span>
                                         <select
                                             value={selectedProductForReport}
@@ -7461,13 +7467,43 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             {isFetchingProdReturns ? (
                                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                                     <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-                                    <span className="text-xs text-slate-500 font-bold">در حال استخراج رسیدهای برگشت از تولید از دیتابیس سایان...</span>
+                                    <span className="text-xs text-slate-500 font-bold">در حال استخراج رسیدهای برگشتی از دیتابیس سایان...</span>
                                 </div>
                             ) : filteredRaw.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50/50 dark:bg-zinc-950/10">
+                                <div className="flex flex-col items-center justify-center py-12 px-4 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50/50 dark:bg-zinc-950/10">
                                     <Undo2 className="w-12 h-12 text-slate-300 dark:text-zinc-700 mb-3" />
                                     <h3 className="text-sm font-extrabold text-slate-700 dark:text-zinc-300">هیچ رسیدی در بازه زمانی تعیین‌شده یافت نشد</h3>
-                                    <p className="text-xs text-slate-400 mt-1 max-w-md">لطفاً بازه زمانی تاریخ فیلتر بالای صفحه را بررسی کنید یا کلید بروزرسانی را کلیک نمایید.</p>
+                                    <p className="text-xs text-slate-400 mt-1 max-w-md">
+                                        در بازه انتخابی ({dateFrom} تا {dateTo}) با فیلتر فعلی سندی ثبت نشده است. برای جستجوی گسترده‌تر یا بارگذاری مجدد، از دکمه‌های زیر استفاده کنید:
+                                    </p>
+                                    <div className="flex flex-wrap items-center justify-center gap-2.5 mt-4">
+                                        <button
+                                            onClick={() => fetchProdReturns()}
+                                            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm shadow-indigo-600/20 cursor-pointer"
+                                        >
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                            <span>بروزرسانی مجدد از سایان</span>
+                                        </button>
+                                        {prodReturnsOpFilter !== 'all_returns' && (
+                                            <button
+                                                onClick={() => {
+                                                    setProdReturnsOpFilter('all_returns');
+                                                    fetchProdReturns('all_returns');
+                                                }}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                            >
+                                                <span>نمایش همه کدهای برگشتی (۴۴، ۴۲، ۲۴، ۱۳)</span>
+                                            </button>
+                                        )}
+                                        {prodReturnsSearch && (
+                                            <button
+                                                onClick={() => setProdReturnsSearch('')}
+                                                className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                            >
+                                                پاک کردن متن جستجو
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 prodReturnsGrouping === 'archive' ? (
