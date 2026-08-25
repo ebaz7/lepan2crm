@@ -1074,7 +1074,7 @@ export const WarehouseOverviewTab: React.FC = () => {
         const list: Array<{
             code: string;
             name: string;
-            category: 'factory' | 'raw';
+            category: 'factory' | 'raw' | 'transit' | 'customs' | 'purchasing' | 'commercial';
             categoryLabel: string;
             lastYearWeight: number;
             currentWeight: number;
@@ -1121,8 +1121,84 @@ export const WarehouseOverviewTab: React.FC = () => {
             });
         });
 
+        // Add Goods In Transit (بارهای در راه)
+        goodsInTransit.forEach((item, idx) => {
+            const wCurr = parseFloat(String(item.weight || 0)) || 0;
+            const wLast = 0; // Current pipeline cargo
+            const diff = wCurr - wLast;
+            const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: item.proforma ? `TR-${item.proforma}` : `TR-${idx + 1}`,
+                name: `${item.cargoType || 'بار در راه'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                category: 'transit',
+                categoryLabel: 'بارهای در راه (کانتینری)',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
+        // Add Goods In Customs (بارهای در گمرک)
+        goodsInCustoms.forEach((item, idx) => {
+            const wCurr = parseFloat(String(item.weight || 0)) || 0;
+            const wLast = 0; // Current pipeline cargo
+            const diff = wCurr - wLast;
+            const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: item.proforma ? `CUST-${item.proforma}` : `CUST-${idx + 1}`,
+                name: `${item.cargoType || 'بار در گمرک'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                category: 'customs',
+                categoryLabel: 'بارهای در گمرک',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
+        // Add Purchasing Goods (بارهای در حال خرید)
+        purchasingGoods.forEach((item, idx) => {
+            const wCurr = parseFloat(String(item.weight || 0)) || 0;
+            const wLast = 0; // Current pipeline cargo
+            const diff = wCurr - wLast;
+            const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: item.proforma ? `PUR-${item.proforma}` : `PUR-${idx + 1}`,
+                name: `${item.cargoType || 'بار در حال خرید'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                category: 'purchasing',
+                categoryLabel: 'بارهای در حال خرید',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
+        // Add Commercial Warehouse Goods (کالای تجاری / متفرقه)
+        commercialGoods.forEach((item, idx) => {
+            const wCurr = parseFloat(String(item.weight || 0)) || 0;
+            const wLast = 0;
+            const diff = wCurr - wLast;
+            const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+            list.push({
+                code: `COM-${idx + 1}`,
+                name: `${item.itemName || 'کالای تجاری'}${item.category ? ` (${item.category})` : ''}`,
+                category: 'commercial',
+                categoryLabel: 'کالای تجاری / متفرقه',
+                lastYearWeight: wLast,
+                currentWeight: wCurr,
+                diffWeight: diff,
+                ratio,
+                isNegative: diff < 0 || wCurr < 0
+            });
+        });
+
         return list;
-    }, [alignedYarns, alignedImported, lastYearOverrides, currentOverrides, sayanLastYear, sayanCurrent]);
+    }, [alignedYarns, alignedImported, goodsInTransit, goodsInCustoms, purchasingGoods, commercialGoods, lastYearOverrides, currentOverrides, sayanLastYear, sayanCurrent]);
 
     // Negative Items (کالاهای منفی / دارای کاهش وزنی یا موجودی منفی)
     const negativeItems = useMemo(() => {

@@ -2878,7 +2878,7 @@ export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
         const curr = parseFloat(item.currentWeight) || 0;
         const diff = parseFloat(item.diffWeight) || (curr - last);
         const ratio = parseFloat(item.ratio) || (last ? (diff / last) * 100 : 0);
-        const cat = item.category === 'factory' ? '🧵 تولید کارخانه' : '📦 مواد اولیه / وارداتی';
+        const cat = item.categoryLabel || (item.category === 'factory' ? '🧵 تولید کارخانه' : '📦 مواد اولیه / وارداتی');
 
         return `
           <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#fff1f2'}; font-size: 8.5pt;">
@@ -2911,7 +2911,7 @@ export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
         const curr = parseFloat(item.currentWeight) || 0;
         const diff = parseFloat(item.diffWeight) || (curr - last);
         const ratio = parseFloat(item.ratio) || (last ? (diff / last) * 100 : 0);
-        const cat = item.category === 'factory' ? '🧵 تولید کارخانه' : '📦 مواد اولیه / وارداتی';
+        const cat = item.categoryLabel || (item.category === 'factory' ? '🧵 تولید کارخانه' : '📦 مواد اولیه / وارداتی');
 
         return `
           <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f0fdf4'}; font-size: 8.5pt;">

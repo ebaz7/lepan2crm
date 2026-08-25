@@ -7775,6 +7775,82 @@ async function executeReportJob(job) {
                     });
                 });
 
+                // Add Goods In Transit
+                goodsInTransit.forEach((item, idx) => {
+                    const wCurr = parseFloat(item.weight || 0) || 0;
+                    const wLast = 0;
+                    const diff = wCurr - wLast;
+                    const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: item.proforma ? `TR-${item.proforma}` : `TR-${idx + 1}`,
+                        name: `${item.cargoType || 'بار در راه'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                        category: 'transit',
+                        categoryLabel: 'بارهای در راه (کانتینری)',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
+                // Add Goods In Customs
+                goodsInCustoms.forEach((item, idx) => {
+                    const wCurr = parseFloat(item.weight || 0) || 0;
+                    const wLast = 0;
+                    const diff = wCurr - wLast;
+                    const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: item.proforma ? `CUST-${item.proforma}` : `CUST-${idx + 1}`,
+                        name: `${item.cargoType || 'بار در گمرک'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                        category: 'customs',
+                        categoryLabel: 'بارهای در گمرک',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
+                // Add Purchasing Goods
+                purchasingGoods.forEach((item, idx) => {
+                    const wCurr = parseFloat(item.weight || 0) || 0;
+                    const wLast = 0;
+                    const diff = wCurr - wLast;
+                    const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: item.proforma ? `PUR-${item.proforma}` : `PUR-${idx + 1}`,
+                        name: `${item.cargoType || 'بار در حال خرید'}${item.proforma ? ` (${item.proforma})` : ''}`,
+                        category: 'purchasing',
+                        categoryLabel: 'بارهای در حال خرید',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
+                // Add Commercial Goods
+                commercialGoods.forEach((item, idx) => {
+                    const wCurr = parseFloat(item.weight || 0) || 0;
+                    const wLast = 0;
+                    const diff = wCurr - wLast;
+                    const ratio = wCurr > 0 ? 100 : (wCurr < 0 ? -100 : 0);
+                    allComparedItems.push({
+                        code: `COM-${idx + 1}`,
+                        name: `${item.itemName || 'کالای تجاری'}${item.category ? ` (${item.category})` : ''}`,
+                        category: 'commercial',
+                        categoryLabel: 'کالای تجاری / متفرقه',
+                        lastYearWeight: wLast,
+                        currentWeight: wCurr,
+                        diffWeight: diff,
+                        ratio,
+                        isNegative: diff < 0 || wCurr < 0
+                    });
+                });
+
                 const negativeItems = allComparedItems
                     .filter(item => item.isNegative)
                     .sort((a, b) => a.diffWeight - b.diffWeight);
@@ -7913,7 +7989,7 @@ async function executeReportJob(job) {
                             const num = fNum(idx + 1, 0);
                             const diff = parseFloat(item.diffWeight) || 0;
                             const ratio = parseFloat(item.ratio) || 0;
-                            const catLabel = item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی';
+                            const catLabel = item.categoryLabel || (item.category === 'factory' ? '🧵 تولیدی' : '📦 مواد اولیه / وارداتی');
                             
                             msg += `${num}. *${item.name}* ${item.code ? `(${item.code})` : ''} - ${catLabel}\n`;
                             msg += `   🔻 افت وزنی: *${fNum(diff)} kg* (${fNum(ratio, 1)}%)\n`;
