@@ -93,9 +93,18 @@ const fontFaceRule = fontBase64
   ? `@font-face { font-family: 'Vazirmatn'; src: url(data:font/woff2;base64,${fontBase64}) format('woff2'); font-weight: normal; font-style: normal; }`
   : `/* No Local Font Found */`;
 
-// --- SYSTEM CHROME DETECTION (WINDOWS) ---
+// --- SYSTEM CHROME DETECTION (WINDOWS & LINUX) ---
 const findSystemChrome = () => {
   const commonPaths = [
+    // Linux / Docker paths
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/snap/bin/chromium",
+    "/usr/local/bin/chrome",
+    "/usr/local/bin/chromium",
+    // Windows paths
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
     "C:\\Users\\" +
@@ -159,6 +168,8 @@ const getBrowser = async () => {
           "--mute-audio",
           "--no-first-run",
           "--safebrowsing-disable-auto-update",
+          "--no-zygote",
+          "--single-process",
         ],
         timeout: 60000,
       };
@@ -3208,11 +3219,17 @@ export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
     </html>
     `;
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    try {
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    } catch (loadErr) {
+      console.warn("[Renderer] setContent domcontentloaded timeout, setting directly:", loadErr.message);
+      await page.setContent(html);
+    }
     const pdf = await page.pdf({
       format: 'A4',
       portrait: true,
       printBackground: true,
+      preferCSSPageSize: true,
       margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
     });
     return pdf;
