@@ -157,6 +157,36 @@ const poll = async () => {
                 };
 
                 try {
+                    if (u.message && (u.message.voice || u.message.audio)) {
+                        const chatId = u.message.chat.id;
+                        const fileId = u.message.voice?.file_id || u.message.audio?.file_id;
+                        const mimeType = u.message.voice?.mime_type || u.message.audio?.mime_type || 'audio/ogg';
+
+                        try {
+                            const fileInfo = await callApi('getFile', { file_id: fileId });
+                            if (fileInfo && fileInfo.ok && fileInfo.result && fileInfo.result.file_path) {
+                                const fileUrl = `https://tapi.bale.ai/file/bot${botToken}/${fileInfo.result.file_path}`;
+                                const response = await fetch(fileUrl);
+                                const arrayBuffer = await response.arrayBuffer();
+                                const audioBuffer = Buffer.from(arrayBuffer);
+
+                                const aiModule = await import('./ai-service.js');
+                                const result = await aiModule.processVoiceAudio(audioBuffer, mimeType);
+
+                                let replyContent = `🎙️ *متن پیام صوتی شما:*\n«_${result.transcription}_»\n\n🤖 *پاسخ هوش مصنوعی ERP:*\n${result.replyText}`;
+                                await sendFn(chatId, replyContent, { parse_mode: 'Markdown' });
+
+                                if (BotCore.sessions[chatId] && BotCore.sessions[chatId].state !== 'IDLE' && result.transcription) {
+                                    await BotCore.handleMessage('bale', chatId, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, u.message.from?.id || chatId, u.message);
+                                }
+                            }
+                        } catch (voiceErr) {
+                            console.error("[Bale Voice Processing Error]:", voiceErr.message);
+                            sendFn(chatId, `🎙️ پیام صوتی دریافت شد، اما در پردازش با هوش مصنوعی خطایی رخ داد: ${voiceErr.message}`);
+                        }
+                        continue;
+                    }
+
                     if (u.message && u.message.text) {
                         const text = u.message.text;
                         const chatId = u.message.chat.id;

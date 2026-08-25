@@ -2032,6 +2032,28 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
         
         if (text === '/start' || text === 'شروع' || text === 'منو') return; // Handled above helper logic
 
+        // AI Agent Intelligence Fallback
+        if (text && text.trim().length > 1 && !text.startsWith('/')) {
+            try {
+                const aiModule = await import('./ai-service.js');
+                const aiRes = await aiModule.askAiAssistant({
+                    message: text,
+                    contextData: { platform, chatId, senderId, userName: user?.fullName || 'کاربر سیستم' }
+                });
+                if (aiRes && aiRes.reply) {
+                    return sendFn(chatId, `🤖 *پاسخ هوش مصنوعی ERP:*\n\n${aiRes.reply}`, {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🏠 منوی اصلی', callback_data: 'MAIN_MENU' }]
+                            ]
+                        }
+                    });
+                }
+            } catch (aiErr) {
+                console.error("[Bot AI Fallback Error]:", aiErr.message);
+            }
+        }
+
         if (isGroup) return;
         return sendFn(chatId, `امکانات ربات: لطفا /start را بزنید.`);
     }

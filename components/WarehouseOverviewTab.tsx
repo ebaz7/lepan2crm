@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { TradeStage } from '../types';
 import { buildWarehouseOverviewPrintHtml } from '../utils/warehouseOverviewPrintHtml';
+import { AiWarehouseAdvisorModal } from './AiWarehouseAdvisorModal';
 
 interface WarehouseItem {
     id?: string;
@@ -66,6 +67,7 @@ export const WarehouseOverviewTab: React.FC = () => {
     // PDF Direct Download States
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const [pdfScopeMenuOpen, setPdfScopeMenuOpen] = useState(false);
+    const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
 
     // Variance Filter State
     const [varianceFilter, setVarianceFilter] = useState<'all' | 'negative' | 'positive'>('all');
@@ -1845,6 +1847,17 @@ export const WarehouseOverviewTab: React.FC = () => {
                             )}
                         </div>
 
+                        {/* AI Strategic Warehouse Advisor */}
+                        <button
+                            type="button"
+                            onClick={() => setIsAiAdvisorOpen(true)}
+                            className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-xl px-3.5 py-2 text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 cursor-pointer"
+                            title="مشاور استراتژیک هوش مصنوعی انبار و زنجیره تامین"
+                        >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                            <span>تحلیل هوشمند انبار (AI)</span>
+                        </button>
+
                         {/* Bot Modal Trigger */}
                         {negativeItems.length > 0 ? (
                             <button
@@ -3535,6 +3548,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>,
                 document.body
             )}
+
+            {/* AI Warehouse Strategic Advisor Modal */}
+            <AiWarehouseAdvisorModal
+                isOpen={isAiAdvisorOpen}
+                onClose={() => setIsAiAdvisorOpen(false)}
+                warehouseData={getExportDataset()}
+                report1Label={report1Label}
+                report2Label={report2Label}
+                reportDate={reportDate}
+            />
 
         </div>
     );

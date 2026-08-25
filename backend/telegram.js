@@ -82,6 +82,35 @@ export const initTelegram = async (token) => {
 
         bot.on('message', async (msg) => {
             try {
+                // Support Voice / Audio Messages
+                if (msg.voice || msg.audio) {
+                    const fileId = msg.voice?.file_id || msg.audio?.file_id;
+                    const mimeType = msg.voice?.mime_type || msg.audio?.mime_type || 'audio/ogg';
+                    
+                    try {
+                        await bot.sendChatAction(msg.chat.id, 'record_voice').catch(() => {});
+                        const fileLink = await bot.getFileLink(fileId);
+                        const response = await fetch(fileLink);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const audioBuffer = Buffer.from(arrayBuffer);
+
+                        const aiModule = await import('./ai-service.js');
+                        const result = await aiModule.processVoiceAudio(audioBuffer, mimeType);
+
+                        let replyContent = `🎙️ *متن پیام صوتی شما:*\n«_${result.transcription}_»\n\n🤖 *پاسخ هوش مصنوعی ERP:*\n${result.replyText}`;
+                        await sendFn(msg.chat.id, replyContent, { parse_mode: 'Markdown' });
+
+                        // If user has a pending text session, also pipe the transcription
+                        if (BotCore.sessions[msg.chat.id] && BotCore.sessions[msg.chat.id].state !== 'IDLE' && result.transcription) {
+                            await BotCore.handleMessage('telegram', msg.chat.id, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, msg.from.id, msg);
+                        }
+                        return;
+                    } catch (voiceErr) {
+                        console.error("[Telegram Voice Processing Error]:", voiceErr.message);
+                        return sendFn(msg.chat.id, `🎙️ پیام صوتی دریافت شد، اما در پردازش هوش مصنوعی خطایی رخ داد: ${voiceErr.message}`);
+                    }
+                }
+
                 if (!msg.text) return;
                 
                 // Allow /id command in groups

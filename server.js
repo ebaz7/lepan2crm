@@ -859,6 +859,80 @@ app.post('/api/sayan/cheques-report/send', async (req, res) => {
     }
 });
 
+// ==========================================
+// AI AGENT & STRATEGIC ANALYTICS ENDPOINTS
+// ==========================================
+app.post('/api/ai/chat', async (req, res) => {
+    try {
+        const { message, contextData, history } = req.body;
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'پیام ارسال نشده است.' });
+        }
+        const aiModule = await import('./backend/ai-service.js');
+        const response = await aiModule.askAiAssistant({ message, contextData, history });
+        res.json(response);
+    } catch (err) {
+        console.error("AI Chat Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در پردازش هوش مصنوعی' });
+    }
+});
+
+app.post('/api/ai/voice-command', async (req, res) => {
+    try {
+        const { audioBase64, mimeType } = req.body;
+        if (!audioBase64) {
+            return res.status(400).json({ error: 'داده صوتی ارسال نشده است.' });
+        }
+        const buffer = Buffer.from(audioBase64, 'base64');
+        const aiModule = await import('./backend/ai-service.js');
+        const result = await aiModule.processVoiceAudio(buffer, mimeType || 'audio/webm');
+        res.json(result);
+    } catch (err) {
+        console.error("AI Voice Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در پردازش صوت' });
+    }
+});
+
+app.post('/api/ai/warehouse-analysis', async (req, res) => {
+    try {
+        const warehousePayload = req.body;
+        const aiModule = await import('./backend/ai-service.js');
+        const result = await aiModule.generateWarehouseStrategicAnalysis(warehousePayload);
+        res.json(result);
+    } catch (err) {
+        console.error("AI Warehouse Analysis Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در تحلیل انبار' });
+    }
+});
+
+app.post('/api/ai/sales-analysis', async (req, res) => {
+    try {
+        const salesPayload = req.body;
+        const aiModule = await import('./backend/ai-service.js');
+        const result = await aiModule.generateSalesStrategicAnalysis(salesPayload);
+        res.json(result);
+    } catch (err) {
+        console.error("AI Sales Analysis Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در تحلیل فروش' });
+    }
+});
+
+app.post('/api/ai/scan-document', async (req, res) => {
+    try {
+        const { imageBase64, mimeType } = req.body;
+        if (!imageBase64) {
+            return res.status(400).json({ error: 'تصویر سند ارسال نشده است.' });
+        }
+        const buffer = Buffer.from(imageBase64, 'base64');
+        const aiModule = await import('./backend/ai-service.js');
+        const result = await aiModule.scanDocumentWithAi(buffer, mimeType || 'image/jpeg');
+        res.json(result);
+    } catch (err) {
+        console.error("AI Document Scan Error:", err);
+        res.status(500).json({ error: err.message || 'خطا در اسکن هوشمند سند' });
+    }
+});
+
 
 app.post('/api/sayan/sales-report/send-compare', async (req, res) => {
     try {

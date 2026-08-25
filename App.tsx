@@ -27,6 +27,8 @@ import SayanReports from './components/SayanReports';
 import SecretariatModule from './components/SecretariatModule';
 import { ChequeReceiptModule } from './components/ChequeReceiptModule';
 import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
+import { AiExecutiveCopilot } from './components/AiExecutiveCopilot';
+import { AiDocumentScannerModal } from './components/AiDocumentScannerModal';
 import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements, getGroups, getTaskGroups } from './services/storageService'; 
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
 import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup } from './types';
@@ -47,6 +49,7 @@ function App() {
   const [activeTab, setActiveTabState] = useState('dashboard');
   const [tabHistory, setTabHistory] = useState<string[]>(['dashboard']);
   const [directChatTarget, setDirectChatTarget] = useState<{ type: 'private' | 'group' | 'public' | 'task_group', id: string, taskId?: string } | null>(null);
+  const [showAiScannerModal, setShowAiScannerModal] = useState(false);
 
   const activeTabRef = useRef(activeTab);
   const tabHistoryRef = useRef(tabHistory);
@@ -1454,6 +1457,22 @@ function App() {
                 isDarkMode={isDarkMode}
                 onToggleDarkMode={handleToggleDarkMode}
             />
+
+            {/* AI Voice Assistant & Executive Copilot Widget */}
+            {currentUser && (
+                <>
+                    <AiExecutiveCopilot
+                        currentUser={currentUser}
+                        onOpenScanner={() => setShowAiScannerModal(true)}
+                        onOpenWarehouseAdvisor={() => setActiveTab('sayan')}
+                        onOpenSalesAdvisor={() => setActiveTab('sayan')}
+                    />
+                    <AiDocumentScannerModal
+                        isOpen={showAiScannerModal}
+                        onClose={() => setShowAiScannerModal(false)}
+                    />
+                </>
+            )}
             </Layout>
         )}
     </>

@@ -67,6 +67,7 @@ import { getRolePermissions } from '../services/authService';
 import SayanSalesDashboard from './sales/SayanSalesDashboard';
 import SayanRemittancesTab from './SayanRemittancesTab';
 import WarehouseOverviewTab from './WarehouseOverviewTab';
+import { AiSalesAdvisorModal } from './AiSalesAdvisorModal';
 import { UserRole } from '../types';
 import { getServerHost } from '../services/apiService';
 
@@ -148,6 +149,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [compareSalesDataA, setCompareSalesDataA] = useState<any[]>([]);
     const [compareSalesDataB, setCompareSalesDataB] = useState<any[]>([]);
     const [isSendingSalesBot, setIsSendingSalesBot] = useState(false);
+    const [isAiSalesAdvisorOpen, setIsAiSalesAdvisorOpen] = useState(false);
 
     // --- TAB 4: PRODUCTION STATE ---
     const [prodLiveItems, setProdLiveItems] = useState<any[]>([]);
@@ -4900,6 +4902,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 </button>
 
                                 <button 
+                                    type="button"
+                                    onClick={() => setIsAiSalesAdvisorOpen(true)}
+                                    className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold py-2 px-4 rounded-lg text-xs transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95"
+                                    title="مشاور هوش مصنوعی تحلیل فروش، وصول مطالبات و پیش‌بینی تقاضا"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوشمند فروش (AI)</span>
+                                </button>
+
+                                <button 
                                     onClick={() => handleSendSalesBotReport('current')}
                                     disabled={isSendingSalesBot}
                                     className="flex items-center gap-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-2 px-4 rounded-lg text-xs transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50"
@@ -8720,6 +8732,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     </div>
                 </div>
             )}
+            {/* AI Sales Strategic Advisor Modal */}
+            <AiSalesAdvisorModal
+                isOpen={isAiSalesAdvisorOpen}
+                onClose={() => setIsAiSalesAdvisorOpen(false)}
+                salesData={{
+                    salesData,
+                    dateFrom,
+                    dateTo,
+                    compareMode,
+                    compareSalesDataA,
+                    compareSalesDataB,
+                    salesDateFromB,
+                    salesDateToB
+                }}
+            />
         </div>
     );
 }
