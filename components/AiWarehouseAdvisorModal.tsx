@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
     Sparkles, 
@@ -49,9 +49,126 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
     
     // Bot dispatch state
     const [isBotPanelOpen, setIsBotPanelOpen] = useState(false);
-    const [destinationType, setDestinationType] = useState<'group' | 'person' | 'both'>('group');
-    const [selectedPlatforms, setSelectedPlatforms] = useState<('telegram' | 'bale')[]>(['telegram', 'bale']);
     const [isSendingBot, setIsSendingBot] = useState(false);
+    const [settings, setSettings] = useState<any>(null);
+    const [useDefaultGroup, setUseDefaultGroup] = useState(true);
+    const [useDefaultPerson, setUseDefaultPerson] = useState(true);
+    const [selectedSavedContacts, setSelectedSavedContacts] = useState<string[]>([]);
+    const [customTelegramIds, setCustomTelegramIds] = useState('');
+    const [customBaleIds, setCustomBaleIds] = useState('');
+    const [platforms, setPlatforms] = useState<('telegram' | 'bale')[]>(['telegram', 'bale']);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetch('/api/settings')
+                .then(res => res.json())
+                .then(data => setSettings(data))
+                .catch(err => console.error("Error fetching settings:", err));
+        }
+    }, [isOpen]);
+
+    const getFinalTargets = () => {
+        const targets: { platform: 'telegram' | 'bale'; id: string; name: string }[] = [];
+        
+        // 1. Default Groups
+        if (useDefaultGroup && settings) {
+            if (platforms.includes('telegram')) {
+                const tgGroupIds = [
+                    settings.warehouseTelegramGroupId,
+                    settings.warehouseTelegramGroupIds,
+                    settings.warehouseGroupId,
+                    settings.defaultWarehouseGroup
+                ].filter(Boolean);
+                tgGroupIds.forEach(id => {
+                    const strId = String(id).trim();
+                    if (strId && !targets.some(t => t.platform === 'telegram' && t.id === strId)) {
+                        targets.push({ platform: 'telegram', id: strId, name: 'گروه پیش‌فرض تلگرام انبار' });
+                    }
+                });
+            }
+            if (platforms.includes('bale')) {
+                const baleGroupIds = [
+                    settings.warehouseBaleGroupId,
+                    settings.warehouseBaleGroupIds
+                ].filter(Boolean);
+                baleGroupIds.forEach(id => {
+                    const strId = String(id).trim();
+                    if (strId && !targets.some(t => t.platform === 'bale' && t.id === strId)) {
+                        targets.push({ platform: 'bale', id: strId, name: 'گروه پیش‌فرض بله انبار' });
+                    }
+                });
+            }
+        }
+
+        // 2. Default Persons (Management)
+        if (useDefaultPerson && settings) {
+            if (platforms.includes('telegram') && settings.telegramChatId) {
+                const chatIds = String(settings.telegramChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                chatIds.forEach(id => {
+                    if (id && !targets.some(t => t.platform === 'telegram' && t.id === id)) {
+                        targets.push({ platform: 'telegram', id, name: 'شخص مدیریت (تلگرام)' });
+                    }
+                });
+            }
+            if (platforms.includes('bale') && settings.baleChatId) {
+                const chatIds = String(settings.baleChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                chatIds.forEach(id => {
+                    if (id && !targets.some(t => t.platform === 'bale' && t.id === id)) {
+                        targets.push({ platform: 'bale', id, name: 'شخص مدیریت (بله)' });
+                    }
+                });
+            }
+        }
+
+        // 3. Saved Contacts
+        if (settings?.savedContacts && Array.isArray(settings.savedContacts)) {
+            settings.savedContacts.forEach((contact: any) => {
+                if (selectedSavedContacts.includes(contact.id || contact.number)) {
+                    if (platforms.includes('telegram') && contact.telegramId) {
+                        const strId = String(contact.telegramId).trim();
+                        if (strId && !targets.some(t => t.platform === 'telegram' && t.id === strId)) {
+                            targets.push({ platform: 'telegram', id: strId, name: contact.name });
+                        }
+                    }
+                    if (platforms.includes('bale') && contact.baleId) {
+                        const strId = String(contact.baleId).trim();
+                        if (strId && !targets.some(t => t.platform === 'bale' && t.id === strId)) {
+                            targets.push({ platform: 'bale', id: strId, name: contact.name });
+                        }
+                    }
+                    if (contact.number) {
+                        const strId = String(contact.number).trim();
+                        if (strId && !strId.startsWith('+') && strId.length > 5) {
+                            const platform = contact.platform || (platforms.includes('telegram') ? 'telegram' : 'bale');
+                            if (platforms.includes(platform) && !targets.some(t => t.platform === platform && t.id === strId)) {
+                                targets.push({ platform: platform as any, id: strId, name: contact.name });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 4. Custom manually typed IDs
+        if (customTelegramIds && platforms.includes('telegram')) {
+            const rawIds = customTelegramIds.split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            rawIds.forEach(id => {
+                if (id && !targets.some(t => t.platform === 'telegram' && t.id === id)) {
+                    targets.push({ platform: 'telegram', id, name: `آیدی دستی تلگرام: ${id}` });
+                }
+            });
+        }
+        if (customBaleIds && platforms.includes('bale')) {
+            const rawIds = customBaleIds.split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+            rawIds.forEach(id => {
+                if (id && !targets.some(t => t.platform === 'bale' && t.id === id)) {
+                    targets.push({ platform: 'bale', id, name: `آیدی دستی بله: ${id}` });
+                }
+            });
+        }
+
+        return targets;
+    };
 
     const handleRunAnalysis = async () => {
         setIsLoading(true);
@@ -93,6 +210,13 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
             toast.error('داده‌ای برای ارسال وجود ندارد. ابتدا تحلیل را اجرا کنید.');
             return;
         }
+        
+        const finalTargets = getFinalTargets();
+        if (finalTargets.length === 0) {
+            toast.error('لطفاً حداقل یک مقصد (گروه، شخص یا آیدی سفارشی) جهت ارسال انتخاب نمایید.');
+            return;
+        }
+
         setIsSendingBot(true);
         try {
             const res = await fetch('/api/warehouse-overview/send-ai-advisor-report', {
@@ -100,12 +224,12 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     analysisResult,
-                    destinationType,
-                    platforms: selectedPlatforms,
+                    platforms,
                     reportDate,
                     report1Label,
                     report2Label,
-                    signature: 'مشاور استراتژیک هوش مصنوعی سایان'
+                    signature: 'مشاور استراتژیک هوش مصنوعی سایان',
+                    customTargets: finalTargets
                 })
             });
 
@@ -145,8 +269,8 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
     };
 
     return createPortal(
-        <div id="ai-advisor-modal-print-area" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animation-fade-in" dir="rtl">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-5xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div id="ai-advisor-modal-print-area" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animation-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }} dir="rtl">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-5xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden relative z-[99999]">
                 
                 {/* Header */}
                 <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white no-print">
@@ -281,104 +405,193 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
 
                 {/* Bot Dispatch Options Panel */}
                 {isBotPanelOpen && analysisResult && (
-                    <div className="px-5 py-4 bg-indigo-50/70 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print transition-all animate-fade-in">
-                        <div className="space-y-1">
-                            <h4 className="text-xs font-bold text-indigo-950 dark:text-indigo-300 flex items-center gap-1.5">
-                                <Send className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                <span>تنظیمات و مقصد ارسال گزارش به پیام‌رسان‌ها</span>
-                            </h4>
-                            <p className="text-[10px] text-indigo-800/80 dark:text-indigo-400/80 font-medium">
-                                گزارش ارزیابی هوش مصنوعی به همراه فایل PDF رسمی دو صفحه‌ای به مقاصد انتخاب شده زیر ارسال خواهد شد.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-4">
-                            {/* Destination Select */}
-                            <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 border border-indigo-200/50 dark:border-zinc-700 p-1 rounded-xl text-xs">
-                                <button
-                                    type="button"
-                                    onClick={() => setDestinationType('group')}
-                                    className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                        destinationType === 'group'
-                                            ? 'bg-indigo-600 text-white shadow-xs'
-                                            : 'text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
-                                    }`}
-                                >
-                                    <Users className="w-3.5 h-3.5" />
-                                    <span>به گروه انبار</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setDestinationType('person')}
-                                    className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                        destinationType === 'person'
-                                            ? 'bg-indigo-600 text-white shadow-xs'
-                                            : 'text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
-                                    }`}
-                                >
-                                    <User className="w-3.5 h-3.5" />
-                                    <span>به شخص (مدیریت)</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setDestinationType('both')}
-                                    className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1 ${
-                                        destinationType === 'both'
-                                            ? 'bg-indigo-600 text-white shadow-xs'
-                                            : 'text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
-                                    }`}
-                                >
-                                    <span>به هردو مقصد</span>
-                                </button>
+                    <div className="px-5 py-5 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700/60 flex flex-col gap-5 no-print transition-all animate-fade-in text-slate-800 dark:text-zinc-200">
+                        {/* Header & General Config */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-zinc-700/40 pb-4">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                                    <Send className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+                                    <span>تنظیمات پیشرفته و ارسال هوشمند گزارش به بات‌ها</span>
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                                    تعیین دقیق گروه‌ها، اشخاص و مخاطبان دلخواه برای ارسال فایل PDF رسمی و گزارش هوش مصنوعی.
+                                </p>
                             </div>
 
-                            {/* Platform Select */}
-                            <div className="flex items-center gap-3 text-xs bg-white dark:bg-zinc-800 border border-indigo-200/50 dark:border-zinc-700 p-2 rounded-xl">
-                                <label className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300 cursor-pointer">
+                            {/* Platform selector checkboxes */}
+                            <div className="flex items-center gap-4 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-2.5 rounded-xl shrink-0">
+                                <span className="font-bold text-slate-500 dark:text-zinc-400 ml-1">بسترهای فعال:</span>
+                                <label className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-200 cursor-pointer">
                                     <input
                                         type="checkbox"
-                                        checked={selectedPlatforms.includes('telegram')}
+                                        checked={platforms.includes('telegram')}
                                         onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedPlatforms([...selectedPlatforms, 'telegram']);
-                                            } else {
-                                                setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'telegram'));
-                                            }
+                                            if (e.target.checked) setPlatforms([...platforms, 'telegram']);
+                                            else setPlatforms(platforms.filter(p => p !== 'telegram'));
                                         }}
-                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <span>تلگرام</span>
                                 </label>
-                                <label className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300 cursor-pointer">
+                                <label className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-200 cursor-pointer">
                                     <input
                                         type="checkbox"
-                                        checked={selectedPlatforms.includes('bale')}
+                                        checked={platforms.includes('bale')}
                                         onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedPlatforms([...selectedPlatforms, 'bale']);
-                                            } else {
-                                                setSelectedPlatforms(selectedPlatforms.filter(p => p !== 'bale'));
-                                            }
+                                            if (e.target.checked) setPlatforms([...platforms, 'bale']);
+                                            else setPlatforms(platforms.filter(p => p !== 'bale'));
                                         }}
-                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <span>بله</span>
                                 </label>
                             </div>
+                        </div>
 
-                            {/* Submit Button */}
+                        {/* Middle Settings: Defaults vs Custom Overrides */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
+                            {/* Left Col: System Defaults (lg:col-span-4) */}
+                            <div className="lg:col-span-4 space-y-3">
+                                <span className="font-extrabold text-slate-600 dark:text-zinc-400 block mb-1">گیرندگان پیش‌فرض سیستم:</span>
+                                
+                                {/* Default Group Toggle Card */}
+                                <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2">
+                                    <label className="flex items-center gap-2 font-black text-slate-800 dark:text-zinc-200 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={useDefaultGroup}
+                                            onChange={(e) => setUseDefaultGroup(e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600"
+                                        />
+                                        <span>ارسال به گروه‌های پیش‌فرض انبار</span>
+                                    </label>
+                                    <div className="text-[10px] text-slate-500 dark:text-zinc-400 pr-6 space-y-1">
+                                        <div>تلگرام: {settings?.warehouseTelegramGroupId || settings?.warehouseGroupId || <span className="text-red-500 font-bold">تنظیم‌نشده</span>}</div>
+                                        <div>بله: {settings?.warehouseBaleGroupId || <span className="text-red-500 font-bold">تنظیم‌نشده</span>}</div>
+                                    </div>
+                                </div>
+
+                                {/* Default Manager Toggle Card */}
+                                <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2">
+                                    <label className="flex items-center gap-2 font-black text-slate-800 dark:text-zinc-200 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={useDefaultPerson}
+                                            onChange={(e) => setUseDefaultPerson(e.target.checked)}
+                                            className="w-4 h-4 rounded border-slate-300 text-indigo-600"
+                                        />
+                                        <span>ارسال به شخص مدیریت (ادمین‌ها)</span>
+                                    </label>
+                                    <div className="text-[10px] text-slate-500 dark:text-zinc-400 pr-6 space-y-1">
+                                        <div>تلگرام: {settings?.telegramChatId || <span className="text-red-500 font-bold">تنظیم‌نشده</span>}</div>
+                                        <div>بله: {settings?.baleChatId || <span className="text-red-500 font-bold">تنظیم‌نشده</span>}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Middle Col: Saved Contacts Picker (lg:col-span-4) */}
+                            <div className="lg:col-span-4 space-y-2">
+                                <span className="font-extrabold text-slate-600 dark:text-zinc-400 block mb-1">انتخاب از مخاطبان و گروه‌های ذخیره شده:</span>
+                                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 max-h-40 overflow-y-auto custom-scrollbar space-y-2">
+                                    {!settings?.savedContacts || settings.savedContacts.length === 0 ? (
+                                        <div className="text-center py-6 text-slate-400 dark:text-zinc-500 font-medium">مخاطب ذخیره شده‌ای یافت نشد.</div>
+                                    ) : (
+                                        settings.savedContacts.map((contact: any) => {
+                                            const contactId = contact.id || contact.number;
+                                            const isSelected = selectedSavedContacts.includes(contactId);
+                                            return (
+                                                <label key={contactId} className="flex items-center gap-2 py-1 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg px-1.5 cursor-pointer font-medium transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelectedSavedContacts([...selectedSavedContacts, contactId]);
+                                                            else setSelectedSavedContacts(selectedSavedContacts.filter(id => id !== contactId));
+                                                        }}
+                                                        className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-slate-800 dark:text-zinc-200 font-bold truncate">{contact.name}</div>
+                                                        <div className="text-[9px] text-slate-400 truncate">
+                                                            {contact.telegramId && `T: ${contact.telegramId} `}
+                                                            {contact.baleId && `B: ${contact.baleId}`}
+                                                        </div>
+                                                    </div>
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-100 dark:bg-zinc-800 font-bold text-slate-500">
+                                                        {contact.isGroup ? 'گروه' : 'شخص'}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Col: Custom manual overrides inputs (lg:col-span-4) */}
+                            <div className="lg:col-span-4 space-y-3">
+                                <span className="font-extrabold text-slate-600 dark:text-zinc-400 block mb-1">تعیین مستقیم آیدی‌های سفارشی:</span>
+                                
+                                <div className="space-y-2">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 mb-1">آیدی‌های تلگرام (عددی، با کاما جدا کنید):</label>
+                                        <input
+                                            type="text"
+                                            value={customTelegramIds}
+                                            onChange={(e) => setCustomTelegramIds(e.target.value)}
+                                            placeholder="مثال: -1002134567, 4390234"
+                                            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono tracking-wide text-left dir-ltr focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 mb-1">آیدی‌های بله (عددی، با کاما جدا کنید):</label>
+                                        <input
+                                            type="text"
+                                            value={customBaleIds}
+                                            onChange={(e) => setCustomBaleIds(e.target.value)}
+                                            placeholder="مثال: 98765432, 234567"
+                                            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono tracking-wide text-left dir-ltr focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Calculated Final Targets Overview & final trigger button */}
+                        <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/15 rounded-2xl border border-indigo-100/40 dark:border-indigo-900/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="w-full md:w-auto space-y-1.5 flex-1">
+                                <span className="text-[10px] font-extrabold text-indigo-950 dark:text-indigo-400 block">لیست نهایی مقاصد برای ارسال گزارش:</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {getFinalTargets().length === 0 ? (
+                                        <span className="text-[10px] text-red-500 dark:text-red-400 font-bold animate-pulse">هیچ مقصدی انتخاب نشده است!</span>
+                                    ) : (
+                                        getFinalTargets().map((t, idx) => (
+                                            <span key={`${t.platform}-${t.id}-${idx}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 shadow-xs">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${t.platform === 'telegram' ? 'bg-sky-400' : 'bg-green-500'}`} />
+                                                <span className="text-slate-800 dark:text-zinc-200">{t.name}</span>
+                                                <span className="text-slate-400 font-mono font-normal">({t.id})</span>
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
                             <button
                                 type="button"
                                 onClick={handleSendToBot}
-                                disabled={isSendingBot || selectedPlatforms.length === 0}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+                                disabled={isSendingBot || getFinalTargets().length === 0}
+                                className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:from-slate-300 disabled:to-slate-300 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 {isSendingBot ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>در حال تولید PDF و ارسال...</span>
+                                    </>
                                 ) : (
-                                    <Send className="w-3.5 h-3.5" />
+                                    <>
+                                        <Send className="w-4 h-4" />
+                                        <span>تایید و ارسال نهایی گزارش</span>
+                                    </>
                                 )}
-                                <span>ارسال نهایی</span>
                             </button>
                         </div>
                     </div>

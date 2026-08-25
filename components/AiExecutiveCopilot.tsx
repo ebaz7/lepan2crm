@@ -50,6 +50,7 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     const [inputMessage, setInputMessage] = useState('');
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
@@ -72,6 +73,16 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
             scrollToBottom();
         }
     }, [messages, isOpen]);
+
+    useEffect(() => {
+        const handleVisibilityChange = (e: any) => {
+            setIsBottomBarVisible(!!e.detail);
+        };
+        window.addEventListener('BOTTOM_NAV_VISIBLE', handleVisibilityChange);
+        return () => {
+            window.removeEventListener('BOTTOM_NAV_VISIBLE', handleVisibilityChange);
+        };
+    }, []);
 
     // Handle Text Send
     const handleSendMessage = async (textToSend?: string) => {
@@ -289,7 +300,7 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     // Floating Button when Closed
     if (!isOpen) {
         return (
-            <div className="fixed bottom-24 sm:bottom-6 left-6 z-40" dir="rtl">
+            <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-6 z-40 transition-all duration-300`} dir="rtl">
                 <button
                     type="button"
                     onClick={() => setIsOpen(true)}
@@ -309,7 +320,7 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     }
 
     return (
-        <div className={`fixed bottom-24 sm:bottom-6 left-3 sm:left-6 z-50 transition-all ${isMinimized ? 'w-80 h-14' : 'w-[94vw] sm:w-[460px] h-[620px] max-h-[85vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
+        <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-80 h-14' : 'w-[94vw] sm:w-[460px] h-[620px] max-h-[85vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
             
             {/* Copilot Header */}
             <div className="p-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/40">

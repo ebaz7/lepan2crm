@@ -2089,7 +2089,8 @@ app.post('/api/warehouse-overview/send-ai-advisor-report', async (req, res) => {
             reportDate = '',
             report1Label = 'سال قبل',
             report2Label = 'سال جاری',
-            signature = 'مدیریت ارشد زنجیره تامین و هوش مصنوعی'
+            signature = 'مدیریت ارشد زنجیره تامین و هوش مصنوعی',
+            customTargets = null
         } = req.body;
 
         if (!analysisResult) {
@@ -2099,39 +2100,47 @@ app.post('/api/warehouse-overview/send-ai-advisor-report', async (req, res) => {
         // Gather targets
         let targets = [];
         
-        // 1. Group targets
-        if (destinationType === 'group' || destinationType === 'both') {
-            const groupTargets = collectBotTargets(db, { category: 'warehouse', platforms });
-            groupTargets.forEach(t => {
-                if (!targets.some(x => x.platform === t.platform && String(x.id).trim() === String(t.id).trim())) {
-                    targets.push(t);
-                }
-            });
-        }
-
-        // 2. Personal/Individual targets
-        if (destinationType === 'person' || destinationType === 'both') {
-            if (platforms.includes('telegram') && settings.telegramChatId) {
-                const chatIds = String(settings.telegramChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
-                chatIds.forEach(cid => {
-                    if (!targets.some(x => x.platform === 'telegram' && String(x.id).trim() === cid)) {
-                        targets.push({ platform: 'telegram', id: cid });
+        if (customTargets && Array.isArray(customTargets) && customTargets.length > 0) {
+            targets = customTargets.map(t => ({
+                platform: t.platform,
+                id: String(t.id).trim(),
+                name: t.name
+            }));
+        } else {
+            // 1. Group targets
+            if (destinationType === 'group' || destinationType === 'both') {
+                const groupTargets = collectBotTargets(db, { category: 'warehouse', platforms });
+                groupTargets.forEach(t => {
+                    if (!targets.some(x => x.platform === t.platform && String(x.id).trim() === String(t.id).trim())) {
+                        targets.push(t);
                     }
                 });
             }
-            if (platforms.includes('bale') && settings.baleChatId) {
-                const chatIds = String(settings.baleChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
-                chatIds.forEach(cid => {
-                    if (!targets.some(x => x.platform === 'bale' && String(x.id).trim() === cid)) {
-                        targets.push({ platform: 'bale', id: cid });
-                    }
-                });
+
+            // 2. Personal/Individual targets
+            if (destinationType === 'person' || destinationType === 'both') {
+                if (platforms.includes('telegram') && settings.telegramChatId) {
+                    const chatIds = String(settings.telegramChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                    chatIds.forEach(cid => {
+                        if (!targets.some(x => x.platform === 'telegram' && String(x.id).trim() === cid)) {
+                            targets.push({ platform: 'telegram', id: cid });
+                        }
+                    });
+                }
+                if (platforms.includes('bale') && settings.baleChatId) {
+                    const chatIds = String(settings.baleChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                    chatIds.forEach(cid => {
+                        if (!targets.some(x => x.platform === 'bale' && String(x.id).trim() === cid)) {
+                            targets.push({ platform: 'bale', id: cid });
+                        }
+                    });
+                }
             }
         }
 
         if (targets.length === 0) {
             return res.status(400).json({ 
-                error: 'هیچ مقصد یا آیدی گروه/شخصی یافت نشد. لطفاً در بخش تنظیمات، اطلاعات بات تلگرام یا بله را پیکربندی نمایید.' 
+                error: 'هیچ مقصد یا آیدی گروه/شخصی یافت نشد. لطفاً در بخش تنظیمات یا بخش ارسال، آیدی‌های مقصد را وارد کنید.' 
             });
         }
 

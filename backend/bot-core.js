@@ -196,6 +196,129 @@ export const detectAndTriggerReport = async (platform, chatId, userId, text, sen
         return true;
     }
 
+    // 8. Payment Cartable (کارتابل پرداخت)
+    if (
+        cleanText.includes('کارتابل پرداخت') ||
+        cleanText.includes('تایید پرداخت') ||
+        cleanText.includes('لیست پرداخت') ||
+        cleanText.includes('دستور پرداخت های منتظر')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_PAY_CARTABLE', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 9. New Payment Request (ثبت دستور پرداخت)
+    if (
+        cleanText.includes('ثبت دستور پرداخت') ||
+        cleanText.includes('پرداخت جدید') ||
+        cleanText.includes('ایجاد دستور پرداخت')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_PAY_NEW', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 10. Exit Cartable (کارتابل خروج)
+    if (
+        cleanText.includes('کارتابل خروج') ||
+        cleanText.includes('تایید خروج') ||
+        cleanText.includes('مجوزهای خروج منتظر') ||
+        cleanText.includes('مجوز خروج')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_EXIT_CARTABLE', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 11. New Exit Permit (ثبت مجوز خروج)
+    if (
+        cleanText.includes('ثبت مجوز خروج') ||
+        cleanText.includes('خروج جدید') ||
+        cleanText.includes('ایجاد مجوز خروج')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_EXIT_NEW', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 12. Warehouse Cartable (کارتابل انبار)
+    if (
+        cleanText.includes('کارتابل انبار') ||
+        cleanText.includes('تایید بیجک') ||
+        cleanText.includes('بیجک‌های منتظر') ||
+        cleanText.includes('کارتابل بیجک')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_WH_CARTABLE', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 13. New Bijak Request (ثبت بیجک خروج)
+    if (
+        cleanText.includes('ثبت بیجک خروج') ||
+        cleanText.includes('بیجک جدید') ||
+        cleanText.includes('ایجاد بیجک')
+    ) {
+        await handleCallback(platform, chatId, userId, 'ACT_WH_NEW_BIJAK', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 14. Stock Report (موجودی انبار)
+    if (
+        cleanText.includes('موجودی انبار') ||
+        cleanText.includes('گزارش موجودی') ||
+        cleanText.includes('فایل موجودی')
+    ) {
+        await handleCallback(platform, chatId, userId, 'WH_RPT_STOCK', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 15. Dispatch Report (گزارش خروج انبار)
+    if (
+        cleanText.includes('گزارش خروج') ||
+        cleanText.includes('گزارش ترخیص') ||
+        cleanText.includes('خروجی‌های انبار')
+    ) {
+        await handleCallback(platform, chatId, userId, 'WH_RPT_DISPATCH_PROMPT', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 16. Secretariat Pending (نامه‌های منتظر تایید)
+    if (
+        cleanText.includes('نامه های منتظر') ||
+        cleanText.includes('تایید نامه') ||
+        cleanText.includes('کارتابل نامه')
+    ) {
+        await handleCallback(platform, chatId, userId, 'SEC_PENDING', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 17. Latest Letters Cartable (آخرین نامه‌های کارتابل)
+    if (
+        cleanText.includes('آخرین نامه ها') ||
+        cleanText.includes('نامه های کارتابل')
+    ) {
+        await handleCallback(platform, chatId, userId, 'SEC_CARTABLE_LATEST', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 18. Customer Balances (استعلام و مانده حساب مشتریان)
+    if (
+        cleanText.includes('مانده حساب مشتری') ||
+        cleanText.includes('استعلام حساب') ||
+        cleanText.includes('مانده مشتریان') ||
+        cleanText.includes('استعلام مشتری')
+    ) {
+        await handleCallback(platform, chatId, userId, 'SALES_CUSTOMER_BALANCES', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 19. Compare Sales (مقایسه تحلیل فروش دو بازه)
+    if (
+        cleanText.includes('مقایسه تحلیل فروش') ||
+        cleanText.includes('مقایسه فروش دو بازه') ||
+        cleanText.includes('تحلیل مقایسه ای فروش')
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_COMPARE_SALES', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
     return false;
 };
 
