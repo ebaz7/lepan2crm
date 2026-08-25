@@ -248,23 +248,55 @@ export const WarehouseOverviewTab: React.FC = () => {
         const parsedCommercialPurchase: CustomCargoItem[] = [];
 
         for (const record of activeTradeRecords) {
-            const hasAgentFees = record.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || record.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || record.stages?.[TradeStage.AGENT_FEES]?.isCompleted ||
-                                 record.stages?.['هزینه‌های ترخیص']?.costRial > 0 || record.stages?.['هزینه‌های ترخیص']?.costCurrency > 0 || record.stages?.['هزینه‌های ترخیص']?.isCompleted;
-            const hasInternalShipping = record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted ||
-                                     record.stages?.['حمل داخلی']?.costRial > 0 || record.stages?.['حمل داخلی']?.costCurrency > 0 || record.stages?.['حمل داخلی']?.isCompleted;
-            const hasClearanceDocs = record.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted ||
-                                   record.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || record.stages?.['ترخیصیه و قبض انبار']?.costCurrency > 0 || record.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
+            const isCompleted = record.status === 'Completed' || record.isArchived;
 
-            const isCleared = hasAgentFees || hasInternalShipping || hasClearanceDocs || record.status === 'Completed';
+            // Check if record has reached customs (has cottage, green leaf, guarantees, or customs clearance receipts)
+            const hasCottage = Boolean(
+                (record.greenLeafData?.duties && record.greenLeafData.duties.length > 0) ||
+                (record.greenLeafData?.guarantees && record.greenLeafData.guarantees.length > 0) ||
+                (record.stages?.[TradeStage.GREEN_LEAF]?.costRial > 0 || record.stages?.[TradeStage.GREEN_LEAF]?.isCompleted) ||
+                (record.stages?.['برگ سبز']?.costRial > 0 || record.stages?.['برگ سبز']?.isCompleted) ||
+                (record.cottageNumber && String(record.cottageNumber).trim() !== '') ||
+                (record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && String(d.cottageNumber).trim() !== ''))
+            );
 
-            const hasCottage = record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && d.cottageNumber.trim() !== '');
-            const isInCustoms = !isCleared && (record.isInCustoms || hasCottage);
-            const isInTransit = !isInCustoms && record.isInTransit;
-            const isCurrencyPurchased = !isInCustoms && !isInTransit && (
-                record.currencyPurchaseData && (
-                    record.currencyPurchaseData.purchasedAmount > 0 || 
+            const hasCustomsWarehouseReceipt = Boolean(
+                (record.clearanceData?.receipts && record.clearanceData.receipts.length > 0) ||
+                (record.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted) ||
+                (record.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || record.stages?.['ترخیصیه و قبض انبار']?.isCompleted) ||
+                (record.clearanceData?.payments && record.clearanceData.payments.length > 0)
+            );
+
+            const isInCustoms = !isCompleted && (record.isInCustoms || hasCottage || hasCustomsWarehouseReceipt);
+
+            const hasShipping = Boolean(
+                record.isInTransit ||
+                (record.shippingDocuments && record.shippingDocuments.length > 0) ||
+                (record.stages?.[TradeStage.SHIPPING_DOCS]?.costRial > 0 || record.stages?.[TradeStage.SHIPPING_DOCS]?.costCurrency > 0 || record.stages?.[TradeStage.SHIPPING_DOCS]?.isCompleted) ||
+                (record.stages?.['اسناد حمل']?.costRial > 0 || record.stages?.['اسناد حمل']?.costCurrency > 0 || record.stages?.['اسناد حمل']?.isCompleted) ||
+                (record.stages?.[TradeStage.INSPECTION]?.costRial > 0 || record.stages?.[TradeStage.INSPECTION]?.isCompleted) ||
+                (record.stages?.['گواهی بازرسی']?.costRial > 0 || record.stages?.['گواهی بازرسی']?.isCompleted)
+            );
+
+            const isInTransit = !isCompleted && !isInCustoms && hasShipping;
+
+            const hasCurrencyPurchase = Boolean(
+                (record.currencyPurchaseData && (
+                    (record.currencyPurchaseData.purchasedAmount || 0) > 0 || 
                     (record.currencyPurchaseData.tranches && record.currencyPurchaseData.tranches.length > 0)
-                )
+                )) ||
+                (record.stages?.[TradeStage.CURRENCY_PURCHASE]?.costCurrency > 0 || record.stages?.[TradeStage.CURRENCY_PURCHASE]?.costRial > 0 || record.stages?.[TradeStage.CURRENCY_PURCHASE]?.isCompleted) ||
+                (record.stages?.['خرید ارز']?.costCurrency > 0 || record.stages?.['خرید ارز']?.costRial > 0 || record.stages?.['خرید ارز']?.isCompleted)
+            );
+
+            const isPurchasing = !isCompleted && !isInCustoms && !isInTransit && (
+                hasCurrencyPurchase ||
+                (record.registrationNumber && String(record.registrationNumber).trim() !== '') ||
+                (record.stages?.[TradeStage.ALLOCATION_APPROVED]?.isCompleted || record.stages?.['تخصیص یافته']?.isCompleted) ||
+                (record.stages?.[TradeStage.ALLOCATION_QUEUE]?.isCompleted || record.stages?.['در صف تخصیص ارز']?.isCompleted) ||
+                (record.stages?.[TradeStage.LICENSES]?.isCompleted || record.stages?.['مجوزها و پروفرما']?.isCompleted) ||
+                (record.licenseData?.transactions && record.licenseData.transactions.length > 0) ||
+                (record.items && record.items.length > 0)
             );
 
             const item: CustomCargoItem = {
@@ -281,19 +313,14 @@ export const WarehouseOverviewTab: React.FC = () => {
                 parsedCommercialCustoms.push(item);
             } else if (isInTransit) {
                 parsedCommercialTransit.push(item);
-            } else if (isCurrencyPurchased) {
+            } else if (isPurchasing) {
                 parsedCommercialPurchase.push(item);
             }
         }
 
         const clearedFileNumbers = new Set(
             activeTradeRecords
-                .filter(r => {
-                    const ha = r.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || r.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || r.stages?.[TradeStage.AGENT_FEES]?.isCompleted || r.stages?.['هزینه‌های ترخیص']?.costRial > 0 || r.stages?.['هزینه‌های ترخیص']?.isCompleted;
-                    const hi = r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted || r.stages?.['حمل داخلی']?.costRial > 0 || r.stages?.['حمل داخلی']?.isCompleted;
-                    const hc = r.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted || r.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || r.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
-                    return ha || hi || hc || r.status === 'Completed';
-                })
+                .filter(r => r.status === 'Completed' || r.isArchived)
                 .map(r => r.fileNumber)
                 .filter(Boolean)
         );
