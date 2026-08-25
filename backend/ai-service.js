@@ -177,7 +177,7 @@ export const getSystemContextSnapshot = () => {
 /**
  * Transcribe and execute Voice / Audio commands
  */
-export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg', customKey) => {
+export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg', customKey, contextData) => {
     const ai = getGeminiClient(customKey);
     const base64Audio = audioBuffer.toString('base64');
     const systemContext = JSON.stringify(getSystemContextSnapshot(), null, 2);
@@ -191,6 +191,9 @@ export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg', cus
 
 اطلاعات زنده سیستم:
 ${systemContext}
+
+داده‌های زمینه‌ای سایان و صفحه جاری کاربر:
+${contextData ? JSON.stringify(contextData, null, 2) : 'داده اضافه ثبت نشده'}
 
 خروجی خود را دقیقاً به زبان فارسی سلیس و در قالب JSON معتبر زیر ارائه دهید:
 {

@@ -127,6 +127,78 @@ const runSayanQuery = async (db, queryStr) => {
     return data.data || [];
 };
 
+export const detectAndTriggerReport = async (platform, chatId, userId, text, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn) => {
+    if (!text) return false;
+    const cleanText = text.toLowerCase().trim();
+    
+    // 1. Daily Sales Report
+    if (
+        (cleanText.includes('فروش') && (cleanText.includes('امروز') || cleanText.includes('روزانه') || cleanText.includes('روز'))) ||
+        cleanText.includes('ارزش فروش') ||
+        cleanText.includes('فاکتور فروش امروز')
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_DAILY_SALES', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+    
+    // 2. Pending Documents / Checks
+    if (
+        cleanText.includes('آویزان') ||
+        (cleanText.includes('چک') && cleanText.includes('آویزان')) ||
+        (cleanText.includes('سند') && cleanText.includes('آویزان'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_PENDING_DOCS', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+    
+    // 3. Debtors PDF
+    if (
+        (cleanText.includes('بدهکاران') && (cleanText.includes('دانلود') || cleanText.includes('فایل') || cleanText.includes('پی دی اف') || cleanText.includes('pdf') || cleanText.includes('لیست'))) ||
+        (cleanText.includes('لیست بدهکار') || cleanText.includes('فایل بدهکار'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'SALES_BAL_DOWNLOAD_DEBTORS', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+    
+    // 4. Creditors PDF
+    if (
+        (cleanText.includes('بستانکاران') && (cleanText.includes('دانلود') || cleanText.includes('فایل') || cleanText.includes('پی دی اف') || cleanText.includes('pdf') || cleanText.includes('لیست'))) ||
+        (cleanText.includes('لیست بستانکار') || cleanText.includes('فایل بستانکار'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'SALES_BAL_DOWNLOAD_CREDITORS', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 5. Comparison Yesterday vs Today
+    if (
+        cleanText.includes('مقایسه فروش دیروز') ||
+        (cleanText.includes('مقایسه فروش') && cleanText.includes('دیروز') && cleanText.includes('امروز'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_COMPARE_PRESETS_YESTERDAY_TODAY', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 6. Comparison This Week vs Last Week
+    if (
+        cleanText.includes('مقایسه فروش این هفته') ||
+        (cleanText.includes('مقایسه فروش') && cleanText.includes('هفته') && cleanText.includes('قبل'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_COMPARE_PRESETS_WEEK', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    // 7. Comparison This Month vs Last Month
+    if (
+        cleanText.includes('مقایسه فروش این ماه') ||
+        (cleanText.includes('مقایسه فروش') && cleanText.includes('ماه') && cleanText.includes('قبل'))
+    ) {
+        await handleCallback(platform, chatId, userId, 'BOT_SAYAN_COMPARE_PRESETS_MONTH', sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+        return true;
+    }
+
+    return false;
+};
+
 export function isActualProduct(row) {
   if (!row) return false;
   const code = String(row.ItemCode || '').trim();
@@ -2034,6 +2106,9 @@ export const handleMessage = async (platform, chatId, text, sendFn, sendPhotoFn,
 
         // AI Agent Intelligence Fallback
         if (text && text.trim().length > 1 && !text.startsWith('/')) {
+            const triggered = await detectAndTriggerReport(platform, chatId, senderId || chatId, text, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+            if (triggered) return;
+
             try {
                 const aiModule = await import('./ai-service.js');
                 const aiRes = await aiModule.askAiAssistant({

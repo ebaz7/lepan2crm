@@ -214,6 +214,41 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [chequeBotCustomGroupBale, setChequeBotCustomGroupBale] = useState('');
     const [chequeBotCustomGroupWa, setChequeBotCustomGroupWa] = useState('');
 
+    // Expose Sayan data and loading state to window for AI Executive Copilot integration
+    useEffect(() => {
+        (window as any).__SAYAN_LOADING__ = isLoading;
+        (window as any).__SAYAN_LIVE_DATA__ = {
+            extractedAt: new Date().toISOString(),
+            activeTab: activeTab,
+            dateRange: { dateFrom, dateTo },
+            trazSummary: trazData && trazData.length > 0 ? {
+                totalDebtors: trazData.reduce((sum, item) => sum + (Number(item.debtor) || 0), 0),
+                totalCreditors: trazData.reduce((sum, item) => sum + (Number(item.creditor) || 0), 0),
+                debtorsCount: trazData.filter(item => (Number(item.balance) || 0) > 0).length,
+                creditorsCount: trazData.filter(item => (Number(item.balance) || 0) < 0).length,
+                topDebtors: trazData.slice(0, 8).map(item => ({ name: item.name, code: item.code, balance: item.balance }))
+            } : null,
+            salesSummary: salesData && salesData.length > 0 ? {
+                totalSalesCount: salesData.length,
+                totalSalesQty: salesData.reduce((sum, item) => sum + (Number(item.invoiceQty) || Number(item.qty) || 0), 0),
+                totalSalesAmount: salesData.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+                recentSales: salesData.slice(0, 8).map(item => ({ customer: item.customerName, invoiceNo: item.invoiceNumber, amount: item.amount }))
+            } : null,
+            chequesSummary: chequesData && chequesData.length > 0 ? {
+                totalChequesCount: chequesData.length,
+                totalAmount: chequesData.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
+                inHandCount: chequesData.filter(c => c.statusGroup === 'in_hand' || !c.statusGroup).length,
+                returnedCount: chequesData.filter(c => c.statusGroup === 'returned' || String(c.statusDesc || '').includes('برگشت')).length,
+                recentCheques: chequesData.slice(0, 8).map(c => ({ bank: c.bankName, dueDate: c.dueDate, amount: c.amount, status: c.status }))
+            } : null,
+            productionSummary: prodLiveItems && prodLiveItems.length > 0 ? {
+                itemsCount: prodLiveItems.length,
+                grandTotal: prodLiveTotals?.grandTotal || 0,
+                items: prodLiveItems.slice(0, 8).map(item => ({ name: item.itemName, qty: item.qty }))
+            } : null
+        };
+    }, [isLoading, trazData, salesData, chequesData, prodLiveItems, prodLiveTotals, activeTab, dateFrom, dateTo]);
+
     // ==========================================
     // DATE INITIALIZATION & CONVERSIONS
     // ==========================================

@@ -176,7 +176,9 @@ const poll = async () => {
                                 let replyContent = `🎙️ *متن پیام صوتی شما:*\n«_${result.transcription}_»\n\n🤖 *پاسخ هوش مصنوعی ERP:*\n${result.replyText}`;
                                 await sendFn(chatId, replyContent, { parse_mode: 'Markdown' });
 
-                                if (BotCore.sessions[chatId] && BotCore.sessions[chatId].state !== 'IDLE' && result.transcription) {
+                                const triggered = await BotCore.detectAndTriggerReport('bale', chatId, u.message.from?.id || chatId, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+
+                                if (!triggered && BotCore.sessions[chatId] && BotCore.sessions[chatId].state !== 'IDLE' && result.transcription) {
                                     await BotCore.handleMessage('bale', chatId, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, u.message.from?.id || chatId, u.message);
                                 }
                             }

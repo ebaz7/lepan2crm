@@ -2078,6 +2078,209 @@ app.post('/api/warehouse-overview/send-negative-alert', async (req, res) => {
     }
 });
 
+app.post('/api/warehouse-overview/send-ai-advisor-report', async (req, res) => {
+    try {
+        const db = getDb();
+        const settings = db.settings || {};
+        const {
+            analysisResult,
+            destinationType = 'group', // 'group' | 'person' | 'both'
+            platforms = ['telegram', 'bale'],
+            reportDate = '',
+            report1Label = 'سال قبل',
+            report2Label = 'سال جاری',
+            signature = 'مدیریت ارشد زنجیره تامین و هوش مصنوعی'
+        } = req.body;
+
+        if (!analysisResult) {
+            return res.status(400).json({ error: 'داده‌های ارزیابی هوش مصنوعی ارسال نشده است.' });
+        }
+
+        // Gather targets
+        let targets = [];
+        
+        // 1. Group targets
+        if (destinationType === 'group' || destinationType === 'both') {
+            const groupTargets = collectBotTargets(db, { category: 'warehouse', platforms });
+            groupTargets.forEach(t => {
+                if (!targets.some(x => x.platform === t.platform && String(x.id).trim() === String(t.id).trim())) {
+                    targets.push(t);
+                }
+            });
+        }
+
+        // 2. Personal/Individual targets
+        if (destinationType === 'person' || destinationType === 'both') {
+            if (platforms.includes('telegram') && settings.telegramChatId) {
+                const chatIds = String(settings.telegramChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                chatIds.forEach(cid => {
+                    if (!targets.some(x => x.platform === 'telegram' && String(x.id).trim() === cid)) {
+                        targets.push({ platform: 'telegram', id: cid });
+                    }
+                });
+            }
+            if (platforms.includes('bale') && settings.baleChatId) {
+                const chatIds = String(settings.baleChatId).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean);
+                chatIds.forEach(cid => {
+                    if (!targets.some(x => x.platform === 'bale' && String(x.id).trim() === cid)) {
+                        targets.push({ platform: 'bale', id: cid });
+                    }
+                });
+            }
+        }
+
+        if (targets.length === 0) {
+            return res.status(400).json({ 
+                error: 'هیچ مقصد یا آیدی گروه/شخصی یافت نشد. لطفاً در بخش تنظیمات، اطلاعات بات تلگرام یا بله را پیکربندی نمایید.' 
+            });
+        }
+
+        // Format Persian numbers helper
+        const fNum = (n, maxDec = 1) => {
+            const num = parseFloat(n) || 0;
+            return num.toLocaleString('fa-IR', { maximumFractionDigits: maxDec });
+        };
+
+        // Construct caption
+        let msg = `🤖 *گزارش ارزیابی استراتژیک زنجیره تامین (هوش مصنوعی)* 🤖\n`;
+        msg += `📅 *تاریخ استعلام:* ${reportDate || '۱۴۰۵/۰۵/۳۱'}\n`;
+        msg += `📊 *مقایسه دوره‌ها:* ${report2Label} نسبت به ${report1Label}\n`;
+        msg += `🎗️ *نمره پایداری زنجیره کالا:* *${analysisResult.healthScore || 85} از ۱۰۰*\n`;
+        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n\n`;
+
+        msg += `💡 *خلاصه مدیریتی جلسه هیئت مدیره:*\n`;
+        if (analysisResult.executiveSummary && Array.isArray(analysisResult.executiveSummary)) {
+            analysisResult.executiveSummary.slice(0, 5).forEach((pt, idx) => {
+                msg += `🔹 *${idx + 1}.* ${pt}\n`;
+            });
+        }
+        msg += `\n`;
+
+        if (analysisResult.criticalAlerts && analysisResult.criticalAlerts.length > 0) {
+            msg += `⚠️ *هشدارهای حساس اتمام موجودی:*\n`;
+            analysisResult.criticalAlerts.slice(0, 4).forEach((alert) => {
+                msg += `• *${alert.itemName}*: ${alert.reason}\n`;
+            });
+            msg += `\n`;
+        }
+
+        if (analysisResult.procurementActionPlan && analysisResult.procurementActionPlan.length > 0) {
+            msg += `🛠️ *اقدام پیشنهادی تدارکات و خرید:*\n`;
+            analysisResult.procurementActionPlan.slice(0, 3).forEach((plan) => {
+                msg += `• *${plan.action}* ⬅️ ${plan.impact}\n`;
+            });
+            msg += `\n`;
+        }
+
+        msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+        msg += `👤 *تنظیم گزارش:* ${signature}\n`;
+        msg += `📎 *فایل گزارش استراتژیک ۲ صفحه‌ای مصور ضمیمه گردید.*\n`;
+        msg += `🤖 *سیستم مانیتورینگ هوش مصنوعی کارخانجات لپان بافت*`;
+
+        // Generate PDF
+        let pdfBuffer = null;
+        const filename = `AI_Strategic_Warehouse_Advisor_${(reportDate || '1405-05-31').replace(/[\/\\]/g, '-')}.pdf`;
+
+        try {
+            const Renderer = await import('./backend/renderer.js');
+            pdfBuffer = await Renderer.generateAiWarehouseAdvisorReportPDF({
+                healthScore: analysisResult.healthScore,
+                executiveSummary: analysisResult.executiveSummary,
+                totalWeightAnalysis: analysisResult.totalWeightAnalysis,
+                logisticsPipelineInsight: analysisResult.logisticsPipelineInsight,
+                criticalAlerts: analysisResult.criticalAlerts,
+                procurementActionPlan: analysisResult.procurementActionPlan,
+                fullReportMarkdown: analysisResult.fullReportMarkdown,
+                reportDate,
+                report1Label,
+                report2Label,
+                signature
+            });
+        } catch (err) {
+            console.error("AI Advisor PDF generation error for bot:", err);
+        }
+
+        // Send to targets
+        let sentCount = 0;
+        const sendErrors = [];
+
+        for (const target of targets) {
+            try {
+                if (target.platform === 'telegram') {
+                    const tg = await safeImport('./backend/telegram.js');
+                    if (tg) {
+                        if (pdfBuffer) {
+                            await tg.sendBotDocument(target.id, pdfBuffer, filename, msg);
+                            sentCount++;
+                        } else if (tg.sendBotMessage) {
+                            await tg.sendBotMessage(target.id, msg, { parse_mode: 'Markdown' });
+                            sentCount++;
+                        }
+                    }
+                } else if (target.platform === 'bale') {
+                    const bale = await safeImport('./backend/bale.js');
+                    if (bale) {
+                        if (pdfBuffer) {
+                            await bale.sendBotDocument(target.id, pdfBuffer, filename, msg);
+                            sentCount++;
+                        } else if (bale.sendBotMessage) {
+                            await bale.sendBotMessage(target.id, msg);
+                            sentCount++;
+                        }
+                    }
+                } else if (target.platform === 'whatsapp') {
+                    const wa = await safeImport('./backend/whatsapp.js');
+                    if (wa && wa.sendMessage) {
+                        if (pdfBuffer) {
+                            await wa.sendMessage(target.id, msg, {
+                                data: pdfBuffer.toString('base64'),
+                                mimeType: 'application/pdf',
+                                filename
+                            });
+                        } else {
+                            await wa.sendMessage(target.id, msg);
+                        }
+                        sentCount++;
+                    }
+                }
+            } catch (err) {
+                console.error(`Error sending AI Strategic report to ${target.platform} (${target.id}):`, err.message);
+                sendErrors.push(`${target.platform} (${target.id}): ${err.message}`);
+            }
+        }
+
+        // Send In-App Notification
+        try {
+            await broadcastNotification(
+                `🤖 ارزیابی استراتژیک هوش مصنوعی زنجیره تامین صادر شد`,
+                `گزارش تحلیلی با نمره پایداری ${analysisResult.healthScore || 85}/۱۰۰ به پیام‌رسان‌ها ارسال شد.`,
+                '/?tab=warehouse',
+                ['ceo', 'admin', 'manager', 'commercial', 'financial']
+            );
+        } catch (notifErr) {
+            console.error("In-app broadcast notification error:", notifErr);
+        }
+
+        if (sentCount === 0 && sendErrors.length > 0) {
+            return res.status(500).json({ 
+                error: `خطا در ارسال به ربات: ${sendErrors.join(', ')}` 
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            sentCount, 
+            targetsCount: targets.length,
+            errors: sendErrors.length > 0 ? sendErrors : undefined,
+            messageText: msg,
+            hasPdf: !!pdfBuffer
+        });
+    } catch (err) {
+        console.error("AI Advisor report send fatal error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export function getComparisonDateRanges(mode = 'yesterday_vs_last_year') {
     const now = new Date();
     const tehranStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }); // "YYYY-MM-DD"
@@ -8762,14 +8965,14 @@ app.post('/api/ai/chat', async (req, res) => {
 
 const handleVoiceProcess = async (req, res) => {
     try {
-        const { audioBase64, mimeType } = req.body;
+        const { audioBase64, mimeType, contextData } = req.body;
         if (!audioBase64) {
             return res.status(400).json({ error: 'داده صوتی ارسال نشده است.' });
         }
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         const aiService = await safeImport('./backend/ai-service.js');
         if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
-        const result = await aiService.processVoiceAudio(audioBuffer, mimeType || 'audio/webm');
+        const result = await aiService.processVoiceAudio(audioBuffer, mimeType || 'audio/webm', undefined, contextData);
         res.json(result);
     } catch (e) {
         console.error("AI voice processing error:", e);

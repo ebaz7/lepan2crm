@@ -100,8 +100,10 @@ export const initTelegram = async (token) => {
                         let replyContent = `🎙️ *متن پیام صوتی شما:*\n«_${result.transcription}_»\n\n🤖 *پاسخ هوش مصنوعی ERP:*\n${result.replyText}`;
                         await sendFn(msg.chat.id, replyContent, { parse_mode: 'Markdown' });
 
+                        const triggered = await BotCore.detectAndTriggerReport('telegram', msg.chat.id, msg.from?.id || msg.chat.id, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
+
                         // If user has a pending text session, also pipe the transcription
-                        if (BotCore.sessions[msg.chat.id] && BotCore.sessions[msg.chat.id].state !== 'IDLE' && result.transcription) {
+                        if (!triggered && BotCore.sessions[msg.chat.id] && BotCore.sessions[msg.chat.id].state !== 'IDLE' && result.transcription) {
                             await BotCore.handleMessage('telegram', msg.chat.id, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, msg.from.id, msg);
                         }
                         return;

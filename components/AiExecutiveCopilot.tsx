@@ -89,39 +89,74 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
         if (!textToSend) setInputMessage('');
         setIsProcessing(true);
 
-        try {
-            const historyPayload = messages.slice(-6).map(m => ({ role: m.role, text: m.text }));
-            const res = await fetch('/api/ai/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: query.trim(),
-                    contextData: {
-                        user: currentUser?.fullName || 'مدیر سیستم',
-                        role: currentUser?.role
-                    },
-                    history: historyPayload
-                })
-            });
+        const executeCall = async () => {
+            try {
+                const historyPayload = messages.slice(-6).map(m => ({ role: m.role, text: m.text }));
+                
+                // Get live Sayan data context if available
+                const sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || null;
 
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || 'خطا در ارتباط با سرور هوش مصنوعی');
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: query.trim(),
+                        contextData: {
+                            user: currentUser?.fullName || 'مدیر سیستم',
+                            role: currentUser?.role,
+                            sayanLiveData: sayanLiveData
+                        },
+                        history: historyPayload
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || 'خطا در ارتباط با سرور هوش مصنوعی');
+                }
+
+                const data = await res.json();
+                const botMsg: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    text: data.reply || 'پاسخی دریافت نشد.',
+                    timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+                };
+                setMessages(prev => [...prev, botMsg]);
+            } catch (err: any) {
+                console.error("AI Chat Error:", err);
+                toast.error(err.message || 'خطا در دریافت پاسخ');
+            } finally {
+                setIsProcessing(false);
             }
+        };
 
-            const data = await res.json();
-            const botMsg: Message = {
-                id: (Date.now() + 1).toString(),
+        // If Sayan data is currently extracting, wait for it to finish so AI can use correct data
+        if ((window as any).__SAYAN_LOADING__) {
+            const waitMsgId = (Date.now() + 2).toString();
+            const waitMsg: Message = {
+                id: waitMsgId,
                 role: 'assistant',
-                text: data.reply || 'پاسخی دریافت نشد.',
+                text: '⏳ نرم‌افزار در حال استخراج و دریافت اطلاعات زنده از سیستم مالی سایان است... لطفاً چند لحظه شکیبا باشید تا استخراج داده‌ها تکمیل شود و تحلیل هوش مصنوعی با دقیق‌ترین ارقام لحظه‌ای آغاز گردد.',
                 timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
             };
-            setMessages(prev => [...prev, botMsg]);
-        } catch (err: any) {
-            console.error("AI Chat Error:", err);
-            toast.error(err.message || 'خطا در دریافت پاسخ');
-        } finally {
-            setIsProcessing(false);
+            setMessages(prev => [...prev, waitMsg]);
+
+            const interval = setInterval(() => {
+                if (!(window as any).__SAYAN_LOADING__) {
+                    clearInterval(interval);
+                    setMessages(prev => prev.filter(m => m.id !== waitMsgId));
+                    executeCall();
+                }
+            }, 500);
+
+            // Timeout after 25 seconds
+            setTimeout(() => {
+                clearInterval(interval);
+                setIsProcessing(false);
+            }, 25000);
+        } else {
+            await executeCall();
         }
     };
 
@@ -163,51 +198,91 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
 
     const sendVoiceBlob = async (blob: Blob) => {
         setIsProcessing(true);
-        try {
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = async () => {
-                const base64Data = (reader.result as string).split(',')[1];
-                const res = await fetch('/api/ai/voice-command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        audioBase64: base64Data,
-                        mimeType: 'audio/webm'
-                    })
-                });
+        
+        const executeVoiceCall = async () => {
+            try {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = async () => {
+                    const base64Data = (reader.result as string).split(',')[1];
+                    
+                    // Live Sayan data context if available
+                    const sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || null;
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error || 'خطا در پردازش صوت');
-                }
+                    const res = await fetch('/api/ai/voice-command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audioBase64: base64Data,
+                            mimeType: 'audio/webm',
+                            contextData: {
+                                user: currentUser?.fullName || 'مدیر سیستم',
+                                role: currentUser?.role,
+                                sayanLiveData: sayanLiveData
+                            }
+                        })
+                    });
 
-                const data = await res.json();
-                
-                const userVoiceMsg: Message = {
-                    id: Date.now().toString(),
-                    role: 'user',
-                    text: `🎙️ ${data.transcription || 'پیام صوتی'}`,
-                    transcription: data.transcription,
-                    timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'خطا در پردازش صوت');
+                    }
+
+                    const data = await res.json();
+                    
+                    const userVoiceMsg: Message = {
+                        id: Date.now().toString(),
+                        role: 'user',
+                        text: `🎙️ ${data.transcription || 'پیام صوتی'}`,
+                        transcription: data.transcription,
+                        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+                    };
+
+                    const botVoiceMsg: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        text: data.replyText || 'دستور شما پردازش شد.',
+                        suggestedAction: data.suggestedAction,
+                        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+                    };
+
+                    setMessages(prev => [...prev, userVoiceMsg, botVoiceMsg]);
+                    toast.success('پیام صوتی شما با موفقیت تحلیل شد.');
+                    setIsProcessing(false);
                 };
+            } catch (err: any) {
+                console.error("Voice processing error:", err);
+                toast.error(err.message || 'خطا در تبدیل و تحلیل صوت');
+                setIsProcessing(false);
+            }
+        };
 
-                const botVoiceMsg: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    text: data.replyText || 'دستور شما پردازش شد.',
-                    suggestedAction: data.suggestedAction,
-                    timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
-                };
-
-                setMessages(prev => [...prev, userVoiceMsg, botVoiceMsg]);
-                toast.success('پیام صوتی شما با موفقیت تحلیل شد.');
+        // If Sayan data is currently extracting, wait for it to finish
+        if ((window as any).__SAYAN_LOADING__) {
+            const waitMsgId = (Date.now() + 2).toString();
+            const waitMsg: Message = {
+                id: waitMsgId,
+                role: 'assistant',
+                text: '🎙️⏳ در حال انتظار برای اتمام استخراج داده‌های زنده سایان جهت تلفیق با پیام صوتی شما... لطفاً چند ثانیه منتظر بمانید.',
+                timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
             };
-        } catch (err: any) {
-            console.error("Voice processing error:", err);
-            toast.error(err.message || 'خطا در تبدیل و تحلیل صوت');
-        } finally {
-            setIsProcessing(false);
+            setMessages(prev => [...prev, waitMsg]);
+
+            const interval = setInterval(() => {
+                if (!(window as any).__SAYAN_LOADING__) {
+                    clearInterval(interval);
+                    setMessages(prev => prev.filter(m => m.id !== waitMsgId));
+                    executeVoiceCall();
+                }
+            }, 500);
+
+            // Timeout after 25 seconds
+            setTimeout(() => {
+                clearInterval(interval);
+                setIsProcessing(false);
+            }, 25000);
+        } else {
+            await executeVoiceCall();
         }
     };
 

@@ -3247,4 +3247,222 @@ export const generateWarehouseOverviewReportPDF = async (reportData = {}) => {
   }
 };
 
+export const generateAiWarehouseAdvisorReportPDF = async (advisorData = {}) => {
+  let page = null;
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+
+    const {
+      healthScore = 85,
+      executiveSummary = [],
+      totalWeightAnalysis = '',
+      logisticsPipelineInsight = '',
+      criticalAlerts = [],
+      procurementActionPlan = [],
+      fullReportMarkdown = '',
+      reportDate = '',
+      report1Label = 'سال قبل',
+      report2Label = 'سال جاری',
+      signature = 'مدیریت ارشد زنجیره تامین و هوش مصنوعی'
+    } = advisorData;
+
+    const execSummaryHtml = executiveSummary.map((point, idx) => `
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; font-size: 10pt; line-height: 1.5; font-weight: 500; display: flex; align-items: start; gap: 10px; margin-bottom: 8px;">
+        <span style="background: #e0e7ff; color: #4338ca; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 9pt; flex-shrink: 0;">${idx + 1}</span>
+        <span style="color: #334155;">${point}</span>
+      </div>
+    `).join('');
+
+    const alertsHtml = criticalAlerts.map((alert) => {
+      const isCrit = alert.riskLevel === 'CRITICAL';
+      const bg = isCrit ? '#fef2f2' : '#fffbeb';
+      const border = isCrit ? '#fca5a5' : '#fde68a';
+      const badgeBg = isCrit ? '#ef4444' : '#f59e0b';
+      return `
+        <div style="background: ${bg}; border: 1px solid ${border}; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 10.5pt; color: #1e293b;">⚠️ ${alert.itemName}</strong>
+            <span style="background: ${badgeBg}; color: white; font-size: 8pt; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
+              ${isCrit ? 'بحرانی (فوری)' : 'هشدار ریسک'}
+            </span>
+          </div>
+          <p style="font-size: 9.5pt; color: #475569; margin: 0; line-height: 1.5; font-weight: 500;">${alert.reason}</p>
+        </div>
+      `;
+    }).join('');
+
+    const plansHtml = procurementActionPlan.map((plan) => {
+      const isHigh = plan.priority === 'HIGH';
+      const badgeBg = isHigh ? '#fef2f2' : '#eff6ff';
+      const badgeBorder = isHigh ? '#fca5a5' : '#bfdbfe';
+      const badgeText = isHigh ? '#991b1b' : '#1e40af';
+      const priorityLabel = isHigh ? 'اولویت اول' : 'اولویت دوم';
+      return `
+        <tr style="border-bottom: 1px solid #cbd5e1;">
+          <td style="padding: 10px; text-align: center; width: 15%;">
+            <span style="background: ${badgeBg}; border: 1px solid ${badgeBorder}; color: ${badgeText}; font-size: 8pt; padding: 2px 6px; border-radius: 4px; font-weight: bold;">
+              ${priorityLabel}
+            </span>
+          </td>
+          <td style="padding: 10px; text-align: right; font-weight: bold; color: #0f172a; font-size: 9.5pt; width: 45%;">${plan.action}</td>
+          <td style="padding: 10px; text-align: right; color: #334155; font-size: 9pt; width: 40%; font-weight: 500;">${plan.impact}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="fa">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page { size: A4; margin: 10mm; }
+            body { font-family: 'Tahoma', sans-serif; margin: 0; padding: 10px; color: #1e293b; background-color: #ffffff; direction: rtl; }
+            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; border-bottom: 3px solid #4f46e5; padding-bottom: 10px; }
+            .title { font-size: 14pt; font-weight: 900; color: #1e1b4b; text-align: right; line-height: 1.4; }
+            .subtitle { font-size: 9.5pt; color: #4338ca; font-weight: bold; margin-top: 4px; }
+            .badge-ai { background: linear-gradient(135deg, #4f46e5, #312e81); color: white; font-size: 9pt; padding: 6px 12px; border-radius: 8px; font-weight: bold; text-align: center; display: inline-block; }
+            .score-container { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+            .section-title { font-size: 11pt; font-weight: 800; color: #312e81; border-right: 4px solid #4f46e5; padding-right: 10px; margin: 18px 0 10px 0; }
+            .card-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+            .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+            .card-title { font-size: 10pt; font-weight: bold; color: #1e1b4b; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+            .card-body { font-size: 9pt; color: #334155; line-height: 1.6; whitespace: pre-line; font-weight: 500; }
+            .plan-table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 15px; }
+            .plan-table th { background-color: #f1f5f9; color: #1e293b; font-weight: bold; font-size: 9.5pt; padding: 10px; border-bottom: 2px solid #cbd5e1; }
+            .full-markdown { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; font-size: 9pt; line-height: 1.6; color: #334155; white-space: pre-wrap; font-weight: 500; }
+            .footer-table { width: 100%; border-collapse: collapse; margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+            .sig-title { font-size: 9.5pt; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
+            .sig-name { font-size: 8.5pt; color: #64748b; font-weight: 500; }
+            .doc-footer { text-align: center; font-size: 8pt; color: #94a3b8; margin-top: 15px; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <table class="header-table">
+            <tr>
+                <td style="vertical-align: middle;">
+                    <div class="title">ارزیابی استراتژیک زنجیره تامین و انبارداری کارخانجات</div>
+                    <div class="subtitle">تلفیق هوشمند تراز وزنی، پایپ‌لاین لجستیک و مواد اولیه با هوش مصنوعی</div>
+                </td>
+                <td style="text-align: left; vertical-align: middle; width: 30%;">
+                    <div class="badge-ai">هوش مصنوعی سایان</div>
+                    <div style="font-size: 8.5pt; color: #64748b; margin-top: 6px; font-weight: bold;">
+                        تاریخ استعلام: ${reportDate || '۱۴۰۵/۰۵/۳۱'}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="score-container">
+            <div>
+                <span style="font-size: 10pt; font-weight: bold; color: #475569;">تراز وزنی مبنا:</span>
+                <span style="font-size: 9.5pt; font-weight: bold; color: #0f172a; margin-left: 15px;">${report1Label}</span>
+                <span style="font-size: 10pt; font-weight: bold; color: #475569; margin-right: 15px;">تراز جاری:</span>
+                <span style="font-size: 9.5pt; font-weight: bold; color: #0f172a;">${report2Label}</span>
+            </div>
+            <div style="background: #e0e7ff; border: 1px solid #c7d2fe; color: #3730a3; font-size: 10.5pt; font-weight: 900; padding: 6px 14px; border-radius: 8px;">
+                نمره پایداری زنجیره تامین: ${healthScore} / ۱۰۰
+            </div>
+        </div>
+
+        <div class="section-title">خلاصه مدیریتی و ارزیابی استراتژیک ارشد</div>
+        <div style="margin-bottom: 15px;">
+            ${execSummaryHtml || '<div style="font-size: 9.5pt; color: #64748b;">موردی تولید نشده است. برای تحلیل جدید اقدام کنید.</div>'}
+        </div>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-title">⚖️ تحلیل کلان تراز وزنی انبار</div>
+                <div class="card-body">${totalWeightAnalysis || 'داده‌ای در دسترس نیست.'}</div>
+            </div>
+            <div class="card">
+                <div class="card-title">🚢 تحلیل پایپ‌لاین لجستیک و بارهای در راه</div>
+                <div class="card-body">${logisticsPipelineInsight || 'داده‌ای در دسترس نیست.'}</div>
+            </div>
+        </div>
+
+        ${criticalAlerts.length > 0 ? `
+            <div class="section-title">⚠️ هشدارهای بحرانی و اقلام در معرض ریسک اتمام موجودی</div>
+            <div style="margin-bottom: 15px;">
+                ${alertsHtml}
+            </div>
+        ` : ''}
+
+        ${procurementActionPlan.length > 0 ? `
+            <div class="section-title">🛠️ برنامه عملیاتی پیشنهادی تدارکات و لجستیک</div>
+            <table class="plan-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">اولویت</th>
+                        <th style="width: 45%; text-align: right;">اقدام پیشنهادی هوش مصنوعی</th>
+                        <th style="width: 40%; text-align: right;">اثر استراتژیک بر تولید و نقدینگی</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${plansHtml}
+                </tbody>
+            </table>
+        ` : ''}
+
+        <div style="page-break-before: always;"></div>
+
+        <div class="section-title" style="margin-top: 0;">📝 متن کامل گزارش تحلیلی مدیر ارشد زنجیره تامین</div>
+        <div class="full-markdown">
+            ${fullReportMarkdown}
+        </div>
+
+        <table class="footer-table">
+            <tr>
+                <td style="width: 33%; text-align: right;">
+                    <div class="sig-title">تنظیم و ارسال توسط:</div>
+                    <div class="sig-name">${signature}</div>
+                </td>
+                <td style="width: 34%; text-align: center;">
+                    <div class="sig-title">بخش عملیاتی و پشتیبانی لجستیک</div>
+                    <div class="sig-name">سامانه مدیریت زنجیره تامین سایان</div>
+                </td>
+                <td style="width: 33%; text-align: left;">
+                    <div class="sig-title">رویت و تاییدیه مدیریت عامل</div>
+                    <div class="sig-name">جناب آقای مهندس سلیمی</div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="doc-footer">
+            مشاور استراتژیک زنجیره تامین هوش مصنوعی سایان | تاریخ استعلام: ${reportDate} | لپان بافت
+        </div>
+    </body>
+    </html>
+    `;
+
+    try {
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    } catch (loadErr) {
+      console.warn("[Renderer] setContent domcontentloaded timeout, setting directly:", loadErr.message);
+      await page.setContent(html);
+    }
+    const pdf = await page.pdf({
+      format: 'A4',
+      portrait: true,
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
+    });
+    return pdf;
+  } catch (e) {
+    console.error("Generate AI Advisor Report PDF Error:", e);
+    throw e;
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+      } catch (err) {
+        // ignore close errors
+      }
+    }
+  }
+};
+
+
 
