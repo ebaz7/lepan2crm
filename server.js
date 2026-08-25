@@ -7235,8 +7235,144 @@ async function executeReportJob(job) {
                 attachExcel: job.attachExcel ?? true,
                 reportType: rType
             });
-            console.log(`✅ Cheques report (${rType}) dispatched successfully: ${res.count} cheques found.`);
-        } else if (job.reportType === 'warehouse_overview' || job.module === 'warehouse') {
+            console.log(`✅ Cheques report (${rType}) dispatched successfully: ${res?.count || 0} cheques found.`);
+        } else if (job.reportType === 'customer_balances' || job.reportType === 'traz') {
+            // Sayan Customer Balances (Traz)
+            console.log("📊 Starting Sayan customer balances (Traz) report dispatch...");
+            try {
+                const list = await getCustomerBalancesData(db);
+                const debtors = list.filter(r => (r.rawBalance || 0) > 0).sort((a, b) => Math.abs(b.rawBalance) - Math.abs(a.rawBalance));
+                const creditors = list.filter(r => (r.rawBalance || 0) < 0).sort((a, b) => Math.abs(b.rawBalance) - Math.abs(a.rawBalance));
+
+                const totalBed = debtors.reduce((s, r) => s + Math.abs(r.rawBalance || 0), 0);
+                const totalBes = creditors.reduce((s, r) => s + Math.abs(r.rawBalance || 0), 0);
+                const netBalance = totalBed - totalBes;
+
+                const todayShamsi = new Date().toLocaleDateString('fa-IR');
+                const fRial = (n) => (Math.round(n) || 0).toLocaleString('fa-IR') + ' ریال';
+
+                let msg = `📊 *گزارش تراز معین تفصیلی و مانده حساب اشخاص / مشتریان*\n`;
+                msg += `📅 *تاریخ استعلام:* ${todayShamsi}\n`;
+                msg += `🏢 *سامانه جامع مالی سایان ERP*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                msg += `📈 *خلاصه وضعیت تراز کل:*\n`;
+                msg += `🔹 مجموع بدهکاران (${debtors.length.toLocaleString('fa-IR')} طرف حساب): *${fRial(totalBed)}*\n`;
+                msg += `🔸 مجموع بستانکاران (${creditors.length.toLocaleString('fa-IR')} طرف حساب): *${fRial(totalBes)}*\n`;
+                msg += `⚖️ تراز خالص: *${fRial(Math.abs(netBalance))} (${netBalance >= 0 ? 'بدهکار' : 'بستانکار'})*\n\n`;
+
+                if (debtors.length > 0) {
+                    msg += `🔴 *بزرگترین بدهکاران (Top 5):*\n`;
+                    debtors.slice(0, 5).forEach((d, idx) => {
+                        msg += `  ${(idx + 1).toLocaleString('fa-IR')}. *${d.name}* (${d.accountCode}): ${fRial(d.balance)}\n`;
+                    });
+                    msg += `\n`;
+                }
+
+                if (creditors.length > 0) {
+                    msg += `🟢 *بزرگترین بستانکاران (Top 5):*\n`;
+                    creditors.slice(0, 5).forEach((c, idx) => {
+                        msg += `  ${(idx + 1).toLocaleString('fa-IR')}. *${c.name}* (${c.accountCode}): ${fRial(c.balance)}\n`;
+                    });
+                    msg += `\n`;
+                }
+
+                msg += `📎 جزئیات کامل در فایل گزارش PDF پیوست گردید.`;
+
+                let pdfBuffer = null;
+                if (job.attachPdf !== false) {
+                    try {
+                        const Renderer = await safeImport('./backend/renderer.js');
+                        if (Renderer && Renderer.generatePdfBuffer) {
+                            const html = `
+                            <html dir="rtl" lang="fa">
+                            <head>
+                                <meta charset="utf-8">
+                                <title>گزارش تراز معین تفصیلی اشخاص</title>
+                                <style>
+                                    body { font-family: 'Tahoma', 'Segoe UI', sans-serif; padding: 20px; font-size: 11px; direction: rtl; color: #1e293b; background: #fff; }
+                                    h1 { font-size: 16px; text-align: center; margin-bottom: 5px; color: #0f172a; }
+                                    .subtitle { text-align: center; font-size: 11px; color: #64748b; margin-bottom: 20px; }
+                                    .summary-box { display: flex; justify-content: space-around; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; margin-bottom: 20px; }
+                                    .summary-item { text-align: center; }
+                                    .summary-item b { display: block; font-size: 13px; margin-top: 4px; color: #0f172a; }
+                                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                                    th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10px; text-align: right; }
+                                    td { border: 1px solid #e2e8f0; padding: 5px 8px; font-size: 10px; }
+                                    .bed { color: #dc2626; font-weight: bold; }
+                                    .bes { color: #16a34a; font-weight: bold; }
+                                </style>
+                            </head>
+                            <body>
+                                <h1>گزارش تراز معین تفصیلی و مانده حساب اشخاص (سایان ERP)</h1>
+                                <div class="subtitle">تاریخ گزارش: ${todayShamsi}</div>
+                                <div class="summary-box">
+                                    <div class="summary-item">مجموع بدهکاران: <b class="bed">${fRial(totalBed)}</b></div>
+                                    <div class="summary-item">مجموع بستانکاران: <b class="bes">${fRial(totalBes)}</b></div>
+                                    <div class="summary-item">تراز خالص: <b>${fRial(Math.abs(netBalance))} (${netBalance >= 0 ? 'بدهکار' : 'بستانکار'})</b></div>
+                                </div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40px; text-align: center;">ردیف</th>
+                                            <th style="width: 80px;">کد شخص</th>
+                                            <th>نام طرف حساب</th>
+                                            <th style="width: 120px; text-align: left;">مانده بدهکار (ریال)</th>
+                                            <th style="width: 120px; text-align: left;">مانده بستانکار (ریال)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${list.slice(0, 300).map((r, i) => `
+                                            <tr>
+                                                <td style="text-align: center;">${(i + 1).toLocaleString('fa-IR')}</td>
+                                                <td>${r.accountCode || '-'}</td>
+                                                <td><b>${r.name || '-'}</b></td>
+                                                <td style="text-align: left;" class="${r.rawBalance > 0 ? 'bed' : ''}">${r.rawBalance > 0 ? (Math.round(r.rawBalance)).toLocaleString('fa-IR') : '-'}</td>
+                                                <td style="text-align: left;" class="${r.rawBalance < 0 ? 'bes' : ''}">${r.rawBalance < 0 ? (Math.round(Math.abs(r.rawBalance))).toLocaleString('fa-IR') : '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </body>
+                            </html>
+                            `;
+                            pdfBuffer = await Renderer.generatePdfBuffer(html);
+                        }
+                    } catch (pdfErr) {
+                        console.error("Failed to generate balances PDF:", pdfErr);
+                    }
+                }
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await telegram.sendBotDocument(target.id, pdfBuffer, `Customer_Balances_${Date.now()}.pdf`, msg);
+                            } else {
+                                await telegram.sendBotMessage(target.id, msg);
+                            }
+                        } else if (target.platform === 'bale' && bale) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await bale.sendBotDocument(target.id, pdfBuffer, `Customer_Balances_${Date.now()}.pdf`, msg);
+                            } else {
+                                await bale.sendBotMessage(target.id, msg);
+                            }
+                        } else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                const b64 = pdfBuffer.toString('base64');
+                                await whatsapp.sendMessage(target.id, msg, { data: b64, mimeType: 'application/pdf', filename: 'Customer_Balances.pdf' });
+                            } else {
+                                await whatsapp.sendMessage(target.id, msg);
+                            }
+                        }
+                    } catch (targetErr) {
+                        console.error(`Error sending customer balances report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Customer balances report successfully dispatched to ${customTargets.length} targets.`);
+            } catch (err) {
+                console.error("Error generating/sending customer balances report:", err);
+            }
+        } else if (job.reportType === 'warehouse_overview') {
             // Dispatch Warehouse Daily Overview to configured groups with dynamic compilation!
             try {
                 console.log("📊 Starting dynamic compilation of warehouse daily overview report...");
@@ -7835,58 +7971,444 @@ async function executeReportJob(job) {
             } catch (whErr) {
                 console.error("Error generating/sending warehouse report:", whErr);
             }
-        } else if ((job.reportType === 'production_overview' || job.module === 'production') && job.reportType !== 'production_comparison') {
-            // Dispatch Production Daily Overview to configured groups
+        } else if (job.reportType === 'inventory_stock') {
+            // Sayan Inventory & Stock Kardex Overview
+            console.log("📦 Starting Sayan inventory & stock kardex report dispatch...");
             try {
-                const archive = db.productionWasteArchive || [];
-                if (archive.length > 0) {
-                    // Get the latest archive entry
-                    const sorted = [...archive].sort((a, b) => b.createdAt ? b.createdAt.localeCompare(a.createdAt) : b.dateFrom.localeCompare(a.dateFrom));
-                    const latestEntry = sorted[0];
-                    const Renderer = await safeImport('./backend/renderer.js');
-                    const title = `گزارش آمار کل تولید و ضایعات (${latestEntry.dateFrom})`;
-                    const pdfBuffer = Renderer && Renderer.generateProductionReportPDF 
-                        ? await Renderer.generateProductionReportPDF(title, latestEntry.dateFrom, latestEntry.dateTo || latestEntry.dateFrom, latestEntry.items || [], latestEntry.totals || {}, latestEntry.waste || {})
-                        : null;
-
-                    const caption = buildProductionCaption(latestEntry.dateFrom, latestEntry.totals || {}, latestEntry.waste || {});
-
-                    for (const target of customTargets) {
-                        try {
-                            if (target.platform === 'telegram' && telegram) {
-                                if (pdfBuffer && job.attachPdf !== false) {
-                                    await telegram.sendBotDocument(target.id, pdfBuffer, `Production_Report_${latestEntry.dateFrom.replace(/[\/\\]/g, '-')}.pdf`, caption);
-                                } else {
-                                    await telegram.sendBotMessage(target.id, caption);
-                                }
-                            } else if (target.platform === 'bale' && bale) {
-                                if (pdfBuffer && job.attachPdf !== false) {
-                                    await bale.sendBotDocument(target.id, pdfBuffer, `Production_Report_${latestEntry.dateFrom.replace(/[\/\\]/g, '-')}.pdf`, caption);
-                                } else {
-                                    await bale.sendBotMessage(target.id, caption);
-                                }
-                            } else if (target.platform === 'whatsapp' && whatsapp) {
-                                if (pdfBuffer && job.attachPdf !== false) {
-                                    const b64 = pdfBuffer.toString('base64');
-                                    await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename: 'Production_Report.pdf' });
-                                } else {
-                                    await whatsapp.sendMessage(target.id, caption);
-                                }
-                            }
-                        } catch (targetErr) {
-                            console.error(`Error sending production report to ${target.platform} (${target.id}):`, targetErr.message);
-                        }
-                    }
-                    console.log(`✅ Production overview report dispatched to ${customTargets.length} targets.`);
-                } else {
-                    console.log(`⚠️ No production report entries found in archive to dispatch.`);
+                const todayShamsi = new Date().toLocaleDateString('fa-IR');
+                let inventoryItems = [];
+                const sayanUrl = db.settings?.sayanApiUrl || process.env.SAYAN_API_URL;
+                const sayanKey = db.settings?.sayanApiKey || process.env.SAYAN_API_KEY;
+                if (sayanUrl && sayanKey) {
+                    const gregToday = new Date().toISOString().split('T')[0];
+                    const sql = `
+                        WITH GroupedStock AS (
+                            SELECT 
+                                t11.Field_005 as ItemCode,
+                                SUM(CASE 
+                                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('10', '24', '26', '29', '40', '44', '46', '83') THEN t11.Field_006 
+                                    WHEN RTRIM(LTRIM(t10.Field_009)) IN ('23', '25', '30', '37', '42', '84', '62', '68', '71', '74', '80') THEN -t11.Field_006 
+                                    ELSE 0 
+                                END) as StockQty
+                            FROM STR_TBL_011 t11
+                            INNER JOIN STR_TBL_010 t10 ON t11.Field_004 = t10.Field_005 
+                                                      AND t11.Field_003 = t10.Field_004 
+                                                      AND t11.Field_012 = t10.Field_018
+                            WHERE t10.Field_008 <= '${gregToday}T23:59:59.000Z'
+                            GROUP BY t11.Field_005
+                        )
+                        SELECT 
+                            gs.ItemCode,
+                            gs.StockQty,
+                            COALESCE(
+                                NULLIF(RTRIM(LTRIM(s04.Field_003)), ''),
+                                NULLIF(RTRIM(LTRIM(t22.Field_004)), ''),
+                                RTRIM(LTRIM(gs.ItemCode))
+                            ) as ItemName
+                        FROM GroupedStock gs
+                        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(gs.ItemCode))
+                        LEFT JOIN IND_TBL_022 t22 ON RTRIM(LTRIM(t22.Field_005)) = RTRIM(LTRIM(gs.ItemCode))
+                        WHERE gs.StockQty <> 0
+                    `;
+                    inventoryItems = await executeSayanQuery(db, sql) || [];
                 }
+
+                const totalWeight = inventoryItems.reduce((s, r) => s + (parseFloat(r.StockQty) || 0), 0);
+                const positiveItems = inventoryItems.filter(r => (parseFloat(r.StockQty) || 0) > 0);
+                const negativeItems = inventoryItems.filter(r => (parseFloat(r.StockQty) || 0) < 0);
+
+                let msg = `📦 *گزارش موجودی لحظه‌ای و کاردکس انبار کارخانه (سایان ERP)*\n`;
+                msg += `📅 *تاریخ:* ${todayShamsi}\n`;
+                msg += `⚖️ *سرجمع موجودی انبار:* *${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم*\n`;
+                msg += `📊 *تعداد اقلام دارای موجودی:* *${positiveItems.length.toLocaleString('fa-IR')} قلم کالا*\n`;
+                if (negativeItems.length > 0) {
+                    msg += `⚠️ *تعداد اقلام با موجودی منفی:* *${negativeItems.length.toLocaleString('fa-IR')} قلم کالا*\n`;
+                }
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+
+                const topStock = [...positiveItems].sort((a, b) => (parseFloat(b.StockQty) || 0) - (parseFloat(a.StockQty) || 0)).slice(0, 6);
+                if (topStock.length > 0) {
+                    msg += `🔝 *بیشترین موجودی‌های انبار:*\n`;
+                    topStock.forEach((item, idx) => {
+                        msg += `  ${(idx + 1).toLocaleString('fa-IR')}. *${item.ItemName || item.ItemCode}:* ${Math.round(parseFloat(item.StockQty) || 0).toLocaleString('fa-IR')} ک‌گ\n`;
+                    });
+                }
+
+                if (negativeItems.length > 0) {
+                    msg += `\n🚨 *اقلام منفی نیازمند بازبینی کاردکس:*\n`;
+                    negativeItems.slice(0, 4).forEach((item, idx) => {
+                        msg += `  ⚠️ *${item.ItemName || item.ItemCode}:* ${Math.round(parseFloat(item.StockQty) || 0).toLocaleString('fa-IR')} ک‌گ\n`;
+                    });
+                }
+                msg += `\n🤖 *سامانه جامع پایش انبار و لجستیک سایان ERP*`;
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) await telegram.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'bale' && bale) await bale.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) await whatsapp.sendMessage(target.id, msg);
+                    } catch (targetErr) {
+                        console.error(`Error sending stock report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Stock kardex report dispatched to ${customTargets.length} targets.`);
+            } catch (stockErr) {
+                console.error("Error generating/sending stock kardex report:", stockErr);
+            }
+        } else if (job.reportType === 'production_returns') {
+            // Sayan Production Returns & Wastes Report
+            console.log("⚠️ Starting Sayan production returns report dispatch...");
+            try {
+                const now = new Date();
+                const tehranStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+                const [gy, gm, gd] = tehranStr.split('-').map(Number);
+                const jToday = jalaali.toJalaali ? jalaali.toJalaali(gy, gm, gd) : { jy: 1404, jm: 1, jd: 1 };
+                const todayShamsi = `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+
+                const items = await queryProductionReturnsData(db, todayShamsi, todayShamsi);
+                const totalWeight = items.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
+
+                const classifyProductGroup = (itemCode, itemName) => {
+                    const code = (itemCode || '').trim();
+                    const name = (itemName || '').toLowerCase();
+                    if (code.startsWith('0401') || name.includes('کاور')) return 'اسپاندکس (کاور)';
+                    if (code.startsWith('0402') || name.includes('کش') || name.includes('قیطان')) return 'کش';
+                    if (code.startsWith('0403') || name.includes('ساپورت') || name.includes('جوشی')) return 'اسپاندکس جوشی ( ساپورت )';
+                    if (code.startsWith('0405') || name.includes('شوایتر')) return 'پلی استر شوایتر';
+                    if (code.startsWith('0407')) return 'نایلون';
+                    if (code.startsWith('0408') || name.includes('ملت')) return 'نخ ملت';
+                    if (code.startsWith('0409') || name.includes('الیاف')) return 'الیاف';
+                    if (code.startsWith('0410') || name.includes('fdy')) return 'FDY';
+                    if (code.startsWith('0101') || name.includes('چیپس')) return 'چیپس';
+                    if (code.startsWith('0102') || name.includes('poy') || name.includes('پوی')) return 'POY';
+                    if (code.startsWith('0103') || name.includes('dty') || name.includes('دی تی وای') || name.includes('پلی استر')) return 'dty یا پلی استر';
+                    if (code.startsWith('0104') || name.includes('لاستیک')) return 'لاستیک';
+                    if (code.startsWith('0105') || name.includes('لاکرا')) return 'لاکرا';
+                    if (code.startsWith('0106') || name.includes('اسپان')) return 'پلی استر اسپان';
+                    if (code.startsWith('0107') || name.includes('مستر بچ') || name.includes('مستربچ')) return 'مستر بچ';
+                    if (code.startsWith('0108') || name.includes('نایلون')) return 'نایلون';
+                    return itemName || 'سایر اقلام';
+                };
+
+                const summaryMap = {};
+                const itemsMap = new Map();
+                items.forEach(item => {
+                    const grp = classifyProductGroup(item.ItemCode, item.ItemName);
+                    summaryMap[grp] = (summaryMap[grp] || 0) + parseFloat(item.Quantity || 0);
+                    const rawName = (item.ItemName || '').trim();
+                    const cleanName = (rawName && !rawName.startsWith('0') && isNaN(Number(rawName))) ? rawName : grp;
+                    itemsMap.set(cleanName, (itemsMap.get(cleanName) || 0) + parseFloat(item.Quantity || 0));
+                });
+
+                let msg = `⚠️ *گزارش ضایعات و برگشت از تولید کارخانه (سایان ERP)*\n`;
+                msg += `📅 *تاریخ:* ${todayShamsi}\n`;
+                msg += `⚖️ *سرجمع وزن برگشتی:* *${Math.round(totalWeight).toLocaleString('fa-IR')} کیلوگرم*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                msg += `📊 *تفکیک گروه‌ها:*\n`;
+                Object.entries(summaryMap).forEach(([grp, qty]) => {
+                    msg += `🔹 *${grp}:* ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ\n`;
+                });
+
+                const topItems = Array.from(itemsMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                if (topItems.length > 0) {
+                    msg += `\n📦 *اقلام شاخص برگشتی:*\n` + topItems.map(([name, qty]) => `▪️ ${name}: ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ`).join('\n') + `\n`;
+                }
+                msg += `\n📎 فایل PDF رسمی گزارش پیوست گردید.`;
+
+                let pdfBuffer = null;
+                if (job.attachPdf !== false) {
+                    try {
+                        const html = compileProductionReturnsHtml(todayShamsi, todayShamsi, items);
+                        const Renderer = await safeImport('./backend/renderer.js');
+                        if (Renderer && Renderer.generatePdfBuffer) {
+                            pdfBuffer = await Renderer.generatePdfBuffer(html);
+                        }
+                    } catch (pdfErr) {
+                        console.error("PDF Generate Error Sayan Returns:", pdfErr);
+                    }
+                }
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await telegram.sendBotDocument(target.id, pdfBuffer, `Production_Returns_${todayShamsi.replace(/[\/\\]/g, '-')}.pdf`, msg);
+                            } else {
+                                await telegram.sendBotMessage(target.id, msg);
+                            }
+                        } else if (target.platform === 'bale' && bale) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await bale.sendBotDocument(target.id, pdfBuffer, `Production_Returns_${todayShamsi.replace(/[\/\\]/g, '-')}.pdf`, msg);
+                            } else {
+                                await bale.sendBotMessage(target.id, msg);
+                            }
+                        } else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                const b64 = pdfBuffer.toString('base64');
+                                await whatsapp.sendMessage(target.id, msg, { data: b64, mimeType: 'application/pdf', filename: 'Production_Returns.pdf' });
+                            } else {
+                                await whatsapp.sendMessage(target.id, msg);
+                            }
+                        }
+                    } catch (targetErr) {
+                        console.error(`Error sending production returns report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Production returns report dispatched to ${customTargets.length} targets.`);
+            } catch (retErr) {
+                console.error("Error generating/sending production returns report:", retErr);
+            }
+        } else if (job.reportType === 'production_overview') {
+            // Sayan Production Daily Overview (Live + Archive fallback)
+            console.log("🏭 Starting Sayan production overview report dispatch...");
+            try {
+                const now = new Date();
+                const tehranStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+                const [gy, gm, gd] = tehranStr.split('-').map(Number);
+                const jToday = jalaali.toJalaali ? jalaali.toJalaali(gy, gm, gd) : { jy: 1404, jm: 1, jd: 1 };
+                const todayShamsi = `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+
+                const archive = db.productionWasteArchive || [];
+                const todayArchiveEntry = archive.find(e => e.dateFrom === todayShamsi || e.dateTo === todayShamsi);
+
+                let items = [];
+                let totals = {};
+                let waste = {};
+
+                if (todayArchiveEntry) {
+                    items = todayArchiveEntry.items || [];
+                    totals = todayArchiveEntry.totals || {};
+                    waste = {
+                        waste_61: todayArchiveEntry.waste_61 || 0,
+                        waste_67: todayArchiveEntry.waste_67 || 0,
+                        waste_79: todayArchiveEntry.waste_79 || 0,
+                        waste_73: todayArchiveEntry.waste_73 || 0,
+                        waste_schweiter: todayArchiveEntry.waste_schweiter || 0,
+                        details: todayArchiveEntry.details || ''
+                    };
+                } else {
+                    // Fetch live production from Sayan ERP
+                    try {
+                        const liveProd = await fetchProductionDataForDateRange(db, todayShamsi, todayShamsi);
+                        items = liveProd.items || [];
+                        totals = liveProd.totals || {};
+                        const savedWastes = db.productionReportWastes || {};
+                        const key = `${todayShamsi}_${todayShamsi}`;
+                        waste = savedWastes[key] || { waste_61: 0, waste_67: 0, waste_79: 0, waste_73: 0, waste_schweiter: 0, details: '' };
+                    } catch (e) {
+                        console.error("Live production fetch error:", e);
+                    }
+                }
+
+                const Renderer = await safeImport('./backend/renderer.js');
+                const title = `گزارش آمار کل تولید و ضایعات (${todayShamsi})`;
+                const pdfBuffer = (Renderer && Renderer.generateProductionReportPDF && job.attachPdf !== false)
+                    ? await Renderer.generateProductionReportPDF(title, todayShamsi, todayShamsi, items, totals, waste)
+                    : null;
+
+                const caption = buildProductionCaption(todayShamsi, totals, waste);
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await telegram.sendBotDocument(target.id, pdfBuffer, `Production_Report_${todayShamsi.replace(/[\/\\]/g, '-')}.pdf`, caption);
+                            } else {
+                                await telegram.sendBotMessage(target.id, caption);
+                            }
+                        } else if (target.platform === 'bale' && bale) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                await bale.sendBotDocument(target.id, pdfBuffer, `Production_Report_${todayShamsi.replace(/[\/\\]/g, '-')}.pdf`, caption);
+                            } else {
+                                await bale.sendBotMessage(target.id, caption);
+                            }
+                        } else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) {
+                            if (pdfBuffer && job.attachPdf !== false) {
+                                const b64 = pdfBuffer.toString('base64');
+                                await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename: 'Production_Report.pdf' });
+                            } else {
+                                await whatsapp.sendMessage(target.id, caption);
+                            }
+                        }
+                    } catch (targetErr) {
+                        console.error(`Error sending production report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Production overview report dispatched to ${customTargets.length} targets.`);
             } catch (prodErr) {
                 console.error("Error generating/sending production report:", prodErr);
             }
         } else if (job.reportType === 'production_comparison') {
             const compRanges = getComparisonDateRanges(job.comparisonPeriod || 'yesterday_vs_last_year');
             await fetchAndDispatchProductionCompareReport(db, customTargets, job, compRanges);
+        } else if (job.reportType === 'sales_remittances') {
+            // Sayan Sales Remittances Overview
+            console.log("🚚 Starting Sayan sales remittances report dispatch...");
+            try {
+                const todayShamsi = new Date().toLocaleDateString('fa-IR');
+                let remittances = [];
+                const sayanUrl = db.settings?.sayanApiUrl || process.env.SAYAN_API_URL;
+                const sayanKey = db.settings?.sayanApiKey || process.env.SAYAN_API_KEY;
+                if (sayanUrl && sayanKey) {
+                    const gregToday = new Date().toISOString().split('T')[0];
+                    const sql = `
+                        SELECT 
+                            t10.Field_001 as DocId,
+                            t10.Field_008 as Date,
+                            RTRIM(LTRIM(t10.Field_009)) as DocType,
+                            RTRIM(LTRIM(t10.Field_010)) as PersonCode,
+                            COALESCE(c01.Field_003, t10.Field_010) as BuyerName,
+                            RTRIM(LTRIM(t11.Field_005)) as ItemCode,
+                            COALESCE(s04.Field_003, t11.Field_005) as ItemName,
+                            t11.Field_006 as Quantity
+                        FROM STR_TBL_010 t10
+                        INNER JOIN STR_TBL_011 t11 ON t11.Field_004 = t10.Field_005 
+                                                  AND t11.Field_003 = t10.Field_004 
+                                                  AND t11.Field_012 = t10.Field_018
+                        LEFT JOIN COM_TBL_001 c01 ON RTRIM(LTRIM(c01.Field_004)) = RTRIM(LTRIM(t10.Field_010))
+                        LEFT JOIN STR_TBL_004 s04 ON RTRIM(LTRIM(s04.Field_004)) = RTRIM(LTRIM(t11.Field_005))
+                        WHERE t10.Field_008 >= '${gregToday}T00:00:00.000Z'
+                          AND RTRIM(LTRIM(t10.Field_009)) IN ('12', '23', '3', '13')
+                    `;
+                    remittances = await executeSayanQuery(db, sql) || [];
+                }
+
+                const uniqueDocs = new Set(remittances.map(r => r.DocId)).size;
+                const totalQty = remittances.reduce((s, r) => s + (parseFloat(r.Quantity) || 0), 0);
+
+                let msg = `🚚 *گزارش حواله‌های خروج و بارگیری انبار (سایان ERP)*\n`;
+                msg += `📅 *تاریخ:* ${todayShamsi}\n`;
+                msg += `📦 *تعداد حواله‌ها:* *${uniqueDocs.toLocaleString('fa-IR')} برگ*\n`;
+                msg += `⚖️ *مجموع وزن خروجی:* *${Math.round(totalQty).toLocaleString('fa-IR')} کیلوگرم*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+
+                if (remittances.length === 0) {
+                    msg += `✅ برای امروز هنوز حواله خروجی در سیستم ثبت نشده است.\n`;
+                } else {
+                    const buyerMap = new Map();
+                    remittances.forEach(r => {
+                        const b = r.BuyerName || 'مشتری نامشخص';
+                        buyerMap.set(b, (buyerMap.get(b) || 0) + (parseFloat(r.Quantity) || 0));
+                    });
+                    msg += `👥 *بارگیری به تفکیک خریداران:*\n`;
+                    Array.from(buyerMap.entries()).slice(0, 8).forEach(([b, qty], idx) => {
+                        msg += `  ${(idx + 1).toLocaleString('fa-IR')}. *${b}:* ${Math.round(qty).toLocaleString('fa-IR')} ک‌گ\n`;
+                    });
+                }
+                msg += `\n🤖 *سامانه مانیتورینگ خروج و بارگیری انبار*`;
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) await telegram.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'bale' && bale) await bale.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) await whatsapp.sendMessage(target.id, msg);
+                    } catch (targetErr) {
+                        console.error(`Error sending remittances report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Remittances report dispatched to ${customTargets.length} targets.`);
+            } catch (remErr) {
+                console.error("Error generating/sending remittances report:", remErr);
+            }
+        } else if (job.reportType === 'sales_executive') {
+            // Sayan Executive Sales Summary
+            console.log("💼 Starting executive sales report dispatch...");
+            try {
+                const now = new Date();
+                const tehranStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' });
+                const [gy, gm, gd] = tehranStr.split('-').map(Number);
+                const jToday = jalaali.toJalaali ? jalaali.toJalaali(gy, gm, gd) : { jy: 1404, jm: 1, jd: 1 };
+                const todayShamsi = `${jToday.jy}/${String(jToday.jm).padStart(2, '0')}/${String(jToday.jd).padStart(2, '0')}`;
+
+                const salesResult = await fetchProcessedSayanSalesData(db, todayShamsi, todayShamsi);
+                const totals = salesResult?.totals || {};
+                const totalSalesAmount = parseFloat(totals.totalSalesAmount || totals.netSalesAmount || 0);
+                const totalSalesWeight = parseFloat(totals.totalSalesWeight || totals.netSalesWeight || 0);
+                const totalReturnsAmount = parseFloat(totals.totalReturnsAmount || 0);
+                const totalReturnsWeight = parseFloat(totals.totalReturnsWeight || 0);
+                const netAmount = totalSalesAmount - totalReturnsAmount;
+                const netWeight = totalSalesWeight - totalReturnsWeight;
+                const invoiceCount = (salesResult?.invoices || []).length;
+
+                const fRial = (n) => (Math.round(n) || 0).toLocaleString('fa-IR') + ' ریال';
+                const fKg = (n) => (Math.round(n) || 0).toLocaleString('fa-IR') + ' ک‌گ';
+
+                let msg = `💼 *گزارش خلاصه مدیریتی ارشد فروش کارخانه (Executive Summary)*\n`;
+                msg += `📅 *تاریخ:* ${todayShamsi}\n`;
+                msg += `🏢 *سامانه جامع گزارشات فروش سایان ERP*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                msg += `💰 *مبلغ فروش ناخالص:* *${fRial(totalSalesAmount)}*\n`;
+                if (totalReturnsAmount > 0) {
+                    msg += `🔻 *مبلغ برگشت از فروش:* *${fRial(totalReturnsAmount)}*\n`;
+                }
+                msg += `💵 *خالص فروش نهایی:* *${fRial(netAmount)}*\n`;
+                msg += `⚖️ *خالص وزن بارگیری:* *${fKg(netWeight)}*\n`;
+                msg += `📄 *تعداد فاکتورهای صادره:* *${invoiceCount.toLocaleString('fa-IR')} فقره*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+
+                const buyerMap = new Map();
+                (salesResult?.invoices || []).forEach(inv => {
+                    const b = inv.CustomerName || inv.BuyerName || 'نامشخص';
+                    buyerMap.set(b, (buyerMap.get(b) || 0) + (parseFloat(inv.TotalAmount || inv.Amount) || 0));
+                });
+                const topBuyers = Array.from(buyerMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4);
+                if (topBuyers.length > 0) {
+                    msg += `🏆 *مشتریان برتر امروز:*\n`;
+                    topBuyers.forEach(([name, amount], idx) => {
+                        msg += `  ${(idx + 1).toLocaleString('fa-IR')}. *${name}:* ${fRial(amount)}\n`;
+                    });
+                    msg += `\n`;
+                }
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) await telegram.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'bale' && bale) await bale.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) await whatsapp.sendMessage(target.id, msg);
+                    } catch (targetErr) {
+                        console.error(`Error sending executive sales report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Executive sales report dispatched to ${customTargets.length} targets.`);
+            } catch (execErr) {
+                console.error("Error generating/sending executive sales report:", execErr);
+            }
+        } else if (job.reportType === 'daily_exit_summary') {
+            // Factory Exit & Permits Summary
+            console.log("🚪 Starting factory daily exit permits report dispatch...");
+            try {
+                const todayShamsi = new Date().toLocaleDateString('fa-IR');
+                const permits = (db.exitPermits || []).filter(p => {
+                    return (p.date || p.createdAt || '').includes(todayShamsi) || (p.createdAt && p.createdAt.startsWith(new Date().toISOString().split('T')[0]));
+                });
+
+                const goodsCount = permits.filter(p => p.type === 'GOODS' || p.type === 'KALA').length;
+                const personalCount = permits.filter(p => p.type === 'PERSONAL' || p.type === 'PERSONNEL').length;
+                const vehicleCount = permits.filter(p => p.type === 'VEHICLE').length;
+
+                let msg = `🚪 *گزارش روزانه مجوزهای خروج و تردد کارخانه*\n`;
+                msg += `📅 *تاریخ:* ${todayShamsi}\n`;
+                msg += `📑 *مجموع برگه‌های خروج صادرشده:* *${permits.length.toLocaleString('fa-IR')} فقره*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                msg += `📦 برگه‌های خروج کالا و اقلام: *${goodsCount.toLocaleString('fa-IR')}*\n`;
+                msg += `🚶‍♂️ برگه‌های تردد پرسنل: *${personalCount.toLocaleString('fa-IR')}*\n`;
+                msg += `🚗 برگه‌های تردد خودرو: *${vehicleCount.toLocaleString('fa-IR')}*\n`;
+                msg += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+                msg += `🤖 *سامانه حراست و مدیریت تردد*`;
+
+                for (const target of customTargets) {
+                    try {
+                        if (target.platform === 'telegram' && telegram) await telegram.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'bale' && bale) await bale.sendBotMessage(target.id, msg);
+                        else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) await whatsapp.sendMessage(target.id, msg);
+                    } catch (targetErr) {
+                        console.error(`Error sending exit permits report to ${target.platform} (${target.id}):`, targetErr.message);
+                    }
+                }
+                console.log(`✅ Daily exit permits report dispatched to ${customTargets.length} targets.`);
+            } catch (exitErr) {
+                console.error("Error generating/sending daily exit report:", exitErr);
+            }
         } else if (job.scheduleType === 'daily_comp_1900' || job.reportType === 'sales_comparison') {
             const sendFn = async (chatId, text, opts) => {
                 if (job.botPlatforms?.includes('telegram') && teleGroup) {
