@@ -70,6 +70,9 @@ import {
   Bot,
   Sparkles,
   Upload,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
@@ -239,6 +242,33 @@ const Settings: React.FC<SettingsProps> = ({
   const [sendingManualSalesYesterday, setSendingManualSalesYesterday] = useState(false);
   const [sendingManualCheques, setSendingManualCheques] = useState(false);
   const [sendingManualChequesMatured, setSendingManualChequesMatured] = useState(false);
+
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [testingGemini, setTestingGemini] = useState(false);
+  const [geminiTestResult, setGeminiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleTestGemini = async () => {
+    if (!settings.geminiApiKey?.trim()) {
+      setGeminiTestResult({ success: false, message: 'لطفاً ابتدا کلید Gemini AI را وارد کنید.' });
+      return;
+    }
+    setTestingGemini(true);
+    setGeminiTestResult(null);
+    try {
+      const res = await apiCall<{ success: boolean; reply?: string; error?: string }>('/ai/test-connection', 'POST', {
+        apiKey: settings.geminiApiKey.trim()
+      });
+      if (res.success) {
+        setGeminiTestResult({ success: true, message: `اتصال برقرار شد: ${res.reply || 'پاسخ هوش مصنوعی دریافت شد.'}` });
+      } else {
+        setGeminiTestResult({ success: false, message: res.error || 'خطا در ارتباط با هوش مصنوعی' });
+      }
+    } catch (err: any) {
+      setGeminiTestResult({ success: false, message: err.message || 'خطا در تست اتصال هوش مصنوعی' });
+    } finally {
+      setTestingGemini(false);
+    }
+  };
 
   const handleSendManualChequesVault = async () => {
     setSendingManualCheques(true);
@@ -3775,21 +3805,74 @@ const Settings: React.FC<SettingsProps> = ({
                         />
                       </div>
                       <div className="border-t pt-3">
-                        <label className="text-xs font-bold text-gray-500 block mb-1">
-                          کلید Gemini AI (هوش مصنوعی)
-                        </label>
-                        <input
-                          className="w-full border rounded p-2 text-xs dir-ltr font-mono"
-                          value={settings.geminiApiKey || ""}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              geminiApiKey: e.target.value,
-                            })
-                          }
-                          placeholder="AI Key..."
-                          type="password"
-                        />
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                            <Sparkles size={14} className="text-indigo-600 animate-pulse" />
+                            <span>کلید Google Gemini AI (هوش مصنوعی ERP)</span>
+                          </label>
+                          {settings.geminiApiKey?.trim() ? (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold border border-emerald-300 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              کلید ثبت شده
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold border border-amber-300">
+                              تنظیم نشده
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-500 leading-relaxed mb-2">
+                          برای فعال‌سازی دستیار صوتی هوشمند (تلگرام/بله/داشبورد)، تحلیل تراز استراتژیک انبار، مشاور ارشد فروش و اسکن هوشمند اسناد، کلید API را از <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold hover:text-indigo-800">Google AI Studio</a> دریافت و در کادر زیر وارد نمایید:
+                        </p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              className="w-full border rounded-lg p-2.5 text-xs dir-ltr font-mono bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all pr-8"
+                              value={settings.geminiApiKey || ""}
+                              onChange={(e) =>
+                                setSettings({
+                                  ...settings,
+                                  geminiApiKey: e.target.value,
+                                })
+                              }
+                              placeholder="AIzaSy..."
+                              type={showGeminiKey ? "text" : "password"}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowGeminiKey(!showGeminiKey)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+                              title={showGeminiKey ? "مخفی‌سازی" : "نمایش"}
+                            >
+                              {showGeminiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleTestGemini}
+                            disabled={testingGemini || !settings.geminiApiKey?.trim()}
+                            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold px-3.5 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-sm"
+                          >
+                            {testingGemini ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                            <span>تست اتصال هوش مصنوعی</span>
+                          </button>
+                        </div>
+                        {geminiTestResult && (
+                          <div className={`mt-2 p-2.5 rounded-lg text-xs font-medium border flex items-start gap-2 ${
+                            geminiTestResult.success 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                              : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}>
+                            {geminiTestResult.success ? (
+                              <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                            ) : (
+                              <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1 text-[11px] leading-relaxed">
+                              {geminiTestResult.message}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="border-t pt-3">
                         <label className="text-xs font-bold text-gray-500 block mb-1">

@@ -4,19 +4,63 @@ import path from 'path';
 import { getDb, saveDb } from './db-manager.js';
 import * as utils from './utils.js';
 
-let aiClient = null;
-
-export const getGeminiClient = () => {
-    if (aiClient) return aiClient;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.warn("[AI Service] GEMINI_API_KEY is not configured in process.env");
+/**
+ * Dynamically resolves the Gemini API Key from settings or environment variables
+ */
+export const getActiveGeminiApiKey = (customKey) => {
+    if (customKey && typeof customKey === 'string' && customKey.trim()) {
+        return customKey.trim();
     }
-    aiClient = new GoogleGenAI({
-        apiKey: apiKey || '',
+    try {
+        const db = getDb();
+        const settingsKey = db?.settings?.geminiApiKey;
+        if (settingsKey && typeof settingsKey === 'string' && settingsKey.trim()) {
+            return settingsKey.trim();
+        }
+    } catch (e) {
+        // ignore DB read error
+    }
+    const envKey = process.env.GEMINI_API_KEY;
+    if (envKey && typeof envKey === 'string' && envKey.trim()) {
+        return envKey.trim();
+    }
+    return '';
+};
+
+/**
+ * Initializes GoogleGenAI client with the active or provided API key
+ */
+export const getGeminiClient = (customKey) => {
+    const apiKey = getActiveGeminiApiKey(customKey);
+    if (!apiKey) {
+        throw new Error("کلید Google Gemini AI تنظیم نشده است. لطفاً کلید API را از بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها و ارتباطات -> بخش هوش مصنوعی» وارد و ذخیره نمایید.");
+    }
+    return new GoogleGenAI({
+        apiKey,
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
-    return aiClient;
+};
+
+/**
+ * Live test of AI connection with given or stored key
+ */
+export const testAiConnection = async (customKey) => {
+    const ai = getGeminiClient(customKey);
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+            {
+                role: 'user',
+                parts: [{ text: 'سلام! اتصال آزمایشی سیستم ERP لپان بافت به هوش مصنوعی را در یک جمله کوتاه تایید کن.' }]
+            }
+        ]
+    });
+    return {
+        success: true,
+        reply: response.text?.trim() || 'ارتباط با موتور هوش مصنوعی با موفقیت برقرار است.',
+        model: 'gemini-2.5-flash',
+        timestamp: new Date().toISOString()
+    };
 };
 
 /**
@@ -28,7 +72,7 @@ export const getSystemContextSnapshot = () => {
         const settings = db.settings || {};
         
         // Active fiscal year
-        const activeYear = (settings.fiscalYears || []).find(y => y.id === settings.activeFiscalYearId)?.label || '1405';
+        const activeYear = (settings.fiscalYears || []).find(y => y.id === settings.activeFiscalYearId)?.label || '1404';
         
         // Orders & permits
         const ordersCount = (db.orders || []).length;
@@ -67,12 +111,8 @@ export const getSystemContextSnapshot = () => {
 /**
  * Transcribe and execute Voice / Audio commands
  */
-export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg') => {
-    const ai = getGeminiClient();
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error("کلید GEMINI_API_KEY در متغیرهای محیطی سرور تنظیم نشده است.");
-    }
-
+export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg', customKey) => {
+    const ai = getGeminiClient(customKey);
     const base64Audio = audioBuffer.toString('base64');
     const systemContext = JSON.stringify(getSystemContextSnapshot(), null, 2);
 
@@ -134,12 +174,8 @@ ${systemContext}
 /**
  * Ask AI Assistant / Copilot
  */
-export const askAiAssistant = async ({ message, contextData, history = [] }) => {
-    const ai = getGeminiClient();
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error("کلید GEMINI_API_KEY در متغیرهای محیطی سرور تنظیم نشده است.");
-    }
-
+export const askAiAssistant = async ({ message, contextData, history = [], customKey }) => {
+    const ai = getGeminiClient(customKey);
     const systemSnapshot = getSystemContextSnapshot();
     const systemInstruction = `
 شما «ایجنت هوش مصنوعی و مشاور ارشد سیستم ERP لپان بافت» هستید.
@@ -191,11 +227,8 @@ ${contextData ? JSON.stringify(contextData, null, 2) : 'داده اضافه ثب
 /**
  * Deep Strategic Warehouse AI Analysis
  */
-export const generateWarehouseStrategicAnalysis = async (warehousePayload) => {
-    const ai = getGeminiClient();
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error("کلید GEMINI_API_KEY در متغیرهای محیطی سرور تنظیم نشده است.");
-    }
+export const generateWarehouseStrategicAnalysis = async (warehousePayload, customKey) => {
+    const ai = getGeminiClient(customKey);
 
     const prompt = `
 شما «مدیر ارشد تحلیل زنجیره تامین و هوش انبار (AI Supply Chain Director)» هستید.
@@ -217,10 +250,10 @@ ${JSON.stringify(warehousePayload, null, 2)}
   "totalWeightAnalysis": "متن تحلیل کلان تراز و نسبت‌ها",
   "logisticsPipelineInsight": "تحلیل بارهای در راه، گمرک و خریدهای در حال انجام",
   "criticalAlerts": [
-    { "itemName": "نام کالا", "riskLevel": "CRITICAL" | "WARNING" | "INFO", "reason": "علت ریسک و پیشنهاد رفع" }
+    { "itemName": "نام کالا", "riskLevel": "CRITICAL", "reason": "علت ریسک و پیشنهاد رفع" }
   ],
   "procurementActionPlan": [
-    { "priority": "HIGH" | "MEDIUM" | "LOW", "action": "اقدام مشخص خرید یا ترخیص", "impact": "اثر اقتصادی/تولیدی" }
+    { "priority": "HIGH", "action": "اقدام مشخص خرید یا ترخیص", "impact": "اثر اقتصادی/تولیدی" }
   ],
   "fullReportMarkdown": "متن کامل، ساختاریافته و زیبای گزارش با مارک‌داون جهت نمایش و چاپ"
 }
@@ -250,11 +283,8 @@ ${JSON.stringify(warehousePayload, null, 2)}
 /**
  * Deep Strategic Sales & Cashflow AI Analysis
  */
-export const generateSalesStrategicAnalysis = async (salesPayload) => {
-    const ai = getGeminiClient();
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error("کلید GEMINI_API_KEY در متغیرهای محیطی سرور تنظیم نشده است.");
-    }
+export const generateSalesStrategicAnalysis = async (salesPayload, customKey) => {
+    const ai = getGeminiClient(customKey);
 
     const prompt = `
 شما «مدیر ارشد هوش تجاری و تحلیل استراتژیک فروش (AI Commercial & Revenue Director)» هستید.
@@ -272,7 +302,7 @@ ${JSON.stringify(salesPayload, null, 2)}
 خروجی را در قالب JSON استاندارد زیر ارائه فرمایید:
 {
   "growthRatePct": 12.5,
-  "revenueHealth": "STRONG" | "MODERATE" | "ATTENTION_REQUIRED",
+  "revenueHealth": "STRONG",
   "executiveSummary": ["نکته ۱", "نکته ۲", "نکته ۳"],
   "salesTrendInsight": "متن تحلیل روند فروش و وزن مقایسه‌ای",
   "pricingAnalysis": "تحلیل میانگین نرخ‌ها و کشش قیمتی محصولات",
@@ -309,12 +339,8 @@ ${JSON.stringify(salesPayload, null, 2)}
 /**
  * Smart Scanner for Invoices, Proformas, Bijaks, Cheques, Weighbridge Slips
  */
-export const scanDocumentWithAi = async (imageBuffer, mimeType = 'image/jpeg') => {
-    const ai = getGeminiClient();
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error("کلید GEMINI_API_KEY در متغیرهای محیطی سرور تنظیم نشده است.");
-    }
-
+export const scanDocumentWithAi = async (imageBuffer, mimeType = 'image/jpeg', customKey) => {
+    const ai = getGeminiClient(customKey);
     const base64Image = imageBuffer.toString('base64');
     const prompt = `
 تصویر یک سند تجاری / صنعتی (فاکتور فروش، پروفرما، برگه خروج/بیجک، چک، یا برگه باسکول) بارگذاری شده است.
@@ -333,7 +359,7 @@ export const scanDocumentWithAi = async (imageBuffer, mimeType = 'image/jpeg') =
 
 خروجی را در قالب JSON استاندارد زیر برگردانید:
 {
-  "documentType": "invoice" | "proforma" | "exit_permit" | "cheque" | "weighbridge" | "other",
+  "documentType": "invoice",
   "documentTypeFa": "عنوان فارسی سند",
   "documentNumber": "شماره سند",
   "date": "تاریخ",
@@ -353,7 +379,7 @@ export const scanDocumentWithAi = async (imageBuffer, mimeType = 'image/jpeg') =
   "totalQuantity": 100,
   "totalWeight": 2500,
   "totalAmount": 15000000,
-  "currency": "ریال" | "تومان" | "دلار",
+  "currency": "ریال",
   "bankInfo": {
     "bankName": "نام بانک",
     "accountNo": "شماره حساب",

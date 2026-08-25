@@ -8680,6 +8680,115 @@ app.post('/api/report-delivery/execute-now', async (req, res) => {
     }
 });
 
+// --- AI ASSISTANT & INTELLIGENT ENTERPRISE MODULES ENDPOINTS ---
+app.get('/api/ai/status', (req, res) => {
+    try {
+        const db = getDb();
+        const settingsKey = db?.settings?.geminiApiKey?.trim();
+        const envKey = process.env.GEMINI_API_KEY?.trim();
+        const hasKey = Boolean(settingsKey || envKey);
+        res.json({
+            configured: hasKey,
+            source: settingsKey ? 'settings' : (envKey ? 'env' : 'none'),
+            model: 'gemini-2.5-flash'
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/ai/test-connection', async (req, res) => {
+    try {
+        const { apiKey } = req.body;
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی لود نشد.");
+        const result = await aiService.testAiConnection(apiKey);
+        res.json(result);
+    } catch (e) {
+        console.error("AI test connection error:", e);
+        res.status(400).json({ error: e.message || 'خطا در برقراری ارتباط با مدل Gemini' });
+    }
+});
+
+app.post('/api/ai/chat', async (req, res) => {
+    try {
+        const { message, contextData, history } = req.body;
+        if (!message) {
+            return res.status(400).json({ error: 'پیامی برای ارسال وارد نشده است.' });
+        }
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.askAiAssistant({ message, contextData, history });
+        res.json(result);
+    } catch (e) {
+        console.error("AI chat error:", e);
+        res.status(500).json({ error: e.message || 'خطا در پردازش هوش مصنوعی' });
+    }
+});
+
+const handleVoiceProcess = async (req, res) => {
+    try {
+        const { audioBase64, mimeType } = req.body;
+        if (!audioBase64) {
+            return res.status(400).json({ error: 'داده صوتی ارسال نشده است.' });
+        }
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.processVoiceAudio(audioBuffer, mimeType || 'audio/webm');
+        res.json(result);
+    } catch (e) {
+        console.error("AI voice processing error:", e);
+        res.status(500).json({ error: e.message || 'خطا در پردازش صوت' });
+    }
+};
+
+app.post('/api/ai/voice-command', handleVoiceProcess);
+app.post('/api/ai/voice-process', handleVoiceProcess);
+
+app.post('/api/ai/warehouse-analysis', async (req, res) => {
+    try {
+        const payload = req.body;
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.generateWarehouseStrategicAnalysis(payload);
+        res.json(result);
+    } catch (e) {
+        console.error("AI warehouse analysis error:", e);
+        res.status(500).json({ error: e.message || 'خطا در تولید تحلیل تراز انبار' });
+    }
+});
+
+app.post('/api/ai/sales-analysis', async (req, res) => {
+    try {
+        const payload = req.body;
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.generateSalesStrategicAnalysis(payload);
+        res.json(result);
+    } catch (e) {
+        console.error("AI sales analysis error:", e);
+        res.status(500).json({ error: e.message || 'خطا در تولید تحلیل فروش' });
+    }
+});
+
+app.post('/api/ai/scan-document', async (req, res) => {
+    try {
+        const { imageBase64, mimeType } = req.body;
+        if (!imageBase64) {
+            return res.status(400).json({ error: 'تصویر سند ارسال نشده است.' });
+        }
+        const imageBuffer = Buffer.from(imageBase64, 'base64');
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.scanDocumentWithAi(imageBuffer, mimeType || 'image/jpeg');
+        res.json(result);
+    } catch (e) {
+        console.error("AI scan document error:", e);
+        res.status(500).json({ error: e.message || 'خطا در اسکن هوشمند سند' });
+    }
+});
+
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const isExplicitDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
 
