@@ -9,20 +9,20 @@ import * as utils from './utils.js';
  */
 export const getActiveGeminiApiKey = (customKey) => {
     if (customKey && typeof customKey === 'string' && customKey.trim()) {
-        return customKey.trim();
+        return customKey.trim().replace(/^['"]|['"]$/g, '');
     }
     try {
         const db = getDb();
         const settingsKey = db?.settings?.geminiApiKey;
         if (settingsKey && typeof settingsKey === 'string' && settingsKey.trim()) {
-            return settingsKey.trim();
+            return settingsKey.trim().replace(/^['"]|['"]$/g, '');
         }
     } catch (e) {
         // ignore DB read error
     }
     const envKey = process.env.GEMINI_API_KEY;
     if (envKey && typeof envKey === 'string' && envKey.trim()) {
-        return envKey.trim();
+        return envKey.trim().replace(/^['"]|['"]$/g, '');
     }
     return '';
 };
@@ -33,12 +33,30 @@ export const getActiveGeminiApiKey = (customKey) => {
 export const getGeminiClient = (customKey) => {
     const apiKey = getActiveGeminiApiKey(customKey);
     if (!apiKey) {
-        throw new Error("کلید Google Gemini AI تنظیم نشده است. لطفاً کلید API را از بخش «تنظیمات سیستم ⚙️ -> تب ربات‌ها و ارتباطات -> بخش هوش مصنوعی» وارد و ذخیره نمایید.");
+        throw new Error("کلید Google Gemini AI تنظیم نشده است. لطفاً کلید API را از بخش تنظیمات وارد نمایید.");
     }
-    return new GoogleGenAI({
-        apiKey,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-    });
+    return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * Helper to generate content using primary model (gemini-3.7-flash) or fallback (gemini-2.5-flash)
+ */
+export const safeGenerateContent = async (ai, params) => {
+    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+    let lastError = null;
+    for (const model of candidateModels) {
+        try {
+            const response = await ai.models.generateContent({
+                ...params,
+                model
+            });
+            return { response, model };
+        } catch (err) {
+            lastError = err;
+            console.warn(`Gemini generation with ${model} failed, trying next candidate:`, err.message);
+        }
+    }
+    throw lastError;
 };
 
 /**
@@ -46,8 +64,7 @@ export const getGeminiClient = (customKey) => {
  */
 export const testAiConnection = async (customKey) => {
     const ai = getGeminiClient(customKey);
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response, model } = await safeGenerateContent(ai, {
         contents: [
             {
                 role: 'user',
@@ -58,7 +75,7 @@ export const testAiConnection = async (customKey) => {
     return {
         success: true,
         reply: response.text?.trim() || 'ارتباط با موتور هوش مصنوعی با موفقیت برقرار است.',
-        model: 'gemini-2.5-flash',
+        model,
         timestamp: new Date().toISOString()
     };
 };
@@ -135,8 +152,7 @@ ${systemContext}
 }
 `;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response } = await safeGenerateContent(ai, {
         contents: [
             {
                 role: 'user',
@@ -210,8 +226,7 @@ ${contextData ? JSON.stringify(contextData, null, 2) : 'داده اضافه ثب
         parts: [{ text: message }]
     });
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response } = await safeGenerateContent(ai, {
         contents: formattedContents,
         config: {
             systemInstruction
@@ -259,8 +274,7 @@ ${JSON.stringify(warehousePayload, null, 2)}
 }
 `;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response } = await safeGenerateContent(ai, {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json"
@@ -314,8 +328,7 @@ ${JSON.stringify(salesPayload, null, 2)}
 }
 `;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response } = await safeGenerateContent(ai, {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
             responseMimeType: "application/json"
@@ -391,8 +404,7 @@ export const scanDocumentWithAi = async (imageBuffer, mimeType = 'image/jpeg', c
 }
 `;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+    const { response } = await safeGenerateContent(ai, {
         contents: [
             {
                 role: 'user',

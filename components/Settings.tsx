@@ -816,14 +816,17 @@ const Settings: React.FC<SettingsProps> = ({
         setSettings(normalizedSettings);
         hasInitializedRef.current = true;
       }
-      loadSettings();
     } else {
-      loadSettings();
+      if (!hasInitializedRef.current) {
+        loadSettings().then(() => {
+          hasInitializedRef.current = true;
+        });
+      }
     }
     setNotificationsEnabled(isNotificationEnabledInApp());
     checkWhatsappStatus();
     loadSystemUsers();
-  }, [propSettings]);
+  }, []);
 
   useEffect(() => {
     const handleBgChange = () => {
@@ -3821,9 +3824,6 @@ const Settings: React.FC<SettingsProps> = ({
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-gray-500 leading-relaxed mb-2">
-                          برای فعال‌سازی دستیار صوتی هوشمند (تلگرام/بله/داشبورد)، تحلیل تراز استراتژیک انبار، مشاور ارشد فروش و اسکن هوشمند اسناد، کلید API را از <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold hover:text-indigo-800">Google AI Studio</a> دریافت و در کادر زیر وارد نمایید:
-                        </p>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
                             <input
@@ -3835,7 +3835,7 @@ const Settings: React.FC<SettingsProps> = ({
                                   geminiApiKey: e.target.value,
                                 })
                               }
-                              placeholder="AIzaSy..."
+                              placeholder="کلید API را اینجا وارد کنید..."
                               type={showGeminiKey ? "text" : "password"}
                             />
                             <button
@@ -6667,40 +6667,45 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             )}
 
-            <div className="flex justify-end pt-4 border-t sticky bottom-0 glass-panel p-4 shadow-inner md:shadow-none md:static gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    // Use absolute path for import in onClick to avoid scope issues or just use the already imported one if possible
-                    // Since getServerHost is not imported, let's just use it if we can or import it at the top
-                    const { getServerHost } =
-                      await import("../services/apiService");
-                    const host =
-                      getServerHost() ||
-                      (Capacitor.isNativePlatform() ? "N/A" : "/");
-                    alert(`در حال بررسی اتصال به: ${host}`);
-                    await apiCall("/users");
-                    alert("اتصال با موفقیت برقرار شد ✅");
-                  } catch (e) {
-                    alert(
-                      "خطا در اتصال به سرور ❌\nلطفا آدرس سرور را در بخش اتصالات (API) بررسی کنید.",
-                    );
-                  }
-                }}
-                className="bg-blue-100 text-blue-700 px-4 py-3 rounded-xl text-xs font-black hover:bg-blue-200 transition-colors border border-blue-200"
-              >
-                تست اتصال به سرور
-              </button>
+            <div className="flex items-center justify-between pt-4 border-t sticky bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md z-30 p-4 shadow-lg border-t border-gray-200/80 dark:border-gray-800 rounded-2xl mt-6 gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const { getServerHost } =
+                        await import("../services/apiService");
+                      const host =
+                        getServerHost() ||
+                        (Capacitor.isNativePlatform() ? "N/A" : "/");
+                      alert(`در حال بررسی اتصال به: ${host}`);
+                      await apiCall("/users");
+                      alert("اتصال با موفقیت برقرار شد ✅");
+                    } catch (e) {
+                      alert(
+                        "خطا در اتصال به سرور ❌\nلطفا آدرس سرور را در بخش اتصالات (API) بررسی کنید.",
+                      );
+                    }
+                  }}
+                  className="bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200 dark:border-blue-800"
+                >
+                  تست اتصال به سرور
+                </button>
+                {message && (
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 animate-fade-in">
+                    {message}
+                  </span>
+                )}
+              </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all disabled:opacity-70 flex-1 md:flex-none justify-center"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-blue-600/25 transition-all disabled:opacity-70 cursor-pointer"
               >
                 {loading ? (
-                  <Loader2 size={20} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <Save size={20} />
+                  <Save size={18} />
                 )}{" "}
                 ذخیره تنظیمات
               </button>

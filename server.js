@@ -8699,14 +8699,22 @@ app.get('/api/ai/status', (req, res) => {
 
 app.post('/api/ai/test-connection', async (req, res) => {
     try {
-        const { apiKey } = req.body;
+        const { apiKey } = req.body || {};
         const aiService = await safeImport('./backend/ai-service.js');
         if (!aiService) throw new Error("ماژول هوش مصنوعی لود نشد.");
         const result = await aiService.testAiConnection(apiKey);
-        res.json(result);
+        res.json({ success: true, ...result });
     } catch (e) {
         console.error("AI test connection error:", e);
-        res.status(400).json({ error: e.message || 'خطا در برقراری ارتباط با مدل Gemini' });
+        let errorMsg = e.message || 'خطا در برقراری ارتباط با مدل Gemini';
+        if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid') || errorMsg.includes('400')) {
+            errorMsg = 'کلید API وارد شده نامعتبر است. لطفاً کلید صحیح Google Gemini را وارد نمایید.';
+        } else if (errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('429')) {
+            errorMsg = 'سهمیه مجاز استفاده از این کلید API به پایان رسیده است (Rate Limit / Quota Exceeded).';
+        } else if (errorMsg.includes('NOT_FOUND') || errorMsg.includes('404')) {
+            errorMsg = 'مدل انتخاب شده یافت نشد یا در دسترس نیست.';
+        }
+        res.json({ success: false, error: errorMsg });
     }
 });
 
