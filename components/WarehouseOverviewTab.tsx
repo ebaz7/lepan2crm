@@ -107,6 +107,12 @@ export const WarehouseOverviewTab: React.FC = () => {
     // Allowed commercial companies for warehouse overview integration
     const [allowedCompanies, setAllowedCompanies] = useState<string[]>([]);
     const [availableCompanies, setAvailableCompanies] = useState<string[]>([]);
+    
+    // Persistent refs for trade records and base custom table items
+    const rawTradeRecordsRef = useRef<any[]>([]);
+    const baseTransitRef = useRef<CustomCargoItem[]>([]);
+    const baseCustomsRef = useRef<CustomCargoItem[]>([]);
+    const basePurchaseRef = useRef<CustomCargoItem[]>([]);
 
     // Warehouse Bot Group Configurations from AppSettings
     const [warehouseTelegramGroupId, setWarehouseTelegramGroupId] = useState<string>('');
@@ -143,6 +149,167 @@ export const WarehouseOverviewTab: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         const containers = document.querySelectorAll('.overflow-y-auto, .custom-scrollbar');
         containers.forEach(c => c.scrollTo({ top: 0, behavior: 'smooth' }));
+    };
+
+    // Company name normalization and matching helpers
+    const normalizeCompanyName = (name: string): string => {
+        if (!name) return '';
+        return String(name)
+            .trim()
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .replace(/ي/g, 'ی')
+            .replace(/ك/g, 'ک')
+            .replace(/آ/g, 'ا')
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
+    };
+
+    const isCompanyMatching = (recordCompany: string, allowedComps: string[]): boolean => {
+        if (!allowedComps || allowedComps.length === 0) return true;
+        const normRec = normalizeCompanyName(recordCompany);
+        if (!normRec || normRec === 'بدون شرکت') {
+            return allowedComps.some(c => {
+                const normC = normalizeCompanyName(c);
+                return normC === 'بدون شرکت' || normC === '';
+            });
+        }
+
+        return allowedComps.some(allowed => {
+            const normAllowed = normalizeCompanyName(allowed);
+            if (!normAllowed) return false;
+            if (normRec === normAllowed) return true;
+
+            const cleanRec = normRec.replace(/^شرکت\s+/, '').trim();
+            const cleanAllowed = normAllowed.replace(/^شرکت\s+/, '').trim();
+            if (cleanRec === cleanAllowed) return true;
+
+            if (cleanAllowed.length >= 5 && cleanRec.includes(cleanAllowed)) return true;
+            if (cleanRec.length >= 5 && cleanAllowed.includes(cleanRec)) return true;
+
+            return false;
+        });
+    };
+
+    const getRecordWeight = (rec: any): number => {
+        if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
+            const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+            let commW = 0;
+            for (const doc of commDocs) {
+                if (doc.invoiceItems && doc.invoiceItems.length > 0) {
+                    commW += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0);
+                } else if (doc.netWeight) {
+                    commW += Number(doc.netWeight) || 0;
+                }
+            }
+            if (commW > 0) return commW;
+        }
+        return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0) : 0;
+    };
+
+    const getRecordCartons = (rec: any): number => {
+        if (!rec.shippingDocuments) return 0;
+        const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+        let cartons = 0;
+        for (const doc of commDocs) {
+            if (doc.packagesCount) {
+                cartons += Number(doc.packagesCount) || 0;
+            } else if (doc.packingItems && doc.packingItems.length > 0) {
+                cartons += doc.packingItems.reduce((sum: number, item: any) => sum + (Number(item.packageCount) || 0), 0);
+            }
+        }
+        return cartons;
+    };
+
+    const getRecordDollars = (rec: any): number => {
+        if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
+            const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
+            let dol = 0;
+            for (const doc of commDocs) {
+                if (doc.invoiceItems && doc.invoiceItems.length > 0) {
+                    dol += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
+                }
+            }
+            if (dol > 0) return dol;
+        }
+        return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0) : 0;
+    };
+
+    const applyCommercialFilterAndMerge = (
+        trades: any[],
+        targetAllowedCompanies: string[],
+        baseTransit: CustomCargoItem[],
+        baseCustoms: CustomCargoItem[],
+        basePurchase: CustomCargoItem[]
+    ) => {
+        const activeTradeRecords = (trades || []).filter((r: any) => !r.isArchived && isCompanyMatching(r.company, targetAllowedCompanies));
+
+        const parsedCommercialTransit: CustomCargoItem[] = [];
+        const parsedCommercialCustoms: CustomCargoItem[] = [];
+        const parsedCommercialPurchase: CustomCargoItem[] = [];
+
+        for (const record of activeTradeRecords) {
+            const hasAgentFees = record.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || record.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || record.stages?.[TradeStage.AGENT_FEES]?.isCompleted ||
+                                 record.stages?.['هزینه‌های ترخیص']?.costRial > 0 || record.stages?.['هزینه‌های ترخیص']?.costCurrency > 0 || record.stages?.['هزینه‌های ترخیص']?.isCompleted;
+            const hasInternalShipping = record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted ||
+                                     record.stages?.['حمل داخلی']?.costRial > 0 || record.stages?.['حمل داخلی']?.costCurrency > 0 || record.stages?.['حمل داخلی']?.isCompleted;
+            const hasClearanceDocs = record.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted ||
+                                   record.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || record.stages?.['ترخیصیه و قبض انبار']?.costCurrency > 0 || record.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
+
+            const isCleared = hasAgentFees || hasInternalShipping || hasClearanceDocs || record.status === 'Completed';
+
+            const hasCottage = record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && d.cottageNumber.trim() !== '');
+            const isInCustoms = !isCleared && (record.isInCustoms || hasCottage);
+            const isInTransit = !isInCustoms && record.isInTransit;
+            const isCurrencyPurchased = !isInCustoms && !isInTransit && (
+                record.currencyPurchaseData && (
+                    record.currencyPurchaseData.purchasedAmount > 0 || 
+                    (record.currencyPurchaseData.tranches && record.currencyPurchaseData.tranches.length > 0)
+                )
+            );
+
+            const item: CustomCargoItem = {
+                id: `com_${record.id}`,
+                cargoType: record.goodsName || 'کالای بازرگانی',
+                proforma: record.fileNumber || '',
+                weight: getRecordWeight(record),
+                cartons: getRecordCartons(record),
+                container: 0,
+                dollars: getRecordDollars(record)
+            };
+
+            if (isInCustoms) {
+                parsedCommercialCustoms.push(item);
+            } else if (isInTransit) {
+                parsedCommercialTransit.push(item);
+            } else if (isCurrencyPurchased) {
+                parsedCommercialPurchase.push(item);
+            }
+        }
+
+        const clearedFileNumbers = new Set(
+            activeTradeRecords
+                .filter(r => {
+                    const ha = r.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || r.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || r.stages?.[TradeStage.AGENT_FEES]?.isCompleted || r.stages?.['هزینه‌های ترخیص']?.costRial > 0 || r.stages?.['هزینه‌های ترخیص']?.isCompleted;
+                    const hi = r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted || r.stages?.['حمل داخلی']?.costRial > 0 || r.stages?.['حمل داخلی']?.isCompleted;
+                    const hc = r.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted || r.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || r.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
+                    return ha || hi || hc || r.status === 'Completed';
+                })
+                .map(r => r.fileNumber)
+                .filter(Boolean)
+        );
+
+        setGoodsInTransit([
+            ...(baseTransit || []).filter((x: any) => !x.id.startsWith('com_')),
+            ...parsedCommercialTransit
+        ]);
+        setGoodsInCustoms([
+            ...(baseCustoms || []).filter((x: any) => !x.id.startsWith('com_') && (!x.proforma || !clearedFileNumbers.has(x.proforma))),
+            ...parsedCommercialCustoms
+        ]);
+        setPurchasingGoods([
+            ...(basePurchase || []).filter((x: any) => !x.id.startsWith('com_')),
+            ...parsedCommercialPurchase
+        ]);
     };
 
     // Helper to extract Jalali year
@@ -274,130 +441,23 @@ export const WarehouseOverviewTab: React.FC = () => {
                 console.error("Failed to fetch trade records", err);
             }
 
-            const parsedCommercialTransit: CustomCargoItem[] = [];
-            const parsedCommercialCustoms: CustomCargoItem[] = [];
-            const parsedCommercialPurchase: CustomCargoItem[] = [];
-
-            const getRecordWeight = (rec: any): number => {
-                if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
-                    const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
-                    let commW = 0;
-                    for (const doc of commDocs) {
-                        if (doc.invoiceItems && doc.invoiceItems.length > 0) {
-                            commW += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0);
-                        } else if (doc.netWeight) {
-                            commW += Number(doc.netWeight) || 0;
-                        }
-                    }
-                    if (commW > 0) return commW;
-                }
-                return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.weight) || 0), 0) : 0;
-            };
-
-            const getRecordCartons = (rec: any): number => {
-                if (!rec.shippingDocuments) return 0;
-                const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
-                let cartons = 0;
-                for (const doc of commDocs) {
-                    if (doc.packagesCount) {
-                        cartons += Number(doc.packagesCount) || 0;
-                    } else if (doc.packingItems && doc.packingItems.length > 0) {
-                        cartons += doc.packingItems.reduce((sum: number, item: any) => sum + (Number(item.packageCount) || 0), 0);
-                    }
-                }
-                return cartons;
-            };
-
-            const getRecordDollars = (rec: any): number => {
-                if (rec.shippingDocuments && rec.shippingDocuments.length > 0) {
-                    const commDocs = rec.shippingDocuments.filter((d: any) => d.type === 'Commercial Invoice');
-                    let dol = 0;
-                    for (const doc of commDocs) {
-                        if (doc.invoiceItems && doc.invoiceItems.length > 0) {
-                            dol += doc.invoiceItems.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0);
-                        }
-                    }
-                    if (dol > 0) return dol;
-                }
-                return rec.items ? rec.items.reduce((sum: number, item: any) => sum + (Number(item.totalPrice) || 0), 0) : 0;
-            };
-
+            rawTradeRecordsRef.current = tradeRecords;
             const uniqueComps = Array.from(new Set(tradeRecords.filter((r: any) => !r.isArchived).map((r: any) => r.company || 'بدون شرکت'))).sort();
             setAvailableCompanies(uniqueComps);
-
-            const activeTradeRecords = tradeRecords.filter((r: any) => !r.isArchived && (allowedCompanies.length === 0 || allowedCompanies.includes(r.company || 'بدون شرکت')));
-
-            for (const record of activeTradeRecords) {
-                const hasAgentFees = record.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || record.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || record.stages?.[TradeStage.AGENT_FEES]?.isCompleted ||
-                                     record.stages?.['هزینه‌های ترخیص']?.costRial > 0 || record.stages?.['هزینه‌های ترخیص']?.costCurrency > 0 || record.stages?.['هزینه‌های ترخیص']?.isCompleted;
-                const hasInternalShipping = record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || record.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted ||
-                                         record.stages?.['حمل داخلی']?.costRial > 0 || record.stages?.['حمل داخلی']?.costCurrency > 0 || record.stages?.['حمل داخلی']?.isCompleted;
-                const hasClearanceDocs = record.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || record.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted ||
-                                       record.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || record.stages?.['ترخیصیه و قبض انبار']?.costCurrency > 0 || record.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
-
-                const isCleared = hasAgentFees || hasInternalShipping || hasClearanceDocs || record.status === 'Completed';
-
-                const hasCottage = record.greenLeafData?.duties?.some((d: any) => d.cottageNumber && d.cottageNumber.trim() !== '');
-                const isInCustoms = !isCleared && (record.isInCustoms || hasCottage);
-                const isInTransit = !isInCustoms && record.isInTransit;
-                const isCurrencyPurchased = !isInCustoms && !isInTransit && (
-                    record.currencyPurchaseData && (
-                        record.currencyPurchaseData.purchasedAmount > 0 || 
-                        (record.currencyPurchaseData.tranches && record.currencyPurchaseData.tranches.length > 0)
-                    )
-                );
-
-                const item: CustomCargoItem = {
-                    id: `com_${record.id}`,
-                    cargoType: record.goodsName || 'کالای بازرگانی',
-                    proforma: record.fileNumber || '',
-                    weight: getRecordWeight(record),
-                    cartons: getRecordCartons(record),
-                    container: 0,
-                    dollars: getRecordDollars(record)
-                };
-
-                if (isInCustoms) {
-                    parsedCommercialCustoms.push(item);
-                } else if (isInTransit) {
-                    parsedCommercialTransit.push(item);
-                } else if (isCurrencyPurchased) {
-                    parsedCommercialPurchase.push(item);
-                }
-            }
 
             if (dbData) {
                 setLastYearOverrides(dbData.lastYearOverrides || {});
                 setCurrentOverrides(dbData.currentOverrides || {});
                 
-                const loadedTransit = dbData.goodsInTransit || [];
-                const loadedCustoms = dbData.goodsInCustoms || [];
-                const loadedPurchase = dbData.purchasingGoods || [];
+                const loadedTransit: CustomCargoItem[] = (dbData.goodsInTransit || []).filter((x: any) => !x.id.startsWith('com_'));
+                const loadedCustoms: CustomCargoItem[] = (dbData.goodsInCustoms || []).filter((x: any) => !x.id.startsWith('com_'));
+                const loadedPurchase: CustomCargoItem[] = (dbData.purchasingGoods || []).filter((x: any) => !x.id.startsWith('com_'));
 
-                const clearedFileNumbers = new Set(
-                    activeTradeRecords
-                        .filter(r => {
-                            const ha = r.stages?.[TradeStage.AGENT_FEES]?.costRial > 0 || r.stages?.[TradeStage.AGENT_FEES]?.costCurrency > 0 || r.stages?.[TradeStage.AGENT_FEES]?.isCompleted || r.stages?.['هزینه‌های ترخیص']?.costRial > 0 || r.stages?.['هزینه‌های ترخیص']?.isCompleted;
-                            const hi = r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costRial > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.costCurrency > 0 || r.stages?.[TradeStage.INTERNAL_SHIPPING]?.isCompleted || r.stages?.['حمل داخلی']?.costRial > 0 || r.stages?.['حمل داخلی']?.isCompleted;
-                            const hc = r.stages?.[TradeStage.CLEARANCE_DOCS]?.costRial > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.costCurrency > 0 || r.stages?.[TradeStage.CLEARANCE_DOCS]?.isCompleted || r.stages?.['ترخیصیه و قبض انبار']?.costRial > 0 || r.stages?.['ترخیصیه و قبض انبار']?.isCompleted;
-                            return ha || hi || hc || r.status === 'Completed';
-                        })
-                        .map(r => r.fileNumber)
-                        .filter(Boolean)
-                );
+                baseTransitRef.current = loadedTransit;
+                baseCustomsRef.current = loadedCustoms;
+                basePurchaseRef.current = loadedPurchase;
 
-                setGoodsInTransit([
-                    ...loadedTransit.filter((x: any) => !x.id.startsWith('com_')),
-                    ...parsedCommercialTransit
-                ]);
-                setGoodsInCustoms([
-                    ...loadedCustoms.filter((x: any) => !x.id.startsWith('com_') && (!x.proforma || !clearedFileNumbers.has(x.proforma))),
-                    ...parsedCommercialCustoms
-                ]);
-                setPurchasingGoods([
-                    ...loadedPurchase.filter((x: any) => !x.id.startsWith('com_')),
-                    ...parsedCommercialPurchase
-                ]);
+                applyCommercialFilterAndMerge(tradeRecords, currentAllowedComps, loadedTransit, loadedCustoms, loadedPurchase);
 
                 setCommercialGoods(dbData.commercialGoods || []);
                 setItemCategories(dbData.itemCategories || {});
@@ -427,6 +487,8 @@ export const WarehouseOverviewTab: React.FC = () => {
                         setAllowedCompanies(dbData.meta.allowedCompanies);
                     }
                 }
+            } else {
+                applyCommercialFilterAndMerge(tradeRecords, currentAllowedComps, [], [], []);
             }
 
             // 2. Fetch Sayan Live stock with correct dates
@@ -1238,22 +1300,57 @@ export const WarehouseOverviewTab: React.FC = () => {
             container: 0,
             dollars: 0
         };
-        if (type === 'transit') setGoodsInTransit([...goodsInTransit, newRow]);
-        if (type === 'customs') setGoodsInCustoms([...goodsInCustoms, newRow]);
-        if (type === 'purchase') setPurchasingGoods([...purchasingGoods, newRow]);
+        if (type === 'transit') {
+            const next = [...goodsInTransit, newRow];
+            setGoodsInTransit(next);
+            baseTransitRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'customs') {
+            const next = [...goodsInCustoms, newRow];
+            setGoodsInCustoms(next);
+            baseCustomsRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'purchase') {
+            const next = [...purchasingGoods, newRow];
+            setPurchasingGoods(next);
+            basePurchaseRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
     };
 
     const deleteCustomRow = (type: 'transit' | 'customs' | 'purchase', id: string) => {
-        if (type === 'transit') setGoodsInTransit(goodsInTransit.filter(r => r.id !== id));
-        if (type === 'customs') setGoodsInCustoms(goodsInCustoms.filter(r => r.id !== id));
-        if (type === 'purchase') setPurchasingGoods(purchasingGoods.filter(r => r.id !== id));
+        if (type === 'transit') {
+            const next = goodsInTransit.filter(r => r.id !== id);
+            setGoodsInTransit(next);
+            baseTransitRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'customs') {
+            const next = goodsInCustoms.filter(r => r.id !== id);
+            setGoodsInCustoms(next);
+            baseCustomsRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'purchase') {
+            const next = purchasingGoods.filter(r => r.id !== id);
+            setPurchasingGoods(next);
+            basePurchaseRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
     };
 
     const updateCustomCell = (type: 'transit' | 'customs' | 'purchase', id: string, field: string, value: any) => {
-        const setter = type === 'transit' ? setGoodsInTransit : type === 'customs' ? setGoodsInCustoms : setPurchasingGoods;
         const list = type === 'transit' ? goodsInTransit : type === 'customs' ? goodsInCustoms : purchasingGoods;
+        const next = list.map(r => r.id === id ? { ...r, [field]: field === 'cargoType' || field === 'proforma' ? value : parseFloat(value || '0') } : r);
 
-        setter(list.map(r => r.id === id ? { ...r, [field]: field === 'cargoType' || field === 'proforma' ? value : parseFloat(value || '0') } : r));
+        if (type === 'transit') {
+            setGoodsInTransit(next);
+            baseTransitRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'customs') {
+            setGoodsInCustoms(next);
+            baseCustomsRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
+        if (type === 'purchase') {
+            setPurchasingGoods(next);
+            basePurchaseRef.current = next.filter(r => !r.id.startsWith('com_'));
+        }
     };
 
     // CRUD Commercial Warehouse Goods
@@ -1836,21 +1933,30 @@ export const WarehouseOverviewTab: React.FC = () => {
                                 <span className="text-xs text-slate-400">هیچ شرکتی در پرونده‌های بازرگانی یافت نشد.</span>
                             ) : (
                                 availableCompanies.map(comp => {
-                                    const isSelected = allowedCompanies.includes(comp);
+                                    const isSelected = allowedCompanies.some(c => normalizeCompanyName(c) === normalizeCompanyName(comp));
                                     return (
                                         <button
                                             key={comp}
                                             type="button"
                                             onClick={() => {
+                                                let newAllowed: string[];
                                                 if (isSelected) {
-                                                    setAllowedCompanies(allowedCompanies.filter(c => c !== comp));
+                                                    newAllowed = allowedCompanies.filter(c => normalizeCompanyName(c) !== normalizeCompanyName(comp));
                                                 } else {
-                                                    setAllowedCompanies([...allowedCompanies, comp]);
+                                                    newAllowed = [...allowedCompanies, comp];
                                                 }
+                                                setAllowedCompanies(newAllowed);
+                                                applyCommercialFilterAndMerge(
+                                                    rawTradeRecordsRef.current,
+                                                    newAllowed,
+                                                    baseTransitRef.current,
+                                                    baseCustomsRef.current,
+                                                    basePurchaseRef.current
+                                                );
                                             }}
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                                                 isSelected 
-                                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400' 
                                                     : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                                             }`}
                                         >
@@ -1868,7 +1974,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                             {allowedCompanies.length > 0 && (
                                 <button
                                     type="button"
-                                    onClick={() => setAllowedCompanies([])}
+                                    onClick={() => {
+                                        setAllowedCompanies([]);
+                                        applyCommercialFilterAndMerge(
+                                            rawTradeRecordsRef.current,
+                                            [],
+                                            baseTransitRef.current,
+                                            baseCustomsRef.current,
+                                            basePurchaseRef.current
+                                        );
+                                    }}
                                     className="text-xs text-red-600 hover:text-red-800 font-bold underline cursor-pointer"
                                 >
                                     پاک کردن فیلتر (انتخاب همه)
