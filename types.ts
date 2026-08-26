@@ -454,6 +454,8 @@ export interface SystemSettings {
   desktopReleaseNotes?: string;
   desktopLocalServerUrl?: string;
   desktopCloudServerUrl?: string;
+  desktopLogoUrl?: string;
+  desktopAppName?: string;
   
   // SAYAN ONLINE EXIT PERMITS INTEGRATION
   sayanOnlineExitPermitsEnabled?: boolean;

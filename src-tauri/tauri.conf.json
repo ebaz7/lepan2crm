@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Sayan Warehouse System",
+    "productName": "Lepan Warehouse System",
     "version": "1.0.0"
   },
   "tauri": {
@@ -25,7 +25,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.sayan.warehouse.app",
+      "identifier": "com.lepan.warehouse.app",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -35,10 +35,10 @@
       ],
       "resources": [],
       "externalBin": [],
-      "copyright": "Copyright © 2026 Sayan Co. All rights reserved.",
+      "copyright": "Copyright © 2026 Lepan Covering & Texturing Manufacturing Company. All rights reserved.",
       "category": "Office",
-      "shortDescription": "Sayan intelligent warehouse management system desktop client.",
-      "longDescription": "Sayan system native desktop client with automatic local network and cloud sync routing."
+      "shortDescription": "Lepan covering & texturing manufacturing company desktop client.",
+      "longDescription": "Lepan intelligent manufacturing and warehouse system native desktop client with smart LAN/Cloud routing."
     },
     "updater": {
       "active": true,

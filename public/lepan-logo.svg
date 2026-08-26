@@ -1,0 +1,64 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff" />
+        <stop offset="100%" stop-color="#f8fafc" />
+      </linearGradient>
+      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.12" />
+      </filter>
+    </defs>
+
+    <!-- App Icon Base Card with Rounded Corners -->
+    <rect width="1024" height="1024" rx="220" fill="url(#bgGrad)" stroke="#e2e8f0" stroke-width="12" />
+
+    <!-- Inner decorative border -->
+    <rect x="32" y="32" width="960" height="960" rx="190" fill="none" stroke="#f1f5f9" stroke-width="8" />
+
+    <!-- Lepan Logo Vector Artwork -->
+    <g transform="translate(50, 40) scale(0.92)">
+      <!-- Signature 'L' and fluid cursive 'epan' -->
+      <!-- Main swooping L curve -->
+      <path d="M 200 15 
+               C 195 90, 150 200, 110 280
+               C 65 370, 10 470, 10 590
+               C 10 710, 80 810, 200 810
+               C 270 810, 310 760, 335 730
+               C 310 710, 275 730, 275 755
+               C 275 780, 305 795, 335 770
+               C 370 740, 375 710, 390 710
+               C 390 750, 360 840, 310 940
+               C 285 990, 270 1010, 265 1010
+               C 260 1010, 265 980, 280 930
+               C 305 850, 340 760, 360 720
+               C 390 700, 440 700, 440 750
+               C 440 780, 400 790, 375 770
+               C 390 770, 440 770, 455 745
+               C 475 710, 525 710, 530 750
+               C 535 780, 485 795, 460 765
+               C 460 740, 490 725, 520 735
+               C 535 740, 545 770, 545 795
+               C 560 760, 600 725, 630 725
+               C 670 725, 680 765, 680 790
+               C 700 750, 740 725, 780 725
+               C 840 725, 875 780, 920 795
+               C 945 805, 980 810, 1000 810
+               C 960 835, 910 835, 870 815
+               C 830 795, 800 755, 755 755
+               C 725 755, 705 785, 690 815
+               C 670 785, 645 755, 610 755
+               C 575 755, 545 790, 540 820
+               C 530 820, 520 815, 515 805
+               C 490 825, 440 825, 415 800
+               C 390 815, 360 820, 335 815
+               C 300 835, 240 845, 185 845
+               C 50 845, -20 730, -20 580
+               C -20 440, 40 340, 90 250
+               C 135 170, 175 80, 180 15 Z" 
+            fill="#0a0a0a" />
+
+      <!-- Clean Crisp Typography -->
+      <text x="435" y="885" font-family="'Comic Sans MS', 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="600" fill="#0a0a0a" letter-spacing="1">Covering &amp;  texturing</text>
+      <text x="435" y="945" font-family="'Comic Sans MS', 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="600" fill="#0a0a0a" letter-spacing="1">Manufacturing Company</text>
+    </g>
+  </svg>

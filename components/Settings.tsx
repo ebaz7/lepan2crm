@@ -7479,6 +7479,65 @@ const Settings: React.FC<SettingsProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* --- DESKTOP APP LOGO & BRANDING PREVIEW CARD --- */}
+              <div className="mt-6 pt-6 border-t border-gray-200/70 dark:border-gray-800">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950 shadow-xs">
+                  <div className="flex items-center gap-4">
+                    <div className="relative group">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-indigo-200 dark:border-indigo-800 shadow-md bg-white flex items-center justify-center p-2">
+                        <img
+                          src="/lepan-logo.png"
+                          alt="Lepan Logo"
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <span className="absolute -bottom-2 -right-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs flex items-center gap-0.5">
+                        <CheckCircle2 size={10} /> ست شد
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                          لوگو و آیکون رسمی کلاینت ویندوز (Lepan Manufacturing Co.)
+                        </h4>
+                        <span className="text-[10px] font-mono bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 px-2 py-0.5 rounded-full font-bold">
+                          خروجی Tauri Build
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        تصویر آرم شرکت لپان روی پکیج خروجی، فایل‌های نصبی (<span className="font-mono">.msi / .exe</span>) و آیکون نوار وظیفه (Taskbar) ست شد.
+                      </p>
+                      <div className="text-[11px] text-gray-400 flex flex-wrap gap-2 pt-1 font-mono">
+                        <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">src-tauri/icons/icon.ico</span>
+                        <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">32x32, 128x128, 512x512 PNG</span>
+                        <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">icon.icns</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                    <a
+                      href="/lepan-logo.png"
+                      download="lepan-desktop-icon.png"
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <Download size={13} />
+                      دانلود تصویر آرم (.png)
+                    </a>
+                    <a
+                      href="/lepan-logo.svg"
+                      download="lepan-logo.svg"
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <ExternalLink size={13} />
+                      وکتور برداری (.svg)
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* --- AUTO-UPDATER SETTINGS CARD --- */}
