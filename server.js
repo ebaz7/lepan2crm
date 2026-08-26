@@ -475,15 +475,20 @@ const collectBotTargets = (db, { category = 'all', platforms = ['telegram', 'bal
     if (category === 'production') {
         keysToUse = productionKeys;
     } else if (category === 'production_compare') {
-        keysToUse = productionCompareKeys;
+        const hasCompareConfig = productionCompareKeys.some(({ key }) => settings[key]);
+        keysToUse = hasCompareConfig ? productionCompareKeys : [...productionCompareKeys, ...productionKeys, ...generalKeys];
     } else if (category === 'production_returns') {
-        keysToUse = productionReturnsKeys;
+        const hasReturnsConfig = productionReturnsKeys.some(({ key }) => settings[key]);
+        keysToUse = hasReturnsConfig ? productionReturnsKeys : [...productionReturnsKeys, ...productionKeys, ...generalKeys];
     } else if (category === 'warehouse') {
-        keysToUse = warehouseKeys;
+        const hasWarehouseConfig = warehouseKeys.some(({ key }) => settings[key]);
+        keysToUse = hasWarehouseConfig ? warehouseKeys : [...warehouseKeys, ...generalKeys];
     } else if (category === 'sales') {
-        keysToUse = salesKeys;
+        const hasSalesConfig = salesKeys.some(({ key }) => settings[key]);
+        keysToUse = hasSalesConfig ? salesKeys : [...salesKeys, ...generalKeys];
     } else if (category === 'accounting') {
-        keysToUse = accountingKeys;
+        const hasAccountingConfig = accountingKeys.some(({ key }) => settings[key]);
+        keysToUse = hasAccountingConfig ? accountingKeys : [...accountingKeys, ...generalKeys];
     } else {
         keysToUse = [...salesKeys, ...accountingKeys, ...productionKeys, ...productionCompareKeys, ...productionReturnsKeys, ...warehouseKeys, ...reportsKeys, ...generalKeys];
     }

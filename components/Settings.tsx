@@ -73,6 +73,11 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
+  Monitor,
+  Server,
+  Wifi,
+  Cloud,
+  Terminal,
 } from "lucide-react";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
@@ -144,6 +149,7 @@ const Settings: React.FC<SettingsProps> = ({
     | "secretariat"
     | "camera"
     | "theme"
+    | "desktop"
   >("system");
 
   // --- Secretariat Settings State ---
@@ -1933,6 +1939,13 @@ const Settings: React.FC<SettingsProps> = ({
               >
                 <Sparkles size={16} /> پوسته و پس‌زمینه
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("desktop")}
+                className={`whitespace-nowrap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeCategory === "desktop" ? "bg-indigo-600 text-white shadow-md font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800"}`}
+              >
+                <Monitor size={16} /> کلاینت ویندوز (Tauri)
+              </button>
             </>
           )}
         </nav>
@@ -1948,7 +1961,7 @@ const Settings: React.FC<SettingsProps> = ({
           <FiscalYearManager settings={settings} onSettingsChange={(newSettings) => setSettings(newSettings)} />
         ) : (
           <>
-            {activeCategory !== "theme" && (
+            {activeCategory !== "theme" && activeCategory !== "desktop" && (
               <form onSubmit={handleSave} className="space-y-8 max-w-4xl mx-auto">
                 {activeCategory === "system" && (
                   <div className="space-y-8 animate-fade-in">
@@ -7089,6 +7102,176 @@ const Settings: React.FC<SettingsProps> = ({
                       );
                     })()}
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- Windows Desktop Client (Tauri + Rust) Settings --- */}
+        {activeCategory === "desktop" && (
+          <div className="space-y-6 max-w-4xl mx-auto text-right animate-fade-in" dir="rtl">
+            {/* Header Card */}
+            <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/60 dark:from-indigo-950/20 dark:via-slate-900/40 dark:to-slate-950/20">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b pb-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 flex items-center justify-center font-bold shadow-sm">
+                    <Monitor size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-white text-base md:text-lg">
+                      کلاینت اختصاصی دسکتاپ ویندوز (Tauri & Rust)
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      اجرای نیتیو و فوق‌العاده سریع با مسیریابی خودکار بین شبکه محلی انبار و اینترنت
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  آماده بیلد و شخصی‌سازی
+                </div>
+              </div>
+
+              {/* Dynamic Connection Flow Viz */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 mb-2">
+                  <Cpu size={14} className="text-indigo-600" /> چگونگی کارکرد سیستم مسیریابی دوگانه (شبکه / وب)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+                  {/* Local Network */}
+                  <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 dark:border-emerald-950 dark:bg-emerald-950/10 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                        <Server size={16} /> اولویت اول: شبکه محلی (LAN)
+                      </div>
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                        کلاینت دسکتاپ در زمان باز شدن ابتدا با یک پینگ سریع (Timeout: 1s) بررسی می‌کند آیا سرور محلی انبار در شبکه فعال است یا خیر.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/40 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                      Ping: http://localhost:3000
+                    </div>
+                  </div>
+
+                  {/* Smart Fallback */}
+                  <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/30 dark:border-blue-950 dark:bg-blue-950/10 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-400 font-bold text-xs">
+                        <Wifi size={16} /> مسیریابی هوشمند (Smart Router)
+                      </div>
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                        اگر سرور محلی متصل و فعال باشد، نرم‌افزار به صورت آفلاین و محلی لود می‌شود. در غیر این صورت به طور آنی مسیر را تغییر می‌دهد.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-blue-100 dark:border-blue-900/40 text-[10px] text-center font-bold text-blue-600 dark:text-blue-400">
+                      مسیریاب خودکار Rust Backend
+                    </div>
+                  </div>
+
+                  {/* Cloud URL */}
+                  <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 dark:border-indigo-950 dark:bg-indigo-950/10 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs">
+                        <Cloud size={16} /> اولویت دوم: سرور ابری (Cloud)
+                      </div>
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                        چنانچه خارج از شبکه انبار باشید یا کابل شبکه قطع باشد، سیستم به صورت کاملاً خودکار به آدرس اینترنتی متصل می‌شود.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate">
+                      https://ais-dev-wjlf3a3s2y7mgngiaxufff...
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Build Instructions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Build Instructions */}
+              <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b pb-3 mb-2">
+                  <Terminal size={18} className="text-indigo-600" />
+                  <h4 className="font-bold text-sm text-gray-800 dark:text-white">مراحل خروجی گرفتن و ساخت فایل ستاپ ویندوز</h4>
+                </div>
+                
+                <div className="space-y-3.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <div className="flex gap-2.5">
+                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۱</span>
+                    <p>
+                      مطمئن شوید ابزار **Rust** (از طریق [rustup.rs](https://rustup.rs)) روی ویندوز شما نصب است.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۲</span>
+                    <p>
+                      پروژه را بر روی سیستم دانلود کرده و به پوشه روت آن بروید.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۳</span>
+                    <p>
+                      فایل خودکارساز بیلد دسکتاپ **`build-desktop.bat`** را در پوشه ریشه پروژه با دوبار کلیک اجرا کنید.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۴</span>
+                    <p>
+                      پس از اتمام بیلد، فایل‌های نصب **`.msi`** و **`.exe`** به صورت خودکار در پوشه زیر تولید می‌شوند:
+                      <code className="block mt-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                        .\src-tauri\target\release\bundle\msi\
+                      </code>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs">
+                    <span className="text-gray-500 font-medium">قابلیت آپدیت خودکار (Auto-Updater):</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <Lock size={12} /> فعال و ایمن
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Server Config Preview File */}
+              <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between border-b pb-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <SettingsIcon size={18} className="text-indigo-600" />
+                      <h4 className="font-bold text-sm text-gray-800 dark:text-white">پیکربندی سرورهای کلاینت (`config.json`)</h4>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded">AppData</span>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                    این تنظیمات در سیستم کاربر در مسیر AppData ویندوز به آدرس <code className="font-mono text-indigo-600 dark:text-indigo-400">Local/com.sayan.warehouse.app/config.json</code> ذخیره شده و می‌توانید بدون کامپایل مجدد، آی‌پی‌ها را در فایل متنی تغییر دهید:
+                  </p>
+
+                  <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-[11px] space-y-1 select-all relative overflow-hidden">
+                    <div className="text-slate-400">// محتویات فایل پیکربندی کلاینت دسکتاپ</div>
+                    <div>{"{"}</div>
+                    <div className="pl-4 text-indigo-300">  &quot;local_server_url&quot;: <span className="text-emerald-300">&quot;http://localhost:3000&quot;</span>,</div>
+                    <div className="pl-4 text-indigo-300">  &quot;cloud_server_url&quot;: <span className="text-emerald-300">&quot;https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app&quot;</span>,</div>
+                    <div className="pl-4 text-indigo-300">  &quot;timeout_ms&quot;: <span className="text-amber-400">1000</span></div>
+                    <div>{"}"}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                  <span className="text-[11px] text-gray-400">کدنویسی شده با Rust و Tauri SDK 1.4</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`{\n  "local_server_url": "http://localhost:3000",\n  "cloud_server_url": "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app",\n  "timeout_ms": 1000\n}`);
+                      alert("پیکربندی نمونه در حافظه کپی شد!");
+                    }}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/80 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all"
+                  >
+                    کپی پیکربندی نمونه
+                  </button>
                 </div>
               </div>
             </div>

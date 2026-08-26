@@ -280,12 +280,12 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="font-extrabold text-base sm:text-lg">مشاور استراتژیک هوش مصنوعی انبار و زنجیره تامین</h3>
-                                <span className="px-2 py-0.5 text-[10px] bg-indigo-500/30 border border-indigo-400/40 rounded-full font-mono font-bold text-indigo-200">
+                                <h3 className="font-extrabold text-base sm:text-lg text-white dark:text-white">مشاور استراتژیک هوش مصنوعی انبار و زنجیره تامین</h3>
+                                <span className="px-2 py-0.5 text-[10px] bg-indigo-500/30 border border-indigo-400/40 rounded-full font-mono font-bold text-indigo-100 dark:text-indigo-100">
                                     Gemini 2.5 Flash
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-300 font-medium mt-0.5">
+                            <p className="text-xs text-slate-200 dark:text-slate-200 font-medium mt-0.5">
                                 تحلیل جامع تراز وزنی، وضعیت بارهای در راه و گمرک، ریسک کسری و پیشنهادات خرید
                             </p>
                         </div>
