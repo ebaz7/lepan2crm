@@ -8,6 +8,7 @@ import PrintBijak from './PrintBijak';
 import PrintStockReport from './print/PrintStockReport'; 
 import WarehouseKardexReport from './reports/WarehouseKardexReport';
 import WarehouseDispatchReport from './reports/WarehouseDispatchReport';
+import { StockTransferModal } from './StockTransferModal';
 import { apiCall } from '../services/apiService';
 import { getUsers, getRolePermissions } from '../services/authService';
 import html2canvas from 'html2canvas';
@@ -317,6 +318,8 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const permissions = useMemo(() => {
         return settings ? getRolePermissions(currentUser.role, settings, currentUser) : null;
     }, [currentUser, settings]);
+    const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === 'admin' || currentUser.role === 'ADMIN' || currentUser.role === UserRole.CEO || currentUser.role === 'ceo';
+    const [showStockTransferModal, setShowStockTransferModal] = useState(false);
     const [activeTab, setActiveTab] = useState(initialTab);
     const [items, setItems] = useState<WarehouseItem[]>([]);
     const [transactions, setTransactions] = useState<WarehouseTransaction[]>([]);
@@ -1083,11 +1086,19 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     });
                 quantity = Math.round((quantity + Number.EPSILON) * 1000) / 1000;
                 weight = Math.round((weight + Number.EPSILON) * 1000) / 1000;
+
+                // When quantity (carton count) is 0 or less, physical stock is exhausted.
+                // Reset weight to 0 so residual decimal weights from past fractional entries do not show.
+                if (Math.abs(quantity) < 0.001 || quantity <= 0) {
+                    quantity = 0;
+                    weight = 0;
+                }
+
                 const containerCapacity = catalogItem.containerCapacity || 0;
                 const containerCount = (containerCapacity > 0 && quantity > 0) ? (quantity / containerCapacity) : 0;
-                const weightPerCarton = (quantity > 0 && weight) ? Math.round((weight / quantity + Number.EPSILON) * 100) / 100 : 0;
+                const weightPerCarton = (quantity > 0 && weight > 0) ? Math.round((weight / quantity + Number.EPSILON) * 100) / 100 : 0;
                 return { id: catalogItem.id, name: catalogItem.name, code: catalogItem.code, unit: catalogItem.unit, quantity, weight, containerCount, weightPerCarton };
-            }).filter(item => Math.abs(item.quantity) > 0.0001 || Math.abs(item.weight) > 0.0001); // FILTER NON-ZERO STOCK
+            }).filter(item => item.quantity > 0.001); // ONLY SHOW ITEMS WITH ACTUAL POSITIVE CARTON COUNT (> 0)
             return { company, items: companyItems };
         }).filter(group => group.items.length > 0); // ONLY SHOW COMPANIES WITH AT LEAST ONE ITEM
         return result;
@@ -1904,7 +1915,18 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                 <h3 className="font-black text-indigo-800 dark:text-indigo-300 flex items-center gap-2 relative z-10"><Barcode size={24}/> انبارگردانی اصولی با بارکدخوان</h3>
                                 <p className="text-xs font-bold text-indigo-600/70 mr-8 relative z-10">مقایسه موجودی شمارش شده انبار با موجودی سیستمی و صدور اسناد اصلاحی خودکار</p>
                             </div>
-                            <div className="flex gap-2 relative z-10 w-full sm:w-auto">
+                            <div className="flex flex-wrap items-center gap-2 relative z-10 w-full sm:w-auto">
+                                {isAdmin && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowStockTransferModal(true)}
+                                        className="px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer whitespace-nowrap"
+                                        title="انتقال تعداد کارتن و وزن بین دو کالا جهت اصلاح موجودی"
+                                    >
+                                        <ArrowLeftRight size={16}/>
+                                        <span>انتقال موجودی کالا به کالا</span>
+                                    </button>
+                                )}
                                 <select 
                                     className="border-2 border-indigo-200 dark:border-indigo-800 rounded-xl p-2.5 bg-white dark:bg-gray-800 font-bold text-xs"
                                     value={stocktakeCompany}
@@ -1964,6 +1986,16 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                     <div className="bg-white dark:bg-gray-900/40 p-5 rounded-[2rem] border border-gray-200 dark:border-white/10 shadow-sm space-y-3">
                                         <h4 className="text-xs font-black text-gray-700 dark:text-gray-300 mb-2">عملیات گروهی انبارگردانی</h4>
                                         
+                                        {isAdmin && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowStockTransferModal(true)}
+                                                className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10"
+                                            >
+                                                <ArrowLeftRight size={16}/> انتقال کارتن و وزن بین دو کالا
+                                            </button>
+                                        )}
+
                                         <label className="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl text-xs font-black text-gray-700 dark:text-gray-300 flex items-center justify-center gap-2 cursor-pointer transition-colors">
                                             <Upload size={16}/> بارگذاری شمارش اکسل
                                             <input 
@@ -2139,7 +2171,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                 <Barcode className="mx-auto text-gray-300 dark:text-gray-600 mb-4 animate-pulse" size={48}/>
                                 <h4 className="font-black text-gray-700 dark:text-gray-300 mb-2">شروع فرایند انبارگردانی</h4>
                                 <p className="text-xs text-gray-400 max-w-md mx-auto mb-6">برای مقایسه موجودی واقعی انبار با موجودی ثبت شده در سیستم، ابتدا شرکت فرستنده یا مالک کالا را از منوی بالا انتخاب کنید.</p>
-                                <div className="inline-block">
+                                <div className="flex flex-wrap items-center justify-center gap-3">
                                     <select 
                                         className="border-2 border-indigo-100 rounded-2xl p-4 bg-white dark:bg-gray-800 font-bold text-sm"
                                         value={stocktakeCompany}
@@ -2148,6 +2180,17 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                         <option value="">انتخاب شرکت...</option>
                                         {companyList.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
+
+                                    {isAdmin && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowStockTransferModal(true)}
+                                            className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                                        >
+                                            <ArrowLeftRight size={18} />
+                                            <span>انتقال موجودی کالا به کالا (اصلاح کارتن و وزن)</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -2249,14 +2292,16 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                                 return (
                                                     <React.Fragment key={group.company}>
                                                         <tr className="bg-blue-50 dark:bg-blue-900/10 font-black text-blue-900 dark:text-blue-300">
-                                                            <td colSpan={5} className="p-3 text-right pr-4 border-t border-blue-100 dark:border-white/5 flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                                                                    <span>{group.company}</span>
+                                                            <td colSpan={5} className="p-3 text-right pr-4 border-t border-blue-100 dark:border-white/5">
+                                                                <div className="flex items-center justify-between w-full">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                                                                        <span>{group.company}</span>
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-blue-600 bg-white dark:bg-blue-950 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                                                                        {group.items.length} قلم کالا
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-xs font-bold text-blue-600 bg-white dark:bg-blue-950 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
-                                                                    {group.items.length} قلم کالا
-                                                                </span>
                                                             </td>
                                                         </tr>
                                                         {group.items.map(item => {
@@ -2338,6 +2383,22 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     onClose={() => setEditingReceipt(null)} 
                     onSave={handleEditReceiptSave} 
                     items={items} 
+                />
+            )}
+
+            {/* Stock Transfer Modal for Stocktake Correction */}
+            {showStockTransferModal && (
+                <StockTransferModal
+                    isOpen={showStockTransferModal}
+                    onClose={() => setShowStockTransferModal(false)}
+                    items={items}
+                    companies={companyList}
+                    defaultCompany={stocktakeCompany || (companyList.length > 0 ? companyList[0] : '')}
+                    currentUser={currentUser}
+                    allTransactions={allTransactions}
+                    onSuccess={() => {
+                        loadData();
+                    }}
                 />
             )}
 
