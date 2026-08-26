@@ -3,12 +3,13 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, SystemSettings, WarehouseItem, WarehouseTransaction, WarehouseTransactionItem, UserRole } from '../types';
 import { getWarehouseItems, saveWarehouseItem, deleteWarehouseItem, getWarehouseTransactions, saveWarehouseTransaction, deleteWarehouseTransaction, updateWarehouseTransaction, getNextBijakNumber, updateWarehouseItem } from '../services/storageService';
 import { generateUUID, getCurrentShamsiDate, jalaliToGregorian, formatNumberString, deformatNumberString, formatDate, parsePersianDate, getShamsiDateFromIso } from '../constants';
-import { Package, Plus, Trash2, ArrowDownCircle, ArrowUpCircle, FileText, BarChart3, Eye, Loader2, AlertTriangle, Settings, ArrowLeftRight, Search, FileClock, Printer, FileDown, Share2, LayoutGrid, Archive, Edit, Save, X, Container, CheckCircle, XCircle, RefreshCcw, FileSpreadsheet, WifiOff, Filter, Calendar, ShieldCheck, Users, Home, List, Navigation, Send, RefreshCw, Barcode, Download, Upload } from 'lucide-react';
+import { Package, Plus, Trash2, ArrowDownCircle, ArrowUpCircle, FileText, BarChart3, Eye, Loader2, AlertTriangle, Settings, ArrowLeftRight, Search, FileClock, Printer, FileDown, Share2, LayoutGrid, Archive, Edit, Save, X, Container, CheckCircle, XCircle, RefreshCcw, FileSpreadsheet, WifiOff, Filter, Calendar, ShieldCheck, Users, Home, List, Navigation, Send, RefreshCw, Barcode, Download, Upload, SlidersHorizontal, Scale } from 'lucide-react';
 import PrintBijak from './PrintBijak';
 import PrintStockReport from './print/PrintStockReport'; 
 import WarehouseKardexReport from './reports/WarehouseKardexReport';
 import WarehouseDispatchReport from './reports/WarehouseDispatchReport';
 import { StockTransferModal } from './StockTransferModal';
+import { SingleItemAdjustmentModal } from './SingleItemAdjustmentModal';
 import { apiCall } from '../services/apiService';
 import { getUsers, getRolePermissions } from '../services/authService';
 import html2canvas from 'html2canvas';
@@ -320,6 +321,8 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     }, [currentUser, settings]);
     const isAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === 'admin' || currentUser.role === 'ADMIN' || currentUser.role === UserRole.CEO || currentUser.role === 'ceo';
     const [showStockTransferModal, setShowStockTransferModal] = useState(false);
+    const [showSingleAdjustModal, setShowSingleAdjustModal] = useState(false);
+    const [singleAdjustTarget, setSingleAdjustTarget] = useState<{ company?: string; itemId?: string }>({});
     const [activeTab, setActiveTab] = useState(initialTab);
     const [items, setItems] = useState<WarehouseItem[]>([]);
     const [transactions, setTransactions] = useState<WarehouseTransaction[]>([]);
@@ -500,7 +503,39 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     }
                 });
             });
-        return qty;
+        return Math.round((qty + Number.EPSILON) * 1000) / 1000;
+    };
+
+    const getSystemStockDetailsForCompany = (company: string, itemId: string) => {
+        let qty = 0;
+        let weight = 0;
+        allTransactions
+            .filter(tx => tx.company === company && tx.status !== 'REJECTED')
+            .forEach(tx => {
+                tx.items.forEach(txItem => {
+                    if (txItem.itemId === itemId) {
+                        const q = Number(txItem.quantity) || 0;
+                        const w = Number(txItem.weight) || 0;
+                        if (tx.type === 'IN') {
+                            qty += q;
+                            weight += w;
+                        } else {
+                            qty -= q;
+                            weight -= w;
+                        }
+                    }
+                });
+            });
+        qty = Math.round((qty + Number.EPSILON) * 1000) / 1000;
+        weight = Math.round((weight + Number.EPSILON) * 1000) / 1000;
+        if (Math.abs(qty) < 0.0001) qty = 0;
+        if (Math.abs(weight) < 0.0001) weight = 0;
+        return { qty, weight };
+    };
+
+    const handleOpenSingleAdjust = (company?: string, itemId?: string) => {
+        setSingleAdjustTarget({ company: company || stocktakeCompany, itemId });
+        setShowSingleAdjustModal(true);
     };
 
     const handleStocktakeBarcodeScan = (scannedCode: string) => {
@@ -1916,15 +1951,26 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                             </div>
                             <div className="flex flex-wrap items-center gap-2 relative z-10 w-full sm:w-auto">
                                 {isAdmin && (
-                                    <button 
-                                        type="button"
-                                        onClick={() => setShowStockTransferModal(true)}
-                                        className="px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer whitespace-nowrap"
-                                        title="انتقال تعداد کارتن و وزن بین دو کالا جهت اصلاح موجودی"
-                                    >
-                                        <ArrowLeftRight size={16}/>
-                                        <span>انتقال موجودی کالا به کالا</span>
-                                    </button>
+                                    <>
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleOpenSingleAdjust(stocktakeCompany)}
+                                            className="px-3.5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-xl font-black text-xs flex items-center gap-1.5 shadow-lg shadow-purple-600/20 transition-all cursor-pointer whitespace-nowrap"
+                                            title="اصلاح مستقیم مانده وزن یا کارتن تک کالا برای یک شرکت بدون مصرف شماره بیجک"
+                                        >
+                                            <SlidersHorizontal size={16}/>
+                                            <span>اصلاح مستقیم وزن/کارتن تک کالا</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowStockTransferModal(true)}
+                                            className="px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer whitespace-nowrap"
+                                            title="انتقال تعداد کارتن و وزن بین دو کالا جهت اصلاح موجودی"
+                                        >
+                                            <ArrowLeftRight size={16}/>
+                                            <span>انتقال کالا به کالا</span>
+                                        </button>
+                                    </>
                                 )}
                                 <select 
                                     className="border-2 border-indigo-200 dark:border-indigo-800 rounded-xl p-2.5 bg-white dark:bg-gray-800 font-bold text-xs"
@@ -1986,13 +2032,22 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                         <h4 className="text-xs font-black text-gray-700 dark:text-gray-300 mb-2">عملیات گروهی انبارگردانی</h4>
                                         
                                         {isAdmin && (
-                                            <button 
-                                                type="button"
-                                                onClick={() => setShowStockTransferModal(true)}
-                                                className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10"
-                                            >
-                                                <ArrowLeftRight size={16}/> انتقال کارتن و وزن بین دو کالا
-                                            </button>
+                                            <>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => handleOpenSingleAdjust(stocktakeCompany)}
+                                                    className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-600/10"
+                                                >
+                                                    <SlidersHorizontal size={16}/> اصلاح وزن یا کارتن یک کالا (تعدیل)
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowStockTransferModal(true)}
+                                                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10"
+                                                >
+                                                    <ArrowLeftRight size={16}/> انتقال کارتن و وزن بین دو کالا
+                                                </button>
+                                            </>
                                         )}
 
                                         <label className="w-full py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl text-xs font-black text-gray-700 dark:text-gray-300 flex items-center justify-center gap-2 cursor-pointer transition-colors">
@@ -2049,33 +2104,43 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                             />
                                         </div>
 
-                                        <div className="overflow-x-auto flex-1 max-h-[500px] overflow-y-auto">
+                                        <div className="overflow-x-auto flex-1 max-h-[550px] overflow-y-auto">
                                             <table className="w-full text-xs text-center hidden md:table">
                                                 <thead className="bg-gray-100 dark:bg-black/30 text-gray-600 dark:text-gray-400 sticky top-0 z-10">
                                                     <tr>
                                                         <th className="p-3 text-right">کد / نام کالا</th>
-                                                        <th className="p-3">سیستم</th>
-                                                        <th className="p-3">شمارش دستی</th>
-                                                        <th className="p-3">مغایرت</th>
+                                                        <th className="p-3">موجودی سیستم (کارتن / وزن)</th>
+                                                        <th className="p-3">شمارش دستی (کارتن)</th>
+                                                        <th className="p-3">مغایرت کارتن</th>
                                                         <th className="p-3">وضعیت</th>
+                                                        <th className="p-3">اصلاح مستقیم</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                                                     {items
                                                         .filter(i => !stocktakeSearch || i.name.includes(stocktakeSearch) || (i.code && i.code.includes(stocktakeSearch)))
                                                         .map(i => {
-                                                            const systemQty = getSystemStockForCompany(stocktakeCompany, i.id);
+                                                            const details = getSystemStockDetailsForCompany(stocktakeCompany, i.id);
+                                                            const systemQty = details.qty;
+                                                            const systemWeight = details.weight;
                                                             const countedQty = stocktakeCounted[i.id] || 0;
                                                             const diff = countedQty - systemQty;
+                                                            const hasZeroQtyWithWeight = systemQty === 0 && systemWeight !== 0;
 
                                                             return (
-                                                                <tr key={i.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+                                                                <tr key={i.id} className={`hover:bg-gray-50 dark:hover:bg-white/5 ${hasZeroQtyWithWeight ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}>
                                                                     <td className="p-3 text-right">
                                                                         <div className="font-black text-gray-800 dark:text-gray-200 text-xs">{i.name}</div>
                                                                         <div className="text-[10px] text-gray-400 font-mono mt-0.5">{i.code || 'فاقد کد'} • {i.unit}</div>
                                                                     </td>
-                                                                    <td className="p-3 font-mono font-black text-blue-600 text-sm">
-                                                                        {formatNumberString(systemQty)}
+                                                                    <td className="p-3">
+                                                                        <div className="font-mono font-black text-blue-600 text-sm">
+                                                                            {formatNumberString(systemQty)} <span className="text-[10px] text-gray-400 font-normal">{i.unit}</span>
+                                                                        </div>
+                                                                        <div className={`font-mono text-[11px] font-bold ${hasZeroQtyWithWeight ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
+                                                                            {formatNumberString(systemWeight)} کیلو
+                                                                            {hasZeroQtyWithWeight && <span className="mr-1 text-[9px] bg-amber-200 dark:bg-amber-900/60 px-1 py-0.5 rounded font-black text-amber-800 dark:text-amber-200">مانده وزن</span>}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="p-3">
                                                                         <input 
@@ -2101,6 +2166,17 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                                                             <span className="px-2 py-0.5 bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400 rounded-md font-bold text-[10px]">کسری ({formatNumberString(Math.abs(diff))})</span>
                                                                         )}
                                                                     </td>
+                                                                    <td className="p-3">
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => handleOpenSingleAdjust(stocktakeCompany, i.id)}
+                                                                            className="px-2 py-1 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 rounded-lg text-[10px] font-black flex items-center justify-center gap-1 mx-auto transition-colors"
+                                                                            title="اصلاح مستقیم وزن یا کارتن این کالا بدون بیجک"
+                                                                        >
+                                                                            <SlidersHorizontal size={12}/>
+                                                                            <span>اصلاح وزن/کارتن</span>
+                                                                        </button>
+                                                                    </td>
                                                                 </tr>
                                                             );
                                                         })}
@@ -2112,17 +2188,21 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                                 {items
                                                     .filter(i => !stocktakeSearch || i.name.includes(stocktakeSearch) || (i.code && i.code.includes(stocktakeSearch)))
                                                     .map(i => {
-                                                        const systemQty = getSystemStockForCompany(stocktakeCompany, i.id);
+                                                        const details = getSystemStockDetailsForCompany(stocktakeCompany, i.id);
+                                                        const systemQty = details.qty;
+                                                        const systemWeight = details.weight;
                                                         const countedQty = stocktakeCounted[i.id] || 0;
                                                         const diff = countedQty - systemQty;
+                                                        const hasZeroQtyWithWeight = systemQty === 0 && systemWeight !== 0;
+
                                                         return (
-                                                            <div key={`mob-st-${i.id}`} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 shadow-sm">
+                                                            <div key={`mob-st-${i.id}`} className={`bg-white dark:bg-gray-800 border ${hasZeroQtyWithWeight ? 'border-amber-300 dark:border-amber-700' : 'border-gray-100 dark:border-gray-700'} rounded-xl p-3 shadow-sm`}>
                                                                 <div className="flex justify-between items-start mb-3">
                                                                     <div>
                                                                         <div className="font-bold text-gray-800 dark:text-gray-200 text-sm">{i.name}</div>
                                                                         <div className="text-[10px] text-gray-400 mt-0.5 font-mono">{i.code || 'فاقد کد'} • {i.unit}</div>
                                                                     </div>
-                                                                    <div>
+                                                                    <div className="flex flex-col items-end gap-1">
                                                                         {diff === 0 ? (
                                                                             <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-md font-bold text-[10px]">تراز</span>
                                                                         ) : diff > 0 ? (
@@ -2130,32 +2210,47 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                                                         ) : (
                                                                             <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded-md font-bold text-[10px]">کسری ({formatNumberString(Math.abs(diff))})</span>
                                                                         )}
+                                                                        {hasZeroQtyWithWeight && (
+                                                                            <span className="text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-black">
+                                                                                کارتن ۰ ولی وزن {formatNumberString(systemWeight)}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                                                     <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded-lg text-center">
-                                                                        <div className="text-gray-400 mb-1 text-[10px]">سیستم</div>
-                                                                        <div className="font-mono font-bold text-blue-600">{formatNumberString(systemQty)}</div>
+                                                                        <div className="text-gray-400 mb-1 text-[10px]">سیستم (کارتن / وزن)</div>
+                                                                        <div className="font-mono font-bold text-blue-600">{formatNumberString(systemQty)} <span className="text-[9px] text-gray-400">{i.unit}</span></div>
+                                                                        <div className="font-mono text-[10px] text-gray-500 font-bold mt-0.5">{formatNumberString(systemWeight)} کیلو</div>
                                                                     </div>
                                                                     <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded-lg text-center">
-                                                                        <div className="text-gray-400 mb-1 text-[10px]">مغایرت</div>
+                                                                        <div className="text-gray-400 mb-1 text-[10px]">مغایرت کارتن</div>
                                                                         <div className={`font-mono font-bold ${diff === 0 ? 'text-gray-500' : diff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                                             {diff > 0 ? `+${formatNumberString(diff)}` : formatNumberString(diff)}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="mt-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-3">
-                                                                    <div className="font-bold text-xs text-gray-500">شمارش دستی:</div>
-                                                                    <input 
-                                                                        type="number" 
-                                                                        value={countedQty || ''}
-                                                                        placeholder="0"
-                                                                        onChange={e => {
-                                                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                                                            setStocktakeCounted(prev => ({ ...prev, [i.id]: val }));
-                                                                        }}
-                                                                        className="w-24 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg p-1.5 text-center font-mono font-bold outline-none focus:border-blue-500"
-                                                                    />
+                                                                <div className="mt-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-3 gap-2">
+                                                                    <div className="flex items-center gap-1.5 flex-1">
+                                                                        <span className="font-bold text-xs text-gray-500 whitespace-nowrap">شمارش:</span>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            value={countedQty || ''}
+                                                                            placeholder="0"
+                                                                            onChange={e => {
+                                                                                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                                                                setStocktakeCounted(prev => ({ ...prev, [i.id]: val }));
+                                                                            }}
+                                                                            className="w-20 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg p-1.5 text-center font-mono font-bold outline-none focus:border-blue-500"
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleOpenSingleAdjust(stocktakeCompany, i.id)}
+                                                                        className="px-2.5 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-black flex items-center gap-1 shrink-0"
+                                                                    >
+                                                                        <SlidersHorizontal size={12}/> اصلاح مستقیم
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         );
@@ -2181,14 +2276,24 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                     </select>
 
                                     {isAdmin && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowStockTransferModal(true)}
-                                            className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
-                                        >
-                                            <ArrowLeftRight size={18} />
-                                            <span>انتقال موجودی کالا به کالا (اصلاح کارتن و وزن)</span>
-                                        </button>
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenSingleAdjust(stocktakeCompany)}
+                                                className="p-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-purple-600/20 transition-all cursor-pointer"
+                                            >
+                                                <SlidersHorizontal size={18} />
+                                                <span>اصلاح مستقیم کارتن و وزن تک کالا</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowStockTransferModal(true)}
+                                                className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                                            >
+                                                <ArrowLeftRight size={18} />
+                                                <span>انتقال موجودی کالا به کالا</span>
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -2215,6 +2320,16 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                {isAdmin && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleOpenSingleAdjust()} 
+                                        className="flex-1 md:flex-none justify-center bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-black shadow-lg shadow-purple-600/20 transition-all cursor-pointer"
+                                        title="اصلاح مستقیم وزن یا کارتن یک کالا برای یک شرکت بدون مصرف شماره بیجک"
+                                    >
+                                        <SlidersHorizontal size={16}/> اصلاح مستقیم وزن/کارتن کالا
+                                    </button>
+                                )}
                                 <button onClick={() => setShowStockTransferModal(true)} className="flex-1 md:flex-none justify-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-black shadow-lg shadow-indigo-600/20 transition-all cursor-pointer">
                                     <ArrowLeftRight size={16}/> انتقال بین کالاها (اصلاح موجودی)
                                 </button>
@@ -2396,6 +2511,26 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     items={items}
                     companies={companyList}
                     defaultCompany={stocktakeCompany || (companyList.length > 0 ? companyList[0] : '')}
+                    currentUser={currentUser}
+                    allTransactions={allTransactions}
+                    onSuccess={() => {
+                        loadData();
+                    }}
+                />
+            )}
+
+            {/* Single Item Weight / Carton Direct Adjustment Modal */}
+            {showSingleAdjustModal && (
+                <SingleItemAdjustmentModal
+                    isOpen={showSingleAdjustModal}
+                    onClose={() => {
+                        setShowSingleAdjustModal(false);
+                        setSingleAdjustTarget({});
+                    }}
+                    items={items}
+                    companies={companyList}
+                    defaultCompany={singleAdjustTarget.company || stocktakeCompany || (companyList.length > 0 ? companyList[0] : '')}
+                    defaultItemId={singleAdjustTarget.itemId}
                     currentUser={currentUser}
                     allTransactions={allTransactions}
                     onSuccess={() => {

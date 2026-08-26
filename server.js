@@ -9127,7 +9127,7 @@ if (isExplicitDev || !fs.existsSync(DIST_DIR)) {
     });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on ${PORT}`);
     setTimeout(async () => {
         try {
@@ -9152,4 +9152,19 @@ app.listen(PORT, '0.0.0.0', () => {
         setupDailyReports();
         setupLegacyDailyReports();
     }, 1000);
+});
+
+server.on('error', (err) => {
+    if (err && err.code === 'EADDRINUSE') {
+        console.error(`\n=======================================================================`);
+        console.error(`[خطا / Port In Use] پورت ${PORT} در حال حاضر اشغال است!`);
+        console.error(`علت: سرویس ویندوز (از طریق manager.bat) یا یک نمونه دیگر از سرور در حال اجراست.`);
+        console.error(`1. اگر قبلاً با manager.bat سرویس را نصب کرده‌اید، برنامه در حال اجراست و کافیست`);
+        console.error(`   مرورگر را باز کنید و آدرس زیر را وارد نمایید:`);
+        console.error(`   --> http://localhost:${PORT}`);
+        console.error(`2. برای متوقف کردن سرویس پس‌زمینه، در CMD بزنید: net stop PaymentSystem`);
+        console.error(`=======================================================================\n`);
+    } else {
+        console.error(`[Server Error]:`, err);
+    }
 });

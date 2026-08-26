@@ -687,6 +687,8 @@ export interface WarehouseTransaction {
   isEdit?: boolean;
   transferId?: string;
   isTransfer?: boolean;
+  adjustmentId?: string;
+  isAdjustment?: boolean;
 }
 
 export enum SecurityStatus {

@@ -18,7 +18,7 @@ if %errorlevel% neq 0 (
     echo لطفا ابتدا Node.js را از سایت https://nodejs.org دانلود و نصب نمایید.
     echo.
     echo برای خروج هر کلیدی را فشار دهید...
-    pause >nul
+    pause
     exit /b 1
 )
 
@@ -29,7 +29,7 @@ if not exist node_modules (
     if %errorlevel% neq 0 (
         echo [خطا] در نصب پکیج‌ها مشکلی پیش آمد. اینترنت خود را بررسی کنید.
         echo برای خروج هر کلیدی را فشار دهید...
-        pause >nul
+        pause
         exit /b 1
     )
 )
@@ -41,12 +41,31 @@ if not exist dist (
     if %errorlevel% neq 0 (
         echo [خطا] در ساخت اولیه برنامه مشکلی پیش آمد.
         echo برای خروج هر کلیدی را فشار دهید...
-        pause >nul
+        pause
         exit /b 1
     )
 )
 
-:: 4. Start Server
+:: 4. Check if port 3000 is already in use by Windows Service (PaymentSystem) or manager.bat
+netstat -ano | findstr ":3000 " | findstr "LISTENING" >nul 2>nul
+if %errorlevel% equ 0 (
+    echo.
+    echo [اطلاع / Notice] پورت 3000 در حال حاضر فعال است!
+    echo احتمالا برنامه از قبل به عنوان سرویس ویندوز (توسط manager.bat) در پس‌زمینه در حال اجراست.
+    echo در حال باز کردن برنامه در مرورگر...
+    echo.
+    start http://localhost:3000
+    echo =======================================================================
+    echo اگر برنامه باز شد، می‌توانید از آن استفاده کنید.
+    echo در صورتی که می‌خواهید سرویس قبلی را متوقف کنید، در CMD ادمین دستور زیر را بزنید:
+    echo    net stop PaymentSystem
+    echo =======================================================================
+    echo.
+    echo برای ادامه یا اجرای مجدد سرور، هر کلیدی را فشار دهید...
+    pause
+)
+
+:: 5. Start Server
 echo.
 echo [3/3] در حال راه‌اندازی سرور محلی...
 echo -----------------------------------------------------------------------
@@ -61,9 +80,10 @@ start "" powershell -NoProfile -Command "Start-Sleep -Seconds 3; if (Test-Path '
 :: Run the Node.js Server in the foreground
 node server.js
 
-if %errorlevel% neq 0 (
-    echo.
-    echo [خطا] سرور متوقف شد!
-    echo برای بستن پنجره، هر کلیدی را فشار دهید...
-    pause >nul
-)
+echo.
+echo =======================================================================
+echo [پایان اجرای سرور] پنجره تا زمانی که کلیدی را فشار ندهید باز می‌ماند.
+echo اگر خطایی در بالا مشاهده می‌کنید، متن آن را بررسی نمایید.
+echo =======================================================================
+pause
+
