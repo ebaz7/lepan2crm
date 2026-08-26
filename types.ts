@@ -685,6 +685,8 @@ export interface WarehouseTransaction {
   rejectedBy?: string;
   updatedAt?: number;
   isEdit?: boolean;
+  transferId?: string;
+  isTransfer?: boolean;
 }
 
 export enum SecurityStatus {

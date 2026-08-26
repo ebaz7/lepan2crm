@@ -26,7 +26,7 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
   const [processing, setProcessing] = useState(false);
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'side_by_side' | 'detailed_tables'>('side_by_side');
-  const [onlyPositiveStock, setOnlyPositiveStock] = useState<boolean>(true);
+  const [onlyPositiveStock, setOnlyPositiveStock] = useState<boolean>(false);
 
   // Scaling & Zoom States
   const [scale, setScale] = useState(1);
@@ -46,7 +46,7 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
       .filter(group => selectedCompanyFilter === 'ALL' || group.company === selectedCompanyFilter)
       .map(group => {
         const filteredItems = (group.items || []).filter(item => {
-          if (!onlyPositiveStock) return true;
+          if (!onlyPositiveStock) return Math.abs(item.quantity) > 0.0001 || Math.abs(item.weight) > 0.0001;
           return (item.quantity > 0.001 || item.weight > 0.001);
         });
         return {

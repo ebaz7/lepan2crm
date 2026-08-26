@@ -1087,30 +1087,29 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                 quantity = Math.round((quantity + Number.EPSILON) * 1000) / 1000;
                 weight = Math.round((weight + Number.EPSILON) * 1000) / 1000;
 
-                // When quantity (carton count) is 0 or less, physical stock is exhausted.
-                // Reset weight to 0 so residual decimal weights from past fractional entries do not show.
-                if (Math.abs(quantity) < 0.001 || quantity <= 0) {
+                // When quantity and weight are effectively zero, normalize to 0
+                if (Math.abs(quantity) < 0.0001 && Math.abs(weight) < 0.0001) {
                     quantity = 0;
                     weight = 0;
                 }
 
                 const containerCapacity = catalogItem.containerCapacity || 0;
                 const containerCount = (containerCapacity > 0 && quantity > 0) ? (quantity / containerCapacity) : 0;
-                const weightPerCarton = (quantity > 0 && weight > 0) ? Math.round((weight / quantity + Number.EPSILON) * 100) / 100 : 0;
+                const weightPerCarton = (quantity !== 0 && weight !== 0) ? Math.round((weight / quantity + Number.EPSILON) * 100) / 100 : 0;
                 return { id: catalogItem.id, name: catalogItem.name, code: catalogItem.code, unit: catalogItem.unit, quantity, weight, containerCount, weightPerCarton };
-            }).filter(item => item.quantity > 0.001); // ONLY SHOW ITEMS WITH ACTUAL POSITIVE CARTON COUNT (> 0)
+            }).filter(item => Math.abs(item.quantity) > 0.0001 || Math.abs(item.weight) > 0.0001); // SHOW ACTIVE STOCK (BOTH POSITIVE AND NEGATIVE)
             return { company, items: companyItems };
         }).filter(group => group.items.length > 0); // ONLY SHOW COMPANIES WITH AT LEAST ONE ITEM
         return result;
     }, [allTransactions, items, settings, financialYear]);
 
-    const recentBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT').slice(0, 5), [safeTransactions]);
+    const recentBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && !t.isTransfer && t.number > 0).slice(0, 5), [safeTransactions]);
     
     // Updated Filtering logic using reportSearch
-    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))), [safeTransactions, archiveFilterCompany, reportSearch]);
-    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && !t.isTransfer && t.number > 0 && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.number).includes(reportSearch) || (t.recipientName && t.recipientName.includes(reportSearch)))), [safeTransactions, archiveFilterCompany, reportSearch]);
+    const filteredArchiveReceipts = useMemo(() => safeTransactions.filter(t => t.type === 'IN' && !t.isTransfer && (!archiveFilterCompany || t.company === archiveFilterCompany) && (String(t.proformaNumber).includes(reportSearch))), [safeTransactions, archiveFilterCompany, reportSearch]);
     
-    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && t.status === 'PENDING'), [safeTransactions]);
+    const pendingBijaks = useMemo(() => safeTransactions.filter(t => t.type === 'OUT' && !t.isTransfer && t.number > 0 && t.status === 'PENDING'), [safeTransactions]);
 
     const handlePrintStock = () => { setShowPrintStockReport(true); };
 
@@ -2215,7 +2214,10 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                     <p className="text-[10px] font-bold text-gray-400">آخرین برآورد کلی موجودی تمام انبارها</p>
                                 </div>
                             </div>
-                            <div className="flex gap-2 w-full md:w-auto">
+                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                <button onClick={() => setShowStockTransferModal(true)} className="flex-1 md:flex-none justify-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-black shadow-lg shadow-indigo-600/20 transition-all cursor-pointer">
+                                    <ArrowLeftRight size={16}/> انتقال بین کالاها (اصلاح موجودی)
+                                </button>
                                 <button onClick={handlePrintStock} className="flex-1 md:flex-none justify-center bg-blue-600 text-white px-5 py-3 rounded-xl flex items-center gap-2 text-xs font-black shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all">
                                     <Printer size={16}/> چاپ گزارش
                                 </button>
