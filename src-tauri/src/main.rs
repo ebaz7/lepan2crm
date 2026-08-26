@@ -17,6 +17,7 @@ struct ClientConfig {
     cloud_server_url: String,
     update_url: String,
     auto_check_updates: bool,
+    update_interval_minutes: u64,
     timeout_ms: u64,
 }
 
@@ -27,6 +28,7 @@ impl Default for ClientConfig {
             cloud_server_url: "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app".to_string(),
             update_url: "".to_string(),
             auto_check_updates: true,
+            update_interval_minutes: 60,
             timeout_ms: 1200,
         }
     }

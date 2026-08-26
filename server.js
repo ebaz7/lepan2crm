@@ -5521,6 +5521,8 @@ app.get('/api/desktop/check-update', (req, res) => {
         updateUrl: settings.desktopUpdateUrl || '',
         directDownloadUrl: settings.desktopDirectDownloadUrl || '',
         autoCheck: settings.desktopAutoCheckUpdates !== false,
+        updateIntervalMinutes: settings.desktopUpdateIntervalMinutes || 60,
+        lastCheckTime: settings.desktopLastCheckTime || null,
         updateChannel: settings.desktopUpdateChannel || 'stable',
         localServerUrl: settings.desktopLocalServerUrl || 'http://localhost:3000',
         cloudServerUrl: settings.desktopCloudServerUrl || 'https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app'

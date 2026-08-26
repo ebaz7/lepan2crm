@@ -446,6 +446,8 @@ export interface SystemSettings {
   // WINDOWS DESKTOP & TAURI AUTO-UPDATER SETTINGS
   desktopUpdateUrl?: string;
   desktopAutoCheckUpdates?: boolean;
+  desktopUpdateIntervalMinutes?: number;
+  desktopLastCheckTime?: string;
   desktopUpdateChannel?: 'stable' | 'beta';
   desktopDirectDownloadUrl?: string;
   desktopLatestVersion?: string;

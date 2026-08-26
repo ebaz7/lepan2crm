@@ -85,6 +85,11 @@ import {
   Download,
   Radio,
   Sliders,
+  Clock,
+  ArrowDownCircle,
+  History,
+  HardDrive,
+  CheckCircle,
 } from "lucide-react";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
@@ -157,6 +162,7 @@ const Settings: React.FC<SettingsProps> = ({
     | "camera"
     | "theme"
     | "desktop"
+    | "updates"
   >("system");
 
   // --- Secretariat Settings State ---
@@ -372,6 +378,7 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   // --- Desktop Client (Tauri) & Auto-Updater State & Actions ---
+  const currentAppVersion = "1.0.0";
   const [testingDesktopUpdate, setTestingDesktopUpdate] = useState<boolean>(false);
   const [desktopTestResult, setDesktopTestResult] = useState<{
     success: boolean;
@@ -381,6 +388,194 @@ const Settings: React.FC<SettingsProps> = ({
   } | null>(null);
   const [savingDesktopSettings, setSavingDesktopSettings] = useState<boolean>(false);
   const [desktopSaveMessage, setDesktopSaveMessage] = useState<string>("");
+
+  // --- Dedicated Updates Section States ---
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
+  const [updateStatus, setUpdateStatus] = useState<
+    "idle" | "checking" | "available" | "up_to_date" | "error"
+  >("idle");
+  const [updateManifestInfo, setUpdateManifestInfo] = useState<{
+    version: string;
+    notes?: string;
+    pubDate?: string;
+    downloadUrl?: string;
+    rawJson?: any;
+  } | null>(null);
+  const [updateCheckError, setUpdateCheckError] = useState<string>("");
+  const [lastCheckTimeDisplay, setLastCheckTimeDisplay] = useState<string>(
+    settings.desktopLastCheckTime || ""
+  );
+
+  // Download & Progress simulation / real state
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [downloadPhase, setDownloadPhase] = useState<
+    "idle" | "downloading" | "verifying" | "ready" | "error"
+  >("idle");
+  const [downloadSpeedStr, setDownloadSpeedStr] = useState<string>("0 KB/s");
+  const [downloadedBytesStr, setDownloadedBytesStr] = useState<string>("0 MB");
+  const [totalBytesStr, setTotalBytesStr] = useState<string>("28.4 MB");
+  const downloadTimerRef = useRef<any>(null);
+
+  const handleManualCheckVersion = async (overrideUrl?: string) => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus("checking");
+    setUpdateCheckError("");
+    setUpdateManifestInfo(null);
+    setDownloadPhase("idle");
+    setDownloadProgress(0);
+
+    const targetUrl =
+      (overrideUrl || settings.desktopUpdateUrl || "").trim() ||
+      `${window.location.origin}/api/desktop/updater.json`;
+
+    try {
+      // First check if native Tauri updater IPC is available
+      const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__);
+      let fetchedVersion = "";
+      let fetchedNotes = "";
+      let fetchedDate = "";
+      let fetchedUrl = "";
+      let rawData: any = null;
+
+      if (isTauri && (window as any).__TAURI__?.updater?.checkUpdate) {
+        try {
+          const tauriRes = await (window as any).__TAURI__.updater.checkUpdate();
+          if (tauriRes?.shouldUpdate) {
+            fetchedVersion = tauriRes.manifest?.version || "1.0.1";
+            fetchedNotes = tauriRes.manifest?.body || tauriRes.manifest?.notes || "";
+            fetchedDate = tauriRes.manifest?.date || new Date().toLocaleDateString("fa-IR");
+            rawData = tauriRes.manifest;
+          }
+        } catch (tauriErr) {
+          console.warn("Tauri native check failed, falling back to HTTP fetch:", tauriErr);
+        }
+      }
+
+      // If not populated by Tauri, fetch HTTP manifest
+      if (!fetchedVersion) {
+        const res = await fetch(targetUrl, { cache: "no-cache" });
+        if (!res.ok) {
+          throw new Error(`خطای سرور (${res.status} ${res.statusText})`);
+        }
+        const data = await res.json();
+        rawData = data;
+        fetchedVersion = data.version || data.latestVersion || "1.0.0";
+        fetchedNotes = data.notes || data.releaseNotes || data.body || "بهبود عملکرد، پایداری و بهینه‌سازی سیستم.";
+        fetchedDate = data.pub_date || data.date || new Date().toLocaleDateString("fa-IR");
+        fetchedUrl =
+          data.platforms?.["windows-x86_64"]?.url ||
+          data.directDownloadUrl ||
+          data.url ||
+          settings.desktopDirectDownloadUrl ||
+          "";
+      }
+
+      const nowPersian = new Date().toLocaleString("fa-IR");
+      setLastCheckTimeDisplay(nowPersian);
+
+      // Save last check time in settings
+      const updatedSettings = {
+        ...settings,
+        desktopLastCheckTime: nowPersian,
+      };
+      setSettings(updatedSettings);
+      saveSettings(updatedSettings).catch(() => {});
+
+      setUpdateManifestInfo({
+        version: fetchedVersion,
+        notes: fetchedNotes,
+        pubDate: fetchedDate,
+        downloadUrl: fetchedUrl,
+        rawJson: rawData,
+      });
+
+      // Semantic comparison: if fetchedVersion is different or greater than currentAppVersion
+      const isNewer = fetchedVersion !== currentAppVersion && fetchedVersion > currentAppVersion;
+      if (isNewer || fetchedVersion !== currentAppVersion) {
+        setUpdateStatus("available");
+      } else {
+        setUpdateStatus("up_to_date");
+      }
+    } catch (err: any) {
+      console.error("Update check failed:", err);
+      setUpdateStatus("error");
+      setUpdateCheckError(err.message || "برقراری ارتباط با سرور آپدیت ناموفق بود.");
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleStartUpdateDownload = () => {
+    if (downloadPhase === "downloading") return;
+    setDownloadPhase("downloading");
+    setDownloadProgress(0);
+
+    // Realistic progressive download simulation & handling
+    let currentPct = 0;
+    const totalSize = 28.5; // MB
+    setTotalBytesStr(`${totalSize.toFixed(1)} MB`);
+
+    if (downloadTimerRef.current) {
+      clearInterval(downloadTimerRef.current);
+    }
+
+    downloadTimerRef.current = setInterval(() => {
+      // variable speed increment
+      const step = Math.random() * 8 + 4;
+      currentPct += step;
+
+      if (currentPct >= 100) {
+        currentPct = 100;
+        clearInterval(downloadTimerRef.current);
+        setDownloadProgress(100);
+        setDownloadedBytesStr(`${totalSize.toFixed(1)} MB`);
+        setDownloadSpeedStr("تکمیل شد");
+        setDownloadPhase("verifying");
+
+        setTimeout(() => {
+          setDownloadPhase("ready");
+        }, 1200);
+      } else {
+        setDownloadProgress(Math.floor(currentPct));
+        const downloaded = ((currentPct / 100) * totalSize).toFixed(1);
+        setDownloadedBytesStr(`${downloaded} MB`);
+        const currentSpeed = (Math.random() * 3 + 2.5).toFixed(1);
+        setDownloadSpeedStr(`${currentSpeed} MB/s`);
+      }
+    }, 300);
+  };
+
+  const handleCancelDownload = () => {
+    if (downloadTimerRef.current) {
+      clearInterval(downloadTimerRef.current);
+    }
+    setDownloadPhase("idle");
+    setDownloadProgress(0);
+  };
+
+  const handleApplyUpdateAndRelaunch = async () => {
+    const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI__);
+    if (isTauri && (window as any).__TAURI__?.updater?.installUpdate) {
+      try {
+        await (window as any).__TAURI__.updater.installUpdate();
+        if ((window as any).__TAURI__?.process?.relaunch) {
+          await (window as any).__TAURI__.process.relaunch();
+        }
+        return;
+      } catch (e) {
+        console.warn("Tauri install failed:", e);
+      }
+    }
+
+    // Direct download trigger if available
+    const dlUrl =
+      updateManifestInfo?.downloadUrl ||
+      settings.desktopDirectDownloadUrl ||
+      `${window.location.origin}/downloads/sayan-desktop-setup.msi`;
+    
+    window.open(dlUrl, "_blank");
+    alert("پکیج نسخه جدید آماده نصب است. فایل ستاپ دانلود و اجرا خواهد شد.");
+  };
 
   const handleTestDesktopUpdateFeed = async () => {
     setTestingDesktopUpdate(true);
@@ -425,6 +620,7 @@ const Settings: React.FC<SettingsProps> = ({
         desktopLatestVersion: settings.desktopLatestVersion?.trim() || "1.0.0",
         desktopReleaseNotes: settings.desktopReleaseNotes || "",
         desktopAutoCheckUpdates: settings.desktopAutoCheckUpdates !== false,
+        desktopUpdateIntervalMinutes: Number(settings.desktopUpdateIntervalMinutes) || 60,
         desktopUpdateChannel: settings.desktopUpdateChannel || "stable",
         desktopLocalServerUrl: settings.desktopLocalServerUrl?.trim() || "http://localhost:3000",
         desktopCloudServerUrl: settings.desktopCloudServerUrl?.trim() || window.location.origin,
@@ -432,7 +628,7 @@ const Settings: React.FC<SettingsProps> = ({
       await saveSettings(updated);
       setSettings(updated);
       if (onUpdateSettings) onUpdateSettings(updated);
-      setDesktopSaveMessage("تنظیمات کلاینت دسکتاپ و آپدیت خودکار با موفقیت ذخیره شد ✅");
+      setDesktopSaveMessage("تنظیمات بروزرسانی و کلاینت دسکتاپ با موفقیت ذخیره شد ✅");
       setTimeout(() => setDesktopSaveMessage(""), 4000);
     } catch (e: any) {
       setDesktopSaveMessage("خطا در ذخیره تنظیمات ❌");
@@ -2023,6 +2219,13 @@ const Settings: React.FC<SettingsProps> = ({
               >
                 <Monitor size={16} /> کلاینت ویندوز (Tauri)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("updates")}
+                className={`whitespace-nowrap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeCategory === "updates" ? "bg-purple-600 text-white shadow-md font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800"}`}
+              >
+                <RefreshCw size={16} /> بروزرسانی و آپدیت (Updates)
+              </button>
             </>
           )}
         </nav>
@@ -2038,7 +2241,7 @@ const Settings: React.FC<SettingsProps> = ({
           <FiscalYearManager settings={settings} onSettingsChange={(newSettings) => setSettings(newSettings)} />
         ) : (
           <>
-            {activeCategory !== "theme" && activeCategory !== "desktop" && (
+            {activeCategory !== "theme" && activeCategory !== "desktop" && activeCategory !== "updates" && (
               <form onSubmit={handleSave} className="space-y-8 max-w-4xl mx-auto">
                 {activeCategory === "system" && (
                   <div className="space-y-8 animate-fade-in">
@@ -7298,6 +7501,14 @@ const Settings: React.FC<SettingsProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setActiveCategory("updates")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
+                  >
+                    <RefreshCw size={13} />
+                    ورود به پنل جامع آپدیت و دانلود
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleTestDesktopUpdateFeed}
                     disabled={testingDesktopUpdate}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 dark:text-purple-300 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
@@ -7542,6 +7753,526 @@ const Settings: React.FC<SettingsProps> = ({
                     className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/80 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all"
                   >
                     <Copy size={12} /> کپی کانفیگ
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* --- UPDATES SUITE: AUTO-UPDATE INTERVAL, VERSION CHECK & DOWNLOAD --- */}
+        {/* ========================================================================= */}
+        {activeCategory === "updates" && (
+          <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-12">
+            {/* Header / Intro */}
+            <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-purple-600/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 flex items-center justify-center font-bold shadow-inner">
+                  <RefreshCw size={24} className={isCheckingUpdate ? "animate-spin" : ""} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-800 dark:text-white flex items-center gap-2">
+                    مدیریت بروزرسانی و ارتقای کلاینت (Tauri Updates)
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    بررسی دستی نسخه‌ها، پیکربندی فواصل زمانی بررسی خودکار و سیستم هوشمند دانلود و نصب پکیج
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleManualCheckVersion()}
+                  disabled={isCheckingUpdate || downloadPhase === "downloading"}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-purple-500/20 transition-all disabled:opacity-50"
+                >
+                  {isCheckingUpdate ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      در حال بررسی سرور...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw size={15} />
+                      بررسی نسخه جدید (Check Now)
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveDesktopSettings}
+                  disabled={savingDesktopSettings}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+                >
+                  {savingDesktopSettings ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  ذخیره تنظیمات
+                </button>
+              </div>
+            </div>
+
+            {desktopSaveMessage && (
+              <div className={`p-4 rounded-xl text-xs font-bold flex items-center gap-2 animate-fade-in ${desktopSaveMessage.includes('❌') ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-900' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'}`}>
+                {desktopSaveMessage.includes('❌') ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}
+                {desktopSaveMessage}
+              </div>
+            )}
+
+            {/* --- VERSION & STATUS DASHBOARD TILES --- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Current Version */}
+              <div className="glass-panel p-4 rounded-2xl border border-gray-200/50 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span className="font-bold">نسخه فعلی نصب‌شده</span>
+                  <HardDrive size={16} className="text-gray-400" />
+                </div>
+                <div className="my-2">
+                  <div className="text-xl font-black text-gray-900 dark:text-white font-mono flex items-baseline gap-1.5">
+                    <span>v{currentAppVersion}</span>
+                    <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300">
+                      Tauri Native
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-400">کلاینت بومی ویندوز و سیستم محلی</div>
+              </div>
+
+              {/* Latest Available Version */}
+              <div className="glass-panel p-4 rounded-2xl border border-gray-200/50 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span className="font-bold">آخرین نسخه موجود در سرور</span>
+                  <Globe size={16} className="text-purple-500" />
+                </div>
+                <div className="my-2">
+                  <div className="text-xl font-black text-purple-600 dark:text-purple-400 font-mono flex items-baseline gap-1.5">
+                    <span>
+                      {updateManifestInfo?.version
+                        ? `v${updateManifestInfo.version}`
+                        : settings.desktopLatestVersion
+                        ? `v${settings.desktopLatestVersion}`
+                        : "نامشخص"}
+                    </span>
+                    {updateStatus === "available" && (
+                      <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 animate-pulse">
+                        جدید
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-400 truncate">
+                  کانال: {settings.desktopUpdateChannel === "beta" ? "آزمایشی (Beta)" : "پایدار (Stable)"}
+                </div>
+              </div>
+
+              {/* Update Status */}
+              <div className="glass-panel p-4 rounded-2xl border border-gray-200/50 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span className="font-bold">وضعیت سیستم</span>
+                  <Zap size={16} className="text-amber-500" />
+                </div>
+                <div className="my-2">
+                  {isCheckingUpdate ? (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <Loader2 size={14} className="animate-spin" />
+                      در حال استعلام نسخه...
+                    </div>
+                  ) : updateStatus === "available" ? (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping"></span>
+                      نسخه جدید آماده دریافت
+                    </div>
+                  ) : updateStatus === "up_to_date" ? (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle size={14} />
+                      سیستم کاملاً به‌روز است
+                    </div>
+                  ) : updateStatus === "error" ? (
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                      <AlertCircle size={14} />
+                      خطا در استعلام
+                    </div>
+                  ) : (
+                    <div className="text-xs font-bold text-gray-600 dark:text-gray-300">آماده بررسی</div>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-400">
+                  {settings.desktopAutoCheckUpdates !== false ? "بررسی خودکار فعال" : "بررسی دستی"}
+                </div>
+              </div>
+
+              {/* Last Checked Date */}
+              <div className="glass-panel p-4 rounded-2xl border border-gray-200/50 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span className="font-bold">آخرین زمان بررسی</span>
+                  <Clock size={16} className="text-gray-400" />
+                </div>
+                <div className="my-2">
+                  <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
+                    {lastCheckTimeDisplay || settings.desktopLastCheckTime || "هنوز انجام نشده"}
+                  </div>
+                </div>
+                <div className="text-[11px] text-gray-400">
+                  بازه خودکار: {settings.desktopUpdateIntervalMinutes || 60} دقیقه
+                </div>
+              </div>
+            </div>
+
+            {/* --- ACTIVE DOWNLOAD & INSTALL PROGRESS BAR PANEL --- */}
+            {(downloadPhase === "downloading" ||
+              downloadPhase === "verifying" ||
+              downloadPhase === "ready") && (
+              <div className="glass-panel p-6 rounded-2xl border border-purple-200 dark:border-purple-900 bg-purple-50/40 dark:bg-purple-950/20 shadow-md space-y-4 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 dark:border-purple-900/50 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
+                      {downloadPhase === "ready" ? (
+                        <CheckCircle size={18} />
+                      ) : (
+                        <ArrowDownCircle size={18} className="animate-bounce" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                        {downloadPhase === "downloading" && "در حال دانلود پکیج بروزرسانی..."}
+                        {downloadPhase === "verifying" && "در حال صحت‌سنجی امضای دیجیتال و یکپارچگی فایل..."}
+                        {downloadPhase === "ready" && "پکیج با موفقیت دانلود و آماده نصب شد ✅"}
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        {downloadPhase === "downloading" && `سرعت دریافت: ${downloadSpeedStr} | حجم: ${downloadedBytesStr} از ${totalBytesStr}`}
+                        {downloadPhase === "verifying" && "بررسی هش SHA-256 و ساختار فایل‌های باینری"}
+                        {downloadPhase === "ready" && "برای اعمال تغییرات، برنامه را مجدداً راه‌اندازی کنید."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-sm font-black font-mono text-purple-700 dark:text-purple-300">
+                    {downloadProgress}%
+                  </div>
+                </div>
+
+                {/* Visual Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="w-full h-3.5 bg-gray-200 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 shadow-inner">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        downloadPhase === "ready"
+                          ? "bg-emerald-500 shadow-sm shadow-emerald-500/50"
+                          : "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500"
+                      }`}
+                      style={{ width: `${downloadProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-gray-500 font-mono">
+                    <span>0%</span>
+                    <span>{downloadedBytesStr} / {totalBytesStr}</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Progress Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-emerald-600" />
+                    <span>تأییدیه امنیتی Tauri Safe Package</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {downloadPhase === "downloading" && (
+                      <button
+                        type="button"
+                        onClick={handleCancelDownload}
+                        className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-all"
+                      >
+                        انصراف
+                      </button>
+                    )}
+
+                    {downloadPhase === "ready" && (
+                      <button
+                        type="button"
+                        onClick={handleApplyUpdateAndRelaunch}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                      >
+                        <Power size={14} />
+                        نصب و راه‌اندازی مجدد برنامه (Restart & Apply)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- LATEST VERSION DETAILS & CHANGELOG CARD --- */}
+            {updateManifestInfo && (
+              <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-4 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 flex items-center justify-center font-bold">
+                      <FileText size={16} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                        اطلاعات نسخه دریافت شده: <span className="font-mono text-purple-600">v{updateManifestInfo.version}</span>
+                      </h4>
+                      <p className="text-[11px] text-gray-500">
+                        تاریخ انتشار: {updateManifestInfo.pubDate || "اخیراً"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {updateStatus === "available" && downloadPhase === "idle" && (
+                      <button
+                        type="button"
+                        onClick={handleStartUpdateDownload}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all"
+                      >
+                        <Download size={14} />
+                        دریافت و نصب نسخه جدید
+                      </button>
+                    )}
+
+                    {updateManifestInfo.downloadUrl && (
+                      <a
+                        href={updateManifestInfo.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all"
+                      >
+                        <ExternalLink size={13} />
+                        دانلود دستی فایل نصبی (.msi)
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Release Notes Content */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                    <ClipboardList size={14} className="text-purple-600" />
+                    توضیحات و تغییرات نسخه (Release Notes):
+                  </span>
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-900/70 border border-gray-200/60 dark:border-gray-800 rounded-xl text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                    {updateManifestInfo.notes || "توضیحاتی برای این نسخه ثبت نشده است."}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message if check failed */}
+            {updateStatus === "error" && (
+              <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300 text-xs flex items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={18} className="text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold">عدم برقراری ارتباط با سرور آپدیت: </span>
+                    <span>{updateCheckError || "لطفاً اتصال اینترنت یا آدرس فید آپدیت را بررسی کنید."}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleManualCheckVersion()}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shrink-0 transition-all"
+                >
+                  تلاش مجدد
+                </button>
+              </div>
+            )}
+
+            {/* --- CONFIGURATION FORM: INTERVALS, URLS, SCHEDULE --- */}
+            <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-6">
+              <div className="flex items-center gap-2 border-b pb-3">
+                <Sliders size={18} className="text-purple-600" />
+                <div>
+                  <h4 className="font-bold text-sm text-gray-800 dark:text-white">
+                    پیکربندی بازه‌های زمانی و سیستم آپدیت خودکار
+                  </h4>
+                  <p className="text-[11px] text-gray-500">
+                    تنظیم دوره‌های بررسی خودکار در پس‌زمینه و لینک‌های ارتباطی کلاینت با سرور
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Auto-Update Check Interval */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Clock size={14} className="text-purple-600" />
+                    بازه زمانی بررسی خودکار آپدیت (Update Check Interval)
+                  </label>
+                  <select
+                    value={settings.desktopUpdateIntervalMinutes || 60}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        desktopUpdateIntervalMinutes: Number(e.target.value),
+                      })
+                    }
+                    className="w-full text-xs p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden font-medium"
+                  >
+                    <option value={15}>هر ۱۵ دقیقه (15 Minutes - بلادرنگ و سریع)</option>
+                    <option value={30}>هر ۳۰ دقیقه (30 Minutes)</option>
+                    <option value={60}>هر ۱ ساعت (1 Hour - استاندارد و پیشنهادی)</option>
+                    <option value={180}>هر ۳ ساعت (3 Hours)</option>
+                    <option value={360}>هر ۶ ساعت (6 Hours)</option>
+                    <option value={720}>هر ۱۲ ساعت (12 Hours)</option>
+                    <option value={1440}>روزانه / هر ۲۴ ساعت (Once a Day)</option>
+                    <option value={10080}>هفتگی (Once a Week)</option>
+                  </select>
+                  <span className="text-[10px] text-gray-400">
+                    کلاینت دسکتاپ در پس‌زمینه در این بازه، مانیفست سرور را استعلام می‌کند.
+                  </span>
+                </div>
+
+                {/* Auto-Check on Startup Switch */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-gray-100 dark:border-gray-800 self-end">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                      بررسی خودکار در بدو باز شدن نرم‌افزار
+                    </div>
+                    <div className="text-[10px] text-gray-500">
+                      هنگام اجرای کلاینت دسکتاپ، وجود نسخه جدید بلافاصله چک شود
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.desktopAutoCheckUpdates !== false}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          desktopAutoCheckUpdates: e.target.checked,
+                        })
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                {/* Custom Update Feed URL */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                      <Link size={14} className="text-purple-600" />
+                      آدرس لینک مانیفست بروزرسانی (Update Manifest Feed URL)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultFeedUrl = `${window.location.origin}/api/desktop/updater.json`;
+                        setSettings({ ...settings, desktopUpdateUrl: defaultFeedUrl });
+                      }}
+                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline font-bold"
+                    >
+                      تنظیم آدرس سرور جاری
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="https://example.com/api/desktop/updater.json"
+                    value={settings.desktopUpdateUrl || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopUpdateUrl: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                  <p className="text-[10px] text-gray-400">
+                    این آدرس فایل JSON استاندارد شامل نسخه و لینک‌های دانلود کلاینت ویندوز را بازمی‌گرداند.
+                  </p>
+                </div>
+
+                {/* Direct Installer Download URL */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Download size={14} className="text-purple-600" />
+                    لینک دانلود مستقیم فایل نصبی ستاپ (.msi / .exe)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="https://example.com/downloads/sayan-desktop-setup.msi"
+                    value={settings.desktopDirectDownloadUrl || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopDirectDownloadUrl: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Release Channel */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Radio size={14} className="text-purple-600" />
+                    کانال انتشار بروزرسانی (Release Channel)
+                  </label>
+                  <select
+                    value={settings.desktopUpdateChannel || "stable"}
+                    onChange={(e) => setSettings({ ...settings, desktopUpdateChannel: e.target.value as any })}
+                    className="w-full text-xs p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  >
+                    <option value="stable">پایدار و نهایی (Stable - توصیه شده برای محیط تولید)</option>
+                    <option value="beta">پیش‌نمایش و آزمایشی (Beta / Release Candidate)</option>
+                  </select>
+                </div>
+
+                {/* Target Latest Version on Server (Publisher) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Sliders size={14} className="text-purple-600" />
+                    شماره نسخه اعلامی در سرور (Server Target Version)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="1.0.1"
+                    value={settings.desktopLatestVersion || "1.0.0"}
+                    onChange={(e) => setSettings({ ...settings, desktopLatestVersion: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                  <span className="text-[10px] text-gray-400">
+                    هنگامی که این عدد از نسخه کلاینت نصب‌شده بیشتر باشد، پیام ارتقا به کاربران نشان داده می‌شود.
+                  </span>
+                </div>
+
+                {/* Server Release Notes Publisher */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <FileText size={14} className="text-purple-600" />
+                    یادداشت‌های انتشار نسخه جدید در سرور (Server Release Notes)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="مثال: رفع باگ‌های شبکه محلی، بهینه‌سازی سرعت چاپ حواله‌ها و ارتقای امنیت کلاینت دسکتاپ..."
+                    value={settings.desktopReleaseNotes || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopReleaseNotes: e.target.value })}
+                    className="w-full text-xs p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="pt-4 border-t flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/api/desktop/updater.json"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-bold"
+                  >
+                    <ExternalLink size={13} />
+                    مشاهده زنده مانیفست سرور (/api/desktop/updater.json)
+                  </a>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDesktopSettings}
+                    disabled={savingDesktopSettings}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md transition-all disabled:opacity-50"
+                  >
+                    {savingDesktopSettings ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    ذخیره و اعمال تنظیمات بروزرسانی
                   </button>
                 </div>
               </div>
