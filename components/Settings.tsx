@@ -78,6 +78,13 @@ import {
   Wifi,
   Cloud,
   Terminal,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  Copy,
+  Download,
+  Radio,
+  Sliders,
 } from "lucide-react";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
@@ -361,6 +368,76 @@ const Settings: React.FC<SettingsProps> = ({
       alert('خطا در فراخوانی موتور گرافیکی سرور');
     } finally {
       setTestingGraphics(false);
+    }
+  };
+
+  // --- Desktop Client (Tauri) & Auto-Updater State & Actions ---
+  const [testingDesktopUpdate, setTestingDesktopUpdate] = useState<boolean>(false);
+  const [desktopTestResult, setDesktopTestResult] = useState<{
+    success: boolean;
+    manifest?: any;
+    message?: string;
+    checkedUrl?: string;
+  } | null>(null);
+  const [savingDesktopSettings, setSavingDesktopSettings] = useState<boolean>(false);
+  const [desktopSaveMessage, setDesktopSaveMessage] = useState<string>("");
+
+  const handleTestDesktopUpdateFeed = async () => {
+    setTestingDesktopUpdate(true);
+    setDesktopTestResult(null);
+    const targetUrl = (settings.desktopUpdateUrl || "").trim() || `${window.location.origin}/api/desktop/updater.json`;
+    try {
+      const res = await fetch(targetUrl);
+      if (res.ok) {
+        const data = await res.json();
+        setDesktopTestResult({
+          success: true,
+          manifest: data,
+          message: `فایل به‌روزرسانی با موفقیت دریافت شد. نسخه موجود: ${data.version || "نامشخص"}`,
+          checkedUrl: targetUrl,
+        });
+      } else {
+        setDesktopTestResult({
+          success: false,
+          message: `خطای سرور در دریافت فایل آپدیت (کد وضعیت: ${res.status})`,
+          checkedUrl: targetUrl,
+        });
+      }
+    } catch (err: any) {
+      setDesktopTestResult({
+        success: false,
+        message: `عدم برقراری ارتباط با لینک آپدیت: ${err.message || err}`,
+        checkedUrl: targetUrl,
+      });
+    } finally {
+      setTestingDesktopUpdate(false);
+    }
+  };
+
+  const handleSaveDesktopSettings = async () => {
+    setSavingDesktopSettings(true);
+    setDesktopSaveMessage("");
+    try {
+      const updated: SystemSettings = {
+        ...settings,
+        desktopUpdateUrl: settings.desktopUpdateUrl?.trim() || "",
+        desktopDirectDownloadUrl: settings.desktopDirectDownloadUrl?.trim() || "",
+        desktopLatestVersion: settings.desktopLatestVersion?.trim() || "1.0.0",
+        desktopReleaseNotes: settings.desktopReleaseNotes || "",
+        desktopAutoCheckUpdates: settings.desktopAutoCheckUpdates !== false,
+        desktopUpdateChannel: settings.desktopUpdateChannel || "stable",
+        desktopLocalServerUrl: settings.desktopLocalServerUrl?.trim() || "http://localhost:3000",
+        desktopCloudServerUrl: settings.desktopCloudServerUrl?.trim() || window.location.origin,
+      };
+      await saveSettings(updated);
+      setSettings(updated);
+      if (onUpdateSettings) onUpdateSettings(updated);
+      setDesktopSaveMessage("تنظیمات کلاینت دسکتاپ و آپدیت خودکار با موفقیت ذخیره شد ✅");
+      setTimeout(() => setDesktopSaveMessage(""), 4000);
+    } catch (e: any) {
+      setDesktopSaveMessage("خطا در ذخیره تنظیمات ❌");
+    } finally {
+      setSavingDesktopSettings(false);
     }
   };
 
@@ -7123,154 +7200,348 @@ const Settings: React.FC<SettingsProps> = ({
                       کلاینت اختصاصی دسکتاپ ویندوز (Tauri & Rust)
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      اجرای نیتیو و فوق‌العاده سریع با مسیریابی خودکار بین شبکه محلی انبار و اینترنت
+                      مدیریت آدرس‌های سرور، کانفیگ شبکه محلی و لینک‌های سیستم بروزرسانی خودکار (Auto-Updater)
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  آماده بیلد و شخصی‌سازی
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDesktopSettings}
+                    disabled={savingDesktopSettings}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {savingDesktopSettings ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    ذخیره تنظیمات دسکتاپ
+                  </button>
                 </div>
               </div>
 
+              {desktopSaveMessage && (
+                <div className={`p-3.5 mb-4 rounded-xl text-xs font-bold flex items-center gap-2 ${desktopSaveMessage.includes('❌') ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-900' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'}`}>
+                  {desktopSaveMessage.includes('❌') ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+                  {desktopSaveMessage}
+                </div>
+              )}
+
               {/* Dynamic Connection Flow Viz */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 mb-2">
-                  <Cpu size={14} className="text-indigo-600" /> چگونگی کارکرد سیستم مسیریابی دوگانه (شبکه / وب)
+                  <Cpu size={14} className="text-indigo-600" /> سیستم مسیریابی دوگانه هوشمند (Smart Router)
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                   {/* Local Network */}
-                  <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 dark:border-emerald-950 dark:bg-emerald-950/10 flex flex-col justify-between">
+                  <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/30 dark:border-emerald-950 dark:bg-emerald-950/10 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
-                        <Server size={16} /> اولویت اول: شبکه محلی (LAN)
+                      <div className="flex items-center gap-1.5 mb-1.5 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                        <Server size={15} /> اولویت ۱: شبکه محلی (LAN)
                       </div>
                       <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                        کلاینت دسکتاپ در زمان باز شدن ابتدا با یک پینگ سریع (Timeout: 1s) بررسی می‌کند آیا سرور محلی انبار در شبکه فعال است یا خیر.
+                        کلاینت در بدو باز شدن با پینگ ۱ ثانیه‌ای اتصال محلی به سرور را چک می‌کند.
                       </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/40 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                      Ping: http://localhost:3000
+                    <div className="mt-2.5 pt-2 border-t border-emerald-100 dark:border-emerald-900/40 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 truncate">
+                      {settings.desktopLocalServerUrl || 'http://localhost:3000'}
                     </div>
                   </div>
 
                   {/* Smart Fallback */}
-                  <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/30 dark:border-blue-950 dark:bg-blue-950/10 flex flex-col justify-between">
+                  <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/30 dark:border-blue-950 dark:bg-blue-950/10 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-400 font-bold text-xs">
-                        <Wifi size={16} /> مسیریابی هوشمند (Smart Router)
+                      <div className="flex items-center gap-1.5 mb-1.5 text-blue-700 dark:text-blue-400 font-bold text-xs">
+                        <Wifi size={15} /> سوییچ خودکار (Router)
                       </div>
                       <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                        اگر سرور محلی متصل و فعال باشد، نرم‌افزار به صورت آفلاین و محلی لود می‌شود. در غیر این صورت به طور آنی مسیر را تغییر می‌دهد.
+                        در صورت خاموش بودن سرور محلی یا خارج بودن کاربر از شرکت، مسیر به طور خودکار عوض می‌شود.
                       </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-blue-100 dark:border-blue-900/40 text-[10px] text-center font-bold text-blue-600 dark:text-blue-400">
-                      مسیریاب خودکار Rust Backend
+                    <div className="mt-2.5 pt-2 border-t border-blue-100 dark:border-blue-900/40 text-[10px] text-center font-bold text-blue-600 dark:text-blue-400">
+                      مسیریاب آفلاین و آنلاین Rust
                     </div>
                   </div>
 
                   {/* Cloud URL */}
-                  <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 dark:border-indigo-950 dark:bg-indigo-950/10 flex flex-col justify-between">
+                  <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/30 dark:border-indigo-950 dark:bg-indigo-950/10 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs">
-                        <Cloud size={16} /> اولویت دوم: سرور ابری (Cloud)
+                      <div className="flex items-center gap-1.5 mb-1.5 text-indigo-700 dark:text-indigo-400 font-bold text-xs">
+                        <Cloud size={15} /> اولویت ۲: سرور ابری (Cloud)
                       </div>
                       <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                        چنانچه خارج از شبکه انبار باشید یا کابل شبکه قطع باشد، سیستم به صورت کاملاً خودکار به آدرس اینترنتی متصل می‌شود.
+                        اتصال سراسری و ایمن به سرور مرکزی اینترنتی بدون نیاز به تنظیم دستی.
                       </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate">
-                      https://ais-dev-wjlf3a3s2y7mgngiaxufff...
+                    <div className="mt-2.5 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate">
+                      {settings.desktopCloudServerUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://...')}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Quick Build Instructions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Build Instructions */}
-              <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 border-b pb-3 mb-2">
-                  <Terminal size={18} className="text-indigo-600" />
-                  <h4 className="font-bold text-sm text-gray-800 dark:text-white">مراحل خروجی گرفتن و ساخت فایل ستاپ ویندوز</h4>
-                </div>
-                
-                <div className="space-y-3.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <div className="flex gap-2.5">
-                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۱</span>
-                    <p>
-                      مطمئن شوید ابزار **Rust** (از طریق [rustup.rs](https://rustup.rs)) روی ویندوز شما نصب است.
-                    </p>
+            {/* --- AUTO-UPDATER SETTINGS CARD --- */}
+            <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400 flex items-center justify-center font-bold">
+                    <RefreshCw size={16} />
                   </div>
-                  <div className="flex gap-2.5">
-                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۲</span>
-                    <p>
-                      پروژه را بر روی سیستم دانلود کرده و به پوشه روت آن بروید.
-                    </p>
-                  </div>
-                  <div className="flex gap-2.5">
-                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۳</span>
-                    <p>
-                      فایل خودکارساز بیلد دسکتاپ **`build-desktop.bat`** را در پوشه ریشه پروژه با دوبار کلیک اجرا کنید.
-                    </p>
-                  </div>
-                  <div className="flex gap-2.5">
-                    <span className="w-5 h-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex items-center justify-center font-bold text-[10px]">۴</span>
-                    <p>
-                      پس از اتمام بیلد، فایل‌های نصب **`.msi`** و **`.exe`** به صورت خودکار در پوشه زیر تولید می‌شوند:
-                      <code className="block mt-1 p-1.5 bg-gray-100 dark:bg-gray-800 rounded font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
-                        .\src-tauri\target\release\bundle\msi\
-                      </code>
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-800 dark:text-white">
+                      تنظیمات لینک و سیستم آپدیت خودکار (Tauri Auto-Updater)
+                    </h4>
+                    <p className="text-[11px] text-gray-500">
+                      آدرس لینک و شیوه دریافت خودکار آپدیت‌های نرم‌افزار دسکتاپ را تعیین نمایید
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs">
-                    <span className="text-gray-500 font-medium">قابلیت آپدیت خودکار (Auto-Updater):</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                      <Lock size={12} /> فعال و ایمن
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestDesktopUpdateFeed}
+                    disabled={testingDesktopUpdate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 dark:text-purple-300 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                  >
+                    {testingDesktopUpdate ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                    تست زنده لینک آپدیت
+                  </button>
                 </div>
               </div>
 
-              {/* Server Config Preview File */}
+              {/* Form Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Custom Update Feed Link */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                      <Link size={14} className="text-purple-600" />
+                      آدرس لینک فید بروزرسانی خودکار (Update Manifest URL)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultFeedUrl = `${window.location.origin}/api/desktop/updater.json`;
+                        setSettings({ ...settings, desktopUpdateUrl: defaultFeedUrl });
+                      }}
+                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline font-bold"
+                    >
+                      قرار دادن آدرس پیش‌فرض همین سرور
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="https://example.com/api/desktop/updater.json یا https://api.github.com/repos/.../releases/latest"
+                    value={settings.desktopUpdateUrl || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopUpdateUrl: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    این لینک باید یک فایل JSON با ساختار استاندارد Tauri شامل شماره نسخه (`version`) و لینک دانلود (`url`) برگرداند.
+                  </p>
+                </div>
+
+                {/* Direct Download URL */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Download size={14} className="text-purple-600" />
+                    لینک دانلود مستقیم فایل نصبی ستاپ (.msi / .exe)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="https://example.com/downloads/sayan-desktop-setup.msi"
+                    value={settings.desktopDirectDownloadUrl || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopDirectDownloadUrl: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Latest Version Target */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Sliders size={14} className="text-purple-600" />
+                    شماره آخرین نسخه منتشرشده (Target Latest Version)
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    placeholder="1.0.1"
+                    value={settings.desktopLatestVersion || "1.0.0"}
+                    onChange={(e) => setSettings({ ...settings, desktopLatestVersion: e.target.value })}
+                    className="w-full text-xs font-mono p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                  <span className="text-[10px] text-gray-400">وقتی این عدد از نسخه کلاینت بیشتر باشد، نرم‌افزار خودکار آپدیت می‌شود.</span>
+                </div>
+
+                {/* Release Channel */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Radio size={14} className="text-purple-600" />
+                    کانال انتشار (Release Channel)
+                  </label>
+                  <select
+                    value={settings.desktopUpdateChannel || "stable"}
+                    onChange={(e) => setSettings({ ...settings, desktopUpdateChannel: e.target.value as any })}
+                    className="w-full text-xs p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  >
+                    <option value="stable">نسخه پایدار و رسمی (Stable)</option>
+                    <option value="beta">نسخه آزمایشی و پیش‌نمایش (Beta / Release Candidate)</option>
+                  </select>
+                </div>
+
+                {/* Auto-check switch */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-gray-100 dark:border-gray-800 self-end">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200">بررسی خودکار در زمان اجرا</div>
+                    <div className="text-[10px] text-gray-500">هنگام باز شدن نرم‌افزار، وجود نسخه جدید چک شود</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.desktopAutoCheckUpdates !== false}
+                      onChange={(e) => setSettings({ ...settings, desktopAutoCheckUpdates: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                {/* Release Notes */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <FileText size={14} className="text-purple-600" />
+                    توضیحات و یادداشت‌های نسخه جدید (Changelog / Release Notes)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="مثال: بهبود کارایی چاپ گزارش انبار، بهینه‌سازی سرعت و رفع خطاهای اتصال شبکه..."
+                    value={settings.desktopReleaseNotes || ""}
+                    onChange={(e) => setSettings({ ...settings, desktopReleaseNotes: e.target.value })}
+                    className="w-full text-xs p-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Test Result Display */}
+              {desktopTestResult && (
+                <div className={`p-4 rounded-xl border text-xs space-y-2 animate-fade-in ${desktopTestResult.success ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-900 dark:text-emerald-200' : 'bg-red-50/70 dark:bg-red-950/30 border-red-200 dark:border-red-900 text-red-900 dark:text-red-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold">
+                      {desktopTestResult.success ? <CheckCircle2 size={16} className="text-emerald-600" /> : <AlertCircle size={16} className="text-red-600" />}
+                      <span>{desktopTestResult.message}</span>
+                    </div>
+                    <span className="text-[10px] font-mono opacity-70 truncate max-w-[200px]">{desktopTestResult.checkedUrl}</span>
+                  </div>
+                  {desktopTestResult.manifest && (
+                    <div className="bg-slate-900 text-emerald-400 p-3 rounded-lg font-mono text-[10px] overflow-x-auto select-all max-h-40">
+                      {JSON.stringify(desktopTestResult.manifest, null, 2)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* --- SERVER ROUTING & APP CONFIG FILE --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Network URLs Config */}
+              <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b pb-3 mb-2">
+                  <Server size={18} className="text-indigo-600" />
+                  <h4 className="font-bold text-sm text-gray-800 dark:text-white">آدرس‌های مسیریابی سرور (LAN & Cloud)</h4>
+                </div>
+
+                <div className="space-y-3.5 text-xs text-gray-600 dark:text-gray-300">
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px]">آدرس سرور شبکه محلی انبار (LAN URL):</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="http://localhost:3000 یا http://192.168.1.100:3000"
+                      value={settings.desktopLocalServerUrl || "http://localhost:3000"}
+                      onChange={(e) => setSettings({ ...settings, desktopLocalServerUrl: e.target.value })}
+                      className="w-full text-xs font-mono p-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px]">آدرس سرور مرکزی ابری (Cloud URL):</label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app"
+                      value={settings.desktopCloudServerUrl || ""}
+                      onChange={(e) => setSettings({ ...settings, desktopCloudServerUrl: e.target.value })}
+                      className="w-full text-xs font-mono p-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleSaveDesktopSettings}
+                    disabled={savingDesktopSettings}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                  >
+                    {savingDesktopSettings ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    ذخیره آدرس‌های سرور
+                  </button>
+                </div>
+              </div>
+
+              {/* Client config.json live inspector */}
               <div className="glass-panel p-6 rounded-2xl border border-gray-200/50 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between border-b pb-3 mb-4">
+                  <div className="flex items-center justify-between border-b pb-3 mb-3">
                     <div className="flex items-center gap-2">
                       <SettingsIcon size={18} className="text-indigo-600" />
-                      <h4 className="font-bold text-sm text-gray-800 dark:text-white">پیکربندی سرورهای کلاینت (`config.json`)</h4>
+                      <h4 className="font-bold text-sm text-gray-800 dark:text-white">فایل پیکربندی کاربر (`config.json`)</h4>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded">AppData</span>
                   </div>
 
-                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                    این تنظیمات در سیستم کاربر در مسیر AppData ویندوز به آدرس <code className="font-mono text-indigo-600 dark:text-indigo-400">Local/com.sayan.warehouse.app/config.json</code> ذخیره شده و می‌توانید بدون کامپایل مجدد، آی‌پی‌ها را در فایل متنی تغییر دهید:
+                  <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+                    این تنظیمات در سیستم کاربر در مسیر AppData ویندوز ذخیره شده و بدون کامپایل مجدد قابل تنظیم است:
                   </p>
 
-                  <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-[11px] space-y-1 select-all relative overflow-hidden">
-                    <div className="text-slate-400">// محتویات فایل پیکربندی کلاینت دسکتاپ</div>
+                  <div className="bg-slate-900 text-slate-100 p-3.5 rounded-xl font-mono text-[10.5px] space-y-1 select-all relative overflow-hidden">
+                    <div className="text-slate-500">// config.json</div>
                     <div>{"{"}</div>
-                    <div className="pl-4 text-indigo-300">  &quot;local_server_url&quot;: <span className="text-emerald-300">&quot;http://localhost:3000&quot;</span>,</div>
-                    <div className="pl-4 text-indigo-300">  &quot;cloud_server_url&quot;: <span className="text-emerald-300">&quot;https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app&quot;</span>,</div>
-                    <div className="pl-4 text-indigo-300">  &quot;timeout_ms&quot;: <span className="text-amber-400">1000</span></div>
+                    <div className="pl-3 text-indigo-300">  &quot;local_server_url&quot;: <span className="text-emerald-300">&quot;{settings.desktopLocalServerUrl || "http://localhost:3000"}&quot;</span>,</div>
+                    <div className="pl-3 text-indigo-300">  &quot;cloud_server_url&quot;: <span className="text-emerald-300">&quot;{settings.desktopCloudServerUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://...')}&quot;</span>,</div>
+                    <div className="pl-3 text-indigo-300">  &quot;update_url&quot;: <span className="text-emerald-300">&quot;{settings.desktopUpdateUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/api/desktop/updater.json`}&quot;</span>,</div>
+                    <div className="pl-3 text-indigo-300">  &quot;auto_check_updates&quot;: <span className="text-amber-400">{settings.desktopAutoCheckUpdates !== false ? 'true' : 'false'}</span>,</div>
+                    <div className="pl-3 text-indigo-300">  &quot;timeout_ms&quot;: <span className="text-amber-400">1200</span></div>
                     <div>{"}"}</div>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t flex items-center justify-between">
-                  <span className="text-[11px] text-gray-400">کدنویسی شده با Rust و Tauri SDK 1.4</span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`{\n  "local_server_url": "http://localhost:3000",\n  "cloud_server_url": "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app",\n  "timeout_ms": 1000\n}`);
-                      alert("پیکربندی نمونه در حافظه کپی شد!");
-                    }}
-                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/80 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all"
+                  <a
+                    href="/api/desktop/updater.json"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-bold"
                   >
-                    کپی پیکربندی نمونه
+                    <ExternalLink size={12} /> مشاهده JSON آپدیت
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cfg = {
+                        local_server_url: settings.desktopLocalServerUrl || "http://localhost:3000",
+                        cloud_server_url: settings.desktopCloudServerUrl || window.location.origin,
+                        update_url: settings.desktopUpdateUrl || `${window.location.origin}/api/desktop/updater.json`,
+                        auto_check_updates: settings.desktopAutoCheckUpdates !== false,
+                        timeout_ms: 1200,
+                      };
+                      navigator.clipboard.writeText(JSON.stringify(cfg, null, 2));
+                      alert("فایل config.json در حافظه کپی شد!");
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/80 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all"
+                  >
+                    <Copy size={12} /> کپی کانفیگ
                   </button>
                 </div>
               </div>

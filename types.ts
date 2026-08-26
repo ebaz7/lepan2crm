@@ -443,6 +443,16 @@ export interface SystemSettings {
   salesContacts?: SalesContact[];
   birthdayGreetingTemplate?: BirthdayGreetingTemplate;
   
+  // WINDOWS DESKTOP & TAURI AUTO-UPDATER SETTINGS
+  desktopUpdateUrl?: string;
+  desktopAutoCheckUpdates?: boolean;
+  desktopUpdateChannel?: 'stable' | 'beta';
+  desktopDirectDownloadUrl?: string;
+  desktopLatestVersion?: string;
+  desktopReleaseNotes?: string;
+  desktopLocalServerUrl?: string;
+  desktopCloudServerUrl?: string;
+  
   // SAYAN ONLINE EXIT PERMITS INTEGRATION
   sayanOnlineExitPermitsEnabled?: boolean;
   

@@ -5480,6 +5480,53 @@ app.post('/api/settings', async (req, res) => {
     res.json(db.settings);
 });
 
+// --- DESKTOP CLIENT (TAURI) AUTO-UPDATER & CONFIG ENDPOINTS ---
+app.get('/api/desktop/updater.json', (req, res) => {
+    const db = getDb();
+    const settings = db.settings || {};
+    const version = settings.desktopLatestVersion || '1.0.0';
+    const notes = settings.desktopReleaseNotes || 'نسخه جدید سیستم مدیریت انبار و حسابداری سایان با قابلیت‌های بهبود یافته.';
+    const pubDate = new Date().toISOString();
+    const downloadUrl = settings.desktopDirectDownloadUrl || settings.desktopUpdateUrl || `${req.protocol}://${req.get('host')}/downloads/sayan-desktop-setup.msi`;
+
+    // Standard Tauri v1 Auto-Updater JSON schema
+    const updaterManifest = {
+        version: version,
+        notes: notes,
+        pub_date: pubDate,
+        platforms: {
+            "windows-x86_64": {
+                signature: "",
+                url: downloadUrl
+            },
+            "darwin-x86_64": {
+                signature: "",
+                url: downloadUrl
+            },
+            "linux-x86_64": {
+                signature: "",
+                url: downloadUrl
+            }
+        }
+    };
+    res.json(updaterManifest);
+});
+
+app.get('/api/desktop/check-update', (req, res) => {
+    const db = getDb();
+    const settings = db.settings || {};
+    res.json({
+        latestVersion: settings.desktopLatestVersion || '1.0.0',
+        releaseNotes: settings.desktopReleaseNotes || 'پایدار و به‌روز',
+        updateUrl: settings.desktopUpdateUrl || '',
+        directDownloadUrl: settings.desktopDirectDownloadUrl || '',
+        autoCheck: settings.desktopAutoCheckUpdates !== false,
+        updateChannel: settings.desktopUpdateChannel || 'stable',
+        localServerUrl: settings.desktopLocalServerUrl || 'http://localhost:3000',
+        cloudServerUrl: settings.desktopCloudServerUrl || 'https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app'
+    });
+});
+
 // --- NUMBER SEQUENCE GENERATORS ---
 app.get('/api/next-exit-permit-number', (req, res) => {
     const db = getDb();

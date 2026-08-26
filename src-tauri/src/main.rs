@@ -15,6 +15,8 @@ use tauri::{Manager, WindowBuilder, WindowUrl};
 struct ClientConfig {
     local_server_url: String,
     cloud_server_url: String,
+    update_url: String,
+    auto_check_updates: bool,
     timeout_ms: u64,
 }
 
@@ -23,9 +25,29 @@ impl Default for ClientConfig {
         Self {
             local_server_url: "http://localhost:3000".to_string(),
             cloud_server_url: "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app".to_string(),
-            timeout_ms: 1000,
+            update_url: "".to_string(),
+            auto_check_updates: true,
+            timeout_ms: 1200,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct UpdateCheckResult {
+    has_update: bool,
+    current_version: String,
+    latest_version: String,
+    download_url: String,
+    release_notes: String,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct TauriUpdateManifest {
+    version: Option<String>,
+    notes: Option<String>,
+    pub_date: Option<String>,
+    platforms: Option<serde_json::Value>,
 }
 
 // Custom tauri command to retrieve the current resolved and saved servers
@@ -34,7 +56,7 @@ fn get_client_config(handle: tauri::AppHandle) -> ClientConfig {
     get_or_create_config(&handle)
 }
 
-// Custom tauri command to update local server IP or cloud URL
+// Custom tauri command to update local server IP, cloud URL or update endpoint
 #[tauri::command]
 fn save_client_config(handle: tauri::AppHandle, config: ClientConfig) -> Result<(), String> {
     let config_dir = handle.path_resolver().app_config_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -45,6 +67,102 @@ fn save_client_config(handle: tauri::AppHandle, config: ClientConfig) -> Result<
     let json_data = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     file.write_all(json_data.as_bytes()).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// Custom tauri command to check update directly via HTTP feed
+#[tauri::command]
+fn check_desktop_update(handle: tauri::AppHandle, custom_url: Option<String>) -> UpdateCheckResult {
+    let config = get_or_create_config(&handle);
+    let app_version = handle.package_info().version.to_string();
+    
+    let target_endpoint = if let Some(u) = custom_url {
+        if !u.trim().is_empty() { u } else { config.update_url.clone() }
+    } else {
+        config.update_url.clone()
+    };
+
+    let resolved_url = if !target_endpoint.trim().is_empty() {
+        target_endpoint
+    } else {
+        // Fallback to local or cloud updater.json endpoint
+        if check_connection(&config.local_server_url, 800) {
+            format!("{}/api/desktop/updater.json", config.local_server_url.trim_end_matches('/'))
+        } else {
+            format!("{}/api/desktop/updater.json", config.cloud_server_url.trim_end_matches('/'))
+        }
+    };
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build();
+
+    match client {
+        Ok(c) => {
+            match c.get(&resolved_url).send() {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        if let Ok(manifest) = response.json::<TauriUpdateManifest>() {
+                            let latest_ver = manifest.version.unwrap_or_else(|| app_version.clone());
+                            let notes = manifest.notes.unwrap_or_default();
+                            
+                            let mut dl_url = "".to_string();
+                            if let Some(platforms) = manifest.platforms {
+                                if let Some(win) = platforms.get("windows-x86_64") {
+                                    if let Some(u) = win.get("url").and_then(|v| v.as_str()) {
+                                        dl_url = u.to_string();
+                                    }
+                                }
+                            }
+                            
+                            let has_update = latest_ver != app_version;
+                            UpdateCheckResult {
+                                has_update,
+                                current_version: app_version,
+                                latest_version: latest_ver,
+                                download_url: dl_url,
+                                release_notes: notes,
+                                error: None,
+                            }
+                        } else {
+                            UpdateCheckResult {
+                                has_update: false,
+                                current_version: app_version,
+                                latest_version: "نامشخص".to_string(),
+                                download_url: "".to_string(),
+                                release_notes: "".to_string(),
+                                error: Some("فرمت فایل بروزرسانی نامعتبر است".to_string()),
+                            }
+                        }
+                    } else {
+                        UpdateCheckResult {
+                            has_update: false,
+                            current_version: app_version,
+                            latest_version: "نامشخص".to_string(),
+                            download_url: "".to_string(),
+                            release_notes: "".to_string(),
+                            error: Some(format!("پاسخ ناموفق سرور: {}", response.status())),
+                        }
+                    }
+                },
+                Err(e) => UpdateCheckResult {
+                    has_update: false,
+                    current_version: app_version,
+                    latest_version: "نامشخص".to_string(),
+                    download_url: "".to_string(),
+                    release_notes: "".to_string(),
+                    error: Some(format!("عدم برقراری ارتباط با لینک آپدیت: {}", e)),
+                }
+            }
+        },
+        Err(e) => UpdateCheckResult {
+            has_update: false,
+            current_version: app_version,
+            latest_version: "نامشخص".to_string(),
+            download_url: "".to_string(),
+            release_notes: "".to_string(),
+            error: Some(e.to_string()),
+        }
+    }
 }
 
 fn get_or_create_config(handle: &tauri::AppHandle) -> ClientConfig {
@@ -76,7 +194,6 @@ fn check_connection(url: &str, timeout_ms: u64) -> bool {
         .build();
     
     if let Ok(c) = client {
-        // Send a quick head or get request to check if server is active and online
         let test_url = if url.ends_with('/') {
             format!("{}api/health", url)
         } else {
@@ -86,9 +203,8 @@ fn check_connection(url: &str, timeout_ms: u64) -> bool {
         match c.get(&test_url).send() {
             Ok(resp) => resp.status().is_success(),
             Err(_) => {
-                // Secondary check: try the root path directly
                 match c.get(url).send() {
-                    Ok(resp) => resp.status().is_success() || resp.status().as_u16() == 404, // 404 means server reached at least
+                    Ok(resp) => resp.status().is_success() || resp.status().as_u16() == 404,
                     Err(_) => false,
                 }
             }
@@ -116,11 +232,17 @@ fn main() {
             config.cloud_server_url
         };
         
+        let window_url = if let Ok(parsed_url) = target_url.parse::<reqwest::Url>() {
+            WindowUrl::External(parsed_url)
+        } else {
+            WindowUrl::App("index.html".into())
+        };
+
         // Build the main window pointing to the dynamically resolved URL
         let main_window = WindowBuilder::new(
             app,
             "main",
-            WindowUrl::App(target_url.parse().unwrap_or_else(|_| "index.html".parse().unwrap()))
+            window_url
         )
         .title("سیستم مدیریت انبار سایان (نسخه هوشمند دسکتاپ)")
         .resizable(true)
@@ -137,7 +259,7 @@ fn main() {
         
         Ok(())
     })
-    .invoke_handler(tauri::generate_handler![get_client_config, save_client_config])
+    .invoke_handler(tauri::generate_handler![get_client_config, save_client_config, check_desktop_update])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

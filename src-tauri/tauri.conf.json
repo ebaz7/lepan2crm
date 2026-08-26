@@ -16,6 +16,10 @@
         "all": true,
         "request": true,
         "scope": ["http://**", "https://**"]
+      },
+      "shell": {
+        "all": true,
+        "open": true
       }
     },
     "bundle": {
@@ -38,27 +42,15 @@
     },
     "updater": {
       "active": true,
-      "endpoints": [
-        "https://raw.githubusercontent.com/sayan-co/warehouse-updater/main/update.json",
-        "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app/api/desktop-updater"
-      ],
       "dialog": true,
-      "pubkey": "dW50aXRsZWQta2V5LXB1YmxpYy1rZXktZXhhbXBsZS10YXVyaS11cGRhdGVy"
+      "endpoints": [
+        "https://ais-dev-wjlf3a3s2y7mgngiaxufff-97484218589.us-east1.run.app/api/desktop/updater.json",
+        "http://localhost:3000/api/desktop/updater.json"
+      ]
     },
     "security": {
       "csp": null
     },
-    "windows": [
-      {
-        "title": "سیستم انبار هوشمند سایان (دسکتاپ)",
-        "width": 1200,
-        "height": 800,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "center": true,
-        "maximized": true
-      }
-    ]
+    "windows": []
   }
 }
