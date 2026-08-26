@@ -5133,6 +5133,45 @@ const Settings: React.FC<SettingsProps> = ({
                   تنظیمات صورتجلسات تولید
                 </h3>
 
+                {/* Meeting Auto-Numbering Settings */}
+                <div className="bg-white/50 dark:bg-gray-800 border rounded-2xl p-5 mb-6">
+                  <h4 className="font-bold text-sm text-gray-700 dark:text-gray-200 border-b pb-2 mb-4 flex items-center gap-2">
+                    <ClipboardList size={18} className="text-indigo-500" /> تنظیمات شماره‌گذاری خودکار صورتجلسات
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                    <div>
+                      <label className="text-xs font-bold text-gray-600 dark:text-gray-300 block mb-1">
+                        شماره شروع صورتجلسات (حداقل مبدا شمارش)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="مثلاً: 1000"
+                        value={settings.startMeetingNumber || 1000}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1000;
+                          setSettings({
+                            ...settings,
+                            startMeetingNumber: val,
+                          });
+                        }}
+                        className="w-full border rounded-xl p-2.5 text-xs bg-white dark:bg-gray-900 font-mono focus:ring-2 outline-none"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        سیستم به طور خودکار بالاترین شماره صورتجلسه موجود را شناسایی کرده و شماره بعدی را به فرمت <span className="font-mono font-bold text-indigo-600">M-XXXX</span> بدون هیچ‌گونه تکراری ایجاد می‌کند.
+                      </p>
+                    </div>
+                    <div className="bg-indigo-50 dark:bg-indigo-950/40 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 text-xs space-y-1 text-indigo-900 dark:text-indigo-200">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span>🛡️</span> محافظت ضد تکرار شماره
+                      </div>
+                      <p className="text-[11px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                        هنگام ثبت جلسه جدید، سرور و کلاینت به صورت چندلایه عدم تکراری بودن شماره جلسه را تضمین می‌کنند و در صورت وجود تکرار، شماره بعدی آزاد را تخصیص می‌دهند.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Meeting Roles Management */}
                 <div className="bg-white/50 dark:bg-gray-800 border rounded-2xl p-5 mb-6">
                   <h4 className="font-bold text-sm text-gray-700 dark:text-gray-200 border-b pb-2 mb-4 flex items-center gap-2">

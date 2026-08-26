@@ -33,10 +33,12 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
   const [userZoom, setUserZoom] = useState<number | null>(null);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Touch pinch-to-zoom tracking
+  // Touch and Mouse Drag / Pan tracking
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartScaleRef = useRef<number>(1);
   const lastTapRef = useRef<number>(0);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   const rawData = data && Array.isArray(data) ? data : [];
 
@@ -126,7 +128,7 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
     }, 50);
   };
 
-  // Mobile Touch Gestures
+  // Mobile Touch Gestures & Pinch-to-zoom
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dist = Math.hypot(
@@ -163,6 +165,35 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
 
   const handleTouchEnd = () => {
     touchStartDistRef.current = null;
+  };
+
+  // Mouse drag-to-pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only primary button
+    const el = containerWrapperRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const el = containerWrapperRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    el.scrollLeft = dragStartRef.current.scrollLeft - dx;
+    el.scrollTop = dragStartRef.current.scrollTop - dy;
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -640,38 +671,54 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
 
       {/* Main Canvas Container */}
       <main 
-        className="flex-1 w-full overflow-auto p-3 md:p-6 flex flex-col items-center justify-start overscroll-contain bg-zinc-900/90"
+        dir="ltr"
+        className="flex-1 w-full overflow-auto bg-zinc-900/95 cursor-grab active:cursor-grabbing select-none"
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x pan-y pinch-zoom'
+        }}
         ref={containerWrapperRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
       >
         <div 
-          style={{ 
-            width: `${287 * 3.779527559 * scale}px`,
-            minHeight: `${200 * 3.779527559 * scale}px`,
-            position: 'relative',
-            flexShrink: 0
-          }}
+          className="min-w-full min-h-full flex items-center justify-center p-3 md:p-6"
+          style={{ width: 'max-content', height: 'max-content' }}
         >
           <div 
             style={{ 
-              width: '287mm', 
-              minHeight: '200mm',
-              backgroundColor: '#ffffff', 
-              boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              overflow: 'hidden',
-              borderRadius: '4px'
-            }} 
-            className="rounded-sm"
+              width: `${287 * 3.779527559 * scale}px`,
+              minHeight: `${200 * 3.779527559 * scale}px`,
+              position: 'relative',
+              flexShrink: 0,
+              margin: 'auto'
+            }}
           >
-            {content}
+            <div 
+              dir="rtl"
+              style={{ 
+                width: '287mm', 
+                minHeight: '200mm',
+                backgroundColor: '#ffffff', 
+                boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                overflow: 'hidden',
+                borderRadius: '4px'
+              }} 
+              className="rounded-sm"
+            >
+              {content}
+            </div>
           </div>
         </div>
       </main>

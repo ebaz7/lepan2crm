@@ -5,7 +5,7 @@ import PrintMeeting from './print/PrintMeeting';
 import { User, MeetingMinutes, MeetingStatus, MeetingAttendee, MeetingItem, UserRole, SystemSettings, RolePermissions } from '../types';
 import { getMeetings, saveMeeting, updateMeeting, deleteMeeting, getNextMeetingNumber, getSettings, sendMeetingAnnouncement, sendMeetingMinutes, sendMessage, uploadFileChunked } from '../services/storageService';
 import { generateUUID, getCurrentShamsiDate, formatDate } from '../constants';
-import { ClipboardList, Plus, Search, Calendar, Clock, MapPin, Users, CheckCircle, XCircle, Trash2, Edit, Printer, Send, Eye, Loader2, Save, X, PlusCircle, UserCheck, MessageSquare, AlertCircle, CheckSquare, Lock, Paperclip, FileText, Image } from 'lucide-react';
+import { ClipboardList, Plus, Search, Calendar, Clock, MapPin, Users, CheckCircle, XCircle, Trash2, Edit, Printer, Send, Eye, Loader2, Save, X, PlusCircle, UserCheck, MessageSquare, AlertCircle, CheckSquare, Lock, Paperclip, FileText, Image, RefreshCw } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { downloadAndOpenFile } from '../services/fileService';
@@ -28,6 +28,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
     const [showPrintModal, setShowPrintModal] = useState<MeetingMinutes | null>(null);
     const [activeAttendeeIndex, setActiveAttendeeIndex] = useState<number | null>(null);
     const [isSendingAction, setIsSendingAction] = useState(false);
+    const [isRefreshingNumber, setIsRefreshingNumber] = useState(false);
     
     const [meetingForm, setMeetingForm] = useState<Partial<MeetingMinutes>>({
         date: '',
@@ -86,8 +87,28 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
         loadData();
     }, []);
 
+    const handleRefreshNumber = async () => {
+        setIsRefreshingNumber(true);
+        try {
+            const nextNum = await getNextMeetingNumber();
+            setMeetingForm(prev => ({ ...prev, meetingNumber: nextNum }));
+        } catch (e) {
+            console.error("Refresh meeting number error:", e);
+        } finally {
+            setIsRefreshingNumber(false);
+        }
+    };
+
     const handleOpenCreateModal = async () => {
-        const nextNum = await getNextMeetingNumber();
+        setIsRefreshingNumber(true);
+        let nextNum = 'M-1001';
+        try {
+            nextNum = await getNextMeetingNumber();
+        } catch (e) {
+            console.error("Fetch next meeting number error:", e);
+        } finally {
+            setIsRefreshingNumber(false);
+        }
         const shamsi = getCurrentShamsiDate();
         
         let initialChairman = '';
@@ -172,10 +193,28 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
             return;
         }
 
+        let meetingNumberToSave = (meetingForm.meetingNumber || '').trim();
+
+        // If creating a new meeting, double check for duplicates against loaded meetings
+        if (!editingMeeting) {
+            const isDuplicate = meetings.some(m => 
+                (m.meetingNumber || '').trim().toLowerCase() === meetingNumberToSave.toLowerCase()
+            );
+            if (isDuplicate || !meetingNumberToSave) {
+                try {
+                    const freshNum = await getNextMeetingNumber();
+                    meetingNumberToSave = freshNum;
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
         const meetingData: MeetingMinutes = editingMeeting 
-            ? { ...editingMeeting, ...meetingForm as MeetingMinutes, updatedAt: Date.now() }
+            ? { ...editingMeeting, ...meetingForm as MeetingMinutes, meetingNumber: meetingNumberToSave, updatedAt: Date.now() }
             : {
                 ...meetingForm as MeetingMinutes,
+                meetingNumber: meetingNumberToSave,
                 id: generateUUID(),
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -905,12 +944,27 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             {/* General Info */}
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="space-y-1.5 focus-within:scale-[1.02] transition-transform">
-                                    <label className="text-xs font-black text-gray-500 mr-2 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500" /> شماره جلسه</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-black text-gray-500 mr-2 flex items-center gap-1.5"><Calendar size={14} className="text-blue-500" /> شماره جلسه</label>
+                                        {!editingMeeting && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRefreshNumber}
+                                                disabled={isRefreshingNumber}
+                                                className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 font-bold px-1.5 py-0.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                                title="بارگذاری مجدد شماره خودکار"
+                                            >
+                                                <RefreshCw size={11} className={isRefreshingNumber ? "animate-spin" : ""} />
+                                                شماره بعدی
+                                            </button>
+                                        )}
+                                    </div>
                                     <input
                                         type="text"
-                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
+                                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 font-mono text-left"
                                         value={meetingForm.meetingNumber}
                                         onChange={e => setMeetingForm({...meetingForm, meetingNumber: e.target.value})}
+                                        placeholder="مثلاً: M-1001"
                                     />
                                 </div>
                                 <div className="space-y-1.5 focus-within:scale-[1.02] transition-transform">

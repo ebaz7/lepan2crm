@@ -39,6 +39,36 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartScaleRef = useRef<number>(1);
   const lastTapRef = useRef<number>(0);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const el = containerWrapperRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const el = containerWrapperRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    el.scrollLeft = dragStartRef.current.scrollLeft - dx;
+    el.scrollTop = dragStartRef.current.scrollTop - dy;
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
 
   const company = settings.companies?.find(c => c.name === record.company);
   const letterhead = company?.letterhead;
@@ -380,31 +410,50 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
 
       {/* Main Canvas Area */}
       <main 
-        className="flex-1 w-full overflow-auto p-2 md:p-6 flex flex-col items-center justify-start overscroll-contain" 
+        dir="ltr"
+        className="flex-1 w-full overflow-auto bg-zinc-900/95 cursor-grab active:cursor-grabbing select-none" 
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x pan-y pinch-zoom'
+        }}
         ref={containerWrapperRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
       >
-        <div style={{ 
-          width: `${210 * 3.779527559 * scale}px`,
-          minHeight: `${296 * 3.779527559 * scale}px`,
-          position: 'relative',
-          flexShrink: 0
-        }}>
+        <div 
+          className="min-w-full min-h-full flex items-center justify-center p-2 md:p-6"
+          style={{ width: 'max-content', height: 'max-content' }}
+        >
           <div style={{ 
-            width: '210mm', 
-            minHeight: '296mm',
-            backgroundColor: 'white', 
-            boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-            position: 'absolute',
-            top: 0,
-            left: 0
-          }} className="printable-content rounded-md">
-            {content}
+            width: `${210 * 3.779527559 * scale}px`,
+            minHeight: `${296 * 3.779527559 * scale}px`,
+            position: 'relative',
+            flexShrink: 0,
+            margin: 'auto'
+          }}>
+            <div 
+              dir="rtl"
+              style={{ 
+                width: '210mm', 
+                minHeight: '296mm', 
+                backgroundColor: 'white', 
+                boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                top: 0,
+                left: 0
+              }} 
+              className="printable-content rounded-md"
+            >
+              {content}
+            </div>
           </div>
         </div>
       </main>

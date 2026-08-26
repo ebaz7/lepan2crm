@@ -434,6 +434,7 @@ export interface SystemSettings {
   
   salesNotificationUsers?: { username: string; platforms: string[]; name?: string }[]; // Usernames and their active platforms (telegram, bale)
   salesContactMessage?: string;
+  startMeetingNumber?: number | string;
   defaultMeetingAttendees?: string[];
   defaultMeetingAttendeesData?: { username: string; role: string }[];
   meetingRoles?: string[];

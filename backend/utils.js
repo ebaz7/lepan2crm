@@ -146,3 +146,62 @@ export const sanitizeGroupId = (id) => {
     const match = str.match(/^-?\d+/);
     return match ? match[0] : str;
 };
+
+export const toEnglishDigits = (str) => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+};
+
+export const findNextMeetingNumber = (meetings, settings) => {
+    let startNum = 1000;
+    if (settings?.startMeetingNumber) {
+        const parsed = parseInt(toEnglishDigits(settings.startMeetingNumber));
+        if (!isNaN(parsed) && parsed > 0) startNum = parsed;
+    }
+    
+    let maxNum = -1;
+    const existingNumbers = new Set();
+
+    (meetings || []).forEach(m => {
+        const rawNum = m.meetingNumber || m.number || '';
+        const engNum = toEnglishDigits(rawNum).trim();
+        if (!engNum) return;
+
+        let numVal = NaN;
+        if (engNum.toUpperCase().startsWith('M-')) {
+            numVal = parseInt(engNum.substring(2));
+        } else if (engNum.toUpperCase().startsWith('M')) {
+            numVal = parseInt(engNum.substring(1));
+        } else {
+            const match = engNum.match(/(\d+)/g);
+            if (match && match.length > 0) {
+                numVal = parseInt(match[match.length - 1]);
+            }
+        }
+
+        if (!isNaN(numVal) && numVal > 0) {
+            existingNumbers.add(numVal);
+            if (numVal > maxNum) {
+                maxNum = numVal;
+            }
+        }
+    });
+
+    let nextCandidate;
+    if (maxNum === -1) {
+        nextCandidate = startNum > 0 ? startNum + 1 : 1001;
+    } else {
+        nextCandidate = Math.max(maxNum + 1, startNum ? startNum + 1 : 1001);
+    }
+
+    while (existingNumbers.has(nextCandidate) || (meetings || []).some(m => {
+        const num = toEnglishDigits(m.meetingNumber || m.number || '').trim();
+        return num === `M-${nextCandidate}` || num === `${nextCandidate}` || num === `m-${nextCandidate}`;
+    })) {
+        nextCandidate++;
+    }
+
+    return `M-${nextCandidate}`;
+};

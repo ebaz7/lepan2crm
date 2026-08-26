@@ -5656,14 +5656,8 @@ app.get('/api/next-bijak-number', (req, res) => {
 app.get('/api/next-meeting-number', (req, res) => {
     const db = getDb();
     const meetings = db.meetings || [];
-    let maxNum = 1000;
-    meetings.forEach(m => {
-        if (m.number && m.number.startsWith('M-')) {
-            const num = parseInt(m.number.replace('M-', ''));
-            if (!isNaN(num) && num > maxNum) maxNum = num;
-        }
-    });
-    res.json({ nextNumber: `M-${maxNum + 1}` });
+    const nextNum = utils.findNextMeetingNumber(meetings, db.settings);
+    res.json({ nextNumber: nextNum });
 });
 
 app.get('/api/next-purchase-request-number', (req, res) => {
@@ -5764,7 +5758,6 @@ const CRUD_COLLECTIONS = [
     { route: 'warehouse/items', dbKey: 'warehouseItems' },
     { route: 'trade', dbKey: 'tradeRecords' },
     { route: 'notes', dbKey: 'notes' },
-    { route: 'meetings', dbKey: 'meetings' },
     { route: 'part-master-data', dbKey: 'partMasterData' },
     { route: 'secretariat-settings', dbKey: 'secretariatSettings' },
     { route: 'secretariat-templates', dbKey: 'secretariatTemplates' },
@@ -5820,6 +5813,60 @@ CRUD_COLLECTIONS.forEach(({ route, dbKey }) => {
         saveDb(db);
         res.json(db[dbKey]);
     });
+});
+
+// --- DEDICATED PRODUCTION MEETINGS ENDPOINTS (WITH AUTO UNIQUE NUMBERING) ---
+app.get('/api/meetings', (req, res) => {
+    const db = getDb();
+    if (!db.meetings) db.meetings = [];
+    res.json(db.meetings);
+});
+
+app.post('/api/meetings', (req, res) => {
+    const db = getDb();
+    if (!db.meetings) db.meetings = [];
+    const item = req.body;
+    const existingIdx = db.meetings.findIndex(x => x.id === item.id);
+    
+    if (existingIdx > -1) {
+        db.meetings[existingIdx] = { ...db.meetings[existingIdx], ...item };
+    } else {
+        // For new meetings, check if meetingNumber is duplicate or missing
+        const curNum = (item.meetingNumber || '').trim();
+        const isDuplicate = !curNum || db.meetings.some(m => 
+            m.id !== item.id && 
+            (m.meetingNumber || '').trim().toLowerCase() === curNum.toLowerCase()
+        );
+        if (isDuplicate) {
+            item.meetingNumber = utils.findNextMeetingNumber(db.meetings, db.settings);
+        }
+        db.meetings.push(item);
+    }
+    saveDb(db);
+    res.json(db.meetings);
+});
+
+app.put('/api/meetings/:id', (req, res) => {
+    const db = getDb();
+    if (!db.meetings) db.meetings = [];
+    const idx = db.meetings.findIndex(x => x.id === req.params.id);
+    if (idx > -1) {
+        db.meetings[idx] = { ...db.meetings[idx], ...req.body };
+        saveDb(db);
+        res.json(db.meetings);
+    } else {
+        db.meetings.push({ id: req.params.id, ...req.body });
+        saveDb(db);
+        res.json(db.meetings);
+    }
+});
+
+app.delete('/api/meetings/:id', (req, res) => {
+    const db = getDb();
+    if (!db.meetings) db.meetings = [];
+    db.meetings = db.meetings.filter(x => x.id !== req.params.id);
+    saveDb(db);
+    res.json(db.meetings);
 });
 
 // Dedicated Payment Orders Endpoints with Automated Notifications
