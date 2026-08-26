@@ -10,7 +10,8 @@ import {
     CheckSquare, Square, X, Trash2, Reply, Edit2, ArrowRight, Mic, 
     Play, Pause, Loader2, Search, MoreVertical, File, Image as ImageIcon,
     Check, CheckCheck, DownloadCloud, StopCircle, Share2, Copy, Forward, Eye, CornerUpLeft, Bell,
-    Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw, Smile
+    Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw, Smile,
+    FileText, Package, CreditCard
 } from 'lucide-react';
 import { StickerPicker } from './chat/StickerPicker';
 import { StickerItem } from './chat/stickerData';
@@ -27,14 +28,15 @@ interface ChatRoomProps {
     sharedData?: { fileUrl?: string; text?: string; title?: string } | null;
     onClearSharedData?: () => void;
     onMessagesRead?: (msgIds: string[]) => void;
-    directChatTarget?: { type: 'private' | 'group' | 'public' | 'task_group', id: string, taskId?: string } | null;
+    directChatTarget?: { type: 'private' | 'group' | 'public' | 'task_group' | 'system', id: string, taskId?: string } | null;
     onClearDirectChatTarget?: () => void;
+    onNavigate?: (tab: string) => void;
 }
 
 type TabType = 'ALL' | 'CHATS' | 'GROUPS' | 'TASKS';
 
 interface ChannelItem {
-    type: 'public' | 'private' | 'group' | 'task_group';
+    type: 'public' | 'private' | 'group' | 'task_group' | 'system';
     id: string;
     name: string;
     avatar: string | null;
@@ -208,7 +210,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     
     // --- UI State ---
     const [activeTab, setActiveTab] = useState<TabType>('ALL');
-    const [activeChannel, setActiveChannel] = useState<{type: 'public' | 'private' | 'group' | 'task_group', id: string | null} | null>(null);
+    const [activeChannel, setActiveChannel] = useState<{type: 'public' | 'private' | 'group' | 'task_group' | 'system', id: string | null} | null>(null);
     const [searchTerm, setSearchTerm] = useState(''); // Main List Search
     const [innerSearchTerm, setInnerSearchTerm] = useState(''); // Inside Chat Search
     const [showInnerSearch, setShowInnerSearch] = useState(false);
@@ -625,15 +627,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     // --- Helpers ---
-    const getUnreadCount = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+    const getUnreadCount = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group' | 'system') => {
         if (!currentUser || !currentUser.username) return 0;
         const currentU = currentUser.username.toLowerCase();
         return messages.filter(m => {
-            if (!m.senderUsername || m.senderUsername.toLowerCase() === currentU) return false;
+            if (!m.senderUsername || (m.senderUsername.toLowerCase() === currentU && type !== 'system')) return false;
             const isRead = m.readBy?.some(u => u.toLowerCase() === currentU);
             if (isRead) return false;
             
-            if (type === 'public') {
+            if (type === 'system') {
+                return (m.senderUsername?.toLowerCase() === 'system' || m.role === 'system' || m.sender === 'سیستم') &&
+                       (!m.recipient || m.recipient.toLowerCase() === currentU);
+            } else if (type === 'public') {
                 return !m.recipient && !m.groupId;
             } else if (type === 'private') {
                 return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU);
@@ -644,10 +649,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         }).length;
     };
 
-    const getLastMessage = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+    const getLastMessage = (channelId: string, type: 'private' | 'group' | 'public' | 'task_group' | 'system') => {
         if (!currentUser || !currentUser.username) return null;
         const currentU = currentUser.username.toLowerCase();
         const relevant = displayMessages.filter(m => {
+            if (type === 'system') {
+                return (m.senderUsername?.toLowerCase() === 'system' || m.role === 'system' || m.sender === 'سیستم') &&
+                       (!m.recipient || m.recipient.toLowerCase() === currentU);
+            }
             if (type === 'public') return !m.recipient && !m.groupId;
             if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU) || (m.senderUsername?.toLowerCase() === currentU && m.recipient?.toLowerCase() === channelId?.toLowerCase());
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
@@ -656,13 +665,17 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         return relevant.length > 0 ? relevant[relevant.length - 1] : null;
     };
 
-    const markAsRead = async (channelId: string, type: 'private' | 'group' | 'public' | 'task_group') => {
+    const markAsRead = async (channelId: string, type: 'private' | 'group' | 'public' | 'task_group' | 'system') => {
         if (!currentUser || !currentUser.username) return;
         const currentU = currentUser.username.toLowerCase();
         const unreadMsgs = messages.filter(m => {
-            if (!m.senderUsername || m.senderUsername.toLowerCase() === currentU) return false;
+            if (!m.senderUsername || (m.senderUsername.toLowerCase() === currentU && type !== 'system')) return false;
             if (m.readBy?.some(u => u.toLowerCase() === currentU)) return false;
             
+            if (type === 'system') {
+                return (m.senderUsername?.toLowerCase() === 'system' || m.role === 'system' || m.sender === 'سیستم') &&
+                       (!m.recipient || m.recipient.toLowerCase() === currentU);
+            }
             if (type === 'public') return !m.recipient && !m.groupId;
             if (type === 'private') return (m.senderUsername?.toLowerCase() === channelId?.toLowerCase() && m.recipient?.toLowerCase() === currentU);
             if (type === 'group' || type === 'task_group') return m.groupId === channelId;
@@ -757,7 +770,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         const list: ChannelItem[] = [];
         const safeUsers = Array.isArray(users) ? users : [];
         const safeGroups = Array.isArray(groups) ? groups : [];
-        const safeTaskGroups = Array.isArray(taskGroups) ? taskGroups : [];
         
         list.push({ type: 'public', id: 'public', name: 'کانال عمومی', avatar: null, isOnline: true, lastMsg: null, unread: 0 });
         
@@ -768,10 +780,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         
         safeGroups.forEach(g => {
             list.push({ type: 'group', id: g.id, name: g.name, avatar: g.avatar || null, isOnline: false, lastMsg: null, unread: 0 });
-        });
-
-        safeTaskGroups.forEach(tg => {
-            list.push({ type: 'task_group', id: tg.id, name: tg.name, avatar: tg.avatar || null, isOnline: false, lastMsg: null, unread: 0 });
         });
         
         return list;
@@ -788,7 +796,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         const isAdmin = currentUser?.role === UserRole.ADMIN;
 
         if (activeTab === 'ALL') {
-            // 1. Public Channel
+            // 1. System Channel (Cartable / approvals / notices)
+            const lastSys = getLastMessage('system', 'system');
+            const unreadSys = getUnreadCount('system', 'system');
+            const sysMatch = !term || 'پیام ها و اعلانات هوشمند سیستم سیستم کارتابل اطلاعیه صورتجلسه'.includes(term);
+            if (sysMatch) {
+                list.push({
+                    type: 'system', id: 'system', name: 'پیام‌ها و اعلانات سیستم', 
+                    avatar: null, isOnline: true, 
+                    lastMsg: lastSys, unread: unreadSys
+                });
+            }
+
+            // 2. Public Channel
             const lastPub = getLastMessage('public', 'public');
             list.push({
                 type: 'public', id: 'public', name: 'کانال عمومی', 
@@ -796,7 +816,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 lastMsg: lastPub, unread: getUnreadCount('public', 'public')
             });
 
-            // 2. Groups (with avatars)
+            // 3. Groups (with avatars)
             safeGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'group');
                 const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
@@ -809,7 +829,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 }
             });
 
-            // 3. Task Groups (with avatars)
+            // 4. Task Groups (with avatars)
             safeTaskGroups.forEach(g => {
                 const last = getLastMessage(g.id, 'task_group');
                 const isMember = isAdmin || (Array.isArray(g.members) && g.members.some(mem => mem?.toLowerCase() === currentU)) || g.createdBy?.toLowerCase() === currentU;
@@ -822,7 +842,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                 }
             });
 
-            // 4. Private chats
+            // 5. Private chats
             safeUsers.forEach(u => {
                 if (currentUsername && u.username?.toLowerCase() === currentU) return;
                 const last = getLastMessage(u.username, 'private');
@@ -849,6 +869,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                  });
             }
         } else if (activeTab === 'CHATS') {
+            // 1. System Channel
+            const lastSys = getLastMessage('system', 'system');
+            const unreadSys = getUnreadCount('system', 'system');
+            const sysMatch = !term || 'پیام ها و اعلانات هوشمند سیستم سیستم کارتابل اطلاعیه صورتجلسه'.includes(term);
+            if (sysMatch) {
+                list.push({
+                    type: 'system', id: 'system', name: 'پیام‌ها و اعلانات سیستم', 
+                    avatar: null, isOnline: true, 
+                    lastMsg: lastSys, unread: unreadSys
+                });
+            }
+
             const lastPub = getLastMessage('public', 'public');
             list.push({
                 type: 'public', id: 'public', name: 'کانال عمومی', 
@@ -1439,8 +1471,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     // Corrected Forward Logic
-    const handleForward = async (targetId: string, targetType: 'private' | 'group' | 'public' | 'task_group') => {
-        if (targetType === 'task_group') return;
+    const handleForward = async (targetId: string, targetType: 'private' | 'group' | 'public' | 'task_group' | 'system') => {
+        if (targetType === 'task_group' || targetType === 'system') return;
         const ids = Array.from(selectedMessages);
         for (const id of ids) {
             const original = messages.find(m => m.id === id);
@@ -1611,6 +1643,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         if (!activeChannel) return false;
         let match = false;
         if (activeChannel.type === 'public') match = !msg.recipient && !msg.groupId;
+        else if (activeChannel.type === 'system') match = (
+            (msg.senderUsername?.toLowerCase() === 'system' || msg.role === 'system' || msg.sender === 'سیستم') &&
+            (!msg.recipient || msg.recipient.toLowerCase() === currentUser.username?.toLowerCase())
+        );
         else if (activeChannel.type === 'private') match = (
             (msg.senderUsername?.toLowerCase() === activeChannel.id?.toLowerCase() && msg.recipient?.toLowerCase() === currentUser.username?.toLowerCase()) || 
             (msg.senderUsername?.toLowerCase() === currentUser.username?.toLowerCase() && msg.recipient?.toLowerCase() === activeChannel.id?.toLowerCase())
@@ -1689,10 +1725,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                     {getSortedChannels().map((item: ChannelItem) => (
                         <div key={item.id} onClick={() => { setActiveChannel({type: item.type, id: item.id}); markAsRead(item.id, item.type); }} className={`flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer border-b border-gray-50 dark:border-white/5 relative group ${activeChannel?.id === item.id ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''}`}>
                             <div className="relative">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${item.type === 'private' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : item.type === 'task_group' ? 'bg-gradient-to-br from-purple-400 to-purple-600' : 'bg-gradient-to-br from-orange-400 to-orange-600'}`}>
-                                    {item.avatar ? <img src={resolveImageUrl(item.avatar)} className="w-full h-full rounded-full object-cover"/> : item.name.charAt(0)}
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${item.type === 'system' ? 'bg-gradient-to-br from-indigo-500 to-purple-700' : item.type === 'private' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : item.type === 'task_group' ? 'bg-gradient-to-br from-purple-400 to-purple-600' : 'bg-gradient-to-br from-orange-400 to-orange-600'}`}>
+                                    {item.type === 'system' ? '🤖' : (item.avatar ? <img src={resolveImageUrl(item.avatar)} className="w-full h-full rounded-full object-cover"/> : item.name.charAt(0))}
                                 </div>
-                                {item.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>}
+                                {item.isOnline && item.type !== 'system' && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center mb-1">
@@ -1704,7 +1740,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
-                                        {item.type === 'task_group' ? 'لیست تسک‌ها...' : item.lastMsg ? (item.lastMsg.audioUrl ? '🎤 پیام صوتی' : item.lastMsg.attachment ? '📎 فایل' : item.lastMsg.message) : 'پیامی نیست'}
+                                        {item.type === 'system' ? (item.lastMsg?.message || 'اعلانات و هشدارهای کارتابل') : item.type === 'task_group' ? 'لیست تسک‌ها...' : item.lastMsg ? (item.lastMsg.audioUrl ? '🎤 پیام صوتی' : item.lastMsg.attachment ? '📎 فایل' : item.lastMsg.message) : 'پیامی نیست'}
                                     </p>
                                     <div className="flex items-center gap-1.5">
                                         {item.unread > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-bold shadow-sm animate-pulse">{item.unread}</span>}
@@ -1743,7 +1779,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     let initial = '?';
                                     let bgColor = 'bg-gradient-to-br from-blue-400 to-blue-600';
                                     
-                                    if (activeChannel.type === 'private') {
+                                    if (activeChannel.type === 'system') {
+                                        initial = '🤖';
+                                        bgColor = 'bg-gradient-to-br from-indigo-500 to-purple-700';
+                                    } else if (activeChannel.type === 'private') {
                                         const u = users.find(x => x.username?.toLowerCase() === activeChannel.id?.toLowerCase());
                                         avatarUrl = u?.avatar || null;
                                         initial = (u?.fullName || activeChannel.id).charAt(0);
@@ -1788,13 +1827,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         if (tg) setShowGroupInfo({...tg, isTaskGroup: true});
                                     }
                                 }}>
-                                    <h3 className="font-bold text-gray-800 text-sm">
-                                        {activeChannel.type === 'private' ? (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.fullName || activeChannel.id) : 
+                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                                        {activeChannel.type === 'system' ? 'پیام‌ها و اعلانات سیستم' :
+                                         activeChannel.type === 'private' ? (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.fullName || activeChannel.id) : 
                                          activeChannel.type === 'group' ? groups.find(g=>g.id===activeChannel.id)?.name :
                                          activeChannel.type === 'task_group' ? taskGroups.find(g=>g.id===activeChannel.id)?.name : 'کانال عمومی'}
                                     </h3>
                                     <span className="text-[10px] text-blue-500">
-                                        {activeChannel.type === 'private' ? (
+                                        {activeChannel.type === 'system' ? 'مرکز دریافت اعلانات کارتابل و پیام‌های خودکار' :
+                                         activeChannel.type === 'private' ? (
                                             users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen && (Date.now() - (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen || 0) < 300000) ? 'آنلاین' : 
                                             `آخرین بازدید ${formatLastSeen(users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen)}`
                                         ) : activeChannel.type === 'task_group' ? 'گروه تسک' : 'اطلاعات گروه'}
@@ -2029,17 +2070,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 >
                             {filteredMessages.map((msg: ChatMessage) => {
                                 const isMe = msg.senderUsername === currentUser.username;
+                                const isSystemMsg = msg.senderUsername?.toLowerCase() === 'system' || msg.role === 'system' || msg.sender === 'سیستم' || activeChannel.type === 'system';
                                 const isSelected = selectedMessages.has(msg.id);
                                 
                                 return (
                                     <div 
                                         key={msg.id} 
-                                        className={`flex w-full mb-1 group ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2 ${selectionMode ? 'cursor-pointer' : ''}`}
+                                        className={`flex w-full mb-1 group ${isSystemMsg ? 'justify-center' : isMe ? 'justify-end' : 'justify-start'} items-end gap-2 ${selectionMode ? 'cursor-pointer' : ''}`}
                                         onClick={() => { if(selectionMode) toggleSelection(msg.id); }}
                                         onContextMenu={(e) => { e.preventDefault(); if(!selectionMode) setContextMenuMsg({msg, x: e.clientX, y: e.clientY}); }}
                                     >
                                         {/* Actions Button - LEFT for ME, RIGHT for OTHER */}
-                                        {isMe && (
+                                        {isMe && !isSystemMsg && (
                                             <div className="flex flex-col gap-1 opacity-60 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                  <button onClick={() => setReplyingTo(msg)} className="p-1.5 glass-panel rounded-full text-blue-600 shadow-sm hover:scale-110" title="پاسخ"><CornerUpLeft size={12}/></button>
                                                  <button onClick={() => { setSelectedMessages(new Set([msg.id])); setShowForwardModal(true); }} className="p-1.5 glass-panel rounded-full text-green-600 shadow-sm hover:scale-110" title="فوروارد"><Forward size={12}/></button>
@@ -2054,8 +2096,19 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             </div>
                                         )}
                                         
-                                        <div className={`relative max-w-[75%] md:max-w-[70%] rounded-xl px-3 py-1.5 shadow-sm text-sm transition-colors ${isMe ? 'bg-[#eeffde] rounded-tr-none' : 'glass-panel rounded-tl-none'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                                        <div className={`relative ${isSystemMsg ? 'w-full max-w-[92%] md:max-w-[85%] bg-gradient-to-br from-indigo-50/95 via-blue-50/90 to-indigo-50/95 dark:from-indigo-950/60 dark:via-blue-950/40 dark:to-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-100 rounded-2xl shadow-sm' : isMe ? 'max-w-[75%] md:max-w-[70%] bg-[#eeffde] rounded-xl rounded-tr-none shadow-sm' : 'max-w-[75%] md:max-w-[70%] glass-panel rounded-xl rounded-tl-none shadow-sm'} px-3.5 py-2.5 text-sm transition-colors ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
                                             
+                                            {/* System Message Header */}
+                                            {isSystemMsg && (
+                                                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-indigo-200/60 dark:border-indigo-800/50">
+                                                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                                                        <span className="p-1 bg-indigo-100 dark:bg-indigo-900/60 rounded-lg text-[13px]">📢</span>
+                                                        <span>پیام و اعلان هوشمند سیستم</span>
+                                                    </div>
+                                                    <span className="text-[10px] bg-indigo-100/70 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">کارتابل</span>
+                                                </div>
+                                            )}
+
                                             {/* Forward Header */}
                                             {msg.isForwarded && msg.forwardFrom && (
                                                 <div className="text-[10px] text-blue-600 font-bold mb-1 flex items-center gap-1">
@@ -2072,7 +2125,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             )}
 
                                             {/* Sender Name in Group */}
-                                            {!isMe && activeChannel.type !== 'private' && (
+                                            {!isMe && !isSystemMsg && activeChannel.type !== 'private' && (
                                                 <div className="text-[11px] font-bold text-[#e17076] mb-0.5">{msg.sender}</div>
                                             )}
 
@@ -2242,88 +2295,107 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
                         {/* Input Area */}
                         <div className="shrink-0 sticky bottom-0 bg-white/90 dark:bg-[#0b141a]/90 backdrop-blur-md glass-panel p-2 flex items-end gap-2 border-t relative z-20 pb-[calc(12px+env(safe-area-inset-bottom))] md:pb-2">
-                            {/* Reply/Edit Preview */}
-                            {localSharedData && (
-                                <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up bg-blue-50/90 dark:bg-blue-950/90">
-                                    <div className="flex items-center gap-2 border-r-4 border-orange-500 pr-2">
-                                        <Paperclip size={18} className="text-orange-500"/>
-                                        <div className="flex flex-col text-xs">
-                                            <span className="font-bold text-orange-600">فایل پیوست آماده‌ی ارسال</span>
-                                            <span className="text-gray-500 truncate max-w-[200px]">{localSharedData.fileUrl ? localSharedData.fileUrl.split('/').pop() : localSharedData.text}</span>
-                                        </div>
+                            {activeChannel.type === 'system' ? (
+                                <div className="flex-1 py-2 px-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between gap-2 shadow-xs">
+                                    <div className="flex items-center gap-2 text-xs text-indigo-800 dark:text-indigo-200 font-medium">
+                                        <Bell size={16} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                        <span>کانال هوشمند اعلانات و پیام‌های اتوماتیک کارتابل</span>
                                     </div>
-                                    <button onClick={() => { setLocalSharedData(null); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
+                                    <button
+                                        onClick={() => markAsRead('system', 'system')}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm shrink-0 flex items-center gap-1.5"
+                                    >
+                                        <CheckCheck size={14} />
+                                        <span>خواندن همه</span>
+                                    </button>
                                 </div>
-                            )}
-
-                            {(replyingTo || editingMessageId) && (
-                                <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up">
-                                    <div className="flex items-center gap-2 border-r-4 border-blue-500 pr-2">
-                                        {editingMessageId ? <Edit2 size={18} className="text-blue-500"/> : <Reply size={18} className="text-blue-500"/>}
-                                        <div className="flex flex-col text-xs">
-                                            <span className="font-bold text-blue-600">{editingMessageId ? 'ویرایش پیام' : `پاسخ به ${replyingTo?.sender}`}</span>
-                                            <span className="text-gray-500 truncate max-w-[200px]">{editingMessageId ? '...' : replyingTo?.message}</span>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => { setReplyingTo(null); setEditingMessageId(null); setInputText(''); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
-                                </div>
-                            )}
-
-                            <button onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} className="p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 relative">
-                                <Paperclip size={24}/>
-                                {/* Attachment Menu */}
-                                <div id="chat-file-menu" className="hidden absolute bottom-14 right-0 glass-panel shadow-xl rounded-xl border p-2 flex flex-col gap-2 min-w-[150px] animate-scale-in z-50">
-                                    <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><ImageIcon size={18} className="text-blue-500"/> گالری (عکس/فیلم)</button>
-                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><File size={18} className="text-orange-500"/> فایل</button>
-                                </div>
-                            </button>
-                            
-                            <button 
-                                onClick={() => setShowStickerPicker(prev => !prev)} 
-                                className={`p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : ''}`}
-                                title="استیکرها و ایموجی‌ها"
-                            >
-                                <Smile size={24}/>
-                            </button>
-                            
-                            <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
-                            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
-
-                            <div className={`flex-1 rounded-3xl flex items-center px-4 py-2 min-h-[48px] relative transition-all duration-300 ${inputText.length > 0 ? 'bg-white shadow-[0_4px_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-100 dark:bg-gray-800 dark:ring-blue-900/50' : 'bg-gray-100 dark:bg-gray-800/80'}`}>
-                                {inputText.length > 0 && (
-                                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 opacity-10 animate-bg-pan pointer-events-none dark:opacity-20" style={{ backgroundSize: '200% 200%' }} />
-                                )}
-                                <textarea 
-                                    ref={inputAreaRef}
-                                    value={inputText}
-                                    onChange={e => {
-                                        setInputText(e.target.value);
-                                        e.target.style.height = 'auto';
-                                        e.target.style.height = `${e.target.scrollHeight}px`;
-                                    }}
-                                    onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                                    placeholder="پیام..."
-                                    className="bg-transparent border-none outline-none w-full text-sm resize-none custom-scrollbar relative z-10 placeholder-gray-500 dark:placeholder-gray-400 text-gray-800 dark:text-gray-100"
-                                    rows={1}
-                                    style={{ height: 'auto', minHeight: '24px', maxHeight: '40vh' }}
-                                />
-                            </div>
-
-                            {inputText.trim() || isUploading || localSharedData?.fileUrl ? (
-                                <button onClick={handleSendMessage} className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95 mb-1 relative overflow-hidden group">
-                                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
-                                    {isUploading ? <Loader2 size={24} className="animate-spin relative z-10"/> : <Send size={24} className={`relative z-10 ${document.dir==='rtl' ? 'rotate-180' : ''}`}/>}
-                                </button>
                             ) : (
-                                <button 
-                                    onMouseDown={startRecording}
-                                    onMouseUp={stopRecording}
-                                    onTouchStart={startRecording}
-                                    onTouchEnd={stopRecording}
-                                    className={`p-3 rounded-full shadow-lg transition-all mb-1 ${isRecording ? 'bg-red-500 scale-110 shadow-red-200' : 'bg-blue-500 text-white'}`}
-                                >
-                                    {isRecording ? <div className="text-white font-mono text-xs">{formatTime(recordingTime)}</div> : <Mic size={24}/>}
-                                </button>
+                                <>
+                                    {/* Reply/Edit Preview */}
+                                    {localSharedData && (
+                                        <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up bg-blue-50/90 dark:bg-blue-950/90">
+                                            <div className="flex items-center gap-2 border-r-4 border-orange-500 pr-2">
+                                                <Paperclip size={18} className="text-orange-500"/>
+                                                <div className="flex flex-col text-xs">
+                                                    <span className="font-bold text-orange-600">فایل پیوست آماده‌ی ارسال</span>
+                                                    <span className="text-gray-500 truncate max-w-[200px]">{localSharedData.fileUrl ? localSharedData.fileUrl.split('/').pop() : localSharedData.text}</span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => { setLocalSharedData(null); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
+                                        </div>
+                                    )}
+
+                                    {(replyingTo || editingMessageId) && (
+                                        <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up">
+                                            <div className="flex items-center gap-2 border-r-4 border-blue-500 pr-2">
+                                                {editingMessageId ? <Edit2 size={18} className="text-blue-500"/> : <Reply size={18} className="text-blue-500"/>}
+                                                <div className="flex flex-col text-xs">
+                                                    <span className="font-bold text-blue-600">{editingMessageId ? 'ویرایش پیام' : `پاسخ به ${replyingTo?.sender}`}</span>
+                                                    <span className="text-gray-500 truncate max-w-[200px]">{editingMessageId ? '...' : replyingTo?.message}</span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => { setReplyingTo(null); setEditingMessageId(null); setInputText(''); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
+                                        </div>
+                                    )}
+
+                                    <button onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} className="p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 relative">
+                                        <Paperclip size={24}/>
+                                        {/* Attachment Menu */}
+                                        <div id="chat-file-menu" className="hidden absolute bottom-14 right-0 glass-panel shadow-xl rounded-xl border p-2 flex flex-col gap-2 min-w-[150px] animate-scale-in z-50">
+                                            <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><ImageIcon size={18} className="text-blue-500"/> گالری (عکس/فیلم)</button>
+                                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><File size={18} className="text-orange-500"/> فایل</button>
+                                        </div>
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => setShowStickerPicker(prev => !prev)} 
+                                        className={`p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : ''}`}
+                                        title="استیکرها و ایموجی‌ها"
+                                    >
+                                        <Smile size={24}/>
+                                    </button>
+                                    
+                                    <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
+                                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
+
+                                    <div className={`flex-1 rounded-3xl flex items-center px-4 py-2 min-h-[48px] relative transition-all duration-300 ${inputText.length > 0 ? 'bg-white shadow-[0_4px_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-100 dark:bg-gray-800 dark:ring-blue-900/50' : 'bg-gray-100 dark:bg-gray-800/80'}`}>
+                                        {inputText.length > 0 && (
+                                            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 opacity-10 animate-bg-pan pointer-events-none dark:opacity-20" style={{ backgroundSize: '200% 200%' }} />
+                                        )}
+                                        <textarea 
+                                            ref={inputAreaRef}
+                                            value={inputText}
+                                            onChange={e => {
+                                                setInputText(e.target.value);
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = `${e.target.scrollHeight}px`;
+                                            }}
+                                            onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                                            placeholder="پیام..."
+                                            className="bg-transparent border-none outline-none w-full text-sm resize-none custom-scrollbar relative z-10 placeholder-gray-500 dark:placeholder-gray-400 text-gray-800 dark:text-gray-100"
+                                            rows={1}
+                                            style={{ height: 'auto', minHeight: '24px', maxHeight: '40vh' }}
+                                        />
+                                    </div>
+
+                                    {inputText.trim() || isUploading || localSharedData?.fileUrl ? (
+                                        <button onClick={handleSendMessage} className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95 mb-1 relative overflow-hidden group">
+                                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
+                                            {isUploading ? <Loader2 size={24} className="animate-spin relative z-10"/> : <Send size={24} className={`relative z-10 ${document.dir==='rtl' ? 'rotate-180' : ''}`}/>}
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onMouseDown={startRecording}
+                                            onMouseUp={stopRecording}
+                                            onTouchStart={startRecording}
+                                            onTouchEnd={stopRecording}
+                                            className={`p-3 rounded-full shadow-lg transition-all mb-1 ${isRecording ? 'bg-red-500 scale-110 shadow-red-200' : 'bg-blue-500 text-white'}`}
+                                            title="پیام صوتی (نگه دارید)"
+                                        >
+                                            {isRecording ? <div className="text-white font-mono text-xs">{formatTime(recordingTime)}</div> : <Mic size={24}/>}
+                                        </button>
+                                    )}
+                                </>
                             )}
 
                             {/* Sticker Picker Popover */}
@@ -2334,7 +2406,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 />
                             )}
                         </div>
-                        </>
+                            </>
                         )}
                     </>
                 ) : (

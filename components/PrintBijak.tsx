@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { WarehouseTransaction, SystemSettings, Contact } from '../types';
 import { formatCurrency, formatDate } from '../constants';
-import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
@@ -47,7 +46,13 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
 
   // Scaling State
   const [scale, setScale] = useState(1);
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Touch pinch zoom
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(1);
+  const lastTapRef = useRef<number>(0);
 
   useEffect(() => {
       const style = document.getElementById('page-size-style');
@@ -58,16 +63,16 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
 
   // Auto-Scale Logic
   useEffect(() => {
+    if (embed) return;
     const handleResize = () => {
-        if (embed) return;
+        if (userZoom !== null) return;
         const wrapper = containerWrapperRef.current;
         if (wrapper) {
             const wrapperWidth = wrapper.clientWidth;
             const targetWidth = 560; // A5 Width in px (approx)
             
             if (wrapperWidth < targetWidth + 40) {
-                const newScale = (wrapperWidth - 32) / targetWidth;
-                setScale(newScale);
+                setScale(Math.max(0.3, (wrapperWidth - 32) / targetWidth));
             } else {
                 setScale(1);
             }
@@ -76,7 +81,91 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [embed]);
+  }, [embed, userZoom]);
+
+  const handleZoomIn = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.min(3.0, currentScale + 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
+
+  const handleZoomOut = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.max(0.3, currentScale - 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
+
+  const handleSetZoom = (newScale: number) => {
+    const clamped = Math.min(3.0, Math.max(0.3, newScale));
+    setUserZoom(clamped);
+    setScale(clamped);
+  };
+
+  const handleResetZoom = () => {
+    setUserZoom(null);
+    setTimeout(() => {
+      const wrapper = containerWrapperRef.current;
+      if (wrapper) {
+        const wrapperWidth = wrapper.clientWidth;
+        const targetWidth = 560;
+        if (wrapperWidth < targetWidth + 40) {
+          setScale(Math.max(0.3, (wrapperWidth - 32) / targetWidth));
+        } else {
+          setScale(1);
+        }
+      }
+    }, 50);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1.1) {
+          handleResetZoom();
+        } else {
+          handleSetZoom(1.35);
+        }
+      }
+      lastTapRef.current = now;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = currentDist / touchStartDistRef.current;
+      const targetScale = Math.min(3.0, Math.max(0.3, touchStartScaleRef.current * ratio));
+      setScale(targetScale);
+      setUserZoom(targetScale);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(3.0, Math.max(0.3, scale * zoomFactor));
+      setScale(newScale);
+      setUserZoom(newScale);
+    }
+  };
 
   const containerId = embed 
     ? `print-bijak-${tx.id}${forceHidePrices ? '-noprice' : '-price'}` 
@@ -199,37 +288,81 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
   const Stamp = ({ title, name, color = 'blue' }: { title: string, name: string, color?: 'blue' | 'green' | 'gray' }) => {
       const colorClass = color === 'blue' ? 'border-blue-800 text-blue-800' : color === 'green' ? 'border-green-800 text-green-800' : 'border-gray-500 text-gray-500';
       return (
-          <div className={`border-2 ${colorClass} rounded-lg p-1 rotate-[-5deg] opacity-90 inline-block glass-panel/80 print:bg-transparent shadow-sm min-w-[80px]`}>
-              <div className="text-[9px] font-bold border-b border-current mb-0.5 pb-0.5 text-center">{title}</div>
-              <div className="text-xs font-black text-center px-1">{name}</div>
+          <div className={`border-2 border-dashed ${colorClass} rounded-lg p-1.5 px-3 inline-flex flex-col items-center justify-center transform -rotate-3 opacity-90 scale-90`}>
+              <span className="text-[9px] font-black tracking-wider uppercase">{title}</span>
+              <span className="text-[11px] font-bold mt-0.5">{name}</span>
+              <span className="text-[7px] text-gray-400 font-mono mt-0.5">{formatDate(new Date().toISOString())}</span>
           </div>
       );
   };
 
   const content = (
-      <div id={containerId} className={`printable-content glass-panel w-full mx-auto p-6 shadow-2xl rounded-sm relative text-gray-900 flex flex-col print:shadow-none`} 
+      <div 
+        id={containerId} 
+        className="printable-content glass-panel p-6 text-black bg-white shadow-2xl relative flex flex-col justify-between"
         style={{ 
+            width: '148mm', 
+            minHeight: '209mm', 
             direction: 'rtl',
-            width: '148mm',
-            height: '209mm',
-            margin: '0 auto',
             padding: '8mm', 
             boxSizing: 'border-box',
-            maxHeight: '209mm',
-            overflow: 'hidden'
-        }}>
-            {tx.status === 'REJECTED' && (<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-8 border-red-600/30 text-red-600/30 font-black text-6xl rotate-[-25deg] p-4 rounded-3xl select-none z-0 pointer-events-none whitespace-nowrap">REJECTED</div>)}
-            {(tx.status as any) === 'DELETED' && (<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-8 border-red-600/30 text-red-600/30 font-black text-6xl rotate-[-25deg] p-4 rounded-3xl select-none z-0 pointer-events-none whitespace-nowrap">حذف شده / باطل</div>)}
-
-            <div className="border-b-2 border-black pb-4 mb-4 flex justify-between items-start relative z-10">
-                <div className="flex flex-col">
+            margin: '0 auto',
+            backgroundColor: '#ffffff'
+        }}
+      >
+            {/* Header */}
+            <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-4 relative z-10">
+                <div className="text-right">
                     <h1 className="text-xl font-black">{tx.company}</h1>
-                    <p className="text-sm font-bold text-gray-600">حواله خروج کالا (بیجک)</p>
+                    <h2 className="text-sm font-bold text-gray-700 mt-0.5">بیجک خروج از انبار (حواله تحویل)</h2>
                 </div>
-                <div className="text-left space-y-1"><div className="text-lg font-black border-2 border-black px-3 py-1 rounded">NO: {tx.number}</div><div className="text-sm font-bold">تاریخ: {formatDate(tx.date)}</div></div>
+                <div className="text-left text-xs space-y-1">
+                    <div><span className="font-bold">شماره:</span> <span className="font-mono font-bold text-red-600">{tx.number}</span></div>
+                    <div><span className="font-bold">تاریخ:</span> <span className="font-mono">{tx.date}</span></div>
+                    <div><span className="font-bold">ساعت:</span> <span className="font-mono">{tx.time}</span></div>
+                </div>
             </div>
-            <div className="border rounded-lg p-3 mb-4 bg-gray-50 text-gray-800 text-sm print:glass-panel print:border-black relative z-10"><div className="grid grid-cols-2 gap-4"><div><span className="text-gray-500 ml-2">تحویل گیرنده:</span> <span className="font-bold">{tx.recipientName}</span></div><div><span className="text-gray-500 ml-2">مقصد:</span> <span className="font-bold">{tx.destination || '-'}</span></div><div><span className="text-gray-500 ml-2">راننده:</span> <span className="font-bold">{tx.driverName || '-'}</span></div><div><span className="text-gray-500 ml-2">پلاک:</span> <span className="font-bold font-mono dir-ltr">{tx.plateNumber || '-'}</span></div></div></div>
-            <div className="flex-1 relative z-10"><table className="w-full text-sm border-collapse border border-black"><thead className="bg-gray-200 print:bg-gray-100 text-gray-800"><tr><th className="border border-black p-2 w-10 text-center">#</th><th className="border border-black p-2">شرح کالا</th><th className="border border-black p-2 w-20 text-center">تعداد</th><th className="border border-black p-2 w-24 text-center">وزن (KG)</th>{!hidePrices && <th className="border border-black p-2 w-28 text-center">فی (ریال)</th>}</tr></thead><tbody>{tx.items.map((item, idx) => (<tr key={idx}><td className="border border-black p-2 text-center">{idx + 1}</td><td className="border border-black p-2 font-bold">{item.itemName}</td><td className="border border-black p-2 text-center">{item.quantity}</td><td className="border border-black p-2 text-center">{Number(Number(item.weight).toFixed(2))}</td>{!hidePrices && <td className="border border-black p-2 text-center font-mono">{item.unitPrice ? formatCurrency(item.unitPrice).replace('ریال', '') : '-'}</td>}</tr>))}<tr className="bg-gray-100 font-bold print:glass-panel"><td colSpan={2} className="border border-black p-2 text-left pl-4">جمع کل:</td><td className="border border-black p-2 text-center">{tx.items.reduce((a,b)=>a+(Number(b.quantity)||0),0)}</td><td className="border border-black p-2 text-center">{Number(tx.items.reduce((a,b)=>a+(Number(b.weight)||0),0).toFixed(2))}</td>{!hidePrices && <td className="border border-black p-2 bg-gray-200"></td>}</tr></tbody></table>{tx.description && <div className="mt-4 border p-2 rounded text-sm"><span className="font-bold block mb-1">توضیحات:</span>{tx.description}</div>}</div>
+
+            <div className="border rounded-lg p-3 mb-4 bg-gray-50 text-gray-800 text-sm print:glass-panel print:border-black relative z-10">
+                <div className="grid grid-cols-2 gap-4">
+                    <div><span className="text-gray-500 ml-2">تحویل گیرنده:</span> <span className="font-bold">{tx.recipientName}</span></div>
+                    <div><span className="text-gray-500 ml-2">مقصد:</span> <span className="font-bold">{tx.destination || '-'}</span></div>
+                    <div><span className="text-gray-500 ml-2">راننده:</span> <span className="font-bold">{tx.driverName || '-'}</span></div>
+                    <div><span className="text-gray-500 ml-2">پلاک:</span> <span className="font-bold font-mono dir-ltr">{tx.plateNumber || '-'}</span></div>
+                </div>
+            </div>
+
+            <div className="flex-1 relative z-10">
+                <table className="w-full text-sm border-collapse border border-black">
+                    <thead className="bg-gray-200 print:bg-gray-100 text-gray-800">
+                        <tr>
+                            <th className="border border-black p-2 w-10 text-center">#</th>
+                            <th className="border border-black p-2">شرح کالا</th>
+                            <th className="border border-black p-2 w-20 text-center">تعداد</th>
+                            <th className="border border-black p-2 w-24 text-center">وزن (KG)</th>
+                            {!hidePrices && <th className="border border-black p-2 w-28 text-center">فی (ریال)</th>}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {tx.items.map((item, idx) => (
+                            <tr key={idx}>
+                                <td className="border border-black p-2 text-center">{idx + 1}</td>
+                                <td className="border border-black p-2 font-bold">{item.itemName}</td>
+                                <td className="border border-black p-2 text-center">{item.quantity}</td>
+                                <td className="border border-black p-2 text-center">{Number(Number(item.weight).toFixed(2))}</td>
+                                {!hidePrices && <td className="border border-black p-2 text-center font-mono">{item.unitPrice ? formatCurrency(item.unitPrice).replace('ریال', '') : '-'}</td>}
+                            </tr>
+                        ))}
+                        <tr className="bg-gray-100 font-bold print:glass-panel">
+                            <td colSpan={2} className="border border-black p-2 text-left pl-4">جمع کل:</td>
+                            <td className="border border-black p-2 text-center">{tx.items.reduce((a,b)=>a+(Number(b.quantity)||0),0)}</td>
+                            <td className="border border-black p-2 text-center">{Number(tx.items.reduce((a,b)=>a+(Number(b.weight)||0),0).toFixed(2))}</td>
+                            {!hidePrices && <td className="border border-black p-2 bg-gray-200"></td>}
+                        </tr>
+                    </tbody>
+                </table>
+                {tx.description && <div className="mt-4 border p-2 rounded text-sm"><span className="font-bold block mb-1">توضیحات:</span>{tx.description}</div>}
+            </div>
             
             {stockInfo.length > 0 && (
                 <div className="mt-4 border border-black p-2 rounded text-[10px] relative z-10">
@@ -246,9 +379,24 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
             )}
 
             <div className="mt-8 pt-4 border-t-2 border-black grid grid-cols-3 gap-4 text-center relative z-10 h-24">
-                <div className="flex flex-col items-center justify-between"><div className="mb-1 flex items-center justify-center h-full"><Stamp title="انباردار (ثبت)" name={tx.createdBy || 'کاربر انبار'} color="blue" /></div><div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا انباردار</div></div>
-                <div className="flex flex-col items-center justify-between"><div className="mb-1 flex items-center justify-center h-full">{tx.approvedBy ? <Stamp title="تایید مدیریت" name={tx.approvedBy} color="green" /> : <span className="text-gray-300 text-[10px]">منتظر تایید</span>}</div><div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا مدیریت</div></div>
-                <div className="flex flex-col items-center justify-between"><div className="mb-1 flex items-center justify-center h-full"><div className="h-10 w-24"></div></div><div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا تحویل گیرنده</div></div>
+                <div className="flex flex-col items-center justify-between">
+                    <div className="mb-1 flex items-center justify-center h-full">
+                        <Stamp title="انباردار (ثبت)" name={tx.createdBy || 'کاربر انبار'} color="blue" />
+                    </div>
+                    <div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا انباردار</div>
+                </div>
+                <div className="flex flex-col items-center justify-between">
+                    <div className="mb-1 flex items-center justify-center h-full">
+                        {tx.approvedBy ? <Stamp title="تایید مدیریت" name={tx.approvedBy} color="green" /> : <span className="text-gray-300 text-[10px]">منتظر تایید</span>}
+                    </div>
+                    <div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا مدیریت</div>
+                </div>
+                <div className="flex flex-col items-center justify-between">
+                    <div className="mb-1 flex items-center justify-center h-full">
+                        <div className="h-10 w-24"></div>
+                    </div>
+                    <div className="w-full border-t border-gray-400 pt-1 text-[9px] font-bold text-gray-600">امضا تحویل گیرنده</div>
+                </div>
             </div>
       </div>
   );
@@ -256,82 +404,172 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
   if (embed) return content;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex flex-col items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-start p-2 animate-fade-in no-print safe-pb">
-        <div className="bg-white p-2 rounded-xl shadow-2xl z-[10000] flex flex-wrap items-center justify-center gap-2 w-full max-w-[148mm] md:fixed md:top-4 md:left-4 mb-2 md:mb-0 relative order-1 sticky top-0 mt-1 md:mt-2 border border-gray-200">
-            <div className="flex items-center gap-2 border-l pl-2">
-                <button onClick={onClose} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors"><X size={16}/></button>
-                <span className="font-bold text-[10px] text-gray-600 hidden md:inline">پنل عملیات</span>
-            </div>
-
-            {(onApprove || onReject) && (
-                <div className="flex items-center gap-1.5 border-l px-2">
-                    {onApprove && (
-                        <button 
-                            onClick={onApprove} 
-                            className="px-3 py-1 bg-green-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-green-700"
-                        >
-                            <CheckCircle size={12}/> تایید
-                        </button>
-                    )}
-                    {onReject && (
-                        <button 
-                            onClick={onReject} 
-                            className="px-3 py-1 bg-red-600 text-white rounded-lg flex items-center gap-1 text-[10px] font-bold transition-all active:scale-95 hover:bg-red-700"
-                        >
-                            <XCircle size={12}/> رد
-                        </button>
-                    )}
-                </div>
-            )}
-
-            <div className="flex items-center gap-2">
-                <button onClick={handleDownloadPDF} disabled={processing} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-gray-200 flex items-center gap-1">{processing ? <Loader2 size={12} className="animate-spin"/> : <FileDown size={12}/>} PDF</button>
-                <button onClick={handlePrint} disabled={processing} className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-blue-700 flex items-center gap-1 shadow-sm">{processing ? <Loader2 size={12} className="animate-spin"/> : <Printer size={12}/>} چاپ</button>
-            </div>
-            
-            <div className="flex items-center gap-2 ml-auto mb-1">
-                <button onClick={() => { if(warehouseTarget) generateAndSend(warehouseTarget, true, "📦 *حواله خروج (نسخه انبار)*"); else alert(`شماره گروه انبار برای شرکت ${tx.company} تنظیم نشده است.`); }} disabled={processing} className="bg-orange-50 text-orange-700 px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-orange-100 border border-orange-200">{processing ? <Loader2 size={10} className="animate-spin"/> : 'ارسال انبار'}</button>
-                <button onClick={() => { if(managerTarget) generateAndSend(managerTarget, false, "📑 *حواله خروج (نسخه مدیریت)*"); else alert(`شماره مدیر فروش برای شرکت ${tx.company} تنظیم نشده است.`); }} disabled={processing} className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-[10px] font-bold hover:bg-green-100 border border-green-200">{processing ? <Loader2 size={10} className="animate-spin"/> : 'ارسال مدیریت'}</button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-auto border-t pt-1 w-full">
-                <button onClick={() => setSharePlatform(sharePlatform === 'whatsapp' ? null : 'whatsapp')} className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all ${sharePlatform === 'whatsapp' ? 'bg-green-500 text-white border-green-600' : 'bg-white border-gray-200 text-green-600 hover:bg-green-50'}`}><Share2 size={12}/> واتساپ</button>
-                <button onClick={() => setSharePlatform(sharePlatform === 'bale' ? null : 'bale')} className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all ${sharePlatform === 'bale' ? 'bg-green-500 text-white border-green-600' : 'bg-white border-gray-200 text-green-600 hover:bg-green-50'}`}><Share2 size={12}/> بله</button>
-                <button onClick={() => setSharePlatform(sharePlatform === 'telegram' ? null : 'telegram')} className={`px-3 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all ${sharePlatform === 'telegram' ? 'bg-blue-500 text-white border-blue-600' : 'bg-white border-gray-200 text-blue-600 hover:bg-blue-50'}`}><Share2 size={12}/> تلگرام</button>
-            </div>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex flex-col p-0 m-0 overflow-hidden animate-fade-in safe-top safe-bottom">
+      {/* Sticky Top Header Bar */}
+      <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-gray-200 dark:border-zinc-800 px-3 py-2 md:px-6 md:py-2.5 shadow-md flex items-center justify-between gap-2 flex-wrap shrink-0 no-print">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex items-center justify-center font-bold text-xs shadow-xs">
+            📄
+          </div>
+          <span className="font-bold text-sm md:text-base text-gray-800 dark:text-gray-100">پیش‌نمایش بیجک ({tx.number})</span>
         </div>
-        {sharePlatform && (<div className="fixed inset-0 z-[110] bg-black/50 flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4"><div className="glass-panel rounded-xl shadow-2xl w-full max-w-sm flex flex-col h-[70vh] animate-fade-in"><div className="p-3 border-b bg-gray-50 flex items-center justify-between"><span className="font-bold text-gray-800">انتخاب مخاطب {sharePlatform === 'whatsapp' ? 'واتساپ' : sharePlatform === 'bale' ? 'بله' : 'تلگرام'}</span><button onClick={() => setSharePlatform(null)} className="bg-red-100 text-red-600 rounded-lg p-1.5 hover:bg-red-200"><X size={18}/></button></div><div className="p-3 border-b"><div className="bg-gray-100 rounded-lg flex items-center px-3 py-2"><Search size={18} className="text-gray-400 ml-2"/><input className="bg-transparent w-full outline-none text-sm" placeholder="جستجو نام یا شماره..." autoFocus value={contactSearch} onChange={e => setContactSearch(e.target.value)}/></div></div><div className="flex-1 overflow-y-auto p-2 space-y-1">{contactsLoading ? (<div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2"><Loader2 size={32} className="animate-spin"/> <span>در حال دریافت لیست...</span></div>) : filteredContacts.length === 0 ? (<div className="text-center text-gray-400 mt-10">مخاطبی یافت نشد</div>) : (filteredContacts.map(c => {
-                                let targetId = c.number;
-                                if (sharePlatform === 'telegram') targetId = c.telegramId || c.number;
-                                if (sharePlatform === 'bale') targetId = c.baleId || c.number;
-                                return (<button key={c.id} onClick={() => {
-                                    if (!targetId) { alert("آیدی این پلتفرم برای کاربر مورد نظر ثبت نشده است."); return; }
-                                    generateAndSend(targetId, hidePrices, "📄 *بیجک ارسالی*", sharePlatform)
-                            }} className="w-full text-right p-3 hover:bg-blue-50 rounded-xl border border-transparent hover:border-blue-100 flex items-center gap-3 transition-colors group"><div className={`p-2 rounded-full ${c.isGroup ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{c.isGroup ? <Users size={18}/> : <Smartphone size={18}/>}</div><div className="flex-1"><div className="font-bold text-gray-800 text-sm group-hover:text-blue-700">{c.name}</div><div className="text-xs text-gray-500 font-mono mt-0.5">{targetId || c.number}</div></div><div className="bg-gray-100 px-3 py-1 rounded-lg text-xs font-bold text-gray-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">ارسال</div></button>);
-                            }))}</div><div className="p-3 border-t bg-gray-50"><button onClick={() => { const num = prompt("شماره یا شناسه را وارد کنید:"); if(num) generateAndSend(num, hidePrices, "📄 *بیجک ارسالی*", sharePlatform); }} className="w-full glass-panel border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors">ورود دستی</button></div></div></div>)}
-        <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
-          <div style={{ 
-            width: `${148 * 3.779527559 * scale}px`,
-            minHeight: `${209 * 3.779527559 * scale}px`,
-            position: 'relative',
-            flexShrink: 0
-          }}>
-            <div style={{ 
-              width: '148mm', 
-              minHeight: '209mm',
-              backgroundColor: 'white', 
-              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              position: 'absolute',
-              top: 0,
-              left: 0
-            }} className="printable-content rounded-sm">
-                {content}
+
+        {/* Interactive Zoom Toolbar */}
+        <div className="flex items-center gap-1 md:gap-2 bg-gray-100 dark:bg-zinc-900 px-2 py-1 md:px-3 md:py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 shadow-xs">
+          <button onClick={handleZoomOut} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="کوچک‌نمایی">
+            <ZoomOut size={16}/>
+          </button>
+          
+          <button onClick={() => handleSetZoom(1)} className="text-xs font-mono font-bold text-gray-700 dark:text-gray-300 px-1.5 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded min-w-[44px] text-center" title="تنظیم به ۱۰۰٪">
+            {Math.round(scale * 100)}%
+          </button>
+          
+          <button onClick={handleZoomIn} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="بزرگ‌نمایی">
+            <ZoomIn size={16}/>
+          </button>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-zinc-700 mx-0.5" />
+
+          <button onClick={handleResetZoom} className="px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors flex items-center gap-1" title="تناسب خودکار">
+            <RotateCcw size={13}/>
+            <span className="text-[11px]">تناسب</span>
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+          {(onApprove || onReject) && (
+            <div className="flex items-center gap-1 border-l pl-2 border-gray-200 dark:border-zinc-700">
+              {onApprove && (
+                <button 
+                  onClick={onApprove} 
+                  className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-1 text-xs font-bold transition-all active:scale-95 shadow-sm"
+                >
+                  <CheckCircle size={14}/> تایید
+                </button>
+              )}
+              {onReject && (
+                <button 
+                  onClick={onReject} 
+                  className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl flex items-center gap-1 text-xs font-bold transition-all active:scale-95 shadow-sm"
+                >
+                  <XCircle size={14}/> رد
+                </button>
+              )}
+            </div>
+          )}
+
+          <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 font-bold shadow-md transition-all disabled:opacity-50">
+            {processing ? <Loader2 size={15} className="animate-spin"/> : <FileDown size={15}/>}
+            <span>دانلود PDF</span>
+          </button>
+
+          <button onClick={handlePrint} disabled={processing} className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 font-bold shadow-md transition-all">
+            {processing ? <Loader2 size={15} className="animate-spin"/> : <Printer size={15}/>}
+            <span className="hidden sm:inline">چاپ</span>
+          </button>
+
+          <button onClick={() => { if(warehouseTarget) generateAndSend(warehouseTarget, true, "📦 *حواله خروج (نسخه انبار)*"); else alert(`شماره گروه انبار برای شرکت ${tx.company} تنظیم نشده است.`); }} disabled={processing} className="bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 px-2.5 py-1.5 rounded-xl text-xs font-bold">
+            ارسال انبار
+          </button>
+
+          <button onClick={() => { if(managerTarget) generateAndSend(managerTarget, false, "📑 *حواله خروج (نسخه مدیریت)*"); else alert(`شماره مدیر فروش برای شرکت ${tx.company} تنظیم نشده است.`); }} disabled={processing} className="bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 px-2.5 py-1.5 rounded-xl text-xs font-bold">
+            ارسال مدیریت
+          </button>
+
+          <button onClick={() => setSharePlatform(sharePlatform === 'whatsapp' ? null : 'whatsapp')} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition-all ${sharePlatform === 'whatsapp' ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-green-600 hover:bg-green-50'}`}>
+            <Share2 size={13}/> ارسال
+          </button>
+
+          <button onClick={onClose} className="bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 p-2 rounded-xl transition-colors" title="بستن">
+            <X size={18}/>
+          </button>
+        </div>
+      </header>
+
+      {/* Share Modal Dialog */}
+      {sharePlatform && (
+        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-sm flex flex-col h-[70vh] animate-fade-in bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
+            <div className="p-3 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between">
+              <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">انتخاب مخاطب {sharePlatform === 'whatsapp' ? 'واتساپ' : sharePlatform === 'bale' ? 'بله' : 'تلگرام'}</span>
+              <button onClick={() => setSharePlatform(null)} className="bg-red-100 text-red-600 rounded-lg p-1.5 hover:bg-red-200"><X size={16}/></button>
+            </div>
+            <div className="p-3 border-b border-gray-200 dark:border-zinc-800">
+              <div className="bg-gray-100 dark:bg-zinc-800 rounded-xl flex items-center px-3 py-2">
+                <Search size={16} className="text-gray-400 ml-2"/>
+                <input className="bg-transparent w-full outline-none text-xs" placeholder="جستجو نام یا شماره..." autoFocus value={contactSearch} onChange={e => setContactSearch(e.target.value)}/>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {contactsLoading ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2"><Loader2 size={28} className="animate-spin"/> <span className="text-xs">در حال دریافت لیست...</span></div>
+              ) : filteredContacts.length === 0 ? (
+                <div className="text-center text-gray-400 mt-10 text-xs">مخاطبی یافت نشد</div>
+              ) : (
+                filteredContacts.map(c => {
+                  let targetId = c.number;
+                  if (sharePlatform === 'telegram') targetId = c.telegramId || c.number;
+                  if (sharePlatform === 'bale') targetId = c.baleId || c.number;
+                  return (
+                    <button key={c.id} onClick={() => {
+                      if (!targetId) { alert("آیدی این پلتفرم برای کاربر مورد نظر ثبت نشده است."); return; }
+                      generateAndSend(targetId, hidePrices, "📄 *بیجک ارسالی*", sharePlatform);
+                    }} className="w-full text-right p-2.5 hover:bg-blue-50 dark:hover:bg-zinc-800/60 rounded-xl flex items-center gap-3 transition-colors group">
+                      <div className={`p-2 rounded-full ${c.isGroup ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                        {c.isGroup ? <Users size={16}/> : <Smartphone size={16}/>}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-800 dark:text-gray-200 text-xs group-hover:text-blue-600">{c.name}</div>
+                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{targetId || c.number}</div>
+                      </div>
+                      <div className="bg-gray-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg text-xs font-bold text-gray-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">ارسال</div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <div className="p-3 border-t border-gray-200 dark:border-zinc-800">
+              <button onClick={() => { const num = prompt("شماره یا شناسه را وارد کنید:"); if(num) generateAndSend(num, hidePrices, "📄 *بیجک ارسالی*", sharePlatform); }} className="w-full border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-200 py-2 rounded-xl text-xs font-bold hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                ورود دستی شماره
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Main Canvas Area */}
+      <main 
+        className="flex-1 w-full overflow-auto p-2 md:p-6 flex flex-col items-center justify-start overscroll-contain" 
+        ref={containerWrapperRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
+        <div style={{ 
+          width: `${148 * 3.779527559 * scale}px`,
+          minHeight: `${209 * 3.779527559 * scale}px`,
+          position: 'relative',
+          flexShrink: 0
+        }}>
+          <div style={{ 
+            width: '148mm', 
+            minHeight: '209mm', 
+            backgroundColor: 'white', 
+            boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }} className="printable-content rounded-md">
+            {content}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
+
 export default PrintBijak;

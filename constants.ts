@@ -19,19 +19,47 @@ export const normalizeInputNumber = (str: string): string => {
 
 export const formatNumberString = (value: string | number | undefined): string => {
   if (value === undefined || value === null || value === '') return '';
-  const str = value.toString();
-  const normalized = normalizeInputNumber(str).replace(/[^0-9.]/g, '');
-  if (!normalized) return '';
+  
+  // If it's a number, clean floating point precision noise (e.g. 100.80000000000018 -> 100.8)
+  let numVal: number | null = null;
+  if (typeof value === 'number') {
+    if (isNaN(value)) return '';
+    // Clean float precision: round to 4 decimals max
+    numVal = Math.round((value + Number.EPSILON) * 10000) / 10000;
+  }
+  
+  const rawStr = numVal !== null ? numVal.toString() : value.toString().trim();
+  const isNegative = rawStr.startsWith('-');
+  const normalized = normalizeInputNumber(rawStr).replace(/[^0-9.]/g, '');
+  if (!normalized) return isNegative ? '-' : '';
+  
   const parts = normalized.split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts.length > 1 ? '.' + parts[1] : '';
-  return integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + decimalPart;
+  const integerPart = parts[0] || '0';
+  let decimalPart = '';
+  
+  if (parts.length > 1) {
+    let dec = parts[1];
+    if (numVal !== null) {
+      dec = dec.replace(/0+$/, '');
+    }
+    if (dec.length > 0) {
+      // Limit to 4 decimals to avoid overflow precision noise
+      decimalPart = '.' + dec.substring(0, 4);
+    }
+  }
+  
+  const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const sign = isNegative ? '-' : '';
+  return sign + formattedInt + decimalPart;
 };
 
 export const deformatNumberString = (value: string): number => {
   if (!value) return 0;
-  const normalized = normalizeInputNumber(value).replace(/[^0-9.]/g, '');
-  return parseFloat(normalized) || 0;
+  const str = value.toString().trim();
+  const isNegative = str.startsWith('-');
+  const normalized = normalizeInputNumber(str).replace(/[^0-9.]/g, '');
+  const num = parseFloat(normalized) || 0;
+  return isNegative ? -num : num;
 };
 
 export const DEFAULT_MOBILE_NAV_ORDER = ['dashboard', 'trade', 'create', 'warehouse', 'chat', 'manage', 'create-exit', 'manage-exit', 'manage-invoices', 'security', 'meetings', 'purchase', 'knowledge', 'balances', 'products', 'sales', 'tickets', 'users', 'settings'];

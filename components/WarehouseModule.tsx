@@ -25,7 +25,133 @@ interface Props {
     financialYear?: string;
 }
 
-// Internal Edit Modal Component
+// Item Edit Modal Component for Catalog Items
+const ItemEditModal = ({
+    item,
+    onClose,
+    onSave
+}: {
+    item: WarehouseItem;
+    onClose: () => void;
+    onSave: (item: WarehouseItem) => void;
+}) => {
+    const [formData, setFormData] = useState<WarehouseItem>({ ...item });
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.name.trim()) {
+            alert('لطفاً نام کالا را وارد نمایید.');
+            return;
+        }
+        onSave(formData);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[160] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm">
+            <div className="glass-panel bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-white/10">
+                <div className="p-5 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl">
+                            <Edit size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-gray-800 dark:text-white text-base">ویرایش اطلاعات کالا</h3>
+                            <p className="text-[10px] font-bold text-gray-400">تغییر نام کالا، کد، واحد سنجش یا ظرفیت کانتینر</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSave} className="p-6 space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-xs font-black text-gray-600 dark:text-gray-300 mr-1">نام کالا (الزامی)</label>
+                        <input
+                            type="text"
+                            required
+                            className="w-full border-2 border-gray-200 dark:border-white/10 rounded-xl p-3 font-bold bg-white dark:bg-gray-800 outline-none focus:border-amber-500 transition-all text-sm"
+                            placeholder="مثلا: نخ 150/48 داکرون سفید"
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-black text-gray-600 dark:text-gray-300 mr-1">کد کالا</label>
+                            <input
+                                type="text"
+                                className="w-full border-2 border-gray-200 dark:border-white/10 rounded-xl p-3 font-bold bg-white dark:bg-gray-800 outline-none focus:border-amber-500 transition-all text-sm font-mono text-center"
+                                placeholder="مثلا: 101"
+                                value={formData.code || ''}
+                                onChange={e => setFormData({ ...formData, code: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-black text-gray-600 dark:text-gray-300 mr-1">واحد سنجش</label>
+                            <input
+                                type="text"
+                                className="w-full border-2 border-gray-200 dark:border-white/10 rounded-xl p-3 font-bold bg-white dark:bg-gray-800 outline-none focus:border-amber-500 transition-all text-sm text-center"
+                                placeholder="کارتن / عدد / کیلوگرم"
+                                value={formData.unit || ''}
+                                onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Quick unit pills */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                        {['کارتن', 'عدد', 'کیلوگرم', 'طاقه', 'بسته', 'کیسه', 'متر', 'رول', 'پالت'].map(u => (
+                            <button
+                                key={u}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, unit: u })}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${
+                                    formData.unit === u
+                                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-transparent hover:bg-gray-200'
+                                }`}
+                            >
+                                {u}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-black text-gray-600 dark:text-gray-300 mr-1">تعداد در هر کانتینر (اختیاری جهت تخمین کانتینر)</label>
+                        <input
+                            type="number"
+                            className="w-full border-2 border-gray-200 dark:border-white/10 rounded-xl p-3 font-bold bg-white dark:bg-gray-800 outline-none focus:border-amber-500 transition-all text-sm text-center dir-ltr"
+                            placeholder="0"
+                            value={formData.containerCapacity || ''}
+                            onChange={e => setFormData({ ...formData, containerCapacity: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        />
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-white/10 flex gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 py-3 border-2 border-gray-200 dark:border-white/10 rounded-xl text-gray-500 font-black text-xs hover:bg-gray-100 transition-all"
+                        >
+                            انصراف
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-[2] py-3 bg-amber-600 text-white rounded-xl font-black text-xs shadow-lg shadow-amber-600/20 hover:bg-amber-700 transition-all flex items-center justify-center gap-2"
+                        >
+                            <Save size={16} /> ذخیره تغییرات کالا
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Internal Edit Modal Component for Transactions (Bijaks / Receipts)
 const TransactionEditModal = ({ tx, onClose, onSave, items }: { tx: WarehouseTransaction, onClose: () => void, onSave: (tx: WarehouseTransaction) => void, items: WarehouseItem[] }) => {
     const [formData, setFormData] = useState({ ...tx });
     const [txItems, setTxItems] = useState<WarehouseTransactionItem[]>(tx.items || []);
@@ -35,7 +161,9 @@ const TransactionEditModal = ({ tx, onClose, onSave, items }: { tx: WarehouseTra
         newItems[idx] = { ...newItems[idx], [field]: value };
         if (field === 'itemId') {
             const selected = items.find(i => i.id === value);
-            if (selected) newItems[idx].itemName = selected.name;
+            if (selected) {
+                newItems[idx].itemName = selected.name;
+            }
         }
         setTxItems(newItems);
     };
@@ -99,30 +227,75 @@ const TransactionEditModal = ({ tx, onClose, onSave, items }: { tx: WarehouseTra
                             <button onClick={addItem} className="text-blue-600 text-xs font-black flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 transition-colors"><Plus size={14}/> افزودن ردیف</button>
                         </div>
                         <div className="space-y-4">
-                            {txItems.map((item, idx) => (
-                                <div key={idx} className="flex flex-col md:flex-row gap-3 bg-white dark:bg-gray-900/40 p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm relative group">
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[9px] font-black text-gray-400 mr-2">انتخاب کالا</label>
-                                        <select className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-sm font-bold bg-gray-50 dark:bg-gray-800" value={item.itemId} onChange={e => handleItemChange(idx, 'itemId', e.target.value)}>
-                                            <option value="">انتخاب از انبار...</option>
-                                            {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:w-48">
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-gray-400 text-center block">تعداد</label>
-                                            <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-sm font-bold text-center bg-gray-50 dark:bg-gray-800" placeholder="0" type="number" value={item.quantity === 0 ? '' : item.quantity} onFocus={e => e.target.select()} onChange={e => handleItemChange(idx, 'quantity', e.target.value === '' ? 0 : Number(e.target.value))} />
+                            {txItems.map((item, idx) => {
+                                const weightPerCarton = (item.quantity && Number(item.quantity) > 0 && item.weight)
+                                    ? (Number(item.weight) / Number(item.quantity)).toFixed(2)
+                                    : null;
+
+                                return (
+                                    <div key={idx} className="flex flex-col gap-3 bg-white dark:bg-gray-900/40 p-4 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm relative group">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+                                            <div className="md:col-span-4 space-y-1">
+                                                <label className="text-[9px] font-black text-gray-400 mr-2">انتخاب کالا از انبار</label>
+                                                <select
+                                                    className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-xs font-bold bg-gray-50 dark:bg-gray-800 outline-none focus:border-blue-500 transition-all"
+                                                    value={item.itemId || ''}
+                                                    onChange={e => handleItemChange(idx, 'itemId', e.target.value)}
+                                                >
+                                                    <option value="">انتخاب از انبار...</option>
+                                                    {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="md:col-span-4 space-y-1">
+                                                <label className="text-[9px] font-black text-gray-400 mr-2">نام کالا (قابل ویرایش مستقیم)</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-xs font-bold bg-gray-50 dark:bg-gray-800 outline-none focus:border-blue-500 transition-all"
+                                                    placeholder="نام یا شرح کالا در سند..."
+                                                    value={item.itemName || ''}
+                                                    onChange={e => handleItemChange(idx, 'itemName', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="md:col-span-4 grid grid-cols-2 gap-2">
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-gray-400 text-center block">تعداد (کارتن/واحد)</label>
+                                                    <input
+                                                        className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-xs font-bold text-center bg-gray-50 dark:bg-gray-800"
+                                                        placeholder="0"
+                                                        type="number"
+                                                        value={item.quantity === 0 ? '' : item.quantity}
+                                                        onFocus={e => e.target.select()}
+                                                        onChange={e => handleItemChange(idx, 'quantity', e.target.value === '' ? 0 : Number(e.target.value))}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-gray-400 text-center block">وزن (KG)</label>
+                                                    <input
+                                                        className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-xs font-bold text-center bg-gray-50 dark:bg-gray-800"
+                                                        placeholder="0"
+                                                        type="number"
+                                                        value={item.weight === 0 ? '' : item.weight}
+                                                        onFocus={e => e.target.select()}
+                                                        onChange={e => handleItemChange(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-gray-400 text-center block">وزن (KG)</label>
-                                            <input className="w-full border-2 border-gray-100 dark:border-white/5 rounded-xl p-2.5 text-sm font-bold text-center bg-gray-50 dark:bg-gray-800" placeholder="0" type="number" value={item.weight === 0 ? '' : item.weight} onFocus={e => e.target.select()} onChange={e => handleItemChange(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))} />
+                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                {weightPerCarton && (
+                                                    <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800/40">
+                                                        ⚖️ وزن هر کارتن: {weightPerCarton} کیلوگرم
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button onClick={() => removeItem(idx)} className="text-red-500 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-xs font-bold flex items-center gap-1">
+                                                <Trash2 size={16}/> حذف ردیف
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-end justify-center">
-                                        <button onClick={() => removeItem(idx)} className="text-red-500 p-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"><Trash2 size={20}/></button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -673,11 +846,17 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         loadData(); 
     };
     
-    const handleEditItem = async () => {
-        if (!editingItem) return;
-        await updateWarehouseItem(editingItem);
-        setEditingItem(null);
-        loadData();
+    const handleEditItem = async (updatedItem?: WarehouseItem) => {
+        const itemToSave = updatedItem || editingItem;
+        if (!itemToSave || !itemToSave.name.trim()) return;
+        try {
+            await updateWarehouseItem(itemToSave);
+            setEditingItem(null);
+            await loadData();
+        } catch (e) {
+            console.error(e);
+            alert('خطا در ذخیره تغییرات کالا.');
+        }
     };
 
     const handleDeleteItem = async (id: string) => { if(confirm('حذف شود؟')) { await deleteWarehouseItem(id); loadData(); } };
@@ -895,15 +1074,20 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     .forEach(tx => {
                         tx.items.forEach(txItem => {
                             if (txItem.itemId === catalogItem.id) {
-                                if (tx.type === 'IN') { quantity += txItem.quantity; weight += txItem.weight; } 
-                                else { quantity -= txItem.quantity; weight -= txItem.weight; }
+                                const q = Number(txItem.quantity) || 0;
+                                const w = Number(txItem.weight) || 0;
+                                if (tx.type === 'IN') { quantity += q; weight += w; } 
+                                else { quantity -= q; weight -= w; }
                             }
                         });
                     });
+                quantity = Math.round((quantity + Number.EPSILON) * 1000) / 1000;
+                weight = Math.round((weight + Number.EPSILON) * 1000) / 1000;
                 const containerCapacity = catalogItem.containerCapacity || 0;
                 const containerCount = (containerCapacity > 0 && quantity > 0) ? (quantity / containerCapacity) : 0;
-                return { id: catalogItem.id, name: catalogItem.name, quantity, weight, containerCount };
-            }).filter(item => item.quantity !== 0); // FILTER NON-ZERO STOCK
+                const weightPerCarton = (quantity > 0 && weight) ? Math.round((weight / quantity + Number.EPSILON) * 100) / 100 : 0;
+                return { id: catalogItem.id, name: catalogItem.name, code: catalogItem.code, unit: catalogItem.unit, quantity, weight, containerCount, weightPerCarton };
+            }).filter(item => Math.abs(item.quantity) > 0.0001 || Math.abs(item.weight) > 0.0001); // FILTER NON-ZERO STOCK
             return { company, items: companyItems };
         }).filter(group => group.items.length > 0); // ONLY SHOW COMPANIES WITH AT LEAST ONE ITEM
         return result;
@@ -924,7 +1108,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         if (!allWarehousesStock || allWarehousesStock.length === 0) return alert("داده‌ای برای خروجی وجود ندارد.");
         
         const companiesCount = allWarehousesStock.length;
-        const totalExcelCols = companiesCount * 5 - 1;
+        const totalExcelCols = companiesCount * 6 - 1;
         
         const aoa = [];
         
@@ -934,18 +1118,19 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         
         const companyRow = new Array(totalExcelCols).fill("");
         allWarehousesStock.forEach((group, index) => {
-            const startCol = index * 5;
+            const startCol = index * 6;
             companyRow[startCol] = group.company;
         });
         aoa.push(companyRow);
         
         const headerRow = new Array(totalExcelCols).fill("");
         allWarehousesStock.forEach((group, index) => {
-            const startCol = index * 5;
+            const startCol = index * 6;
             headerRow[startCol] = "نخ / کالا";
             headerRow[startCol + 1] = "کارتن";
-            headerRow[startCol + 2] = "وزن";
-            headerRow[startCol + 3] = "کانتینر";
+            headerRow[startCol + 2] = "وزن (KG)";
+            headerRow[startCol + 3] = "وزن هر کارتن (KG)";
+            headerRow[startCol + 4] = "کانتینر";
         });
         aoa.push(headerRow);
         
@@ -953,13 +1138,15 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         for (let i = 0; i < maxItems; i++) {
             const itemRow = new Array(totalExcelCols).fill("");
             allWarehousesStock.forEach((group, index) => {
-                const startCol = index * 5;
+                const startCol = index * 6;
                 if (group.items[i]) {
                     const item = group.items[i];
+                    const wPerC = item.quantity > 0 ? Number((item.weight / item.quantity).toFixed(2)) : "-";
                     itemRow[startCol] = item.name;
                     itemRow[startCol + 1] = Number(item.quantity || 0);
                     itemRow[startCol + 2] = Number(item.weight || 0);
-                    itemRow[startCol + 3] = item.containerCount > 0 ? Number(item.containerCount) : "-";
+                    itemRow[startCol + 3] = wPerC;
+                    itemRow[startCol + 4] = item.containerCount > 0 ? Number(item.containerCount.toFixed(2)) : "-";
                 }
             });
             aoa.push(itemRow);
@@ -967,14 +1154,17 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         
         const totalRow = new Array(totalExcelCols).fill("");
         allWarehousesStock.forEach((group, index) => {
-            const startCol = index * 5;
+            const startCol = index * 6;
             if (group.items.length > 0) {
                 const totalQty = group.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
                 const totalWeight = group.items.reduce((sum, item) => sum + (item.weight || 0), 0);
+                const avgWPerC = totalQty > 0 ? Number((totalWeight / totalQty).toFixed(2)) : "-";
+                const totalContainers = group.items.reduce((sum, item) => sum + (item.containerCount || 0), 0);
                 totalRow[startCol] = "جمع کل موجودی";
                 totalRow[startCol + 1] = totalQty;
                 totalRow[startCol + 2] = totalWeight;
-                totalRow[startCol + 3] = "";
+                totalRow[startCol + 3] = avgWPerC;
+                totalRow[startCol + 4] = totalContainers > 0 ? Number(totalContainers.toFixed(2)) : "";
             }
         });
         aoa.push(totalRow);
@@ -985,8 +1175,8 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, totalExcelCols - 1) } });
         
         allWarehousesStock.forEach((group, index) => {
-            const startCol = index * 5;
-            merges.push({ s: { r: 1, c: startCol }, e: { r: 1, c: startCol + 3 } });
+            const startCol = index * 6;
+            merges.push({ s: { r: 1, c: startCol }, e: { r: 1, c: startCol + 4 } });
         });
         
         ws['!merges'] = merges;
@@ -995,7 +1185,8 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         allWarehousesStock.forEach(() => {
             wscols.push({ wch: 25 });
             wscols.push({ wch: 12 });
-            wscols.push({ wch: 12 });
+            wscols.push({ wch: 14 });
+            wscols.push({ wch: 18 });
             wscols.push({ wch: 12 });
             wscols.push({ wch: 4 });
         });
@@ -2000,23 +2191,37 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                             <div className="text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">{group.items.length} قلم کالا</div>
                                         </div>
                                         <div className="divide-y divide-gray-100 dark:divide-white/5">
-                                            {group.items.map(item => (
-                                                <div key={item.id} className="p-4 flex justify-between items-center bg-white dark:bg-transparent">
-                                                    <div className="space-y-1">
-                                                        <div className="text-sm font-black text-gray-800 dark:text-gray-100">{item.name}</div>
-                                                        <div className="text-[10px] text-gray-400 font-bold bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded-md inline-block">کد: {items.find(i=>i.id===item.id)?.code || '---'}</div>
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <div className="text-base font-black text-blue-600 font-mono">{formatNumberString(item.quantity)} <span className="text-[10px] font-bold text-gray-400">{items.find(i=>i.id===item.id)?.unit}</span></div>
-                                                        <div className="text-[11px] font-bold text-gray-500 font-mono">{formatNumberString(item.weight)} <span className="text-[9px] opacity-70">KG</span></div>
-                                                        {item.containerCount > 0 && (
-                                                            <div className="text-[10px] font-black text-orange-600 mt-1 py-0.5 px-1.5 bg-orange-50 dark:bg-orange-900/20 rounded inline-block">
-                                                                📦 {item.containerCount.toFixed(1)} کانتینر
+                                            {group.items.map(item => {
+                                                const wPerCarton = (item.quantity > 0 && item.weight) ? (item.weight / item.quantity).toFixed(2) : null;
+                                                return (
+                                                    <div key={item.id} className="p-4 flex justify-between items-center bg-white dark:bg-transparent">
+                                                        <div className="space-y-1">
+                                                            <div className="text-sm font-black text-gray-800 dark:text-gray-100">{item.name}</div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-gray-400 font-bold bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded-md inline-block">کد: {items.find(i=>i.id===item.id)?.code || '---'}</span>
+                                                                {wPerCarton && (
+                                                                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-md inline-block border border-amber-200/50 dark:border-amber-800/30">
+                                                                        هر کارتن: {wPerCarton} KG
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                        )}
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className={`text-base font-black font-mono dir-ltr inline-block ${item.quantity < 0 ? 'text-rose-600' : 'text-blue-600'}`}>
+                                                                {formatNumberString(item.quantity)} <span className="text-[10px] font-bold text-gray-400 font-sans">{items.find(i=>i.id===item.id)?.unit || 'کارتن'}</span>
+                                                            </div>
+                                                            <div className={`text-[11px] font-bold font-mono dir-ltr block ${item.weight < 0 ? 'text-rose-600' : 'text-gray-500'}`}>
+                                                                {formatNumberString(item.weight)} <span className="text-[9px] opacity-70 font-sans">KG</span>
+                                                            </div>
+                                                            {item.containerCount > 0 && (
+                                                                <div className="text-[10px] font-black text-orange-600 mt-1 py-0.5 px-1.5 bg-orange-50 dark:bg-orange-900/20 rounded inline-block">
+                                                                    📦 {item.containerCount.toFixed(1)} کانتینر
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}
@@ -2028,30 +2233,66 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                                         <thead className="bg-gray-800 dark:bg-black/40 text-white">
                                             <tr>
                                                 <th className="p-4 text-right pr-10">شرکت / نام کالا</th>
-                                                <th className="p-4">موجودی تعدادی</th>
+                                                <th className="p-4">موجودی تعدادی (کارتن)</th>
                                                 <th className="p-4">موجودی وزنی (KG)</th>
+                                                <th className="p-4 bg-amber-500/20 text-amber-200">وزن هر کارتن (KG)</th>
                                                 <th className="p-4">تخمین کانتینر</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {allWarehousesStock.map((group) => (
-                                                <React.Fragment key={group.company}>
-                                                    <tr className="bg-blue-50 dark:bg-blue-900/10 font-black text-blue-900 dark:text-blue-300">
-                                                        <td colSpan={4} className="p-3 text-right pr-4 border-t border-blue-100 dark:border-white/5 flex items-center gap-2">
-                                                            <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                                                            {group.company}
-                                                        </td>
-                                                    </tr>
-                                                    {group.items.map(item => (
-                                                        <tr key={item.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                                            <td className="p-3 text-right pr-10 font-bold text-gray-700 dark:text-gray-300">{item.name}</td>
-                                                            <td className="p-3 font-mono font-black text-blue-600 text-lg">{formatNumberString(item.quantity)}</td>
-                                                            <td className="p-3 font-mono font-bold text-gray-600 dark:text-gray-400">{formatNumberString(item.weight)}</td>
-                                                            <td className="p-3 font-mono text-orange-600 font-black">{item.containerCount > 0 ? item.containerCount.toFixed(2) : '-'}</td>
+                                            {allWarehousesStock.map((group) => {
+                                                const totalQty = group.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                                                const totalWeight = group.items.reduce((sum, item) => sum + (item.weight || 0), 0);
+                                                const avgWeightPerCarton = totalQty > 0 ? (totalWeight / totalQty).toFixed(2) : '-';
+                                                const totalContainers = group.items.reduce((sum, item) => sum + (item.containerCount || 0), 0);
+
+                                                return (
+                                                    <React.Fragment key={group.company}>
+                                                        <tr className="bg-blue-50 dark:bg-blue-900/10 font-black text-blue-900 dark:text-blue-300">
+                                                            <td colSpan={5} className="p-3 text-right pr-4 border-t border-blue-100 dark:border-white/5 flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                                                                    <span>{group.company}</span>
+                                                                </div>
+                                                                <span className="text-xs font-bold text-blue-600 bg-white dark:bg-blue-950 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                                                                    {group.items.length} قلم کالا
+                                                                </span>
+                                                            </td>
                                                         </tr>
-                                                    ))}
-                                                </React.Fragment>
-                                            ))}
+                                                        {group.items.map(item => {
+                                                            const wPerCarton = (item.quantity > 0 && item.weight) ? (item.weight / item.quantity).toFixed(2) : '-';
+                                                            return (
+                                                                <tr key={item.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                                                                    <td className="p-3 text-right pr-10 font-bold text-gray-700 dark:text-gray-300">{item.name}</td>
+                                                                    <td className="p-3">
+                                                                        <span className={`font-mono font-black text-lg dir-ltr inline-block ${item.quantity < 0 ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900' : 'text-blue-600'}`}>
+                                                                            {formatNumberString(item.quantity)}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <span className={`font-mono font-bold dir-ltr inline-block ${item.weight < 0 ? 'text-rose-600 font-black bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900' : 'text-gray-600 dark:text-gray-400'}`}>
+                                                                            {formatNumberString(item.weight)}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800/40 text-sm">
+                                                                            {wPerCarton}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-3 font-mono text-orange-600 font-black">{item.containerCount > 0 ? item.containerCount.toFixed(2) : '-'}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        <tr className="bg-gray-100/70 dark:bg-gray-800/40 font-black text-gray-800 dark:text-gray-200 border-b-2 border-gray-200 dark:border-white/10 text-xs">
+                                                            <td className="p-2.5 text-right pr-10 text-gray-500">مجموع {group.company}:</td>
+                                                            <td className="p-2.5 font-mono text-blue-700 dark:text-blue-400 font-black">{formatNumberString(totalQty)}</td>
+                                                            <td className="p-2.5 font-mono text-gray-700 dark:text-gray-300 font-black">{formatNumberString(totalWeight)}</td>
+                                                            <td className="p-2.5 font-mono text-amber-700 dark:text-amber-400 font-black">{avgWeightPerCarton}</td>
+                                                            <td className="p-2.5 font-mono text-orange-700 dark:text-orange-400 font-black">{totalContainers > 0 ? totalContainers.toFixed(2) : '-'}</td>
+                                                        </tr>
+                                                    </React.Fragment>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -2074,6 +2315,14 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
             )}
 
             {/* Edit Modals */}
+            {editingItem && (
+                <ItemEditModal
+                    item={editingItem}
+                    onClose={() => setEditingItem(null)}
+                    onSave={handleEditItem}
+                />
+            )}
+
             {editingBijak && (
                 <TransactionEditModal 
                     tx={editingBijak} 

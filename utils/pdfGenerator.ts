@@ -1,6 +1,8 @@
 
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { saveBlobAndOpenFile } from '../services/fileService';
 
 type PdfFormat = 'A4' | 'A5';
 type PdfOrientation = 'portrait' | 'landscape';
@@ -163,7 +165,20 @@ export const generatePdf = async ({
             heightLeft -= pdfHeight;
         }
 
-        pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+        const finalFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+
+        if (Capacitor.isNativePlatform()) {
+            const pdfBlob = pdf.output('blob');
+            await saveBlobAndOpenFile(pdfBlob, finalFilename);
+        } else {
+            try {
+                pdf.save(finalFilename);
+            } catch (saveErr) {
+                // Fallback for strict browser contexts/iframes
+                const pdfBlob = pdf.output('blob');
+                await saveBlobAndOpenFile(pdfBlob, finalFilename);
+            }
+        }
 
         // Cleanup
         document.body.removeChild(container);
@@ -172,7 +187,7 @@ export const generatePdf = async ({
 
     } catch (error: any) {
         console.error('Client-Side PDF Error:', error);
-        alert('خطا در تولید PDF: ' + error.message);
+        alert('خطا در تولید PDF: ' + (error?.message || 'نامشخص'));
         if (onError) onError(error);
     }
 };

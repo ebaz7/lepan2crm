@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Printer, Loader2, FileDown } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { TradeRecord, TradeStage } from '../../types';
 import { formatCurrency, formatNumberString } from '../../constants';
 import { generatePdf } from '../../utils/pdfGenerator'; 
@@ -18,7 +18,13 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
 
   // Scaling State for Preview
   const [scale, setScale] = useState(1);
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Touch pinch zoom
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(1);
+  const lastTapRef = useRef<number>(0);
 
   useEffect(() => {
     const styleId = 'page-size-style-final-cost';
@@ -55,14 +61,14 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
   // Auto-Scale Logic for preview overlay
   useEffect(() => {
     const handleResize = () => {
+        if (userZoom !== null) return;
         const wrapper = containerWrapperRef.current;
         if (wrapper) {
             const wrapperWidth = wrapper.clientWidth;
             const targetWidth = 794; // A4 Portrait width in px at 96dpi
             
             if (wrapperWidth < targetWidth + 40) {
-                const newScale = (wrapperWidth - 32) / targetWidth;
-                setScale(newScale);
+                setScale(Math.max(0.25, (wrapperWidth - 32) / targetWidth));
             } else {
                 setScale(1);
             }
@@ -71,270 +77,356 @@ const PrintFinalCostReport: React.FC<Props> = ({ record, totalRial, totalCurrenc
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [userZoom]);
 
-  const totalWeight = record.items.reduce((sum, item) => sum + item.weight, 0);
-  const tranches = record.currencyPurchaseData?.tranches || [];
-  const netCurrencyRialCost = tranches.reduce((acc, t) => {
-      const paid = t.rialAmount || ((t.amount || 0) * (t.rate || 0));
-      const ret = t.returnAmount || 0; 
-      return acc + (paid - ret);
-  }, 0);
+  const handleZoomIn = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.min(3.0, currentScale + 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
 
-  const expenses: { name: string; amount: number }[] = [
-      { name: 'هزینه خرید ارز (خالص ریالی)', amount: netCurrencyRialCost },
-      { name: 'هزینه‌های ثبت سفارش و بانکی', amount: record.stages[TradeStage.LICENSES]?.costRial || 0 },
-      { name: 'هزینه بیمه باربری', amount: record.stages[TradeStage.INSURANCE]?.costRial || 0 },
-      { name: 'هزینه بازرسی (COI)', amount: record.stages[TradeStage.INSPECTION]?.costRial || 0 },
-      { name: 'هزینه‌های ترخیصیه و انبارداری', amount: record.stages[TradeStage.CLEARANCE_DOCS]?.costRial || 0 },
-  ];
+  const handleZoomOut = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.max(0.25, currentScale - 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
 
-  const greenLeaf = record.greenLeafData;
-  const hasGreenLeafBreakdown = greenLeaf && (greenLeaf.duties?.length || greenLeaf.taxes?.length || greenLeaf.roadTolls?.length);
+  const handleSetZoom = (newScale: number) => {
+    const clamped = Math.min(3.0, Math.max(0.25, newScale));
+    setUserZoom(clamped);
+    setScale(clamped);
+  };
 
-  if (hasGreenLeafBreakdown) {
-      if (greenLeaf.duties?.length) {
-          greenLeaf.duties.forEach((d, i) => {
-              expenses.push({ 
-                  name: `حقوق ورودی - ${d.part ? `پارت ${d.part}` : `ردیف ${i + 1}`} (کوتاژ ${d.cottageNumber || '-'})`, 
-                  amount: d.amount 
-              });
-          });
+  const handleResetZoom = () => {
+    setUserZoom(null);
+    setTimeout(() => {
+      const wrapper = containerWrapperRef.current;
+      if (wrapper) {
+        const wrapperWidth = wrapper.clientWidth;
+        const targetWidth = 794;
+        if (wrapperWidth < targetWidth + 40) {
+          setScale(Math.max(0.25, (wrapperWidth - 32) / targetWidth));
+        } else {
+          setScale(1);
+        }
       }
-      if (greenLeaf.taxes?.length) {
-          greenLeaf.taxes.forEach((t, i) => {
-              expenses.push({ 
-                  name: `مالیات ارزش افزوده - ${t.part ? `پارت ${t.part}` : `ردیف ${i + 1}`}`, 
-                  amount: t.amount 
-              });
-          });
-      }
-      if (greenLeaf.roadTolls?.length) {
-          greenLeaf.roadTolls.forEach((r, i) => {
-              expenses.push({ 
-                  name: `عوارض راهداری - ${r.part ? `پارت ${r.part}` : `ردیف ${i + 1}`}`, 
-                  amount: r.amount 
-              });
-          });
-      }
-  } else {
-      expenses.push({ name: 'حقوق و عوارض گمرکی', amount: record.stages[TradeStage.GREEN_LEAF]?.costRial || 0 });
-  }
+    }, 50);
+  };
 
-  expenses.push({ name: 'هزینه حمل داخلی', amount: record.stages[TradeStage.INTERNAL_SHIPPING]?.costRial || 0 });
-  expenses.push({ name: 'کارمزد و هزینه‌های ترخیص', amount: record.stages[TradeStage.AGENT_FEES]?.costRial || 0 });
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1.1) {
+          handleResetZoom();
+        } else {
+          handleSetZoom(1.35);
+        }
+      }
+      lastTapRef.current = now;
+    }
+  };
 
-  const activeExpenses = expenses.filter(e => e.amount > 0);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = currentDist / touchStartDistRef.current;
+      const targetScale = Math.min(3.0, Math.max(0.25, touchStartScaleRef.current * ratio));
+      setScale(targetScale);
+      setUserZoom(targetScale);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(3.0, Math.max(0.25, scale * zoomFactor));
+      setScale(newScale);
+      setUserZoom(newScale);
+    }
+  };
+
+  const handlePrint = () => {
+      window.print();
+  };
+
+  const regNumber = record.registrationNumber || record.orderNumber || record.fileNumber || '---';
+  const currencyStr = record.mainCurrency || 'USD';
 
   const handleDownloadPDF = async () => {
       setProcessing(true);
       await generatePdf({
           elementId: 'final-cost-print-area',
-          filename: `Final_Cost_Report_${record.fileNumber}.pdf`,
+          filename: `Final_Cost_Report_${regNumber}.pdf`,
           format: 'A4',
           orientation: 'portrait',
           onComplete: () => setProcessing(false),
-          onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
+          onError: () => { alert('خطا در تولید PDF'); setProcessing(false); }
       });
   };
 
-  const freightPerKgCurrency = totalWeight > 0 ? (record.freightCost || 0) / totalWeight : 0;
+  const totalWeight = (record.items || []).reduce((sum, item) => sum + (item.weight || 0), 0);
+  const costPerKgRial = totalWeight > 0 ? (grandTotalRial / totalWeight) : 0;
+
+  const stageKeys = Object.values(TradeStage);
 
   const content = (
       <div 
         id="final-cost-print-area" 
-        className="printable-content bg-white relative text-black flex flex-col justify-between" 
+        className="bg-white text-black font-sans relative text-right dir-rtl shadow-2xl flex flex-col justify-between"
         style={{ 
-          width: '210mm', 
-          height: '297mm', 
-          maxHeight: '297mm',
-          padding: '10mm 12mm', 
-          direction: 'rtl', 
-          boxSizing: 'border-box',
-          overflow: 'hidden'
+            width: '210mm', 
+            height: '297mm', 
+            maxHeight: '297mm',
+            padding: '10mm 12mm', 
+            boxSizing: 'border-box', 
+            margin: '0 auto',
+            overflow: 'hidden',
+            backgroundColor: '#ffffff'
         }}
       >
         <div>
-          {/* Header */}
-          <div className="border-b-2 border-gray-900 pb-2 mb-2 flex justify-between items-end">
-              <div>
-                  <h1 className="text-xl font-black mb-0.5 text-gray-900">صورتحساب نهایی هزینه‌ها و قیمت تمام شده</h1>
-                  <h2 className="text-xs font-bold text-gray-700">{record.company}</h2>
-              </div>
-              <div className="text-left text-[11px] space-y-0.5 font-mono">
-                  <div><span className="font-bold font-sans text-gray-700">شماره پرونده / پروفرم:</span> <span className="font-bold text-blue-900">{record.fileNumber}</span></div>
-                  {record.transferredFrom && (
-                      <div className="text-[10px] text-amber-800 font-sans"><span className="font-bold">انتقال از:</span> {record.transferredFrom.fileNumber}</div>
-                  )}
-                  <div><span className="font-bold font-sans text-gray-700">تاریخ گزارش:</span> {new Date().toLocaleDateString('fa-IR')}</div>
-              </div>
-          </div>
+            {/* Header */}
+            <div className="flex justify-between items-center border-b-2 border-black pb-2 mb-3">
+                <div>
+                    <h1 className="text-xl font-black text-gray-900 leading-tight">صورتحساب بهای تمام‌شده نهایی پرونده تجاری</h1>
+                    <p className="text-[11px] text-gray-600 mt-0.5">شرکت: <span className="font-bold text-black">{record.company}</span> | تامین‌کننده: <span className="font-bold text-black">{record.sellerName || '---'}</span></p>
+                </div>
+                <div className="text-left text-[11px] space-y-0.5">
+                    <div><span className="font-bold text-gray-500">شماره ثبت سفارش:</span> <span className="font-mono font-black">{regNumber}</span></div>
+                    <div><span className="font-bold text-gray-500">شماره پرونده:</span> <span className="font-mono">{record.fileNumber || '---'}</span></div>
+                    <div><span className="font-bold text-gray-500">تاریخ صدور گزارش:</span> <span className="font-mono font-bold">{new Date().toLocaleDateString('fa-IR')}</span></div>
+                </div>
+            </div>
 
-          {/* Info Grid */}
-          <div className="grid grid-cols-3 gap-y-1 gap-x-3 mb-2 bg-gray-50 text-gray-800 p-2 rounded border border-gray-300 text-[10.5px]">
-              <div><span className="font-bold text-gray-600">شماره پرونده:</span> <span className="font-mono font-bold text-blue-900">{record.fileNumber}</span></div>
-              <div><span className="font-bold text-gray-600">شرح کالا:</span> <span className="truncate">{record.goodsName}</span></div>
-              <div><span className="font-bold text-gray-600">گروه کالایی:</span> {record.commodityGroup}</div>
-              <div><span className="font-bold text-gray-600">فروشنده:</span> {record.sellerName}</div>
-              <div><span className="font-bold text-gray-600">ارز پایه:</span> {record.mainCurrency}</div>
-              <div><span className="font-bold text-gray-600">نرخ ریالی هر واحد ارز:</span> {formatCurrency(exchangeRate)}</div>
-              <div><span className="font-bold text-gray-600">کل وزن:</span> {formatNumberString(totalWeight)} KG</div>
-              <div><span className="font-bold text-gray-600">شماره ثبت سفارش:</span> {record.registrationNumber || record.orderNumber || '-'}</div>
-              <div><span className="font-bold text-gray-600">شرکت:</span> {record.company}</div>
-          </div>
+            {/* Quick Specs Summary */}
+            <div className="grid grid-cols-4 gap-2 border border-black p-2 bg-gray-50 rounded-sm mb-3 text-[11px]">
+                <div>
+                    <div className="text-gray-500 font-bold text-[10px]">مجموع وزن کل</div>
+                    <div className="font-mono font-black text-sm">{formatNumberString(totalWeight)} <span className="text-[10px] font-sans">کیلوگرم</span></div>
+                </div>
+                <div>
+                    <div className="text-gray-500 font-bold text-[10px]">نوع ارز پرونده</div>
+                    <div className="font-black text-sm text-blue-800">{currencyStr}</div>
+                </div>
+                <div>
+                    <div className="text-gray-500 font-bold text-[10px]">نرخ تسعیر ارز نهایی</div>
+                    <div className="font-mono font-bold">{exchangeRate > 0 ? formatCurrency(exchangeRate) + ' ریال' : 'تعیین نشده'}</div>
+                </div>
+                <div>
+                    <div className="text-gray-500 font-bold text-[10px]">وضعیت پرونده</div>
+                    <div className="font-black text-emerald-800">{record.status === 'Completed' ? 'تکمیل شده' : 'در جریان'}</div>
+                </div>
+            </div>
 
-          {record.transferredFrom && (
-              <div className="mb-2 bg-amber-50/90 p-1.5 rounded border border-amber-300 text-amber-900 text-[10px] flex items-center justify-between">
-                  <div>
-                      <span className="font-bold">اطلاعات انتقال پروفرما:</span>
-                      <span className="mr-1">این پرونده با شماره جدید <strong className="font-mono">{record.fileNumber}</strong>، از پرونده قبلی <strong className="font-mono">{record.transferredFrom.fileNumber}</strong> (شرح: {record.transferredFrom.goodsName}) منتقل شده است.</span>
-                  </div>
-              </div>
-          )}
+            {/* Stage Expenses Table */}
+            <div className="mb-3">
+                <div className="text-xs font-black mb-1 flex justify-between items-center text-gray-800">
+                    <span>۱. ریز هزینه‌های ثبت‌شده در مراحل پرونده:</span>
+                </div>
+                <table className="w-full text-right border-collapse border border-black text-[11px]">
+                    <thead>
+                        <tr className="bg-gray-200 border-b border-black font-black text-gray-900">
+                            <th className="p-1.5 border-r border-black w-8 text-center">#</th>
+                            <th className="p-1.5 border-r border-black">مرحله / شرح هزینه</th>
+                            <th className="p-1.5 border-r border-black w-36 text-center">مبلغ ریالی (IRR)</th>
+                            <th className="p-1.5 border-r border-black w-32 text-center">مبلغ ارزی ({currencyStr})</th>
+                            <th className="p-1.5 w-40">وضعیت و توضیحات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {stageKeys.map((stageKey, idx) => {
+                            const stageData = record.stages?.[stageKey];
+                            const costRial = stageData?.costRial || 0;
+                            const costCurrency = stageData?.costCurrency || 0;
+                            return (
+                                <tr key={stageKey} className="border-b border-gray-300">
+                                    <td className="p-1 border-r border-black text-center font-mono text-[10px]">{idx + 1}</td>
+                                    <td className="p-1 border-r border-black font-bold">{stageKey}</td>
+                                    <td className="p-1 border-r border-black text-center font-mono font-bold">{costRial > 0 ? formatCurrency(costRial) : '-'}</td>
+                                    <td className="p-1 border-r border-black text-center font-mono font-bold text-blue-700">{costCurrency > 0 ? formatCurrency(costCurrency) : '-'}</td>
+                                    <td className="p-1 text-[10px] text-gray-600 truncate max-w-[150px]">
+                                        {stageData?.isCompleted ? 'تکمیل شده' : 'جاری'} {stageData?.description ? `(${stageData.description})` : ''}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {/* Subtotals */}
+                        <tr className="bg-gray-100 font-bold border-t-2 border-black text-black">
+                            <td colSpan={2} className="p-1.5 border-r border-black text-left pl-3">جمع کل هزینه‌های تفکیکی:</td>
+                            <td className="p-1.5 border-r border-black text-center font-mono text-xs">{formatCurrency(totalRial)} ریال</td>
+                            <td className="p-1.5 border-r border-black text-center font-mono text-xs text-blue-800">{formatCurrency(totalCurrency)} {currencyStr}</td>
+                            <td className="p-1.5 text-[10px] text-gray-500">مجموع خالص ریالی + ارزی</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-          {/* 1. BILL OF EXPENSES */}
-          <h3 className="font-black text-[11px] mb-1 border-b border-gray-800 pb-0.5 mt-2">الف) ریز هزینه‌های انجام شده (ریالی)</h3>
-          <table className="w-full text-[10.5px] border-collapse border border-gray-800 mb-2.5 text-center">
-              <thead>
-                  <tr className="bg-gray-200 text-gray-900 font-bold">
-                      <th className="border border-gray-800 py-1 px-1.5 w-8">ردیف</th>
-                      <th className="border border-gray-800 py-1 px-2 text-right">شرح هزینه</th>
-                      <th className="border border-gray-800 py-1 px-2 w-36">مبلغ (ریال)</th>
-                  </tr>
-              </thead>
-              <tbody>
-                  {activeExpenses.map((exp, idx) => (
-                      <tr key={idx} className="even:bg-gray-50/50">
-                          <td className="border border-gray-800 py-0.5 px-1">{idx + 1}</td>
-                          <td className="border border-gray-800 py-0.5 px-2 text-right">{exp.name}</td>
-                          <td className="border border-gray-800 py-0.5 px-2 font-mono dir-ltr">{formatCurrency(exp.amount)}</td>
-                      </tr>
-                  ))}
-                  <tr className="bg-gray-200 text-gray-900 font-black">
-                      <td colSpan={2} className="border border-gray-800 py-1 px-2 text-left pl-4">جمع کل هزینه‌های ریالی پروژه</td>
-                      <td className="border border-gray-800 py-1 px-2 font-mono dir-ltr">{formatCurrency(grandTotalRial)}</td>
-                  </tr>
-              </tbody>
-          </table>
+            {/* Total Cost Consolidation Box */}
+            <div className="border-2 border-black p-3 bg-gray-50 rounded-sm mb-3">
+                <div className="text-xs font-black mb-2 text-gray-900 border-b border-gray-300 pb-1 flex justify-between">
+                    <span>۲. محاسبه و تجمیع نهایی بهای تمام‌شده کل:</span>
+                    <span className="text-[11px] font-mono text-gray-600">فرمول: (هزینه ارزی × نرخ تسعیر) + هزینه ریالی</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1.5">
+                        <div className="flex justify-between border-b border-dashed border-gray-300 pb-1">
+                            <span className="text-gray-600">سرجمع هزینه‌های ارزی:</span>
+                            <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCurrency)} {currencyStr}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-dashed border-gray-300 pb-1">
+                            <span className="text-gray-600">نرخ تسعیر محاسباتی:</span>
+                            <span className="font-mono font-bold">{exchangeRate > 0 ? formatCurrency(exchangeRate) + ' ریال' : 'محاسبه نشده'}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-gray-800">
+                            <span>ارزش ریالی بخش ارزی:</span>
+                            <span className="font-mono font-bold text-emerald-700">{formatCurrency(totalCurrency * exchangeRate)} ریال</span>
+                        </div>
+                    </div>
 
-          {/* 2. COST CALCULATION SUMMARY BAR */}
-          <h3 className="font-black text-[11px] mb-1 border-b border-gray-800 pb-0.5 mt-2">ب) خلاصه محاسبه قیمت تمام شده</h3>
-          <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-gray-800 p-2 rounded mb-2.5 text-[10.5px]">
-              <div className="flex flex-col">
-                  <span className="text-gray-600 font-medium">مبلغ کل پروفرما (ارزی):</span>
-                  <span className="font-mono font-bold text-gray-900 mt-0.5 dir-ltr text-right">{formatNumberString(totalCurrency)} {record.mainCurrency}</span>
-              </div>
-              <div className="flex flex-col border-r border-l border-gray-300 px-2">
-                  <span className="text-gray-600 font-medium">هزینه حمل ارزی هر کیلو:</span>
-                  <span className="font-mono font-bold text-gray-900 mt-0.5 dir-ltr text-right">{formatNumberString(freightPerKgCurrency)} {record.mainCurrency}</span>
-              </div>
-              <div className="flex flex-col bg-emerald-50/80 p-1 rounded border border-emerald-300">
-                  <span className="text-emerald-900 font-black">قیمت تمام شده نهایی (کل):</span>
-                  <span className="font-mono font-black text-emerald-950 text-xs mt-0.5 dir-ltr text-right">{formatCurrency(grandTotalRial)} ریال</span>
-              </div>
-          </div>
-
-          {/* 3. ITEM COST BREAKDOWN */}
-          <h3 className="font-black text-[11px] mb-1 border-b border-gray-800 pb-0.5 mt-2">ج) بهای تمام شده به تفکیک کالا</h3>
-          <table className="w-full text-[10px] border-collapse border border-gray-800 mb-2 text-center">
-              <thead>
-                  <tr className="bg-gray-200 text-gray-900 font-bold">
-                      <th className="border border-gray-800 py-1 px-1 w-7">ردیف</th>
-                      <th className="border border-gray-800 py-1 px-1 text-right">شرح کالا</th>
-                      <th className="border border-gray-800 py-1 px-1">وزن (KG)</th>
-                      <th className="border border-gray-800 py-1 px-1">فی ارزی (خرید)</th>
-                      <th className="border border-gray-800 py-1 px-1">فی ارزی با حمل</th>
-                      <th className="border border-gray-800 py-1 px-1">قیمت تمام شده (ریال)</th>
-                      <th className="border border-gray-800 py-1 px-1 bg-gray-300">فی تمام شده (ریال/KG)</th>
-                  </tr>
-              </thead>
-              <tbody>
-                  {record.items.map((item, idx) => {
-                      const itemFreightShareCurrency = item.weight * freightPerKgCurrency;
-                      const itemAdjustedTotalPriceCurrency = item.totalPrice + itemFreightShareCurrency;
-                      const itemFinalCostRial = itemAdjustedTotalPriceCurrency * exchangeRate;
-                      const itemFinalCostPerKg = item.weight > 0 ? itemFinalCostRial / item.weight : 0;
-                      const itemAdjustedUnitPriceCurrency = item.weight > 0 ? itemAdjustedTotalPriceCurrency / item.weight : 0;
-
-                      return (
-                          <tr key={item.id} className="even:bg-gray-50/50">
-                              <td className="border border-gray-800 py-0.5 px-1">{idx + 1}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-bold text-right">{item.name}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-mono">{formatNumberString(item.weight)}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-mono">{formatNumberString(item.unitPrice)}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-mono text-blue-900">{formatNumberString(itemAdjustedUnitPriceCurrency)}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-mono font-bold">{formatCurrency(itemFinalCostRial)}</td>
-                              <td className="border border-gray-800 py-0.5 px-1 font-mono font-bold bg-gray-100/80">{formatCurrency(itemFinalCostPerKg)}</td>
-                          </tr>
-                      );
-                  })}
-              </tbody>
-          </table>
+                    <div className="space-y-1.5 border-r border-gray-300 pr-3">
+                        <div className="flex justify-between border-b border-dashed border-gray-300 pb-1">
+                            <span className="text-gray-600">سرجمع هزینه‌های مستقیم ریالی:</span>
+                            <span className="font-mono font-bold">{formatCurrency(totalRial)} ریال</span>
+                        </div>
+                        <div className="flex justify-between border-b border-black pb-1 bg-amber-100/60 p-1 rounded font-black text-black">
+                            <span>بهای تمام‌شده کل پرونده:</span>
+                            <span className="font-mono text-sm">{formatCurrency(grandTotalRial)} ریال</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-purple-900 bg-purple-50 p-1 rounded border border-purple-200">
+                            <span>بهای تمام‌شده هر کیلوگرم:</span>
+                            <span className="font-mono font-black">{costPerKgRial > 0 ? formatCurrency(costPerKgRial) : '۰'} ریال / kg</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        {/* Signatures */}
-        <div className="pt-2 border-t border-gray-300 mt-auto">
-            <div className="grid grid-cols-3 gap-6 text-center text-[10.5px]">
-                <div>
-                    <div className="mb-5 font-bold text-gray-800">کارشناس بازرگانی</div>
-                    <div className="border-b border-gray-800 w-2/3 mx-auto"></div>
+        {/* Signatures & Approvals */}
+        <div className="border-t-2 border-black pt-2 mt-auto">
+            <div className="grid grid-cols-4 gap-2 text-center text-[10px]">
+                <div className="border border-gray-300 p-2 rounded flex flex-col justify-between h-20">
+                    <span className="font-bold text-gray-700">کارشناس بازرگانی</span>
+                    <span className="text-gray-400">امضا و تاریخ</span>
                 </div>
-                <div>
-                    <div className="mb-5 font-bold text-gray-800">مدیر مالی</div>
-                    <div className="border-b border-gray-800 w-2/3 mx-auto"></div>
+                <div className="border border-gray-300 p-2 rounded flex flex-col justify-between h-20">
+                    <span className="font-bold text-gray-700">حسابداری صنعتی</span>
+                    <span className="text-gray-400">امضا و تاریخ</span>
                 </div>
-                <div>
-                    <div className="mb-5 font-bold text-gray-800">مدیر عامل</div>
-                    <div className="border-b border-gray-800 w-2/3 mx-auto"></div>
+                <div className="border border-gray-300 p-2 rounded flex flex-col justify-between h-20">
+                    <span className="font-bold text-gray-700">مدیر مالی</span>
+                    <span className="text-gray-400">امضا و تاریخ</span>
                 </div>
+                <div className="border border-black p-2 rounded bg-gray-100 flex flex-col justify-between h-20">
+                    <span className="font-black text-black">تایید مدیریت عامل</span>
+                    <span className="text-gray-400">مهر و امضا</span>
+                </div>
+            </div>
+            <div className="text-center text-[9px] text-gray-400 mt-2">
+                سامانه یکپارچه مدیریت بازرگانی خارجی | گزارش سیستمی
             </div>
         </div>
       </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[120] flex flex-col items-center overflow-y-auto overflow-x-hidden justify-start p-4 md:p-6 animate-fade-in safe-pb">
-        <div className="sticky top-2 z-50 flex justify-center w-full max-w-4xl no-print mb-4">
-            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex justify-between items-center gap-6 w-full md:w-auto">
-                <span className="font-black text-sm text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Printer size={18} className="text-blue-600"/> پیش‌نمایش صورتحساب نهایی هزینه‌ها (تک‌صفحه‌ای A4)
-                </span>
-                <div className="flex gap-2">
-                    <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95">
-                        {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF
-                    </button>
-                    <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95">
-                        <Printer size={16}/> چاپ
-                    </button>
-                    <button onClick={onClose} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
-                        <X size={18}/>
-                    </button>
-                </div>
-            </div>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[120] flex flex-col p-0 m-0 overflow-hidden animate-fade-in safe-top safe-bottom">
+      {/* Sticky Top Header Bar */}
+      <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-gray-200 dark:border-zinc-800 px-3 py-2.5 md:px-6 md:py-3 shadow-md flex items-center justify-between gap-2 flex-wrap shrink-0 no-print">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shadow-xs">
+            📊
+          </div>
+          <span className="font-bold text-sm md:text-base text-gray-800 dark:text-gray-100">پیش‌نمایش بهای تمام‌شده پرونده ({regNumber})</span>
         </div>
 
-        <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+        {/* Interactive Zoom Toolbar */}
+        <div className="flex items-center gap-1 md:gap-2 bg-gray-100 dark:bg-zinc-900 px-2 py-1 md:px-3 md:py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 shadow-xs">
+          <button onClick={handleZoomOut} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="کوچک‌نمایی">
+            <ZoomOut size={16}/>
+          </button>
+          
+          <button onClick={() => handleSetZoom(1)} className="text-xs font-mono font-bold text-gray-700 dark:text-gray-300 px-1.5 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded min-w-[44px] text-center" title="تنظیم به ۱۰۰٪">
+            {Math.round(scale * 100)}%
+          </button>
+          
+          <button onClick={handleZoomIn} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="بزرگ‌نمایی">
+            <ZoomIn size={16}/>
+          </button>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-zinc-700 mx-0.5" />
+
+          <button onClick={handleResetZoom} className="px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors flex items-center gap-1" title="تناسب خودکار">
+            <RotateCcw size={13}/>
+            <span className="text-[11px]">تناسب</span>
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
+            <span>دانلود PDF</span>
+          </button>
+          
+          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all">
+            <Printer size={16}/>
+            <span className="hidden sm:inline">چاپ</span>
+          </button>
+          
+          <button onClick={onClose} className="bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 p-2 rounded-xl transition-colors" title="بستن">
+            <X size={18}/>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Canvas Area */}
+      <main 
+        className="flex-1 w-full overflow-auto p-2 md:p-6 flex flex-col items-center justify-start overscroll-contain" 
+        ref={containerWrapperRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
+        <div style={{ 
+          width: `${210 * 3.779527559 * scale}px`,
+          minHeight: `${297 * 3.779527559 * scale}px`,
+          position: 'relative',
+          flexShrink: 0
+        }}>
           <div style={{ 
-            width: `${210 * 3.779527559 * scale}px`,
-            minHeight: `${297 * 3.779527559 * scale}px`,
-            position: 'relative',
-            flexShrink: 0
-          }}>
-            <div style={{ 
-              width: '210mm', 
-              minHeight: '297mm',
-              backgroundColor: 'white', 
-              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              position: 'absolute',
-              top: 0,
-              left: 0
-            }} className="printable-content rounded-sm">
-                {content}
-            </div>
+            width: '210mm', 
+            minHeight: '297mm',
+            backgroundColor: 'white', 
+            boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }} className="printable-content rounded-md">
+            {content}
           </div>
         </div>
+      </main>
     </div>
   );
 };

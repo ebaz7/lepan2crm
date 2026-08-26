@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings } from '../../types';
-import { X, Printer, Loader2, FileDown } from 'lucide-react';
 import { formatNumberString } from '../../constants';
-import { generatePdf } from '../../utils/pdfGenerator'; 
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { generatePdf } from '../../utils/pdfGenerator';
 
 interface Props {
   record: TradeRecord;
@@ -14,10 +13,8 @@ interface Props {
 
 const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose, embed }) => {
   const [processing, setProcessing] = useState(false);
-  
-  // Local state for editable fields
   const [formData, setFormData] = useState({
-      brokerName: 'جناب آقای محمد محمودیان',
+      brokerName: 'جناب آقای ترخیص‌کار / شرکت خدمات بازرگانی',
       transportMode: 'Land' as 'Rail' | 'Land' | 'Sea',
       truckCount: '',
       wagonCount: '',
@@ -35,7 +32,13 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
 
   // Scaling State
   const [scale, setScale] = useState(1);
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Touch pinch zoom
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(1);
+  const lastTapRef = useRef<number>(0);
 
   const company = settings.companies?.find(c => c.name === record.company);
   const letterhead = company?.letterhead;
@@ -43,10 +46,11 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
   const blDoc = record.shippingDocuments?.find(d => d.type === 'Bill of Lading');
   const packingList = record.shippingDocuments?.find(d => d.type === 'Packing List');
   const invoice = record.shippingDocuments?.find(d => d.type === 'Commercial Invoice');
-  const warehouseReceipt = record.clearanceData?.receipts?.[0];
+  const warehouseReceipt = (record.clearanceData as any)?.receipts?.[0];
 
-  const totalWeight = record.items.reduce((sum, i) => sum + i.weight, 0);
-  const totalPackages = packingList?.packagesCount || 0;
+  const totalWeight = (record.items || []).reduce((sum, i) => sum + (i.weight || 0), 0);
+  const totalPackages = (packingList as any)?.packagesCount || 0;
+  const regNumber = record.registrationNumber || record.orderNumber || record.fileNumber || '---';
 
   const elementId = embed ? `clearance-dec-embed-${record.id}` : 'clearance-declaration-print';
 
@@ -59,16 +63,16 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
 
   // Auto-Scale Logic
   useEffect(() => {
+    if (embed) return;
     const handleResize = () => {
-        if (embed) return;
+        if (userZoom !== null) return;
         const wrapper = containerWrapperRef.current;
         if (wrapper) {
             const wrapperWidth = wrapper.clientWidth;
-            const targetWidth = 794; // A4 Portrait
+            const targetWidth = 794; // A4 Portrait Width in px
             
             if (wrapperWidth < targetWidth + 40) {
-                const newScale = (wrapperWidth - 32) / targetWidth;
-                setScale(newScale);
+                setScale(Math.max(0.25, (wrapperWidth - 32) / targetWidth));
             } else {
                 setScale(1);
             }
@@ -77,183 +81,238 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [embed]);
+  }, [embed, userZoom]);
 
-  const handlePrint = () => {
-      setProcessing(true);
-      setTimeout(() => {
-          window.print();
-          setProcessing(false);
-      }, 500);
+  const handleZoomIn = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.min(3.0, currentScale + 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
+
+  const handleZoomOut = () => {
+    const currentScale = userZoom !== null ? userZoom : scale;
+    const nextScale = Math.max(0.25, currentScale - 0.15);
+    setUserZoom(nextScale);
+    setScale(nextScale);
+  };
+
+  const handleSetZoom = (newScale: number) => {
+    const clamped = Math.min(3.0, Math.max(0.25, newScale));
+    setUserZoom(clamped);
+    setScale(clamped);
+  };
+
+  const handleResetZoom = () => {
+    setUserZoom(null);
+    setTimeout(() => {
+      const wrapper = containerWrapperRef.current;
+      if (wrapper) {
+        const wrapperWidth = wrapper.clientWidth;
+        const targetWidth = 794;
+        if (wrapperWidth < targetWidth + 40) {
+          setScale(Math.max(0.25, (wrapperWidth - 32) / targetWidth));
+        } else {
+          setScale(1);
+        }
+      }
+    }, 50);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1.1) {
+          handleResetZoom();
+        } else {
+          handleSetZoom(1.35);
+        }
+      }
+      lastTapRef.current = now;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = currentDist / touchStartDistRef.current;
+      const targetScale = Math.min(3.0, Math.max(0.25, touchStartScaleRef.current * ratio));
+      setScale(targetScale);
+      setUserZoom(targetScale);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(3.0, Math.max(0.25, scale * zoomFactor));
+      setScale(newScale);
+      setUserZoom(newScale);
+    }
   };
 
   const handleDownloadPDF = async () => {
       setProcessing(true);
       await generatePdf({
           elementId: elementId,
-          filename: `Clearance_Declaration_${record.fileNumber}.pdf`,
+          filename: `Clearance_Declaration_${regNumber}.pdf`,
           format: 'A4',
           orientation: 'portrait',
           onComplete: () => setProcessing(false),
-          onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
+          onError: () => { alert('خطا در دانلود PDF'); setProcessing(false); }
       });
   };
 
-  const Input = ({ value, onChange, className = "", placeholder = "................" }: any) => (
-      <input 
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
-        className={`bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-center font-bold text-gray-800 px-1 print:border-none print:placeholder-transparent ${className}`}
-        placeholder={placeholder}
-      />
-  );
+  const handlePrint = () => {
+      window.print();
+  };
 
   const content = (
-      <div id={elementId} className="printable-content glass-panel shadow-2xl relative text-black overflow-hidden" 
-        style={{ 
-            width: '210mm', 
-            height: '296mm', 
-            direction: 'rtl',
-            boxSizing: 'border-box',
-            padding: '0',
-            margin: embed ? '0' : '0 auto',
-            overflow: 'hidden' 
-        }}>
-        
-        {/* Letterhead Background Image */}
-        {letterhead && (
-            <img 
-                src={letterhead} 
-                alt="Letterhead" 
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    zIndex: 0,
-                    pointerEvents: 'none'
-                }}
-            />
+    <div id={elementId} className="bg-white text-black font-sans relative overflow-hidden text-right dir-rtl shadow-2xl" style={{ width: '210mm', minHeight: '296mm', padding: '15mm 20mm', boxSizing: 'border-box', margin: '0 auto' }}>
+        {/* Letterhead Background if exists */}
+        {letterhead ? (
+            <img src={letterhead} alt="سربرگ" className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0" />
+        ) : (
+            <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-xl font-black">{record.company}</h1>
+                    <p className="text-xs text-gray-600 mt-1">سامانه جامع مدیریت بازرگانی و ترخیص</p>
+                </div>
+                <div className="text-left text-xs space-y-1">
+                    <div><span className="font-bold">تاریخ:</span> {formData.letterDate}</div>
+                    <div><span className="font-bold">شماره:</span> {formData.letterNumber || regNumber}</div>
+                    <div><span className="font-bold">پیوست:</span> {formData.attachment}</div>
+                </div>
+            </div>
         )}
 
-        {/* Content Container */}
-        <div style={{ position: 'relative', zIndex: 1, padding: '40mm 20mm 20mm 20mm', height: '100%', boxSizing: 'border-box' }}>
-            
-            {/* Header Info Overlay */}
-            <div className="absolute top-[40mm] left-[20mm] text-left text-sm font-bold space-y-1 w-48" style={{ direction: 'ltr' }}>
-               <div className="flex justify-end items-center gap-2">
-                   <Input value={formData.letterDate} onChange={(v: string) => setFormData({...formData, letterDate: v})} className="w-24 text-center" />
-                   <span>:تاريخ</span>
-               </div>
-               <div className="flex justify-end items-center gap-2">
-                   <Input value={formData.letterNumber} onChange={(v: string) => setFormData({...formData, letterNumber: v})} className="w-24 text-center" />
-                   <span>:شماره</span>
-               </div>
-               <div className="flex justify-end items-center gap-2">
-                   <Input value={formData.attachment} onChange={(v: string) => setFormData({...formData, attachment: v})} className="w-24 text-center" />
-                   <span>:پيوست</span>
-               </div>
+        <div className="relative z-10" style={{ paddingTop: letterhead ? '25mm' : '0' }}>
+            {/* Header info in case of letterhead */}
+            {letterhead && (
+                <div className="flex justify-end mb-6 text-xs pl-4 space-y-1 flex-col items-end">
+                    <div><span className="font-bold">شماره:</span> <input type="text" value={formData.letterNumber} onChange={e => setFormData({...formData, letterNumber: e.target.value})} placeholder="شماره نامه..." className="border-b border-gray-300 outline-none w-24 text-center font-mono" /></div>
+                    <div><span className="font-bold">تاریخ:</span> <input type="text" value={formData.letterDate} onChange={e => setFormData({...formData, letterDate: e.target.value})} className="border-b border-gray-300 outline-none w-24 text-center font-mono" /></div>
+                    <div><span className="font-bold">پیوست:</span> <input type="text" value={formData.attachment} onChange={e => setFormData({...formData, attachment: e.target.value})} className="border-b border-gray-300 outline-none w-16 text-center" /></div>
+                </div>
+            )}
+
+            {/* Recipient */}
+            <div className="mb-6 text-sm font-bold leading-relaxed">
+                <div>به: <input type="text" value={formData.brokerName} onChange={e => setFormData({...formData, brokerName: e.target.value})} className="border-b border-gray-400 outline-none px-1 font-bold w-64 text-gray-900" /></div>
+                <div className="mt-1 text-xs text-gray-700">موضوع: اعلام ورود و ارسال اسناد ترخیص محموله ثبت سفارش شماره {regNumber}</div>
             </div>
 
-            {/* Title */}
-            <div className="text-center mb-8 mt-8">
-                <h2 className="font-bold text-lg">بسمه تعالی</h2>
-                <h1 className="font-black text-xl mt-2 border-b-2 border-black inline-block pb-1">
-                    کارگزار رسمی گمرک ایران - <Input value={formData.brokerName} onChange={(v: string) => setFormData({...formData, brokerName: v})} className="w-64 text-center text-lg placeholder-gray-400" placeholder="نام کارگزار..." />
-                </h1>
-            </div>
-            
             {/* Body */}
-            <div className="text-justify leading-loose mb-6 font-medium text-sm">
-                با سلام<br/>
-                احتراماً، ورود یک محموله کالا از طریق 
-                <label className="inline-flex items-center mx-2 cursor-pointer print:mx-1">
-                    <input type="checkbox" checked={formData.transportMode === 'Rail'} onChange={() => setFormData({...formData, transportMode: 'Rail'})} className="mx-1"/> ریلی
-                </label>
-                <label className="inline-flex items-center mx-2 cursor-pointer print:mx-1">
-                    <input type="checkbox" checked={formData.transportMode === 'Land'} onChange={() => setFormData({...formData, transportMode: 'Land'})} className="mx-1"/> زمینی
-                </label>
-                <label className="inline-flex items-center mx-2 cursor-pointer print:mx-1">
-                    <input type="checkbox" checked={formData.transportMode === 'Sea'} onChange={() => setFormData({...formData, transportMode: 'Sea'})} className="mx-1"/> دریایی
-                </label>
-                بنام این شرکت با مشخصات ذیل اعلام میگردد. خواهشمند است دستور فرمائید نسبت به ترخیص آن اقدامات لازم معمول گردد. بدیهی است محل ارسال محموله مورد بحث متعاقباً اعلام خواهد شد.
+            <div className="text-xs leading-loose text-justify mb-6">
+                <p>
+                    با سلام و احترام؛
+                </p>
+                <p className="mt-2">
+                    بدین‌وسیله به اطلاع می‌رساند محموله مربوط به شرکت <span className="font-bold">{record.company}</span> تحت شماره ثبت سفارش <span className="font-bold font-mono">{regNumber}</span> و شماره کوتاژ / پرونده به مشخصات جدول ذیل به گمرک <span className="font-bold">{(record.clearanceData as any)?.customsName || (record as any).customsName || '---'}</span> واصل گردیده است. خواهشمند است اقدامات لازم جهت ترخیص قطعی کالا را مبذول فرمایید.
+                </p>
             </div>
 
-            {/* Details Grid */}
-            <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-4 items-center">
-                    <span className="font-bold">• تعداد کامیون:</span> <Input value={formData.truckCount} onChange={(v: string) => setFormData({...formData, truckCount: v})} className="w-16" />
-                    <span className="font-bold">تعداد واگن:</span> <Input value={formData.wagonCount} onChange={(v: string) => setFormData({...formData, wagonCount: v})} className="w-16" />
-                    <span className="font-bold">تعداد کانتینر:</span> <Input value={formData.containerCount} onChange={(v: string) => setFormData({...formData, containerCount: v})} className="w-16" />
-                </div>
+            {/* Shipment Specifications Table */}
+            <table className="w-full text-right border-collapse border border-black text-xs mb-6">
+                <tbody>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold w-1/4">فروشنده / ذینفع:</td>
+                        <td className="p-2 border-r border-black w-1/4">{record.sellerName || '---'}</td>
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold w-1/4">پروفرما / سفارش:</td>
+                        <td className="p-2 w-1/4 font-mono">{invoice?.documentNumber || record.orderNumber || record.fileNumber || '---'}</td>
+                    </tr>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">شرح کالا:</td>
+                        <td className="p-2 border-r border-black" colSpan={3}>
+                            {(record.items || []).map(i => i.name).join(' - ')}
+                        </td>
+                    </tr>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">وزن ناخالص / خالص:</td>
+                        <td className="p-2 border-r border-black font-mono">{formatNumberString(totalWeight)} کیلوگرم</td>
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">تعداد بسته‌بندی:</td>
+                        <td className="p-2">
+                            <input type="text" value={formData.packageType} onChange={e => setFormData({...formData, packageType: e.target.value})} className="w-16 border-b outline-none text-center" />
+                            <span className="font-mono mr-1">{totalPackages > 0 ? totalPackages : '-'}</span>
+                        </td>
+                    </tr>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">شماره بارنامه:</td>
+                        <td className="p-2 border-r border-black font-mono">{blDoc?.documentNumber || '---'}</td>
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">قبض انبار:</td>
+                        <td className="p-2 font-mono">{(warehouseReceipt as any)?.receiptNumber || (warehouseReceipt as any)?.documentNumber || '---'}</td>
+                    </tr>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">نوع و تعداد ناوگان:</td>
+                        <td className="p-2 border-r border-black" colSpan={3}>
+                            <div className="flex items-center gap-4 flex-wrap">
+                                <span>کامیون: <input type="text" placeholder="تعداد" value={formData.truckCount} onChange={e => setFormData({...formData, truckCount: e.target.value})} className="w-12 border-b text-center font-mono outline-none" /></span>
+                                <span>واگن: <input type="text" placeholder="تعداد" value={formData.wagonCount} onChange={e => setFormData({...formData, wagonCount: e.target.value})} className="w-12 border-b text-center font-mono outline-none" /></span>
+                                <span>کانتینر: <input type="text" placeholder="تعداد" value={formData.containerCount} onChange={e => setFormData({...formData, containerCount: e.target.value})} className="w-12 border-b text-center font-mono outline-none" /></span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr className="border-b border-black">
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">کد ساتا / منشا ارز:</td>
+                        <td className="p-2 border-r border-black font-mono">
+                            <input type="text" placeholder="کد ساتا..." value={formData.sataCode} onChange={e => setFormData({...formData, sataCode: e.target.value})} className="w-full border-b outline-none font-mono" />
+                        </td>
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">پارت حمل:</td>
+                        <td className="p-2">
+                            <input type="text" value={formData.part} onChange={e => setFormData({...formData, part: e.target.value})} className="w-full border-b outline-none" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td className="p-2 border-r border-black bg-gray-100 font-bold">بانک عامل:</td>
+                        <td className="p-2 border-r border-black" colSpan={3}>
+                            <div className="flex items-center gap-4">
+                                <span>{record.operatingBank || '---'}</span>
+                                <span>شعبه: <input type="text" placeholder="نام شعبه" value={formData.bankBranch} onChange={e => setFormData({...formData, bankBranch: e.target.value})} className="border-b outline-none w-28 text-center" /></span>
+                                <span>کد شعبه: <input type="text" placeholder="کد" value={formData.bankCode} onChange={e => setFormData({...formData, bankCode: e.target.value})} className="border-b outline-none w-16 text-center font-mono" /></span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
-                <div className="flex items-center gap-2">
-                    <span className="font-bold">• شرکت حمل و نقل:</span> <Input value={formData.transportCompany} onChange={(v: string) => setFormData({...formData, transportCompany: v})} className="flex-1 text-right" />
-                </div>
-
-                <div className="flex flex-wrap gap-4 items-center">
-                    <span className="font-bold">• شماره سفارش کالا (Order):</span> <span className="font-mono font-bold border-b border-gray-400 px-2 min-w-[100px] text-center inline-block">{record.orderNumber || record.fileNumber}</span>
-                    <span className="font-bold">پارت:</span> <Input value={formData.part} onChange={(v: string) => setFormData({...formData, part: v})} className="w-32" />
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="font-bold">• شماره قبض انبار:</span> <span className="font-mono font-bold border-b border-gray-400 px-2 flex-1 text-center inline-block">{warehouseReceipt?.number || '........................'}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="font-bold">• شماره بارنامه:</span> <span className="font-mono font-bold border-b border-gray-400 px-2 flex-1 text-center inline-block">{blDoc?.documentNumber || '........................'}</span>
-                </div>
-
-                <div className="flex flex-wrap gap-4 items-center">
-                    <span className="font-bold">• شماره ثبت سفارش:</span> <span className="font-mono font-bold border-b border-gray-400 px-2 min-w-[150px] text-center inline-block">{record.registrationNumber || '................'}</span>
-                    <span className="font-bold">تاريخ ثبت سفارش:</span> <span className="font-mono font-bold border-b border-gray-400 px-2 min-w-[100px] text-center inline-block">{record.registrationDate || '................'}</span>
-                </div>
-
-                <div className="flex gap-2 flex-wrap items-center">
-                    <span className="font-bold">• نوع خريد:</span> <span className="font-bold border-b border-gray-400 px-2">{record.currencyAllocationType === 'Bank' ? 'بانکی' : 'غیربانکی'}</span>
-                    <span className="font-bold">شماره حواله/برات:</span> <Input className="w-32 font-mono" />
-                    <span className="font-bold">كدرهگيري بانك:</span> <Input className="w-32 font-mono" />
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="font-bold">• کد ساتا:</span> <Input value={formData.sataCode} onChange={(v: string) => setFormData({...formData, sataCode: v})} className="flex-1 text-right" placeholder="متعاقباً اعلام خواهد شد" />
-                </div>
-
-                <div className="flex gap-2 flex-wrap items-center">
-                    <span className="font-bold">• نام بانك عامل:</span> <span className="font-bold border-b border-gray-400 px-2 min-w-[150px] text-center">{record.operatingBank || '................'}</span>
-                    <span className="font-bold">نام شعبه:</span> <Input value={formData.bankBranch} onChange={(v: string) => setFormData({...formData, bankBranch: v})} className="w-32" />
-                    <span className="font-bold">كد بانك:</span> <Input value={formData.bankCode} onChange={(v: string) => setFormData({...formData, bankCode: v})} className="w-20 font-mono" />
-                </div>
-
-                <div className="flex gap-2 flex-wrap items-center">
-                    <span className="font-bold">• وزن:</span> <span className="font-bold font-mono border-b border-gray-400 px-2 min-w-[80px] text-center">{formatNumberString(totalWeight)}</span> <span className="text-xs font-bold">کیلوگرم خالص</span>
-                    <span className="font-bold mr-4">تعداد نگله - بسته – عدل-كارتن:</span> <span className="font-bold font-mono border-b border-gray-400 px-2 min-w-[60px] text-center">{formatNumberString(totalPackages)}</span> 
-                    <Input value={formData.packageType} onChange={(v: string) => setFormData({...formData, packageType: v})} className="w-20" />
-                </div>
-            </div>
-
-            {/* Attachments Checkboxes */}
-            <div className="mt-6">
-                <span className="font-bold block mb-2">• مدارک ضمیمه :</span>
-                <div className="grid grid-cols-4 gap-y-2 gap-x-4 text-xs font-bold">
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!blDoc} /> ۱- بارنامه (بارنامه دستی)</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!invoice} /> ۲- اینویس</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!packingList} /> ۳- پکینگ لیست</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" /> ۴- پروفرما</label>
-                    
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!record.registrationNumber} /> ۵- کپی ثبت سفارش</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!record.shippingDocuments?.find(d=>d.type==='Certificate of Origin')} /> ۶- گواهی مبدا</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!record.insuranceData?.policyNumber} /> ۷- بیمه نامه</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!record.inspectionData?.certificates.length} /> ۸- گواهی بازرسی</label>
-                    
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!warehouseReceipt} /> ۹- قبض انبار</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" /> ۱۰- تصویر ترخیصیه الکترونیک</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" defaultChecked={!!record.insuranceData?.endorsements?.length} /> ۱۱- الحاقیه بیمه نامه</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-black" /> ۱۲- اظهار نامه های صادراتی</label>
-                    
-                    <label className="flex items-center gap-1 cursor-pointer col-span-2"><input type="checkbox" className="w-4 h-4 accent-black" /> ۱۳- تصویر سی ام آر کامیون و یا بارنامه واگن</label>
+            {/* Attached Documents Checklist */}
+            <div className="border border-black p-3 text-xs mb-8">
+                <div className="font-bold mb-2 bg-gray-100 p-1">مدارک و اسناد پیوست جهت ترخیص:</div>
+                <div className="grid grid-cols-2 gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={!!blDoc} className="rounded" /> اصل / تصویر ترخیصیه و بارنامه
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={!!invoice} className="rounded" /> فاکتور تجاری (Invoice)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={!!packingList} className="rounded" /> لیست عدلبندی (Packing List)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={!!warehouseReceipt} className="rounded" /> قبض انبار الکترونیک
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={true} className="rounded" /> گواهی مبدا (Certificate of Origin)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" defaultChecked={true} className="rounded" /> بیمه‌نامه و ثبت سفارش
+                    </label>
                 </div>
             </div>
 
@@ -262,7 +321,6 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
                 <div>با احترام</div>
                 <div className="mt-1">شرکت {record.company}</div>
             </div>
-
         </div>
     </div>
   );
@@ -270,43 +328,86 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
   if (embed) return content;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[130] flex flex-col items-center justify-start p-4 md:p-6 overflow-y-auto animate-fade-in safe-pb">
-        <div className="sticky top-2 z-50 flex justify-center w-full max-w-4xl no-print mb-4">
-            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex justify-between items-center gap-6 w-full md:w-auto">
-                <span className="font-bold text-sm text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Printer size={18} className="text-blue-600"/> اعلام ورود کالا (ترخیصیه)
-                </span>
-                <div className="flex gap-2">
-                    <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95">{processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
-                    <button onClick={handlePrint} disabled={processing} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 font-bold transition-all shadow-sm active:scale-95"><Printer size={16}/> چاپ</button>
-                    <button onClick={onClose} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><X size={18}/></button>
-                </div>
-            </div>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[130] flex flex-col p-0 m-0 overflow-hidden animate-fade-in safe-top safe-bottom">
+      {/* Sticky Top Header Bar */}
+      <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-gray-200 dark:border-zinc-800 px-3 py-2.5 md:px-6 md:py-3 shadow-md flex items-center justify-between gap-2 flex-wrap shrink-0 no-print">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 flex items-center justify-center font-bold text-xs shadow-xs">
+            📋
+          </div>
+          <span className="font-bold text-sm md:text-base text-gray-800 dark:text-gray-100">پیش‌نمایش اعلام ورود کالا (ترخیصیه)</span>
         </div>
 
-        {/* Responsive Container for Scaling */}
-        <div className="w-full flex justify-center overflow-x-auto overflow-y-visible p-2 md:p-4 my-auto min-h-[300px]" ref={containerWrapperRef}>
+        {/* Interactive Zoom Toolbar */}
+        <div className="flex items-center gap-1 md:gap-2 bg-gray-100 dark:bg-zinc-900 px-2 py-1 md:px-3 md:py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 shadow-xs">
+          <button onClick={handleZoomOut} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="کوچک‌نمایی">
+            <ZoomOut size={16}/>
+          </button>
+          
+          <button onClick={() => handleSetZoom(1)} className="text-xs font-mono font-bold text-gray-700 dark:text-gray-300 px-1.5 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded min-w-[44px] text-center" title="تنظیم به ۱۰۰٪">
+            {Math.round(scale * 100)}%
+          </button>
+          
+          <button onClick={handleZoomIn} className="p-1 md:p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-lg transition-colors" title="بزرگ‌نمایی">
+            <ZoomIn size={16}/>
+          </button>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-zinc-700 mx-0.5" />
+
+          <button onClick={handleResetZoom} className="px-2 py-1 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors flex items-center gap-1" title="تناسب خودکار">
+            <RotateCcw size={13}/>
+            <span className="text-[11px]">تناسب</span>
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
+            <span>دانلود PDF</span>
+          </button>
+          
+          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all">
+            <Printer size={16}/>
+            <span className="hidden sm:inline">چاپ</span>
+          </button>
+          
+          <button onClick={onClose} className="bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 p-2 rounded-xl transition-colors" title="بستن">
+            <X size={18}/>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Canvas Area */}
+      <main 
+        className="flex-1 w-full overflow-auto p-2 md:p-6 flex flex-col items-center justify-start overscroll-contain" 
+        ref={containerWrapperRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
+        <div style={{ 
+          width: `${210 * 3.779527559 * scale}px`,
+          minHeight: `${296 * 3.779527559 * scale}px`,
+          position: 'relative',
+          flexShrink: 0
+        }}>
           <div style={{ 
-            width: `${210 * 3.779527559 * scale}px`,
-            minHeight: `${296 * 3.779527559 * scale}px`,
-            position: 'relative',
-            flexShrink: 0
-          }}>
-            <div style={{ 
-              width: '210mm', 
-              minHeight: '296mm',
-              backgroundColor: 'white', 
-              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-              position: 'absolute',
-              top: 0,
-              left: 0
-            }} className="printable-content rounded-sm">
-                {content}
-            </div>
+            width: '210mm', 
+            minHeight: '296mm',
+            backgroundColor: 'white', 
+            boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }} className="printable-content rounded-md">
+            {content}
           </div>
         </div>
+      </main>
     </div>
   );
 };

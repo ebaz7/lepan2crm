@@ -653,6 +653,7 @@ export interface WarehouseTransaction {
   id: string;
   type: 'IN' | 'OUT';
   date: string;
+  time?: string;
   company: string;
   number: number;
   items: WarehouseTransactionItem[];

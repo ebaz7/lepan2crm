@@ -42,6 +42,63 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
   const [scale, setScale] = useState(1);
   const containerWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Touch pinch zoom
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(1);
+  const lastTapRef = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1.1) {
+          setScaleMode('fit');
+        } else {
+          setScaleMode('custom');
+          setCustomZoom(1.35);
+          setScale(1.35);
+        }
+      }
+      lastTapRef.current = now;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = currentDist / touchStartDistRef.current;
+      const targetScale = Math.min(3.0, Math.max(0.25, touchStartScaleRef.current * ratio));
+      setScaleMode('custom');
+      setCustomZoom(targetScale);
+      setScale(targetScale);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(3.0, Math.max(0.25, scale * zoomFactor));
+      setScaleMode('custom');
+      setCustomZoom(newScale);
+      setScale(newScale);
+    }
+  };
+
   useEffect(() => {
       const style = document.getElementById('page-size-style');
       if (style && !embed) { 
@@ -814,7 +871,14 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             </div>
 
         {/* Responsive Wrapper */}
-        <div className="order-2 w-full flex justify-center pb-10" ref={containerWrapperRef}>
+        <div 
+          className="order-2 w-full flex justify-center pb-10" 
+          ref={containerWrapperRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel}
+        >
             <div style={{ 
               width: `${scale * 794}px`,
               height: `${scale * (permit.sayanRemittanceDoc ? 2272 : 1120)}px`,
