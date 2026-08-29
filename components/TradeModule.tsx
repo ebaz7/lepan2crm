@@ -13,6 +13,7 @@ import CompanyPerformanceReport from './reports/CompanyPerformanceReport';
 import PrintFinalCostReport from './print/PrintFinalCostReport';
 import PrintClearanceDeclaration from './print/PrintClearanceDeclaration';
 import PrintProforma from './print/PrintProforma';
+import PrintShippingDoc from './print/PrintShippingDoc';
 import InsuranceLedgerReport from './reports/InsuranceLedgerReport';
 import GuaranteeReport from './reports/GuaranteeReport';
 import InsuranceTab from './InsuranceTab';
@@ -162,6 +163,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     
     const [showClearancePrint, setShowClearancePrint] = useState(false);
     const [showProformaPrint, setShowProformaPrint] = useState(false);
+    const [selectedShippingDocForPrint, setSelectedShippingDocForPrint] = useState<ShippingDocument | null>(null);
     const [sharePlatform, setSharePlatform] = useState<'whatsapp' | 'bale' | 'telegram' | null>(null);
     const [contactSearch, setContactSearch] = useState('');
     const [allContacts, setAllContacts] = useState<any[]>([]);
@@ -220,7 +222,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     }, [selectedRecord, settings, availableBanks]);
 
     useEffect(() => {
-        const hasActiveModal = showNewModal || showEditMetadataModal || !!editingStage || !!selectedTrancheForDeliveries || showTransferModal || showProformaPrint || showFinalReportPrint || showClearancePrint;
+        const hasActiveModal = showNewModal || showEditMetadataModal || !!editingStage || !!selectedTrancheForDeliveries || showTransferModal || showProformaPrint || showFinalReportPrint || showClearancePrint || !!selectedShippingDocForPrint;
         const needsCustomBack = hasActiveModal || viewMode !== 'dashboard' || navLevel !== 'ROOT';
 
         if (needsCustomBack) {
@@ -229,6 +231,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     setShowTransferModal(false);
                 } else if (showProformaPrint) {
                     setShowProformaPrint(false);
+                } else if (selectedShippingDocForPrint) {
+                    setSelectedShippingDocForPrint(null);
                 } else if (showFinalReportPrint) {
                     setShowFinalReportPrint(false);
                 } else if (showClearancePrint) {
@@ -259,7 +263,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         return () => {
             window.dispatchEvent(new CustomEvent('UNREGISTER_BACK_ACTION'));
         };
-    }, [showNewModal, showEditMetadataModal, editingStage, viewMode, navLevel, selectedCompany, selectedTrancheForDeliveries, showTransferModal, showProformaPrint, showFinalReportPrint, showClearancePrint]);
+    }, [showNewModal, showEditMetadataModal, editingStage, viewMode, navLevel, selectedCompany, selectedTrancheForDeliveries, showTransferModal, showProformaPrint, showFinalReportPrint, showClearancePrint, selectedShippingDocForPrint]);
 
     useEffect(() => {
         loadRecords();
@@ -1468,6 +1472,16 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     />
                 )}
 
+                {/* Shipping Doc Print Overlay */}
+                {selectedShippingDocForPrint && selectedRecord && (
+                    <PrintShippingDoc 
+                        record={selectedRecord}
+                        doc={selectedShippingDocForPrint}
+                        settings={settings}
+                        onClose={() => setSelectedShippingDocForPrint(null)}
+                    />
+                )}
+
                 {/* Transfer Modal Overlay */}
                 {renderTransferModal()}
 
@@ -2090,7 +2104,40 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
                                 <div className="flex justify-end pt-4 border-t"><button onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
                                 
-                                <div className="mt-6"><h4 className="font-bold text-sm text-gray-500 mb-2">اسناد ثبت شده</h4><div className="space-y-2">{selectedRecord.shippingDocuments?.filter(d => d.type === activeShippingSubTab).map(doc => (<div key={doc.id} className="border p-3 rounded-lg flex justify-between items-center bg-gray-50"><div className="text-sm"><span className="font-mono font-bold">{doc.documentNumber}</span> <span className="text-xs text-gray-500">({doc.documentDate})</span></div><button onClick={() => handleDeleteShippingDoc(doc.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></div>))}</div></div>
+                                <div className="mt-6">
+                                    <h4 className="font-bold text-sm text-gray-500 mb-2">اسناد ثبت شده</h4>
+                                    <div className="space-y-2">
+                                        {selectedRecord.shippingDocuments?.filter(d => d.type === activeShippingSubTab).map(doc => (
+                                            <div key={doc.id} className="border p-3 rounded-lg flex justify-between items-center bg-gray-50">
+                                                <div className="text-sm flex items-center gap-2 flex-wrap">
+                                                    <span className="font-mono font-bold text-gray-800">{doc.documentNumber}</span>
+                                                    <span className="text-xs text-gray-500">({doc.documentDate})</span>
+                                                    {doc.status && (
+                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${doc.status === 'Final' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                            {doc.status === 'Final' ? 'نهایی' : 'پیش‌نویس'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => setSelectedShippingDocForPrint(doc)} 
+                                                        className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition-all active:scale-95"
+                                                    >
+                                                        <Printer size={14}/>
+                                                        مشاهده و چاپ سند استاندارد
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteShippingDoc(doc.id)} 
+                                                        className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                        title="حذف سند"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
