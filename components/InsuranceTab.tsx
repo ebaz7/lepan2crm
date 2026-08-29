@@ -3,6 +3,7 @@ import React from 'react';
 import { TradeRecord, InsuranceEndorsement } from '../types';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import { formatNumberString, deformatNumberString, formatCurrency } from '../constants';
+import FormattedNumberInput from './FormattedNumberInput';
 
 interface InsuranceTabProps {
     form: NonNullable<TradeRecord['insuranceData']>;
@@ -47,7 +48,7 @@ const InsuranceTab: React.FC<InsuranceTabProps> = ({
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-gray-700">هزینه اولیه (ریال)</label>
-                        <input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(form.cost)} onChange={e => setForm({...form, cost: deformatNumberString(e.target.value)})} />
+                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={form.cost} onChange={val => setForm({...form, cost: val})} />
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-gray-700">بانک پرداخت کننده</label>
@@ -85,7 +86,7 @@ const InsuranceTab: React.FC<InsuranceTabProps> = ({
                     </div>
                     <div className="space-y-1 flex-1 min-w-[150px]">
                         <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
-                        <input className="w-full border rounded p-2 text-sm dir-ltr text-right font-bold" value={formatNumberString(newEndorsement.amount)} onChange={e => setNewEndorsement({...newEndorsement, amount: deformatNumberString(e.target.value)})} placeholder="مبلغ الحاقیه..." />
+                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr text-right font-bold" value={newEndorsement.amount} onChange={val => setNewEndorsement({...newEndorsement, amount: val})} placeholder="مبلغ الحاقیه..." />
                     </div>
                     <div className="space-y-1 w-[125px]">
                         <label className="text-xs font-bold text-gray-700">تاریخ</label>

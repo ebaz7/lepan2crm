@@ -31,6 +31,58 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
     const [securityFinalize, setSecurityFinalize] = useState<ExitPermit | null>(null);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [activeAutoSends, setActiveAutoSends] = useState<ExitPermit[]>([]);
+    const [autoSendQueue, setAutoSendQueue] = useState<{ permit: ExitPermit; prevStatus: ExitPermitStatus }[]>([]);
+    const [queueIsProcessing, setQueueIsProcessing] = useState(false);
+    const [lastProcessedNotification, setLastProcessedNotification] = useState<string | null>(null);
+    const [showQueueToast, setShowQueueToast] = useState(false);
+
+    const queueNotification = (permit: ExitPermit, prevStatus: ExitPermitStatus) => {
+        setAutoSendQueue(prev => [...prev, { permit, prevStatus }]);
+        setShowQueueToast(true);
+    };
+
+    useEffect(() => {
+        const processQueue = async () => {
+            if (autoSendQueue.length === 0 || queueIsProcessing) return;
+            setQueueIsProcessing(true);
+
+            const currentTask = autoSendQueue[0];
+            const { permit, prevStatus } = currentTask;
+
+            try {
+                // Add to activeAutoSends so it renders in the hidden-print-export offscreen div
+                setActiveAutoSends(prev => {
+                    if (prev.some(p => p.id === permit.id)) return prev;
+                    return [...prev, permit];
+                });
+
+                // Wait 250ms to allow React to render the hidden elements in the DOM and paint
+                await new Promise(resolve => setTimeout(resolve, 250));
+
+                // Call actual sendNotification function
+                await sendNotification(permit, prevStatus);
+
+                setLastProcessedNotification(`تصاویر مجوز خروج #${permit.permitNumber} با موفقیت به ربات‌ها ارسال شد.`);
+                setTimeout(() => {
+                    setLastProcessedNotification(null);
+                }, 4000);
+            } catch (error) {
+                console.error("Queue notification processing failed:", error);
+                setLastProcessedNotification(`خطا در ارسال تصاویر مجوز خروج #${permit.permitNumber}`);
+                setTimeout(() => {
+                    setLastProcessedNotification(null);
+                }, 4000);
+            } finally {
+                // Remove from activeAutoSends
+                setActiveAutoSends(prev => prev.filter(p => p.id !== permit.id));
+                // Remove first item from queue
+                setAutoSendQueue(prev => prev.slice(1));
+                setQueueIsProcessing(false);
+            }
+        };
+
+        processQueue();
+    }, [autoSendQueue, queueIsProcessing]);
 
     useEffect(() => { loadData(); }, [financialYear]);
     
@@ -218,17 +270,8 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             setProcessingId(null);
             loadData();
             
-            // Send notifications asynchronously in background
-            setActiveAutoSends(prev => [...prev, updatedPermit]);
-            setTimeout(async () => {
-                try {
-                    await sendNotification(updatedPermit, p.status);
-                } catch (err) {
-                    console.error("Background notification error", err);
-                } finally {
-                    setActiveAutoSends(prev => prev.filter(x => x.id !== updatedPermit.id));
-                }
-            }, 100);
+            // Queue notification in background safely and guaranteed
+            queueNotification(updatedPermit, p.status);
 
         } catch (e) {
             alert('خطا در عملیات تایید');
@@ -244,12 +287,68 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         let base64WithPrice = '';
         
         try {
-            if (elementNoPrice) {
-                const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+            const companyConfig = settings?.companyNotifications?.[permit.company || ''];
+            const g1Config = settings?.exitPermitFirstGroupConfig;
+            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
+            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
+            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
+
+            const g2Config = settings?.exitPermitSecondGroupConfig;
+            let g2WA = g2Config?.groupId;
+            let g2Bale = g2Config?.baleId;
+            let g2Tg = g2Config?.telegramId;
+
+            const g3Config = settings?.exitPermitThirdGroupConfig;
+            let g3WA = g3Config?.groupId;
+            let g3Bale = g3Config?.baleId;
+            let g3Tg = g3Config?.telegramId;
+
+            const g1Statuses = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
+            const g2Statuses = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
+            const g3Statuses = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
+
+            const isG1Canceled = g1Statuses.includes('CANCELED');
+            const isG2Canceled = g2Statuses.includes('CANCELED');
+            const isG3Canceled = g3Statuses.includes('CANCELED');
+
+            const hasActiveTargets = 
+                (isG1Canceled && (g1WA || g1Bale || g1Tg)) ||
+                (isG2Canceled && (g2WA || g2Bale || g2Tg)) ||
+                (isG3Canceled && (g3WA || g3Bale || g3Tg));
+
+            const allUsers = await getUsers();
+            const managers = allUsers.filter(u => 
+                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
+                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
+            );
+
+            const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
+            
+            const hasGroupManagers = managers.some(m => {
+                const tgId = (m as any).telegramId || (m as any).telegramChatId;
+                const blId = (m as any).baleId || (m as any).baleChatId;
+                return isGroup(String(tgId)) || isGroup(String(blId)) || isGroup(String(m.phoneNumber));
+            });
+
+            const hasIndividualManagers = managers.some(m => {
+                const tgId = (m as any).telegramId || (m as any).telegramChatId;
+                const blId = (m as any).baleId || (m as any).baleChatId;
+                return (tgId && !isGroup(String(tgId))) || (blId && !isGroup(String(blId))) || (m.phoneNumber && !isGroup(String(m.phoneNumber)));
+            });
+
+            const needNoPrice = hasActiveTargets || hasGroupManagers;
+            const needWithPrice = hasIndividualManagers;
+
+            if (needNoPrice && elementNoPrice) {
+                // Yield thread first to prevent lag
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
                 base64NoPrice = canvasNoPrice.toDataURL('image/png').split(',')[1];
             }
-            if (elementWithPrice) {
-                const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+            if (needWithPrice && elementWithPrice) {
+                // Yield thread first to prevent lag
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
                 base64WithPrice = canvasWithPrice.toDataURL('image/png').split(',')[1];
             }
         } catch (e) {
@@ -416,16 +515,8 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             setProcessingId(null);
             loadData();
             
-            setActiveAutoSends(prev => [...prev, updatedPermit]);
-            setTimeout(async () => {
-                try {
-                    await sendNotification(updatedPermit, ExitPermitStatus.PENDING_SECURITY);
-                } catch (e) {
-                    console.error("Background security notif error", e);
-                } finally {
-                    setActiveAutoSends(prev => prev.filter(x => x.id !== updatedPermit.id));
-                }
-            }, 100);
+            // Queue notification in background safely and guaranteed
+            queueNotification(updatedPermit, ExitPermitStatus.PENDING_SECURITY);
         } catch (e) {
             alert('خطا در ثبت مشخصات انتظامات');
             setProcessingId(null);
@@ -468,16 +559,8 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             setProcessingId(null);
             loadData();
 
-            setActiveAutoSends(prev => [...prev, updated]);
-            setTimeout(async () => {
-                try {
-                    await sendNotification(updated, ExitPermitStatus.PENDING_WAREHOUSE);
-                } catch (e) {
-                    console.error("Background warehouse notif error", e);
-                } finally {
-                    setActiveAutoSends(prev => prev.filter(x => x.id !== updated.id));
-                }
-            }, 100);
+            // Queue notification in background safely and guaranteed
+            queueNotification(updated, ExitPermitStatus.PENDING_WAREHOUSE);
         } catch(e) { alert('خطا در ثبت انبار'); setProcessingId(null); }
     };
 
@@ -488,15 +571,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         
         if (!elementNoPrice || !elementWithPrice || !elementCustomer) return;
         try {
-            const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-            const base64NoPrice = canvasNoPrice.toDataURL('image/png').split(',')[1];
-            
-            const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-            const base64WithPrice = canvasWithPrice.toDataURL('image/png').split(',')[1];
-
-            const canvasCustomer = await html2canvas(elementCustomer, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-            const base64Customer = canvasCustomer.toDataURL('image/png').split(',')[1];
-            
             const targets = [];
             const companyConfig = settings?.companyNotifications?.[permit.company];
             
@@ -575,9 +649,58 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 targets.push({ role: UserRole.FACTORY_MANAGER }); // Factory manager needs to see this
             } else if (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) {
                 captionTitle = '👋 خروج نهایی بار از کارخانه';
-                
+            }
+
+            const customerPhone = permit.destinations?.[0]?.phone;
+            const needCustomer = (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) && !!customerPhone;
+
+            const allUsers = await getUsers();
+            const managers = allUsers.filter(u => 
+                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
+                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
+            );
+
+            const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
+
+            const hasGroupManagers = managers.some(m => {
+                const tgId = (m as any).telegramId || (m as any).telegramChatId;
+                const blId = (m as any).baleId || (m as any).baleChatId;
+                return isGroup(String(tgId)) || isGroup(String(blId)) || isGroup(String(m.phoneNumber));
+            });
+
+            const hasIndividualManagers = managers.some(m => {
+                const tgId = (m as any).telegramId || (m as any).telegramChatId;
+                const blId = (m as any).baleId || (m as any).baleChatId;
+                return (tgId && !isGroup(String(tgId))) || (blId && !isGroup(String(blId))) || (m.phoneNumber && !isGroup(String(m.phoneNumber)));
+            });
+
+            const needNoPrice = (targets.length > 0) || hasGroupManagers;
+            const needWithPrice = hasIndividualManagers;
+
+            let base64NoPrice = '';
+            let base64WithPrice = '';
+            let base64Customer = '';
+
+            if (needNoPrice && elementNoPrice) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
+                base64NoPrice = canvasNoPrice.toDataURL('image/png').split(',')[1];
+            }
+
+            if (needWithPrice && elementWithPrice) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
+                base64WithPrice = canvasWithPrice.toDataURL('image/png').split(',')[1];
+            }
+
+            if (needCustomer && elementCustomer) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const canvasCustomer = await html2canvas(elementCustomer, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
+                base64Customer = canvasCustomer.toDataURL('image/png').split(',')[1];
+            }
+
+            if (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) {
                 // FINAL NOTIFICATION TO CUSTOMER
-                const customerPhone = permit.destinations?.[0]?.phone;
                 if (customerPhone) {
                     let customerCaption = `🚚 *حواله نهایی خروج کالا #${permit.permitNumber}*\n\n`;
                     customerCaption += `👤 گیرنده: ${permit.recipientName}\n`;
@@ -633,8 +756,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             
             caption += `\n👤 تایید کننده: ${currentUser.fullName}`;
 
-            const allUsers = await getUsers();
-            
             for (const t of targets) {
                 if (t.role) {
                     const u = allUsers.find(x => x.role === t.role);
@@ -649,10 +770,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             }
             
             // Explicitly send WITH PRICE to CEO, SALES_MANAGER, ADMIN (unless they are groups)
-            const managers = allUsers.filter(u => 
-                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
-                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
-            );
             const priceInfo = `\n💰 مبلغ: ${Number(permit.price || 0).toLocaleString()} ریال`;
             
             for (const m of managers) {
@@ -998,6 +1115,47 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                     onClose={() => setSecurityFinalize(null)}
                     onConfirm={handleSecuritySubmit}
                 />
+            )}
+
+            {/* Queue Background Processing Status Toast */}
+            {showQueueToast && (autoSendQueue.length > 0 || lastProcessedNotification) && (
+                <div id="queue-status-toast" className="fixed bottom-6 right-6 z-[9999] bg-slate-900 text-slate-100 p-4 rounded-xl shadow-2xl border border-slate-700 w-80 animate-slide-in flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            {autoSendQueue.length > 0 ? (
+                                <Loader2 className="animate-spin text-blue-400" size={18} />
+                            ) : (
+                                <CheckCircle className="text-green-400" size={18} />
+                            )}
+                            <span className="text-xs font-black">پروسه پس‌زمینه ربات‌ها</span>
+                        </div>
+                        <button 
+                            onClick={() => setShowQueueToast(false)} 
+                            className="text-slate-400 hover:text-slate-100 p-0.5 rounded-full hover:bg-slate-800 transition-colors"
+                        >
+                            <XCircle size={16} />
+                        </button>
+                    </div>
+                    
+                    {autoSendQueue.length > 0 && (
+                        <div className="space-y-1 mt-1">
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                                ارسال تصاویر به بات‌ها در حال انجام است، کمی صبر کنید...
+                            </p>
+                            <div className="flex items-center justify-between bg-slate-800 px-2 py-1.5 rounded text-[10px] text-slate-400 font-mono">
+                                <span>کارهای باقی‌مانده در صف:</span>
+                                <span className="font-bold bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-xs">{autoSendQueue.length} برگه</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {lastProcessedNotification && (
+                        <div className="mt-1 bg-green-900/40 text-green-400 p-2 rounded text-[10px] leading-tight flex items-start gap-1 border border-green-800/40">
+                            <CheckCircle size={12} className="mt-0.5 flex-shrink-0" />
+                            <span>{lastProcessedNotification}</span>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );

@@ -14,7 +14,7 @@ interface Props {
 const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose, embed }) => {
   const [processing, setProcessing] = useState(false);
   const [formData, setFormData] = useState({
-      brokerName: 'جناب آقای ترخیص‌کار / شرکت خدمات بازرگانی',
+      brokerName: 'شرکت خدمات بازرگانی / کارگزار ترخیص',
       transportMode: 'Land' as 'Rail' | 'Land' | 'Sea',
       truckCount: '',
       wagonCount: '',

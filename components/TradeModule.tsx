@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { User, TradeRecord, TradeStage, TradeItem, SystemSettings, InsuranceEndorsement, CurrencyPurchaseData, TradeTransaction, CurrencyTranche, CurrencyDelivery, TradeStageData, ShippingDocument, ShippingDocType, DocStatus, InvoiceItem, InspectionData, InspectionPayment, InspectionCertificate, ClearanceData, WarehouseReceipt, ClearancePayment, GreenLeafData, GreenLeafCustomsDuty, GreenLeafGuarantee, GreenLeafTax, GreenLeafRoadToll, InternalShippingData, ShippingPayment, AgentData, AgentPayment, PackingItem, UserRole, GuaranteeCheque } from '../types';
 import { getTradeRecords, saveTradeRecord, updateTradeRecord, deleteTradeRecord, getSettings, uploadFile } from '../services/storageService';
 import { generateUUID, formatCurrency, formatNumberString, deformatNumberString, parsePersianDate, formatDate, calculateDaysDiff, getStatusLabel } from '../constants';
+import FormattedNumberInput from './FormattedNumberInput';
 import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2 } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
@@ -1277,11 +1278,11 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-600">مقدار تحویلی *</label>
-                                <input 
+                                <FormattedNumberInput 
                                     className="w-full border rounded-lg p-2 text-sm dir-ltr font-bold text-green-700 bg-white" 
                                     value={newDeliveryForm.amount} 
-                                    onChange={e => setNewDeliveryForm({...newDeliveryForm, amount: e.target.value})} 
-                                    onBlur={e => setNewDeliveryForm({...newDeliveryForm, amount: formatNumberString(deformatNumberString(e.target.value))})}
+                                    onChange={() => {}}
+                                    onChangeString={str => setNewDeliveryForm({...newDeliveryForm, amount: str})}
                                     placeholder="مقدار ارز..." 
                                 />
                             </div>
@@ -1538,7 +1539,16 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={stageFormData.isCompleted} onChange={e => setStageFormData({...stageFormData, isCompleted: e.target.checked})} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"/> <span className="font-bold text-sm">مرحله تکمیل شده است</span></label>
                                 {editingStage === TradeStage.ALLOCATION_QUEUE && (<div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2"><div><label className="text-xs font-bold block mb-1">تاریخ ورود به صف</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.queueDate || ''} onChange={e => setStageFormData({...stageFormData, queueDate: e.target.value})} /></div>{stageFormData.queueDate && <div className="text-xs text-amber-700 dark:text-amber-400 font-bold">مدت انتظار: {calculateDaysDiff(stageFormData.queueDate)} روز</div>}</div>)}
                                 {editingStage === TradeStage.ALLOCATION_APPROVED && (<div className="bg-green-50 dark:bg-green-950/40 p-3 rounded-xl border border-green-200 dark:border-green-800 space-y-2"><div><label className="text-xs font-bold block mb-1">شماره فیش/تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={stageFormData.allocationCode || ''} onChange={e => setStageFormData({...stageFormData, allocationCode: e.target.value})} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2"><div><label className="text-xs font-bold block mb-1">تاریخ تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.allocationDate || ''} onChange={e => setStageFormData({...stageFormData, allocationDate: e.target.value})} /></div><div><label className="text-xs font-bold block mb-1">مهلت انقضا</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/02/01" value={stageFormData.allocationExpiry || ''} onChange={e => setStageFormData({...stageFormData, allocationExpiry: e.target.value})} /></div></div></div>)}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-xs font-bold block mb-1">هزینه ریالی</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={formatNumberString(stageFormData.costRial)} onChange={e => setStageFormData({...stageFormData, costRial: deformatNumberString(e.target.value)})} /></div><div><label className="text-xs font-bold block mb-1">هزینه ارزی</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={formatNumberString(stageFormData.costCurrency)} onChange={e => setStageFormData({...stageFormData, costCurrency: deformatNumberString(e.target.value)})} /></div></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold block mb-1">هزینه ریالی</label>
+                                        <FormattedNumberInput className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-bold" value={stageFormData.costRial} onChange={val => setStageFormData({...stageFormData, costRial: val})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold block mb-1">هزینه ارزی</label>
+                                        <FormattedNumberInput className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-bold" value={stageFormData.costCurrency} onChange={val => setStageFormData({...stageFormData, costCurrency: val})} />
+                                    </div>
+                                </div>
                                 <div><label className="text-xs font-bold block mb-1">توضیحات</label><textarea className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
                                 <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px]">{att.fileName}</button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div>))}</div></div>
                                 <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
@@ -1767,8 +1777,24 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="flex gap-2 items-end mb-4 bg-gray-50 p-3 rounded-lg flex-wrap">
                                     <div className="flex-1 min-w-[150px] space-y-1"><label className="text-xs text-gray-500">شرح کالا</label><input className="w-full border rounded p-2 text-sm" placeholder="نام کالا" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})}/></div>
                                     <div className="w-32 space-y-1"><label className="text-xs text-gray-500">HS Code</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="کد تعرفه" value={newItem.hsCode || ''} onChange={e => setNewItem({...newItem, hsCode: e.target.value})}/></div>
-                                    <div className="w-24 space-y-1"><label className="text-xs text-gray-500">وزن (KG)</label><input type="text" className="w-full border rounded p-2 text-sm dir-ltr" placeholder="0" value={newItem.weightStr} onChange={e => setNewItem({...newItem, weightStr: e.target.value, weight: deformatNumberString(e.target.value) || 0})}/></div>
-                                    <div className="w-32 space-y-1"><label className="text-xs text-gray-500">مبلغ فوب (FOB)</label><input type="text" className="w-full border rounded p-2 text-sm dir-ltr" placeholder="0" value={newItem.unitPriceStr} onChange={e => setNewItem({...newItem, unitPriceStr: e.target.value, unitPrice: deformatNumberString(e.target.value) || 0})}/></div>
+                                    <div className="w-24 space-y-1">
+                                        <label className="text-xs text-gray-500">وزن (KG)</label>
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold" 
+                                            placeholder="0" 
+                                            value={newItem.weightStr} 
+                                            onChange={val => setNewItem({...newItem, weightStr: formatNumberString(val), weight: val})}
+                                        />
+                                    </div>
+                                    <div className="w-32 space-y-1">
+                                        <label className="text-xs text-gray-500">مبلغ فوب (FOB)</label>
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold text-blue-700" 
+                                            placeholder="0" 
+                                            value={newItem.unitPriceStr} 
+                                            onChange={val => setNewItem({...newItem, unitPriceStr: formatNumberString(val), unitPrice: val})}
+                                        />
+                                    </div>
                                     <div className="w-32 space-y-1"><label className="text-xs text-gray-500">فی محاسبه شده</label><div className="w-full border rounded p-2 text-sm dir-ltr bg-gray-100 font-mono text-center h-[38px] flex items-center justify-center">
                                         {formatNumberString(deformatNumberString(newItem.weightStr || '0') > 0 ? deformatNumberString(newItem.unitPriceStr || '0') / deformatNumberString(newItem.weightStr || '0') : 0)}
                                     </div></div>
@@ -1852,7 +1878,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                  <h3 className="font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2"><Banknote size={20} className="text-purple-600"/> هزینه‌های ثبت سفارش (کارمزد بانکی و...)</h3>
                                  <div className="flex gap-2 items-end mb-4 bg-purple-50 p-3 rounded-lg">
                                      <div className="flex-1 space-y-1"><label className="text-xs text-gray-500">شرح هزینه</label><input className="w-full border rounded p-2 text-sm" value={newLicenseTx.description} onChange={e => setNewLicenseTx({...newLicenseTx, description: e.target.value})}/></div>
-                                     <div className="w-32 space-y-1"><label className="text-xs text-gray-500">مبلغ (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newLicenseTx.amount)} onChange={e => setNewLicenseTx({...newLicenseTx, amount: deformatNumberString(e.target.value)})}/></div>
+                                     <div className="w-32 space-y-1">
+                                         <label className="text-xs text-gray-500">مبلغ (ریال)</label>
+                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newLicenseTx.amount} onChange={val => setNewLicenseTx({...newLicenseTx, amount: val})}/>
+                                     </div>
                                      <div className="w-32 space-y-1"><label className="text-xs text-gray-500">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/xx/xx" value={newLicenseTx.date} onChange={e => setNewLicenseTx({...newLicenseTx, date: e.target.value})}/></div>
                                      <button onClick={handleAddLicenseTx} className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 h-[38px]"><Plus size={18}/></button>
                                  </div>
@@ -1903,28 +1932,31 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="col-span-1 space-y-1">
                                         <label className="text-xs font-bold text-gray-700">مقدار ارز</label>
-                                        <input 
-                                            className="w-full border rounded p-2 text-sm dir-ltr" 
-                                            value={newCurrencyTranche.amountStr || ''} 
-                                            onChange={e => setNewCurrencyTranche({...newCurrencyTranche, amountStr: e.target.value})}
-                                            placeholder="مثال: 12500.5"
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold text-blue-700" 
+                                            value={newCurrencyTranche.amountStr} 
+                                            onChange={() => {}}
+                                            onChangeString={str => setNewCurrencyTranche({...newCurrencyTranche, amountStr: str})}
+                                            placeholder="مثال: 12,500.5"
                                         />
                                     </div>
                                     <div className="col-span-1 space-y-1">
                                         <label className="text-xs font-bold text-gray-700">مبلغ کل پرداختی (ریال)</label>
-                                        <input 
-                                            className="w-full border rounded p-2 text-sm dir-ltr" 
-                                            value={newCurrencyTranche.rialAmountStr || ''} 
-                                            onChange={e => setNewCurrencyTranche({...newCurrencyTranche, rialAmountStr: formatNumberString(deformatNumberString(e.target.value))})} 
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold" 
+                                            value={newCurrencyTranche.rialAmountStr} 
+                                            onChange={() => {}}
+                                            onChangeString={str => setNewCurrencyTranche({...newCurrencyTranche, rialAmountStr: str})} 
                                             placeholder="مبلغ پرداختی..."
                                         />
                                     </div>
                                     <div className="col-span-1 space-y-1">
                                         <label className="text-xs font-bold text-gray-700">کارمزد ارزی</label>
-                                        <input 
-                                            className="w-full border rounded p-2 text-sm dir-ltr" 
-                                            value={newCurrencyTranche.currencyFeeStr || ''} 
-                                            onChange={e => setNewCurrencyTranche({...newCurrencyTranche, currencyFeeStr: e.target.value})} 
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-medium text-purple-700" 
+                                            value={newCurrencyTranche.currencyFeeStr} 
+                                            onChange={() => {}}
+                                            onChangeString={str => setNewCurrencyTranche({...newCurrencyTranche, currencyFeeStr: str})} 
                                             placeholder="اختیاری..."
                                         />
                                     </div>
@@ -1932,10 +1964,28 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-gray-700">کارگزار</label><input className="w-full border rounded p-2 text-sm" value={newCurrencyTranche.brokerName} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, brokerName: e.target.value})} /></div>
                                     <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ خرید</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newCurrencyTranche.date} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, date: e.target.value})} /></div>
                                     {/* Added Return Fields */}
-                                    <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-red-700">مبلغ عودت (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newCurrencyTranche.returnAmount)} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, returnAmount: e.target.value})} placeholder="اختیاری" /></div>
+                                    <div className="col-span-1 space-y-1">
+                                        <label className="text-xs font-bold text-red-700">مبلغ عودت (ریال)</label>
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr text-red-700" 
+                                            value={newCurrencyTranche.returnAmount} 
+                                            onChange={() => {}}
+                                            onChangeString={str => setNewCurrencyTranche({...newCurrencyTranche, returnAmount: str})} 
+                                            placeholder="اختیاری" 
+                                        />
+                                    </div>
                                     <div className="col-span-2 space-y-1"><label className="text-xs font-bold text-red-700">تاریخ عودت</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={newCurrencyTranche.returnDate || ''} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, returnDate: e.target.value})} placeholder="1403/..." /></div>
                                     
-                                    <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-green-700">مقدار تحویلی</label><input className="w-full border rounded p-2 text-sm dir-ltr font-bold text-green-700" value={newCurrencyTranche.receivedAmountStr || ''} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, receivedAmountStr: e.target.value})} placeholder="اختیاری" /></div>
+                                    <div className="col-span-1 space-y-1">
+                                        <label className="text-xs font-bold text-green-700">مقدار تحویلی</label>
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold text-green-700" 
+                                            value={newCurrencyTranche.receivedAmountStr} 
+                                            onChange={() => {}}
+                                            onChangeString={str => setNewCurrencyTranche({...newCurrencyTranche, receivedAmountStr: str})} 
+                                            placeholder="اختیاری" 
+                                        />
+                                    </div>
 
                                     <div className="col-span-2 flex justify-end mt-2 gap-2">
                                         {editingTrancheId && <button onClick={handleCancelEditTranche} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-300">انصراف</button>}
@@ -2149,7 +2199,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end bg-blue-50 p-4 rounded-lg">
                                     <div className="space-y-1 md:col-span-2"><label className="text-xs font-bold text-gray-700">شرکت بازرسی</label><input className="w-full border rounded p-2 text-sm" value={newInspectionCertificate.company} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, company: e.target.value})} /></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره گواهی</label><input className="w-full border rounded p-2 text-sm" value={newInspectionCertificate.certificateNumber} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, certificateNumber: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">هزینه بازرسی (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newInspectionCertificate.amount)} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">هزینه بازرسی (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newInspectionCertificate.amount} onChange={val => setNewInspectionCertificate({...newInspectionCertificate, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / توضیحات</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionCertificate.part} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, part: e.target.value})} /><button onClick={handleAddInspectionCertificate} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"><Plus size={16}/></button></div></div>
                                 </div>
                                 <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">شرکت</th><th className="p-3">شماره گواهی</th><th className="p-3">هزینه</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.certificates?.map(c => (<tr key={c.id} className="border-b hover:bg-gray-50"><td className="p-3">{c.company}</td><td className="p-3 font-mono">{c.certificateNumber}</td><td className="p-3 font-mono">{formatCurrency(c.amount)}</td><td className="p-3">{c.part}</td><td className="p-3"><button onClick={()=>handleDeleteInspectionCertificate(c.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody><tfoot className="bg-blue-50 font-bold"><tr><td colSpan={2} className="p-3 text-center">جمع کل هزینه‌های بازرسی</td><td className="p-3 font-mono text-blue-700">{formatCurrency(inspectionForm.certificates?.reduce((acc, c) => acc + c.amount, 0) || 0)}</td><td colSpan={2}></td></tr></tfoot></table></div>
@@ -2158,7 +2211,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-gray-800">پرداخت‌های بازرسی</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end bg-gray-50 p-4 rounded-lg">
                                     <div className="space-y-1 md:col-span-2"><label className="text-xs font-bold text-gray-700">بانک پرداخت کننده</label><select className="w-full border rounded p-2 text-sm" value={newInspectionPayment.bank} onChange={e => setNewInspectionPayment({...newInspectionPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newInspectionPayment.amount)} onChange={e => setNewInspectionPayment({...newInspectionPayment, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newInspectionPayment.amount} onChange={val => setNewInspectionPayment({...newInspectionPayment, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/xx/xx" value={newInspectionPayment.date} onChange={e => setNewInspectionPayment({...newInspectionPayment, date: e.target.value})} /></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionPayment.part} onChange={e => setNewInspectionPayment({...newInspectionPayment, part: e.target.value})} /><button onClick={handleAddInspectionPayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700"><Plus size={16}/></button></div></div>
                                 </div>
@@ -2195,7 +2251,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-gray-800">هزینه‌های ترخیصیه ( کشتیرانی / ایجنت )</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end bg-gray-50 p-4 rounded-lg">
                                     <div className="space-y-1 md:col-span-2"><label className="text-xs font-bold text-gray-700">بانک پرداخت کننده</label><select className="w-full border rounded p-2 text-sm" value={newClearancePayment.bank} onChange={e => setNewClearancePayment({...newClearancePayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newClearancePayment.amount)} onChange={e => setNewClearancePayment({...newClearancePayment, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newClearancePayment.amount} onChange={val => setNewClearancePayment({...newClearancePayment, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={newClearancePayment.date} onChange={e => setNewClearancePayment({...newClearancePayment, date: e.target.value})} /></div>
                                     <button onClick={handleAddClearancePayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
@@ -2211,7 +2270,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-gray-800 flex items-center gap-2"><Leaf size={20} className="text-green-600"/> اظهارنامه و کوتاژ (حقوق ورودی)</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end bg-green-50 p-4 rounded-lg">
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره کوتاژ</label><input className="w-full border rounded p-2 text-sm" value={newCustomsDuty.cottageNumber} onChange={e => setNewCustomsDuty({...newCustomsDuty, cottageNumber: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">مبلغ کل (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newCustomsDuty.amount)} onChange={e => setNewCustomsDuty({...newCustomsDuty, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">مبلغ کل (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newCustomsDuty.amount} onChange={val => setNewCustomsDuty({...newCustomsDuty, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">روش پرداخت</label><select className="w-full border rounded p-2 text-sm" value={newCustomsDuty.paymentMethod} onChange={e => setNewCustomsDuty({...newCustomsDuty, paymentMethod: e.target.value as 'Bank' | 'Guarantee'})}><option value="Bank">نقدی (بانک)</option><option value="Guarantee">ضمانت‌نامه</option></select></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><input className="w-full border rounded p-2 text-sm" value={newCustomsDuty.part} onChange={e => setNewCustomsDuty({...newCustomsDuty, part: e.target.value})} /></div>
                                     <button onClick={handleAddCustomsDuty} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
@@ -2244,11 +2306,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-bold text-gray-700">مبلغ ضمانت‌نامه (ریال)</label>
-                                            <input 
-                                                className="w-full border rounded p-2 text-sm dir-ltr" 
-                                                value={formatNumberString(newGuaranteeDetails.guaranteeAmount)} 
-                                                onChange={e => {
-                                                    const val = deformatNumberString(e.target.value);
+                                            <FormattedNumberInput 
+                                                className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" 
+                                                value={newGuaranteeDetails.guaranteeAmount} 
+                                                onChange={val => {
                                                     setNewGuaranteeDetails({...newGuaranteeDetails, guaranteeAmount: val, chequeAmount: newGuaranteeDetails.guaranteeType === 'credit' ? 0 : val});
                                                 }} 
                                                 placeholder="وارد کنید..."
@@ -2256,19 +2317,19 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-bold text-purple-700">بخش نقدی کوتاژ (به گمرک)</label>
-                                            <input 
-                                                className="w-full border rounded p-2 text-sm dir-ltr bg-purple-50 border-purple-200" 
-                                                value={formatNumberString(newGuaranteeDetails.dutyCashAmount)} 
-                                                onChange={e => setNewGuaranteeDetails({...newGuaranteeDetails, dutyCashAmount: deformatNumberString(e.target.value)})} 
+                                            <FormattedNumberInput 
+                                                className="w-full border rounded p-2 text-sm dir-ltr bg-purple-50 border-purple-200 font-bold" 
+                                                value={newGuaranteeDetails.dutyCashAmount} 
+                                                onChange={val => setNewGuaranteeDetails({...newGuaranteeDetails, dutyCashAmount: val})} 
                                                 placeholder="پرداخت نقدی کوتاژ..."
                                             />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-xs font-bold text-green-700">سپرده نقدی ضمانت‌نامه (به بانک)</label>
-                                            <input 
-                                                className="w-full border rounded p-2 text-sm dir-ltr bg-green-50 border-green-200" 
-                                                value={formatNumberString(newGuaranteeDetails.cashAmount)} 
-                                                onChange={e => setNewGuaranteeDetails({...newGuaranteeDetails, cashAmount: deformatNumberString(e.target.value)})} 
+                                            <FormattedNumberInput 
+                                                className="w-full border rounded p-2 text-sm dir-ltr bg-green-50 border-green-200 font-bold" 
+                                                value={newGuaranteeDetails.cashAmount} 
+                                                onChange={val => setNewGuaranteeDetails({...newGuaranteeDetails, cashAmount: val})} 
                                                 placeholder="سپرده نقدی به بانک..."
                                             />
                                             <span className="text-[9px] text-gray-500 block leading-tight mt-1">جزئی از خود ضمانت‌نامه است و هزینه مجزا محاسبه نمی‌شود.</span>
@@ -2335,12 +2396,18 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
                                     <h3 className="font-bold text-gray-800">مالیات بر ارزش افزوده</h3>
-                                    <div className="flex gap-2 items-end"><input className="flex-1 border rounded p-2 text-sm dir-ltr" placeholder="مبلغ (ریال)" value={formatNumberString(newTax.amount)} onChange={e => setNewTax({...newTax, amount: deformatNumberString(e.target.value)})} /><button onClick={handleAddTax} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"><Plus size={16}/></button></div>
+                                    <div className="flex gap-2 items-end">
+                                        <FormattedNumberInput className="flex-1 border rounded p-2 text-sm dir-ltr font-bold text-gray-800" placeholder="مبلغ (ریال)" value={newTax.amount} onChange={val => setNewTax({...newTax, amount: val})} />
+                                        <button onClick={handleAddTax} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
+                                    </div>
                                     <div className="space-y-1">{greenLeafForm.taxes?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button onClick={()=>handleDeleteTax(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
                                 </div>
                                 <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
                                     <h3 className="font-bold text-gray-800">عوارض راهداری / هلال احمر</h3>
-                                    <div className="flex gap-2 items-end"><input className="flex-1 border rounded p-2 text-sm dir-ltr" placeholder="مبلغ (ریال)" value={formatNumberString(newRoadToll.amount)} onChange={e => setNewRoadToll({...newRoadToll, amount: deformatNumberString(e.target.value)})} /><button onClick={handleAddRoadToll} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"><Plus size={16}/></button></div>
+                                    <div className="flex gap-2 items-end">
+                                        <FormattedNumberInput className="flex-1 border rounded p-2 text-sm dir-ltr font-bold text-gray-800" placeholder="مبلغ (ریال)" value={newRoadToll.amount} onChange={val => setNewRoadToll({...newRoadToll, amount: val})} />
+                                        <button onClick={handleAddRoadToll} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
+                                    </div>
                                     <div className="space-y-1">{greenLeafForm.roadTolls?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button onClick={()=>handleDeleteRoadToll(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
                                 </div>
                             </div>
@@ -2354,7 +2421,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-gray-800 flex items-center gap-2"><Truck size={20} className="text-indigo-600"/> هزینه‌های حمل داخلی</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-indigo-50 p-4 rounded-lg">
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شرح / پارت</label><input className="w-full border rounded p-2 text-sm" placeholder="مثال: کرایه حمل تا انبار" value={newShippingPayment.part} onChange={e => setNewShippingPayment({...newShippingPayment, part: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newShippingPayment.amount)} onChange={e => setNewShippingPayment({...newShippingPayment, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newShippingPayment.amount} onChange={val => setNewShippingPayment({...newShippingPayment, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newShippingPayment.date} onChange={e => setNewShippingPayment({...newShippingPayment, date: e.target.value})} /></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newShippingPayment.bank} onChange={e => setNewShippingPayment({...newShippingPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-4 space-y-1"><label className="text-xs font-bold text-gray-700">توضیحات تکمیلی</label><input className="w-full border rounded p-2 text-sm" placeholder="توضیحات..." value={newShippingPayment.description} onChange={e => setNewShippingPayment({...newShippingPayment, description: e.target.value})} /></div>
@@ -2390,11 +2460,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     {activeTab === 'agent_fees' && (
                         <div className="p-6 max-w-5xl mx-auto space-y-6">
                             <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
-                                <h3 className="font-bold text-gray-800 flex items-center gap-2"><UserCheck size={20} className="text-teal-600"/> هزینه‌های ترخیص (کارمزد ترخیص‌کار)</h3>
+                                <h3 className="font-bold text-gray-800 flex items-center gap-2"><UserCheck size={20} className="text-teal-600"/> هزینه‌های ترخیص</h3>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-teal-50 p-4 rounded-lg">
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">نام ترخیص‌کار</label><input className="w-full border rounded p-2 text-sm" placeholder="نام شخص یا شرکت" value={newAgentPayment.agentName} onChange={e => setNewAgentPayment({...newAgentPayment,agentName: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">مبلغ ترخیص (ریال)</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={formatNumberString(newAgentPayment.amount)} onChange={e => setNewAgentPayment({...newAgentPayment, amount: deformatNumberString(e.target.value)})} /></div>
+                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">محل هزینه یا نام هزینه</label><input className="w-full border rounded p-2 text-sm" placeholder="مثال: آزمایشگاه، ترخیص‌کار، انبارداری" value={newAgentPayment.agentName} onChange={e => setNewAgentPayment({...newAgentPayment,agentName: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">مبلغ هزینه (ریال)</label>
+                                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newAgentPayment.amount} onChange={val => setNewAgentPayment({...newAgentPayment, amount: val})} />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newAgentPayment.date} onChange={e => setNewAgentPayment({...newAgentPayment, date: e.target.value})} /></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newAgentPayment.bank} onChange={e => setNewAgentPayment({...newAgentPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-gray-700">پارت / مرحله</label><input className="w-full border rounded p-2 text-sm" placeholder="مثال: پیش پرداخت" value={newAgentPayment.part} onChange={e => setNewAgentPayment({...newAgentPayment, part: e.target.value})} /></div>
@@ -2404,7 +2477,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm text-right">
-                                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">ترخیص‌کار</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">بانک</th><th className="p-3">تاریخ</th><th className="p-3">پارت</th><th className="p-3">توضیحات</th><th className="p-3">حذف</th></tr></thead>
+                                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">محل هزینه یا نام هزینه</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">بانک</th><th className="p-3">تاریخ</th><th className="p-3">پارت</th><th className="p-3">توضیحات</th><th className="p-3">حذف</th></tr></thead>
                                         <tbody>
                                             {agentForm.payments?.map((p) => (
                                                 <tr key={p.id} className="border-b hover:bg-gray-50">
@@ -2653,6 +2726,54 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         </div>
                     )}
                 </div>
+
+                {/* Standard Documents Quick Display Panel */}
+                <div className="bg-slate-50 border-t border-slate-200 p-6" data-html2canvas-ignore>
+                    <div className="max-w-5xl mx-auto">
+                        <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 mb-4">
+                            <FileText size={18} className="text-slate-600" />
+                            اسناد و فرم‌های استاندارد پرونده (نمایش سریع)
+                        </h4>
+                        <div className="flex flex-wrap gap-3">
+                            {/* Proforma View */}
+                            <button 
+                                onClick={() => setShowProformaPrint(true)}
+                                className="flex items-center gap-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-bold border border-blue-200 transition-all active:scale-95"
+                            >
+                                <Printer size={14} />
+                                مشاهده پروفرما استاندارد
+                            </button>
+
+                            {/* Clearance view */}
+                            <button 
+                                onClick={() => setShowClearancePrint(true)}
+                                className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold border border-emerald-200 transition-all active:scale-95"
+                            >
+                                <Printer size={14} />
+                                مشاهده اعلامیه ورود و ترخیصیه
+                            </button>
+
+                            {/* Registered Shipping Documents */}
+                            {selectedRecord.shippingDocuments && selectedRecord.shippingDocuments.length > 0 ? (
+                                selectedRecord.shippingDocuments.map(doc => (
+                                    <button 
+                                        key={doc.id}
+                                        onClick={() => setSelectedShippingDocForPrint(doc)}
+                                        className="flex items-center gap-2 text-xs bg-orange-50 text-orange-700 hover:bg-orange-100 px-4 py-2.5 rounded-xl font-bold border border-orange-200 transition-all active:scale-95"
+                                    >
+                                        <Printer size={14} />
+                                        سند حمل استاندارد ({doc.documentNumber})
+                                    </button>
+                                ))
+                            ) : (
+                                <span className="text-[11px] text-gray-400 flex items-center bg-gray-100 px-3 py-2 rounded-xl">
+                                    هنوز هیچ سند حملی ثبت نشده است.
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
             {renderTrancheDeliveriesModal()}
             </div>
         );
