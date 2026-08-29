@@ -8,7 +8,7 @@ import { Share, PlusSquare, X, Bell } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { getSettings } from '../services/storageService';
 import { getRolePermissions } from '../services/authService';
-import { markNotificationAsShown, hasNotificationBeenShown } from '../services/notificationService';
+import { markNotificationAsShown, hasNotificationBeenShown, syncServiceWorkerAuth } from '../services/notificationService';
 
 interface Props {
     currentUser?: User | null;
@@ -38,7 +38,13 @@ const NotificationController: React.FC<Props> = ({ currentUser, onNotificationCl
   }
 
   useEffect(() => {
-    if (!currentUser) return; 
+    if (!currentUser) {
+        syncServiceWorkerAuth(null).catch(() => {});
+        return;
+    }
+
+    // Sync active logged-in user with Service Worker cache
+    syncServiceWorkerAuth(currentUser).catch(() => {});
 
     const registerOrUpdateSubscription = async () => {
         try {

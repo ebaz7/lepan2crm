@@ -355,6 +355,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const [destination, setDestination] = useState('');
     const [nextBijakNum, setNextBijakNum] = useState<number>(0);
     const [loadingBijakNum, setLoadingBijakNum] = useState(false);
+    const [isSubmittingTx, setIsSubmittingTx] = useState(false);
     
     // View/Edit State
     const [viewBijak, setViewBijak] = useState<WarehouseTransaction | null>(null);
@@ -904,9 +905,11 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const updateTxItem = (idx: number, field: keyof WarehouseTransactionItem, val: any) => { const newItems = [...txItems]; newItems[idx] = { ...newItems[idx], [field]: val }; if(field === 'itemId') { const item = items.find(i => i.id === val); if(item) newItems[idx].itemName = item.name; } setTxItems(newItems); };
 
     const handleSubmitTx = async (type: 'IN' | 'OUT') => {
+        if (isSubmittingTx) return;
         if(!selectedCompany) { alert('شرکت را انتخاب کنید'); return; }
         if(txItems.some(i => !i.itemId || !i.quantity)) { alert('اقلام را کامل کنید'); return; }
 
+        setIsSubmittingTx(true);
         const validItems = txItems.map(i => ({ itemId: i.itemId!, itemName: i.itemName!, quantity: Number(i.quantity), weight: Number(i.weight), unitPrice: Number(i.unitPrice)||0 }));
         const tx: WarehouseTransaction = { 
             id: generateUUID(), 
@@ -938,7 +941,10 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
             }
             setTxItems([{ itemId: '', quantity: 0, weight: 0, unitPrice: 0 }]);
         } catch (e: any) {
-            alert('خطا در ثبت اطلاعات.');
+            console.error("Error saving warehouse transaction:", e);
+            alert(e.message || 'خطا در ثبت اطلاعات.');
+        } finally {
+            setIsSubmittingTx(false);
         }
     };
 

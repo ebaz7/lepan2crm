@@ -215,6 +215,7 @@ const CreateExitPermit: React.FC<{ onSuccess: () => void, currentUser: User }> =
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
         if (!selectedCompany) return alert('لطفا شرکت صادرکننده را انتخاب کنید');
         if (!permitNumber) return alert('شماره حواله الزامی است');
         if (items.some(i => !i.goodsName)) return alert('نام کالا الزامی است');

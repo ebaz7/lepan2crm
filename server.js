@@ -4771,6 +4771,14 @@ const subscribeHandler = (req, res) => {
             return res.status(400).json({ error: 'Endpoint or token is required' });
         }
         
+        const username = body.username ? String(body.username).trim() : null;
+        if (!username) {
+            // CRITICAL: Unauthenticated / logged out clients must NEVER hold push subscriptions
+            db.subscriptions = db.subscriptions.filter(s => s.endpoint !== endpoint && (!s.subscription || s.subscription.endpoint !== endpoint));
+            saveDb(db);
+            return res.json({ success: true, message: 'Unauthenticated push registration purged' });
+        }
+        
         const existingIdx = db.subscriptions.findIndex(s => s.endpoint === endpoint || (s.subscription && s.subscription.endpoint === endpoint));
         
         const subObject = body.subscription || (body.endpoint && body.keys ? { endpoint: body.endpoint, keys: body.keys } : null);
@@ -4778,7 +4786,7 @@ const subscribeHandler = (req, res) => {
         const record = {
             endpoint: endpoint,
             subscription: subObject,
-            username: body.username || null,
+            username: username,
             role: body.role || null,
             deviceType: body.deviceType || body.type || 'web',
             token: body.token || null,
@@ -4790,6 +4798,9 @@ const subscribeHandler = (req, res) => {
         } else {
             db.subscriptions.push(record);
         }
+
+        // Clean up any old invalid subscriptions with no username
+        db.subscriptions = db.subscriptions.filter(s => Boolean(s.username));
         
         saveDb(db);
         res.json({ success: true, subscriptionsCount: db.subscriptions.length });
@@ -4807,13 +4818,22 @@ const unsubscribeHandler = (req, res) => {
         if (!db.subscriptions) db.subscriptions = [];
         const { endpoint, username } = req.body || {};
         
+        const beforeCount = db.subscriptions.length;
+        
         if (endpoint) {
+            // Remove any subscription matching this device endpoint
             db.subscriptions = db.subscriptions.filter(s => s.endpoint !== endpoint && (!s.subscription || s.subscription.endpoint !== endpoint));
         } else if (username) {
-            db.subscriptions = db.subscriptions.filter(s => s.username !== username);
+            // Remove subscriptions for this username
+            db.subscriptions = db.subscriptions.filter(s => s.username && s.username.toLowerCase() !== String(username).toLowerCase());
         }
+
+        // Always purge empty/anonymous subscriptions
+        db.subscriptions = db.subscriptions.filter(s => Boolean(s.username));
+
         saveDb(db);
-        res.json({ success: true });
+        console.log(`[Unsubscribe] Purged ${beforeCount - db.subscriptions.length} subscriptions. Active count: ${db.subscriptions.length}`);
+        res.json({ success: true, remaining: db.subscriptions.length });
     } catch (e) {
         console.error("Unsubscribe endpoint error:", e);
         res.status(500).json({ error: "Failed to unsubscribe" });
@@ -4916,8 +4936,13 @@ export async function broadcastNotification(title, body, url = null, targetRoles
                 const subUsername = sub.username ? String(sub.username).toLowerCase() : null;
                 const subRole = sub.role ? String(sub.role).toLowerCase() : null;
 
+                // CRITICAL: Subscriptions without an authenticated username must NEVER receive push notifications!
+                if (!subUsername) {
+                    return;
+                }
+
                 // 1. Excluded User Guard: Never send to the actor/sender
-                if (subUsername && lowerExcludes.includes(subUsername)) {
+                if (lowerExcludes.includes(subUsername)) {
                     return;
                 }
 
@@ -6015,6 +6040,21 @@ app.post('/api/warehouse/transactions', async (req, res) => {
         const item = req.body;
         if (!item.createdAt) item.createdAt = Date.now();
 
+        // Check for duplicate OUT transaction (Bijak) number + company + fiscalYearId
+        const activeFiscalYearId = item.fiscalYearId || db.settings?.activeFiscalYearId;
+        if (item.type === 'OUT' && item.number && item.number > 0 && item.company) {
+            const isDuplicate = db.warehouseTransactions.some(x => 
+                x.id !== item.id && 
+                x.type === 'OUT' &&
+                x.company === item.company && 
+                Number(x.number) === Number(item.number) && 
+                (x.fiscalYearId || db.settings?.activeFiscalYearId) === activeFiscalYearId
+            );
+            if (isDuplicate) {
+                return res.status(409).json({ error: `شماره بیجک خروج ${item.number} برای شرکت "${item.company}" قبلاً ثبت شده است.` });
+            }
+        }
+
         const existingIdx = db.warehouseTransactions.findIndex(x => x.id === item.id);
         const isEdit = existingIdx > -1;
 
@@ -6059,6 +6099,25 @@ app.put('/api/warehouse/transactions/:id', async (req, res) => {
     try {
         const db = getDb();
         if (!db.warehouseTransactions) db.warehouseTransactions = [];
+
+        // Check for duplicate OUT transaction (Bijak) number + company + fiscalYearId if updated
+        const number = req.body.number;
+        const type = req.body.type;
+        const company = req.body.company;
+        if (type === 'OUT' && number && number > 0 && company) {
+            const activeFiscalYearId = req.body.fiscalYearId || db.settings?.activeFiscalYearId;
+            const isDuplicate = db.warehouseTransactions.some(x => 
+                x.id !== req.params.id && 
+                x.type === 'OUT' &&
+                x.company === company && 
+                Number(x.number) === Number(number) && 
+                (x.fiscalYearId || db.settings?.activeFiscalYearId) === activeFiscalYearId
+            );
+            if (isDuplicate) {
+                return res.status(409).json({ error: `شماره بیجک خروج ${number} برای شرکت "${company}" قبلاً ثبت شده است.` });
+            }
+        }
+
         const idx = db.warehouseTransactions.findIndex(x => x.id === req.params.id);
         const isEdit = req.body.isEdit || false;
         let updatedItem;
@@ -6392,6 +6451,21 @@ app.post('/api/exit-permits', async (req, res) => {
         if (!item.createdAt) {
             item.createdAt = Date.now();
         }
+
+        // Check for duplicate permitNumber + company + fiscalYearId
+        const activeFiscalYearId = item.fiscalYearId || db.settings?.activeFiscalYearId;
+        if (item.permitNumber && item.company) {
+            const isDuplicate = db.exitPermits.some(x => 
+                x.id !== item.id && 
+                x.company === item.company && 
+                Number(x.permitNumber) === Number(item.permitNumber) && 
+                (x.fiscalYearId || db.settings?.activeFiscalYearId) === activeFiscalYearId
+            );
+            if (isDuplicate) {
+                return res.status(409).json({ error: `شماره مجوز خروج ${item.permitNumber} برای شرکت "${item.company}" قبلاً ثبت شده است.` });
+            }
+        }
+
         const existingIdx = db.exitPermits.findIndex(x => x.id === item.id);
         const isEdit = existingIdx > -1;
         
@@ -6435,6 +6509,23 @@ app.put('/api/exit-permits/:id', async (req, res) => {
     try {
         const db = getDb();
         if (!db.exitPermits) db.exitPermits = [];
+
+        // Check for duplicate permitNumber + company + fiscalYearId if being updated
+        const permitNumber = req.body.permitNumber;
+        const company = req.body.company;
+        if (permitNumber && company) {
+            const activeFiscalYearId = req.body.fiscalYearId || db.settings?.activeFiscalYearId;
+            const isDuplicate = db.exitPermits.some(x => 
+                x.id !== req.params.id && 
+                x.company === company && 
+                Number(x.permitNumber) === Number(permitNumber) && 
+                (x.fiscalYearId || db.settings?.activeFiscalYearId) === activeFiscalYearId
+            );
+            if (isDuplicate) {
+                return res.status(409).json({ error: `شماره مجوز خروج ${permitNumber} برای شرکت "${company}" قبلاً ثبت شده است.` });
+            }
+        }
+
         const idx = db.exitPermits.findIndex(x => x.id === req.params.id);
         const isEdit = req.body.isEdit || false;
         let updatedItem;

@@ -233,6 +233,7 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (items.some(i => !i.goodsName)) { 
       alert('لطفا نام کالا را برای تمام ردیف‌ها وارد کنید.'); 
       return; 

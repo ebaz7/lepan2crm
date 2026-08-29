@@ -5,7 +5,7 @@ import { User, TradeRecord, TradeStage, TradeItem, SystemSettings, InsuranceEndo
 import { getTradeRecords, saveTradeRecord, updateTradeRecord, deleteTradeRecord, getSettings, uploadFile } from '../services/storageService';
 import { generateUUID, formatCurrency, formatNumberString, deformatNumberString, parsePersianDate, formatDate, calculateDaysDiff, getStatusLabel } from '../constants';
 import FormattedNumberInput from './FormattedNumberInput';
-import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2 } from 'lucide-react';
+import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2 } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
 import AllocationReport from './AllocationReport';
@@ -165,6 +165,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const [showClearancePrint, setShowClearancePrint] = useState(false);
     const [showProformaPrint, setShowProformaPrint] = useState(false);
     const [selectedShippingDocForPrint, setSelectedShippingDocForPrint] = useState<ShippingDocument | null>(null);
+    const [showQuickDocsPanel, setShowQuickDocsPanel] = useState(false);
     const [sharePlatform, setSharePlatform] = useState<'whatsapp' | 'bale' | 'telegram' | null>(null);
     const [contactSearch, setContactSearch] = useState('');
     const [allContacts, setAllContacts] = useState<any[]>([]);
@@ -2728,49 +2729,64 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 </div>
 
                 {/* Standard Documents Quick Display Panel */}
-                <div className="bg-slate-50 border-t border-slate-200 p-6" data-html2canvas-ignore>
-                    <div className="max-w-5xl mx-auto">
-                        <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 mb-4">
-                            <FileText size={18} className="text-slate-600" />
-                            اسناد و فرم‌های استاندارد پرونده (نمایش سریع)
-                        </h4>
-                        <div className="flex flex-wrap gap-3">
-                            {/* Proforma View */}
-                            <button 
-                                onClick={() => setShowProformaPrint(true)}
-                                className="flex items-center gap-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-bold border border-blue-200 transition-all active:scale-95"
-                            >
-                                <Printer size={14} />
-                                مشاهده پروفرما استاندارد
-                            </button>
-
-                            {/* Clearance view */}
-                            <button 
-                                onClick={() => setShowClearancePrint(true)}
-                                className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold border border-emerald-200 transition-all active:scale-95"
-                            >
-                                <Printer size={14} />
-                                مشاهده اعلامیه ورود و ترخیصیه
-                            </button>
-
-                            {/* Registered Shipping Documents */}
-                            {selectedRecord.shippingDocuments && selectedRecord.shippingDocuments.length > 0 ? (
-                                selectedRecord.shippingDocuments.map(doc => (
-                                    <button 
-                                        key={doc.id}
-                                        onClick={() => setSelectedShippingDocForPrint(doc)}
-                                        className="flex items-center gap-2 text-xs bg-orange-50 text-orange-700 hover:bg-orange-100 px-4 py-2.5 rounded-xl font-bold border border-orange-200 transition-all active:scale-95"
-                                    >
-                                        <Printer size={14} />
-                                        سند حمل استاندارد ({doc.documentNumber})
-                                    </button>
-                                ))
-                            ) : (
-                                <span className="text-[11px] text-gray-400 flex items-center bg-gray-100 px-3 py-2 rounded-xl">
-                                    هنوز هیچ سند حملی ثبت نشده است.
+                <div className="bg-slate-50 border-t border-slate-200" data-html2canvas-ignore>
+                    <div className="max-w-5xl mx-auto px-6 py-4">
+                        <button 
+                            onClick={() => setShowQuickDocsPanel(!showQuickDocsPanel)}
+                            className="w-full flex items-center justify-between text-slate-800 hover:text-blue-700 transition-colors focus:outline-none"
+                        >
+                            <div className="flex items-center gap-2">
+                                <FileText size={18} className="text-slate-600" />
+                                <span className="text-sm font-black">اسناد و فرم‌های استاندارد پرونده (نمایش سریع)</span>
+                                <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    {2 + (selectedRecord.shippingDocuments?.length || 0)} سند
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+                                <span>{showQuickDocsPanel ? 'بستن منو' : 'مشاهده اسناد'}</span>
+                                {showQuickDocsPanel ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </div>
+                        </button>
+
+                        {showQuickDocsPanel && (
+                            <div className="mt-4 pt-4 border-t border-slate-200/60 flex flex-wrap gap-3 animate-fade-in">
+                                {/* Proforma View */}
+                                <button 
+                                    onClick={() => setShowProformaPrint(true)}
+                                    className="flex items-center gap-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-bold border border-blue-200 transition-all active:scale-95"
+                                >
+                                    <Printer size={14} />
+                                    مشاهده پروفرما استاندارد
+                                </button>
+
+                                {/* Clearance view */}
+                                <button 
+                                    onClick={() => setShowClearancePrint(true)}
+                                    className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold border border-emerald-200 transition-all active:scale-95"
+                                >
+                                    <Printer size={14} />
+                                    مشاهده اعلامیه ورود و ترخیصیه
+                                </button>
+
+                                {/* Registered Shipping Documents */}
+                                {selectedRecord.shippingDocuments && selectedRecord.shippingDocuments.length > 0 ? (
+                                    selectedRecord.shippingDocuments.map(doc => (
+                                        <button 
+                                            key={doc.id}
+                                            onClick={() => setSelectedShippingDocForPrint(doc)}
+                                            className="flex items-center gap-2 text-xs bg-orange-50 text-orange-700 hover:bg-orange-100 px-4 py-2.5 rounded-xl font-bold border border-orange-200 transition-all active:scale-95"
+                                        >
+                                            <Printer size={14} />
+                                            سند حمل استاندارد ({doc.documentNumber})
+                                        </button>
+                                    ))
+                                ) : (
+                                    <span className="text-[11px] text-gray-400 flex items-center bg-gray-100 px-3 py-2 rounded-xl">
+                                        هنوز هیچ سند حملی ثبت نشده است.
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 

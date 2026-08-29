@@ -89,6 +89,31 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   }
 };
 
+export const syncServiceWorkerAuth = async (user: any | null) => {
+    try {
+        if ('caches' in window) {
+            const cache = await caches.open('auth-session-v1');
+            await cache.put(
+                new Request('/auth-status'),
+                new Response(JSON.stringify({
+                    isLoggedIn: !!user,
+                    username: user?.username || null,
+                    role: user?.role || null,
+                    updatedAt: Date.now()
+                }), { headers: { 'Content-Type': 'application/json' } })
+            );
+        }
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: user ? 'LOGIN' : 'LOGOUT',
+                username: user?.username || null
+            });
+        }
+    } catch (e) {
+        console.error('Failed to sync SW auth state:', e);
+    }
+};
+
 export const clearAllActiveNotifications = async () => {
     if (Capacitor.isNativePlatform()) {
         try {
@@ -114,8 +139,84 @@ export const clearAllActiveNotifications = async () => {
     }
 };
 
+export const unsubscribeFromPushNotifications = async (user?: any | null, passedEndpoint?: string | null) => {
+    try {
+        let endpoint = passedEndpoint || localStorage.getItem('push_endpoint') || '';
+
+        // 1. Unsubscribe the browser push manager instance
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.pushManager) {
+                    const sub = await reg.pushManager.getSubscription();
+                    if (sub) {
+                        if (!endpoint) endpoint = sub.endpoint;
+                        await sub.unsubscribe();
+                        console.log('[Push] Browser PushManager unsubscribed successfully.');
+                    }
+                }
+            } catch (swErr) {
+                console.warn('[Push] Error unsubscribing browser push manager:', swErr);
+            }
+        }
+
+        // 2. Clear all visible notifications from notification tray
+        await clearAllActiveNotifications();
+
+        // 3. Mark Service Worker as logged out so incoming push events are dropped immediately
+        await syncServiceWorkerAuth(null);
+
+        // 4. Capacitor native cleanup
+        if (Capacitor.isNativePlatform()) {
+            try {
+                await PushNotifications.removeAllListeners();
+                await PushNotifications.removeAllDeliveredNotifications();
+                await LocalNotifications.removeAllDeliveredNotifications();
+                if (typeof PushNotifications.unregister === 'function') {
+                    await PushNotifications.unregister();
+                }
+            } catch (capErr) {
+                console.warn('[Push] Capacitor push cleanup error:', capErr);
+            }
+        }
+
+        // 5. Notify server to purge subscription records from database
+        const payload = {
+            endpoint: endpoint || undefined,
+            username: user?.username || undefined
+        };
+
+        if (endpoint || user?.username) {
+            const jsonPayload = JSON.stringify(payload);
+            let beaconSent = false;
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                try {
+                    const blob = new Blob([jsonPayload], { type: 'application/json' });
+                    beaconSent = navigator.sendBeacon('/api/unsubscribe', blob);
+                } catch (e) {}
+            }
+
+            if (!beaconSent) {
+                await fetch('/api/unsubscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: jsonPayload,
+                    keepalive: true
+                }).catch(err => {
+                    console.warn('[Push] Fetch unsubscribe fallback error:', err);
+                });
+            }
+        }
+    } catch (e) {
+        console.error('[Push] unsubscribeFromPushNotifications failed:', e);
+    } finally {
+        localStorage.removeItem('push_endpoint');
+    }
+};
+
 export const setupNativePushNotifications = async (username: string, role: string) => {
     if (!Capacitor.isNativePlatform()) return;
+    if (!username) return;
     try {
         // Clear old listeners first to protect against multiple callbacks
         await PushNotifications.removeAllListeners();
@@ -197,6 +298,14 @@ export const subscribeToPushNotifications = async () => {
         return;
     }
 
+    // CRITICAL: Only allow subscribing if there is an authenticated user!
+    const userStr = localStorage.getItem('app_current_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (!user || !user.username) {
+        console.log('[Push] Aborted push subscription: No user is currently logged in.');
+        return;
+    }
+
     try {
         // 1. Get VAPID Key from Server
         const { publicKey } = await apiCall<{publicKey: string}>('/vapid-key');
@@ -214,15 +323,11 @@ export const subscribeToPushNotifications = async () => {
         });
 
         // 4. Send Subscription to Server
-        // We also send user info to allow targeting
-        const userStr = localStorage.getItem('app_current_user');
-        const user = userStr ? JSON.parse(userStr) : null;
-
         const subData = subscription.toJSON();
         await apiCall('/subscribe', 'POST', {
             ...subData,
-            username: user?.username,
-            role: user?.role,
+            username: user.username,
+            role: user.role,
             type: 'web'
         });
 
@@ -230,7 +335,10 @@ export const subscribeToPushNotifications = async () => {
             localStorage.setItem('push_endpoint', subscription.endpoint);
         }
 
-        console.log("✅ Web Push Subscribed Successfully");
+        // 5. Inform Service Worker of logged-in status
+        await syncServiceWorkerAuth(user);
+
+        console.log("✅ Web Push Subscribed Successfully for user:", user.username);
     } catch (e) {
         console.error("Failed to subscribe to push:", e);
     }

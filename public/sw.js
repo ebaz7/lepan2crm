@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finance-app-v6';
+const CACHE_NAME = 'finance-app-v7';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -15,8 +15,47 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (!event.data) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  if (event.data.type === 'LOGOUT') {
+    // 1. Immediately close all active notifications
+    self.registration.getNotifications().then((notifications) => {
+      notifications.forEach((n) => n.close());
+    }).catch(() => {});
+
+    // 2. Unsubscribe push manager to stop all incoming push streams
+    self.registration.pushManager.getSubscription().then((sub) => {
+      if (sub) {
+        sub.unsubscribe().catch(() => {});
+      }
+    }).catch(() => {});
+
+    // 3. Set auth status cache to logged out
+    caches.open('auth-session-v1').then((cache) => {
+      cache.put(
+        new Request('/auth-status'),
+        new Response(JSON.stringify({ isLoggedIn: false, username: null, loggedOutAt: Date.now() }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      ).catch(() => {});
+    }).catch(() => {});
+  }
+
+  if (event.data.type === 'LOGIN') {
+    // Record logged in status
+    const username = event.data.username || null;
+    caches.open('auth-session-v1').then((cache) => {
+      cache.put(
+        new Request('/auth-status'),
+        new Response(JSON.stringify({ isLoggedIn: true, username: username, loggedInAt: Date.now() }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      ).catch(() => {});
+    }).catch(() => {});
   }
 });
 
@@ -70,7 +109,7 @@ self.addEventListener('activate', (event) => {
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((name) => {
-            if (name !== CACHE_NAME) {
+            if (name !== CACHE_NAME && name !== 'shown-notifications-v1' && name !== 'auth-session-v1') {
               return caches.delete(name);
             }
           })
@@ -94,36 +133,73 @@ async function markAsShownInCache(id) {
   }
 }
 
+// Function to verify if a user is currently authenticated before displaying notification
+async function checkIsUserLoggedIn() {
+  try {
+    const cache = await self.caches.open('auth-session-v1');
+    const authRes = await cache.match('/auth-status');
+    if (authRes) {
+      const authData = await authRes.json();
+      if (authData && authData.isLoggedIn === true && authData.username) {
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to read auth status in SW:', e);
+  }
+  return false;
+}
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
-  
-  try {
-    const data = event.data.json();
-    const options = {
-      body: data.body || 'اعلان جدید',
-      icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
-      badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
-      data: {
-        url: data.url || '/',
-        id: data.id
-      },
-      vibrate: [200, 100, 200],
-      dir: 'rtl',
-      lang: 'fa-IR',
-      tag: data.id || 'payment-msg',
-      renotify: true
-    };
-    
-    const showPromise = self.registration.showNotification(data.title || 'سامانه مالی', options);
-    const savePromise = data.id ? markAsShownInCache(data.id) : Promise.resolve();
-    
-    event.waitUntil(
-      Promise.all([showPromise, savePromise])
-        .catch(err => console.error('Notification tasks error:', err))
-    );
-  } catch (e) {
-    console.error('Push handling error:', e);
-  }
+
+  event.waitUntil(
+    (async () => {
+      try {
+        const isAuth = await checkIsUserLoggedIn();
+        if (!isAuth) {
+          console.warn('[SW Push] User is logged out. Notification suppressed and unsubscribing...');
+          
+          // Security hardening: Automatically unsubscribe this device
+          try {
+            const sub = await self.registration.pushManager.getSubscription();
+            if (sub) {
+              await sub.unsubscribe();
+              fetch('/api/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: sub.endpoint })
+              }).catch(() => {});
+            }
+          } catch (unsubErr) {}
+          return;
+        }
+
+        const data = event.data.json();
+        const options = {
+          body: data.body || 'اعلان جدید',
+          icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
+          badge: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png',
+          data: {
+            url: data.url || '/',
+            id: data.id
+          },
+          vibrate: [200, 100, 200],
+          dir: 'rtl',
+          lang: 'fa-IR',
+          tag: data.id || 'payment-msg',
+          renotify: true
+        };
+
+        const showPromise = self.registration.showNotification(data.title || 'سامانه مالی', options);
+        const savePromise = data.id ? markAsShownInCache(data.id) : Promise.resolve();
+
+        await Promise.all([showPromise, savePromise]);
+      } catch (e) {
+        console.error('Push handling error:', e);
+      }
+    })()
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

@@ -40,7 +40,7 @@ import { Preferences } from '@capacitor/preferences';
 import { App as CapacitorApp } from '@capacitor/app'; 
 import { PushNotifications } from '@capacitor/push-notifications'; 
 import { LocalNotifications } from '@capacitor/local-notifications'; 
-import { sendNotification, hasNotificationBeenShown, markNotificationAsShown, syncNativeShownNotifications, syncServiceWorkerShownNotifications, clearAllActiveNotifications, setupNativePushNotifications } from './services/notificationService';
+import { sendNotification, hasNotificationBeenShown, markNotificationAsShown, syncNativeShownNotifications, syncServiceWorkerShownNotifications, clearAllActiveNotifications, setupNativePushNotifications, unsubscribeFromPushNotifications, syncServiceWorkerAuth } from './services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
 
 function App() {
@@ -589,6 +589,9 @@ function App() {
     const user = getCurrentUser(); 
     if (user) {
         setCurrentUser(user); 
+        syncServiceWorkerAuth(user).catch(console.error);
+    } else {
+        syncServiceWorkerAuth(null).catch(console.error);
     }
     syncNativeShownNotifications().catch(console.error);
     syncServiceWorkerShownNotifications().catch(console.error);
@@ -611,22 +614,16 @@ function App() {
       const endpoint = localStorage.getItem('push_endpoint');
       const user = currentUser;
       
-      // SYNCHRONOUS FIRST: Clear local session records immediately to prevent any auto-login or state leaks
-      authLogout(); // Securely delete actual localStorage session user record
-      localStorage.removeItem('push_endpoint');
+      // 1. Clear local user session state immediately
+      authLogout(); 
       setCurrentUser(null); 
       isFirstLoad.current = true; 
       if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current); 
 
-      // FIRE AND FORGET: Execute unsubscription in the background
-      if (endpoint || user?.username) {
-          apiCall('/unsubscribe', 'POST', { 
-              endpoint: endpoint || undefined,
-              username: user?.username || undefined
-          }).catch(e => {
-              console.error("Unregister push token failed on logout", e);
-          });
-      }
+      // 2. Perform thorough push manager unsubscription, cache clearance, and backend cleanup
+      unsubscribeFromPushNotifications(user, endpoint).catch(e => {
+          console.error("Unregister push token failed on logout", e);
+      });
   };
 
   useEffect(() => {
@@ -1185,7 +1182,11 @@ function App() {
   }, [activeTab, notifications, currentUser]);
 
   const handleOrderCreated = () => { loadData(); setManageOrdersInitialTab('current'); setDashboardStatusFilter(null); setActiveTab('manage'); };
-  const handleLogin = (user: User) => { setCurrentUser(user); setActiveTab('dashboard'); };
+  const handleLogin = (user: User) => { 
+      setCurrentUser(user); 
+      syncServiceWorkerAuth(user).catch(console.error);
+      setActiveTab('dashboard'); 
+  };
   const handleViewArchive = () => { setManageOrdersInitialTab('archive'); setDashboardStatusFilter(null); setActiveTab('manage'); };
   const handleDashboardFilter = (status: any) => { setDashboardStatusFilter(status); setManageOrdersInitialTab('current'); setActiveTab('manage'); };
 
