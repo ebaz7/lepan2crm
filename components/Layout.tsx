@@ -34,6 +34,8 @@ interface LayoutProps {
 }
 
 import { SearchModal } from './SearchModal';
+import { UpdateBanner } from './UpdateBanner';
+import { checkServerUpdate, AppVersionInfo } from '../services/updateService';
 
 const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveTab, currentUser, onLogout, notifications, clearNotifications, markAllNotificationsAsRead, onDeleteNotification, onAddNotification, onRemoveNotification, financialYear, setFinancialYear, settings: propSettings, theme, toggleTheme, isDarkMode, onToggleDarkMode, unreadChatCount = 0 }) => {
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -222,10 +224,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // Update Detection State
-  const [serverVersion, setServerVersion] = useState<string | null>(null);
-  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
-
   const prevShowDropdown = useRef(showNotifDropdown);
   useEffect(() => {
       if (prevShowDropdown.current && !showNotifDropdown) {
@@ -266,28 +264,47 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     }
   }, []);
 
-  useEffect(() => {
-    checkVersion();
-    const interval = setInterval(checkVersion, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  // Update Detection State
+  const [updateInfo, setUpdateInfo] = useState<AppVersionInfo | null>(null);
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
+  const [isUpdateDismissed, setIsUpdateDismissed] = useState(false);
 
   const checkVersion = async () => {
     try {
-      const response = await apiCall<{version: string}>(`/version?t=${Date.now()}`);
-      if (response && response.version) {
-        if (serverVersion === null) {
-          setServerVersion(response.version);
-        } else if (serverVersion !== response.version) {
-          setIsUpdateAvailable(true);
-        }
+      const updateResult = await checkServerUpdate();
+      if (updateResult.hasUpdate && updateResult.serverInfo) {
+        setUpdateInfo(updateResult.serverInfo);
+        setIsUpdateAvailable(true);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.debug('Version check error', e);
+    }
   };
 
-  const handleReload = () => {
-    window.location.reload();
-  };
+  useEffect(() => {
+    checkVersion();
+    const interval = setInterval(checkVersion, 45000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkVersion();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onVisibilityChange);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        setIsUpdateAvailable(true);
+      });
+    }
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     getSettings().then(data => {
@@ -596,8 +613,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
           )}
         </div>
       )}
-      
-      {isUpdateAvailable && (<div className="fixed top-0 left-0 right-0 bg-blue-600 text-white z-[9999] p-3 text-center shadow-lg animate-slide-down flex justify-center items-center gap-4"><div className="flex items-center gap-2"><RefreshCw size={20} className="animate-spin"/><span className="font-bold text-sm">نسخه جدید نرم‌افزار در دسترس است!</span></div><button onClick={handleReload} className="glass-panel text-blue-600 px-4 py-1 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">بروزرسانی (رفرش)</button></div>)}
       
       {/* Profile Modal */}
       {showProfileModal && (
@@ -1137,7 +1152,17 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
               </div>
           </header>
           
-          <div className={`flex-1 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-0 min-h-0' : 'overflow-y-auto pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0'} bg-transparent min-w-0 ${isUpdateAvailable ? 'pt-12' : ''} custom-scrollbar`} id="main-scroll-container">
+          <div className={`flex-1 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden pb-0 min-h-0' : 'overflow-y-auto pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0'} bg-transparent min-w-0 custom-scrollbar`} id="main-scroll-container">
+              {/* Bale-Style Top Update Banner for Web, Mobile, and PWA */}
+              {isUpdateAvailable && !isUpdateDismissed && updateInfo && (
+                <div className="p-2 sm:p-3 sm:pb-1 no-print animate-slide-down">
+                  <UpdateBanner
+                    updateInfo={updateInfo}
+                    onDismiss={() => setIsUpdateDismissed(true)}
+                  />
+                </div>
+              )}
+
               <div className={`${activeTab === 'chat' ? 'hidden' : 'hidden md:flex'} justify-end p-4 bg-white/20 dark:bg-zinc-950/15 border-b border-zinc-200/40 dark:border-zinc-800/40 z-40 shadow-sm no-print items-center backdrop-blur-md`}>
                   <button 
                     onClick={() => setIsSearchOpen(true)}

@@ -6984,7 +6984,26 @@ app.post('/api/emergency-restore', (req, res) => {
     }
 });
 
-app.get('/api/version', (req, res) => { res.json({ version: '1.3.1' }); });
+app.get('/api/version', (req, res) => {
+    try {
+        const db = typeof getDb === 'function' ? getDb() : {};
+        const settings = (db && db.settings) || {};
+        const version = settings.systemVersion || settings.desktopLatestVersion || '1.3.2';
+        const buildNumber = settings.systemBuildNumber || '20260831.102';
+        const title = settings.releaseTitle || 'نسخۀ جدید';
+        const releaseNotes = settings.releaseNotes || settings.desktopReleaseNotes || 'به‌روزرسانی و بهینه‌سازی سامانه مالی و بازرگانی';
+        
+        res.json({ 
+            version, 
+            buildNumber, 
+            title, 
+            releaseNotes,
+            timestamp: Date.now()
+        });
+    } catch (e) {
+        res.json({ version: '1.3.2', buildNumber: '20260831.102', title: 'نسخۀ جدید' });
+    }
+});
 
 app.get('/api/quote/random', async (req, res) => {
     const quoteType = req.query.type || 'poem'; // 'poem' or 'motivational'
