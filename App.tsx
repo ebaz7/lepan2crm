@@ -42,6 +42,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications'; 
 import { sendNotification, hasNotificationBeenShown, markNotificationAsShown, syncNativeShownNotifications, syncServiceWorkerShownNotifications, clearAllActiveNotifications, setupNativePushNotifications, unsubscribeFromPushNotifications, syncServiceWorkerAuth } from './services/notificationService';
 import { motion, AnimatePresence } from 'motion/react';
+import { initGraphicsEngine } from './services/graphicsEngine';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -56,6 +57,9 @@ function App() {
   const customBackRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // Launch Zero-Lag Hybrid Graphics Pipeline (GPU Compositor + Server Offload)
+    initGraphicsEngine();
+
     const registerBack = (e: any) => { customBackRef.current = e.detail; };
     const unregisterBack = () => { customBackRef.current = null; };
     window.addEventListener('REGISTER_BACK_ACTION', registerBack);

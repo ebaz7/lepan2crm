@@ -2338,50 +2338,67 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         </div>
                                     )}
 
-                                    <button onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} className="p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 relative">
-                                        <Paperclip size={24}/>
+                                    <button 
+                                        onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} 
+                                        className="p-2.5 sm:p-3 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 rounded-2xl transition-all mb-0.5 relative shrink-0 active:scale-95"
+                                        title="افزودن پیوست"
+                                    >
+                                        <Paperclip size={20} className="sm:w-[22px] sm:h-[22px]"/>
                                         {/* Attachment Menu */}
-                                        <div id="chat-file-menu" className="hidden absolute bottom-14 right-0 glass-panel shadow-xl rounded-xl border p-2 flex flex-col gap-2 min-w-[150px] animate-scale-in z-50">
-                                            <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><ImageIcon size={18} className="text-blue-500"/> گالری (عکس/فیلم)</button>
-                                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded text-sm text-gray-700 dark:text-gray-200"><File size={18} className="text-orange-500"/> فایل</button>
+                                        <div id="chat-file-menu" className="hidden absolute bottom-14 right-0 glass-panel shadow-2xl rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-2 flex flex-col gap-1.5 min-w-[170px] animate-scale-in z-50 backdrop-blur-xl">
+                                            <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 p-2.5 rounded-xl text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 transition-colors">
+                                                <ImageIcon size={18} className="text-blue-500"/> 
+                                                <span>گالری (عکس / فیلم)</span>
+                                            </button>
+                                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2.5 rounded-xl text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 transition-colors">
+                                                <File size={18} className="text-amber-500"/> 
+                                                <span>سند و فایل</span>
+                                            </button>
                                         </div>
                                     </button>
                                     
                                     <button 
                                         onClick={() => setShowStickerPicker(prev => !prev)} 
-                                        className={`p-3 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors mb-1 ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : ''}`}
+                                        className={`p-2.5 sm:p-3 rounded-2xl transition-all mb-0.5 shrink-0 active:scale-95 ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/50 shadow-inner' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}
                                         title="استیکرها و ایموجی‌ها"
                                     >
-                                        <Smile size={24}/>
+                                        <Smile size={20} className="sm:w-[22px] sm:h-[22px]"/>
                                     </button>
                                     
                                     <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
 
-                                    <div className={`flex-1 rounded-3xl flex items-center px-4 py-2 min-h-[48px] relative transition-all duration-300 ${inputText.length > 0 ? 'bg-white shadow-[0_4px_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-100 dark:bg-gray-800 dark:ring-blue-900/50' : 'bg-gray-100 dark:bg-gray-800/80'}`}>
-                                        {inputText.length > 0 && (
-                                            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 opacity-10 animate-bg-pan pointer-events-none dark:opacity-20" style={{ backgroundSize: '200% 200%' }} />
-                                        )}
+                                    {/* Main Input Text Area Box */}
+                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-3.5 sm:px-4 py-2 min-h-[46px] sm:min-h-[50px] relative transition-all duration-200 border ${inputText.length > 0 ? 'bg-white dark:bg-zinc-800/95 border-blue-500/40 dark:border-blue-500/50 shadow-sm ring-2 ring-blue-500/10 dark:ring-blue-500/20' : 'bg-zinc-100/90 dark:bg-zinc-800/70 border-zinc-200/60 dark:border-zinc-700/50 focus-within:border-blue-500/30'}`}>
                                         <textarea 
                                             ref={inputAreaRef}
                                             value={inputText}
                                             onChange={e => {
                                                 setInputText(e.target.value);
                                                 e.target.style.height = 'auto';
-                                                e.target.style.height = `${e.target.scrollHeight}px`;
+                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
                                             }}
                                             onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                                            placeholder="پیام..."
-                                            className="bg-transparent border-none outline-none w-full text-sm resize-none custom-scrollbar relative z-10 placeholder-gray-500 dark:placeholder-gray-400 text-gray-800 dark:text-gray-100"
+                                            placeholder="نوشتن پیام..."
+                                            className="bg-transparent border-none outline-none w-full text-xs sm:text-sm resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-normal leading-relaxed"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '24px', maxHeight: '40vh' }}
+                                            style={{ height: 'auto', minHeight: '22px', maxHeight: '180px' }}
                                         />
                                     </div>
 
+                                    {/* Send / Voice Action Button */}
                                     {inputText.trim() || isUploading || localSharedData?.fileUrl ? (
-                                        <button onClick={handleSendMessage} className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95 mb-1 relative overflow-hidden group">
-                                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
-                                            {isUploading ? <Loader2 size={24} className="animate-spin relative z-10"/> : <Send size={24} className={`relative z-10 ${document.dir==='rtl' ? 'rotate-180' : ''}`}/>}
+                                        <button 
+                                            onClick={handleSendMessage} 
+                                            disabled={isUploading}
+                                            className="w-11 h-11 sm:w-12 sm:h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-2xl sm:rounded-3xl shadow-md shadow-blue-600/30 hover:shadow-lg hover:shadow-blue-600/40 transition-all active:scale-95 mb-0.5 shrink-0 flex items-center justify-center cursor-pointer group"
+                                            title="ارسال پیام"
+                                        >
+                                            {isUploading ? (
+                                                <Loader2 size={20} className="animate-spin text-white"/>
+                                            ) : (
+                                                <Send size={20} className="text-white transform -rotate-45 rtl:-rotate-135 transition-transform group-hover:scale-110" />
+                                            )}
                                         </button>
                                     ) : (
                                         <button 
@@ -2389,10 +2406,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             onMouseUp={stopRecording}
                                             onTouchStart={startRecording}
                                             onTouchEnd={stopRecording}
-                                            className={`p-3 rounded-full shadow-lg transition-all mb-1 ${isRecording ? 'bg-red-500 scale-110 shadow-red-200' : 'bg-blue-500 text-white'}`}
+                                            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl sm:rounded-3xl shadow-md transition-all active:scale-95 mb-0.5 shrink-0 flex items-center justify-center cursor-pointer ${isRecording ? 'bg-rose-500 text-white scale-105 shadow-rose-500/40 animate-pulse' : 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 shadow-zinc-300/30 dark:shadow-none'}`}
                                             title="پیام صوتی (نگه دارید)"
                                         >
-                                            {isRecording ? <div className="text-white font-mono text-xs">{formatTime(recordingTime)}</div> : <Mic size={24}/>}
+                                            {isRecording ? (
+                                                <span className="text-white font-mono text-xs font-bold">{formatTime(recordingTime)}</span>
+                                            ) : (
+                                                <Mic size={20} />
+                                            )}
                                         </button>
                                     )}
                                 </>

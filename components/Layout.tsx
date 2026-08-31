@@ -1,6 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, LayoutDashboard, Search, PlusCircle, ListChecks, FileText, Inbox, Users, LogOut, User as UserIcon, Settings, Bell, BellOff, MessageSquare, X, Check, Container, KeyRound, Save, Upload, Camera, Download, Share, ChevronRight, Home, Send, BrainCircuit, Mic, StopCircle, Loader2, Truck, ClipboardList, Package, Printer, CheckSquare, ShieldCheck, Shield, Phone, RefreshCw, Smartphone, MonitorDown, BellRing, Smartphone as MobileIcon, Trash2, Menu, Edit3, Sun, Moon, ShoppingCart, Wallet, Sparkles, Pin, PinOff } from 'lucide-react';
+import { 
+  BookOpen, LayoutDashboard, Search, PlusCircle, ListChecks, FileText, Inbox, Users, LogOut, 
+  User as UserIcon, Settings, Bell, BellOff, MessageSquare, X, Check, Container, KeyRound, Save, 
+  Upload, Camera, Download, Share, ChevronRight, Home, Send, BrainCircuit, Mic, StopCircle, Loader2, 
+  Truck, ClipboardList, Package, Printer, CheckSquare, ShieldCheck, Shield, Phone, RefreshCw, 
+  Smartphone, MonitorDown, BellRing, Smartphone as MobileIcon, Trash2, Menu, Edit3, Sun, Moon, 
+  ShoppingCart, Wallet, Sparkles, Pin, PinOff,
+  BadgePlus, Receipt, ArrowLeftRight, ScrollText, ClipboardCheck, Warehouse, BarChart3, 
+  CalendarDays, FolderArchive, Banknote, MessagesSquare, Globe, Boxes, Handshake, Headset, UserCog
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, UserRole, AppNotification, SystemSettings } from '../types';
 import { logout, hasPermission, getRolePermissions, updateUser } from '../services/authService';
@@ -458,29 +467,29 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   const navItems = [
     { id: 'dashboard', label: 'داشبورد', icon: LayoutDashboard },
   ];
-  if (canCreatePayment) navItems.push({ id: 'create', label: 'ثبت پرداخت', icon: PlusCircle });
-  if (canViewPayment) navItems.push({ id: 'manage', label: 'سوابق پرداخت', icon: ListChecks });
-  if (canSeeCcti) navItems.push({ id: 'ccti', label: 'تبدیل CCTI', icon: FileText });
+  if (canCreatePayment) navItems.push({ id: 'create', label: 'ثبت پرداخت', icon: BadgePlus });
+  if (canViewPayment) navItems.push({ id: 'manage', label: 'سوابق پرداخت', icon: Receipt });
+  if (canSeeCcti) navItems.push({ id: 'ccti', label: 'تبدیل CCTI', icon: ArrowLeftRight });
   if (canCreateExit) navItems.push({ id: 'create-exit', label: 'ثبت خروج', icon: Truck });
-  if (canViewInvoices) navItems.push({ id: 'manage-invoices', label: 'مدیریت فاکتورها', icon: FileText });
-  if (canViewExit) navItems.push({ id: 'manage-exit', label: 'سوابق خروج', icon: ClipboardList });
-  if (canManageWarehouse) navItems.push({ id: 'warehouse', label: 'مدیریت انبار', icon: Package });
-  if (canSeeSayan) navItems.push({ id: 'sayan', label: 'گزارشات سایان', icon: FileText });
-  if (canSeeSecurity) navItems.push({ id: 'security', label: 'انتظامات', icon: Shield });
-  if (canSeeMeetings) navItems.push({ id: 'meetings', label: 'جلسات تولید', icon: ClipboardList });
+  if (canViewInvoices) navItems.push({ id: 'manage-invoices', label: 'مدیریت فاکتورها', icon: ScrollText });
+  if (canViewExit) navItems.push({ id: 'manage-exit', label: 'سوابق خروج', icon: ClipboardCheck });
+  if (canManageWarehouse) navItems.push({ id: 'warehouse', label: 'مدیریت انبار', icon: Warehouse });
+  if (canSeeSayan) navItems.push({ id: 'sayan', label: 'گزارشات سایان', icon: BarChart3 });
+  if (canSeeSecurity) navItems.push({ id: 'security', label: 'انتظامات', icon: ShieldCheck });
+  if (canSeeMeetings) navItems.push({ id: 'meetings', label: 'جلسات تولید', icon: CalendarDays });
   if (canSeePurchase) navItems.push({ id: 'purchase', label: 'درخواست خرید', icon: ShoppingCart });
-  navItems.push({ id: 'secretariat', label: 'دبیرخانه اداری', icon: FileText });
-  navItems.push({ id: 'cheque-receipts', label: 'رسید دریافت چک', icon: FileText });
-  navItems.push({ id: 'chat', label: 'گفتگو', icon: MessageSquare });
+  navItems.push({ id: 'secretariat', label: 'دبیرخانه اداری', icon: FolderArchive });
+  navItems.push({ id: 'cheque-receipts', label: 'رسید دریافت چک', icon: Banknote });
+  navItems.push({ id: 'chat', label: 'گفتگو', icon: MessagesSquare });
   if (canSeeKnowledgeBase) navItems.push({ id: 'knowledge', label: 'اطلاعات و یادداشت ها', icon: BookOpen });
-  if (canSeeTrade) navItems.push({ id: 'trade', label: 'بازرگانی', icon: Container });
+  if (canSeeTrade) navItems.push({ id: 'trade', label: 'بازرگانی', icon: Globe });
   if (canSeeBalances) navItems.push({ id: 'balances', label: 'مانده حساب مشتریان', icon: Wallet });
   if (canSeeProducts) {
-      navItems.push({ id: 'products', label: 'کالاها', icon: Package });
-      navItems.push({ id: 'sales', label: 'مشتریان', icon: Users });
-      navItems.push({ id: 'tickets', label: 'تیکت‌ها', icon: Inbox });
+      navItems.push({ id: 'products', label: 'کالاها', icon: Boxes });
+      navItems.push({ id: 'sales', label: 'مشتریان', icon: Handshake });
+      navItems.push({ id: 'tickets', label: 'تیکت‌ها', icon: Headset });
   }
-  if (hasPermission(currentUser, 'manage_users')) navItems.push({ id: 'users', label: 'کاربران', icon: Users });
+  if (hasPermission(currentUser, 'manage_users')) navItems.push({ id: 'users', label: 'کاربران', icon: UserCog });
   if (canSeeSettings) navItems.push({ id: 'settings', label: 'تنظیمات', icon: Settings });
 
   // Dynamic Navigation Logic

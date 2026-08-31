@@ -2144,7 +2144,7 @@ const Settings: React.FC<SettingsProps> = ({
               onClick={() => setActiveCategory("commerce")}
               className={`whitespace-nowrap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeCategory === "commerce" ? "bg-rose-600 text-white shadow-md font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800"}`}
             >
-              <Container size={16} /> تنظیمات بازرگانی
+              <Globe size={16} /> تنظیمات بازرگانی
             </button>
           )}
           {hasFullSettings && (
@@ -3854,7 +3854,7 @@ const Settings: React.FC<SettingsProps> = ({
             {activeCategory === "commerce" && (
               <div className="space-y-6 animate-fade-in">
                 <h3 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
-                  <Container size={20} /> تنظیمات بازرگانی
+                  <Globe size={20} /> تنظیمات بازرگانی
                 </h3>
                 <div className="glass-panel p-4 rounded-xl border border-gray-200">
                   <h4 className="font-bold text-sm text-gray-700 mb-2">

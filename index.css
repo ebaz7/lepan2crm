@@ -2026,5 +2026,44 @@ html.dark.theme-maximalism .text-gray-500 {
   color: #e9d5ff !important;
 }
 
+/* ==========================================================================
+   Zero-Lag Ultra Graphics Acceleration (Mobile & Desktop Hardware Pipeline)
+   ========================================================================== */
+html[data-gpu-active="true"] * {
+  /* Prevent layout reflow jitter */
+  box-sizing: border-box;
+}
+
+/* Hardware layer promotion for responsive interactive components */
+.glass-panel,
+.bg-white,
+.dark .dark\\:bg-zinc-900,
+table,
+.table-container {
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Zero-delay tap highlight removal on mobile browsers */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Momentum scrolling optimization */
+.overflow-y-auto,
+.overflow-x-auto,
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth;
+}
+
+/* Fast hardware-accelerated transitions */
+.animate-fast {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+
 
 
