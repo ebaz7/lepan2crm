@@ -14,18 +14,19 @@ export const normalizeInputNumber = (str: string): string => {
   for (let i = 0; i < 10; i++) {
     result = result.replace(persianDigits[i], i.toString()).replace(arabicDigits[i], i.toString());
   }
+  // Replace Persian momayyez / Arabic decimal separator or slash with standard dot
+  result = result.replace(/[\u066B\/٫]/g, '.');
   return result;
 };
 
 export const formatNumberString = (value: string | number | undefined): string => {
   if (value === undefined || value === null || value === '') return '';
   
-  // If it's a number, clean floating point precision noise (e.g. 100.80000000000018 -> 100.8)
+  // If it's a number, clean floating point precision noise
   let numVal: number | null = null;
   if (typeof value === 'number') {
     if (isNaN(value)) return '';
-    // Clean float precision: round to 4 decimals max
-    numVal = Math.round((value + Number.EPSILON) * 10000) / 10000;
+    numVal = Math.round((value + Number.EPSILON) * 1000000) / 1000000;
   }
   
   const rawStr = numVal !== null ? numVal.toString() : value.toString().trim();
@@ -38,14 +39,18 @@ export const formatNumberString = (value: string | number | undefined): string =
   let decimalPart = '';
   
   if (parts.length > 1) {
-    let dec = parts[1];
+    let dec = parts.slice(1).join('');
     if (numVal !== null) {
       dec = dec.replace(/0+$/, '');
     }
     if (dec.length > 0) {
-      // Limit to 4 decimals to avoid overflow precision noise
-      decimalPart = '.' + dec.substring(0, 4);
+      // Limit to 6 decimals for high precision trade currency and weight values
+      decimalPart = '.' + dec.substring(0, 6);
+    } else if (rawStr.endsWith('.') || rawStr.endsWith('/') || rawStr.endsWith('٫') || rawStr.endsWith('،')) {
+      decimalPart = '.';
     }
+  } else if (rawStr.endsWith('.') || rawStr.endsWith('/') || rawStr.endsWith('٫') || rawStr.endsWith('،')) {
+    decimalPart = '.';
   }
   
   const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");

@@ -13,6 +13,7 @@ interface PrintProformaProps {
 const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose }) => {
   const [processing, setProcessing] = useState(false);
   const totalWeight = record.items?.reduce((sum, item) => sum + (item.weight || 0), 0) || 0;
+  const totalGrossWeight = record.items?.reduce((sum, item) => sum + (item.grossWeight || item.weight || 0), 0) || 0;
   const totalAmount = record.items?.reduce((sum, item) => sum + (item.totalPrice || (item.weight * item.unitPrice) || 0), 0) || 0;
   const company = settings?.companies?.find(c => c.name === record.company);
 
@@ -199,7 +200,9 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
         <div className="text-left">
           <h2 className="text-xl font-bold text-gray-800">پیش‌فاکتور (پروفرما)</h2>
           <div className="text-xs mt-2 space-y-1">
-            <div><span className="font-bold">شماره پروفرما / سفارش:</span> {proformaNum}</div>
+            <div><span className="font-bold">شماره پروفرما:</span> {record.proformaNumber || record.fileNumber || '---'}</div>
+            {record.orderNumber && <div><span className="font-bold">شماره سفارش:</span> {record.orderNumber}</div>}
+            {record.fileNumber && <div><span className="font-bold">شماره پرونده:</span> {record.fileNumber}</div>}
             <div><span className="font-bold">تاریخ:</span> {record.startDate || (record as any).proformaDate || '---'}</div>
             <div><span className="font-bold">شماره ثبت سفارش:</span> {record.registrationNumber || '---'}</div>
           </div>
@@ -229,7 +232,8 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
             <th className="p-2 border-r border-black w-10 text-center">ردیف</th>
             <th className="p-2 border-r border-black">شرح کالا</th>
             <th className="p-2 border-r border-black w-24 text-center">تعرفه گمرکی (HS)</th>
-            <th className="p-2 border-r border-black w-20 text-center">وزن (kg)</th>
+            <th className="p-2 border-r border-black w-20 text-center">وزن خالص (kg)</th>
+            <th className="p-2 border-r border-black w-20 text-center">وزن ناخالص (kg)</th>
             <th className="p-2 border-r border-black w-24 text-center">قیمت واحد ({currencyStr})</th>
             <th className="p-2 w-28 text-center">مبلغ کل ({currencyStr})</th>
           </tr>
@@ -241,6 +245,7 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
               <td className="p-2 border-r border-black">{item.name}</td>
               <td className="p-2 border-r border-black text-center font-mono">{item.hsCode || '---'}</td>
               <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.weight)}</td>
+              <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.grossWeight || item.weight)}</td>
               <td className="p-2 border-r border-black text-center font-mono">{formatCurrency(item.unitPrice)}</td>
               <td className="p-2 text-center font-mono font-bold">{formatCurrency(item.totalPrice || (item.weight * item.unitPrice))}</td>
             </tr>
@@ -249,6 +254,7 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
           <tr className="bg-gray-50 border-t-2 border-black font-bold">
             <td colSpan={3} className="p-2 border-r border-black text-left pl-4">جمع کل:</td>
             <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalWeight)}</td>
+            <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalGrossWeight)}</td>
             <td className="p-2 border-r border-black text-center">-</td>
             <td className="p-2 text-center font-mono text-sm">{formatCurrency(totalAmount)} {currencyStr}</td>
           </tr>

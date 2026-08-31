@@ -34,11 +34,11 @@ const InsuranceTab: React.FC<InsuranceTabProps> = ({
                         <input className="w-full border rounded p-2 text-sm dir-ltr" value={form.policyNumber} onChange={e => setForm({...form, policyNumber: e.target.value})} />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-gray-700">شرکت بیمه</label>
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">شرکت بیمه</label>
                         <input 
                             list="insurance-company-list"
-                            className="w-full border rounded p-2 text-sm" 
-                            value={form.company} 
+                            className="w-full border rounded p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" 
+                            value={form.company || ''} 
                             onChange={e => setForm({...form, company: e.target.value})} 
                             placeholder="انتخاب یا تایپ کنید..."
                         />
@@ -47,8 +47,26 @@ const InsuranceTab: React.FC<InsuranceTabProps> = ({
                         </datalist>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-gray-700">هزینه اولیه (ریال)</label>
-                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={form.cost} onChange={val => setForm({...form, cost: val})} />
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">نام نمایندگی بیمه</label>
+                        <input 
+                            className="w-full border rounded p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" 
+                            value={form.agencyName || ''} 
+                            onChange={e => setForm({...form, agencyName: e.target.value})} 
+                            placeholder="نام یا عنوان نمایندگی (مثال: نمایندگی مرادی)"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">کد نمایندگی بیمه</label>
+                        <input 
+                            className="w-full border rounded p-2 text-sm dir-ltr font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-left" 
+                            value={form.agencyCode || ''} 
+                            onChange={e => setForm({...form, agencyCode: e.target.value})} 
+                            placeholder="مثال: 12345"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">هزینه اولیه (ریال)</label>
+                        <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800" value={form.cost} onChange={val => setForm({...form, cost: val})} />
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-gray-700">بانک پرداخت کننده</label>

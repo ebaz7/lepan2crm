@@ -19,6 +19,7 @@ import InsuranceLedgerReport from './reports/InsuranceLedgerReport';
 import GuaranteeReport from './reports/GuaranteeReport';
 import InsuranceTab from './InsuranceTab';
 import CurrencyGuaranteeSection from './trade/CurrencyGuaranteeSection';
+import { GeneralTradeListReport } from './reports/GeneralTradeListReport';
 
 interface TradeModuleProps {
     currentUser: User;
@@ -58,6 +59,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     // Modal & Form States
     const [showNewModal, setShowNewModal] = useState(false);
     const [newFileNumber, setNewFileNumber] = useState('');
+    const [newProformaNumber, setNewProformaNumber] = useState('');
+    const [newOrderNumber, setNewOrderNumber] = useState('');
+    const [newFileNumberDirect, setNewFileNumberDirect] = useState('');
+    const [newRegistrationNumber, setNewRegistrationNumber] = useState('');
     const [newGoodsName, setNewGoodsName] = useState('');
     const [newSellerName, setNewSellerName] = useState('');
     const [newCommodityGroup, setNewCommodityGroup] = useState('');
@@ -77,7 +82,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadingStageFile, setUploadingStageFile] = useState(false);
 
-    const [newItem, setNewItem] = useState<Partial<TradeItem> & { weightStr?: string, unitPriceStr?: string }>({ name: '', weight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', unitPriceStr: '' });
+    const [newItem, setNewItem] = useState<Partial<TradeItem> & { weightStr?: string, grossWeightStr?: string, unitPriceStr?: string }>({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' });
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
     const [insuranceForm, setInsuranceForm] = useState<NonNullable<TradeRecord['insuranceData']>>({ policyNumber: '', company: '', cost: 0, bank: '', endorsements: [], isPaid: false, paymentDate: '' });
@@ -153,7 +158,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         packingItems: [],
         freightCost: 0
     });
-    const [newInvoiceItem, setNewInvoiceItem] = useState<Partial<InvoiceItem>>({ name: '', weight: 0, unitPrice: 0, totalPrice: 0, part: '' });
+    const [newInvoiceItem, setNewInvoiceItem] = useState<Partial<InvoiceItem>>({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, part: '' });
     const [newPackingItem, setNewPackingItem] = useState<Partial<PackingItem>>({ description: '', netWeight: 0, grossWeight: 0, packageCount: 0, part: '' });
     const [uploadingDocFile, setUploadingDocFile] = useState(false);
     const docFileInputRef = useRef<HTMLInputElement>(null);
@@ -430,9 +435,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     };
 
     const handleCreateRecord = async () => { 
-        if (!newFileNumber || !newGoodsName || !newRecordCompany) return; 
+        const proformaNo = (newProformaNumber || newFileNumber || '').trim();
+        if (!proformaNo || !newGoodsName || !newRecordCompany) return; 
         
-        if (isDuplicateTradeRecord(newRecordCompany, newFileNumber, '', newGoodsName)) {
+        if (isDuplicateTradeRecord(newRecordCompany, proformaNo, newRegistrationNumber, newGoodsName)) {
             alert('خطا: پرونده دیگری با همین مشخصات (نام شرکت، شماره پروفرما و نام کالا) قبلاً ثبت شده است.');
             return;
         }
@@ -440,10 +446,11 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         const newRecord: TradeRecord = { 
             id: generateUUID(), 
             company: newRecordCompany, 
-            fileNumber: newFileNumber, 
-            orderNumber: newFileNumber, 
+            fileNumber: (newFileNumberDirect || newRegistrationNumber || proformaNo).trim(), 
+            proformaNumber: proformaNo,
+            orderNumber: (newOrderNumber || proformaNo).trim(), 
             goodsName: newGoodsName, 
-            registrationNumber: '', 
+            registrationNumber: newRegistrationNumber.trim(), 
             sellerName: newSellerName, 
             commodityGroup: newCommodityGroup, 
             mainCurrency: newMainCurrency, 
@@ -478,7 +485,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         await loadRecords(); 
         setShowNewModal(false); 
         setNewFileNumber(''); 
+        setNewProformaNumber('');
+        setNewOrderNumber('');
+        setNewFileNumberDirect('');
+        setNewRegistrationNumber('');
         setNewGoodsName(''); 
+        setNewSellerName('');
+        setNewCommodityGroup('');
+        setNewRecordCompany('');
         setSelectedRecord(newRecord); 
         setActiveTab('proforma'); 
         setViewMode('details'); 
@@ -516,10 +530,11 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     
     const handleAddItem = async () => { 
         if (!selectedRecord || !newItem.name) return; 
-        const weightVal = newItem.weightStr ? deformatNumberString(newItem.weightStr) : 0; 
+        const weightVal = newItem.weightStr ? deformatNumberString(newItem.weightStr) : (newItem.weight || 0); 
+        const grossWeightVal = newItem.grossWeightStr ? deformatNumberString(newItem.grossWeightStr) : (newItem.grossWeight || weightVal);
         
         // Use unitPriceStr as "FOB Amount" (Total Price) if provided, otherwise use unitPrice * weight
-        const fobVal = newItem.unitPriceStr ? deformatNumberString(newItem.unitPriceStr) : 0;
+        const fobVal = newItem.unitPriceStr ? deformatNumberString(newItem.unitPriceStr) : (newItem.totalPrice || 0);
         
         const unitPriceVal = weightVal > 0 ? fobVal / weightVal : 0;
         const totalVal = fobVal;
@@ -528,26 +543,39 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             id: editingItemId || generateUUID(), 
             name: newItem.name, 
             weight: weightVal, 
+            grossWeight: grossWeightVal, 
             unitPrice: unitPriceVal, 
             totalPrice: totalVal, 
             hsCode: newItem.hsCode 
         }; 
         
         let updatedItems = []; 
-        if (editingItemId) { 
+        if (editingItemId) 
             updatedItems = selectedRecord.items.map(i => i.id === editingItemId ? item : i); 
-        } else { 
+        else 
             updatedItems = [...selectedRecord.items, item]; 
-        } 
         
         const updatedRecord = { ...selectedRecord, items: updatedItems }; 
         await updateTradeRecord(updatedRecord); 
         setSelectedRecord(updatedRecord); 
         setRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r)); 
-        setNewItem({ name: '', weight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', unitPriceStr: '' }); 
+        setNewItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' }); 
         setEditingItemId(null); 
     };
-    const handleEditItem = (item: TradeItem) => { setNewItem({ name: item.name, weight: item.weight, weightStr: formatNumberString(item.weight), unitPrice: item.unitPrice, unitPriceStr: formatNumberString(item.unitPrice), totalPrice: item.totalPrice, hsCode: item.hsCode || '' }); setEditingItemId(item.id); };
+    const handleEditItem = (item: TradeItem) => { 
+        setNewItem({ 
+            name: item.name, 
+            weight: item.weight, 
+            weightStr: formatNumberString(item.weight), 
+            grossWeight: item.grossWeight || item.weight, 
+            grossWeightStr: formatNumberString(item.grossWeight || item.weight), 
+            unitPrice: item.unitPrice, 
+            unitPriceStr: formatNumberString(item.totalPrice || (item.weight * item.unitPrice)), 
+            totalPrice: item.totalPrice, 
+            hsCode: item.hsCode || '' 
+        }); 
+        setEditingItemId(item.id); 
+    };
     const handleRemoveItem = async (id: string) => { if (!selectedRecord) return; const updatedItems = selectedRecord.items.filter(i => i.id !== id); const updatedRecord = { ...selectedRecord, items: updatedItems }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
     const handleAddLicenseTx = async () => { if (!selectedRecord || !newLicenseTx.amount) return; const tx: TradeTransaction = { id: generateUUID(), date: newLicenseTx.date || '', amount: Number(newLicenseTx.amount), bank: newLicenseTx.bank || '', description: newLicenseTx.description || '' }; const currentLicenseData = selectedRecord.licenseData || { transactions: [] }; const updatedTransactions = [...(currentLicenseData.transactions || []), tx]; const updatedRecord = { ...selectedRecord, licenseData: { ...currentLicenseData, transactions: updatedTransactions } }; const totalCost = updatedTransactions.reduce((acc, t) => acc + t.amount, 0); if (!updatedRecord.stages[TradeStage.LICENSES]) updatedRecord.stages[TradeStage.LICENSES] = getStageData(updatedRecord, TradeStage.LICENSES); updatedRecord.stages[TradeStage.LICENSES].costRial = totalCost; updatedRecord.stages[TradeStage.LICENSES].isCompleted = totalCost > 0; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); setNewLicenseTx({ amount: 0, bank: '', date: '', description: 'هزینه ثبت سفارش' }); };
     const handleRemoveLicenseTx = async (id: string) => { if (!selectedRecord) return; const currentLicenseData = selectedRecord.licenseData || { transactions: [] }; const updatedTransactions = (currentLicenseData.transactions || []).filter(t => t.id !== id); const updatedRecord = { ...selectedRecord, licenseData: { ...currentLicenseData, transactions: updatedTransactions } }; const totalCost = updatedTransactions.reduce((acc, t) => acc + t.amount, 0); if (!updatedRecord.stages[TradeStage.LICENSES]) updatedRecord.stages[TradeStage.LICENSES] = getStageData(updatedRecord, TradeStage.LICENSES); updatedRecord.stages[TradeStage.LICENSES].costRial = totalCost; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
@@ -933,7 +961,24 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         await updateTradeRecord(updatedRecord);
         setSelectedRecord(updatedRecord);
     };
-    const handleAddInvoiceItem = () => { if (!newInvoiceItem.name) return; const newItem: InvoiceItem = { id: generateUUID(), name: newInvoiceItem.name, weight: Number(newInvoiceItem.weight), unitPrice: Number(newInvoiceItem.unitPrice), totalPrice: Number(newInvoiceItem.totalPrice) || (Number(newInvoiceItem.weight) * Number(newInvoiceItem.unitPrice)), part: newInvoiceItem.part || '' }; setShippingDocForm(prev => ({ ...prev, invoiceItems: [...(prev.invoiceItems || []), newItem] })); setNewInvoiceItem({ name: '', weight: 0, unitPrice: 0, totalPrice: 0, part: '' }); };
+    const handleAddInvoiceItem = () => { 
+        if (!newInvoiceItem.name) return; 
+        const weight = Number(newInvoiceItem.weight) || 0;
+        const grossWeight = Number(newInvoiceItem.grossWeight) || weight;
+        const unitPrice = Number(newInvoiceItem.unitPrice) || 0;
+        const totalPrice = Number(newInvoiceItem.totalPrice) || (weight * unitPrice);
+        const newItem: InvoiceItem = { 
+            id: generateUUID(), 
+            name: newInvoiceItem.name, 
+            weight: weight, 
+            grossWeight: grossWeight, 
+            unitPrice: unitPrice, 
+            totalPrice: totalPrice, 
+            part: newInvoiceItem.part || '' 
+        }; 
+        setShippingDocForm(prev => ({ ...prev, invoiceItems: [...(prev.invoiceItems || []), newItem] })); 
+        setNewInvoiceItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, part: '' }); 
+    };
     const handleRemoveInvoiceItem = (id: string) => { setShippingDocForm(prev => ({ ...prev, invoiceItems: (prev.invoiceItems || []).filter(i => i.id !== id) })); };
     const handleAddPackingItem = () => { if (!newPackingItem.description) return; const item: PackingItem = { id: generateUUID(), description: newPackingItem.description, netWeight: Number(newPackingItem.netWeight), grossWeight: Number(newPackingItem.grossWeight), packageCount: Number(newPackingItem.packageCount), part: newPackingItem.part || '' }; setShippingDocForm(prev => ({ ...prev, packingItems: [...(prev.packingItems || []), item] })); setNewPackingItem({ description: '', netWeight: 0, grossWeight: 0, packageCount: 0, part: '' }); };
     const handleRemovePackingItem = (id: string) => { setShippingDocForm(prev => ({ ...prev, packingItems: (prev.packingItems || []).filter(i => i.id !== id) })); };
@@ -955,15 +1000,27 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         const existingHistory = selectedRecord.proformaHistory || [];
 
         const invoiceItems = shippingDocForm.invoiceItems || []; 
-        const aggregatedMap = new Map<string, { weight: number, totalPrice: number }>(); 
+        const aggregatedMap = new Map<string, { weight: number, grossWeight: number, totalPrice: number }>(); 
         for (const item of invoiceItems) { 
             const name = item.name.trim(); 
-            const current = aggregatedMap.get(name) || { weight: 0, totalPrice: 0 }; 
-            aggregatedMap.set(name, { weight: current.weight + item.weight, totalPrice: current.totalPrice + item.totalPrice }); 
+            const current = aggregatedMap.get(name) || { weight: 0, grossWeight: 0, totalPrice: 0 }; 
+            aggregatedMap.set(name, { 
+                weight: current.weight + (item.weight || 0), 
+                grossWeight: current.grossWeight + (item.grossWeight || item.weight || 0),
+                totalPrice: current.totalPrice + (item.totalPrice || 0) 
+            }); 
         } 
         const newItems: TradeItem[] = []; 
         aggregatedMap.forEach((val, name) => { 
-            newItems.push({ id: generateUUID(), name: name, weight: val.weight, unitPrice: val.weight > 0 ? val.totalPrice / val.weight : 0, totalPrice: val.totalPrice, hsCode: '' }); 
+            newItems.push({ 
+                id: generateUUID(), 
+                name: name, 
+                weight: val.weight, 
+                grossWeight: val.grossWeight,
+                unitPrice: val.weight > 0 ? val.totalPrice / val.weight : 0, 
+                totalPrice: val.totalPrice, 
+                hsCode: '' 
+            }); 
         }); 
         const updatedRecord = { 
             ...selectedRecord, 
@@ -1076,6 +1133,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         if (!selectedRecord) return;
         setEditMetadataForm({
             fileNumber: selectedRecord.fileNumber,
+            proformaNumber: selectedRecord.proformaNumber || selectedRecord.fileNumber,
+            orderNumber: selectedRecord.orderNumber || '',
             goodsName: selectedRecord.goodsName,
             sellerName: selectedRecord.sellerName,
             mainCurrency: selectedRecord.mainCurrency,
@@ -1119,37 +1178,23 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         switch (activeReport) {
             case 'general':
                 return (
-                    <div className="glass-panel p-6 rounded-xl shadow-sm border overflow-x-auto">
-                        <table className="w-full text-sm text-right">
-                            <thead className="bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-200 text-gray-700">
-                                <tr>
-                                    <th className="p-3">شماره پرونده</th>
-                                    <th className="p-3">کالا</th>
-                                    <th className="p-3">شرکت</th>
-                                    <th className="p-3">فروشنده</th>
-                                    <th className="p-3">ارز</th>
-                                    <th className="p-3">وضعیت</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {currentList
-                                    .filter(r => (!reportFilterCompany || r.company === reportFilterCompany) && (
-                                        r.fileNumber.includes(reportSearchTerm) || 
-                                        r.goodsName.includes(reportSearchTerm)
-                                    ))
-                                    .map(r => (
-                                    <tr key={r.id} className="border-b hover:bg-gray-50 dark:bg-gray-900/40 text-gray-800 dark:text-gray-200">
-                                        <td className="p-3 font-bold">{r.fileNumber}</td>
-                                        <td className="p-3">{r.goodsName}</td>
-                                        <td className="p-3">{r.company}</td>
-                                        <td className="p-3">{r.sellerName}</td>
-                                        <td className="p-3 font-mono">{r.mainCurrency}</td>
-                                        <td className="p-3"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{getStatusLabel(r.status as any) || r.status}</span></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <GeneralTradeListReport 
+                        records={currentList.filter(r => !reportFilterCompany || r.company === reportFilterCompany)}
+                        currentUser={currentUser}
+                        settings={safeSettings}
+                        onUpdateRecord={async (updated) => {
+                            await updateTradeRecord(updated);
+                            setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
+                            if (selectedRecord?.id === updated.id) {
+                                setSelectedRecord(updated);
+                            }
+                        }}
+                        onNavigateToDetails={(rec, tab) => {
+                            setSelectedRecord(rec);
+                            setViewMode('details');
+                            if (tab) setActiveTab(tab as any);
+                        }}
+                    />
                 );
             case 'allocation_queue':
                 return <AllocationReport records={currentList.filter(r => !reportFilterCompany || r.company === reportFilterCompany)} onUpdateRecord={async (r, u) => { const updated = {...r, ...u}; await updateTradeRecord(updated); setRecords(prev => prev.map(rec => rec.id === updated.id ? updated : rec)); }} settings={safeSettings} />;
@@ -1496,14 +1541,30 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <button onClick={() => setShowEditMetadataModal(false)}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors"/></button>
                             </div>
                             <div className="space-y-4 text-gray-800 dark:text-gray-200">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره پرونده</label>
-                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.fileNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, fileNumber: e.target.value})} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره پروفرم</label>
+                                        <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.proformaNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, proformaNumber: e.target.value})} placeholder="شماره پروفرم..." />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره سفارش</label>
+                                        <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.orderNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, orderNumber: e.target.value})} placeholder="شماره سفارش..." />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره پرونده</label>
+                                        <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.fileNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, fileNumber: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره ثبت سفارش</label>
+                                        <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.registrationNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, registrationNumber: e.target.value})} />
+                                    </div>
                                 </div>
                                 <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام کالا (شرح کلی)</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.goodsName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, goodsName: e.target.value})} /></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">فروشنده</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.sellerName || ''} onChange={e => setEditMetadataForm({...editMetadataForm, sellerName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ارز پایه</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.mainCurrency || ''} onChange={e => setEditMetadataForm({...editMetadataForm, mainCurrency: e.target.value})}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">گروه کالایی</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.commodityGroup || ''} onChange={e => setEditMetadataForm({...editMetadataForm, commodityGroup: e.target.value})}><option value="">انتخاب...</option>{commodityGroups.map(g => <option key={g} value={g}>{g}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شرکت</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.company || ''} onChange={e => setEditMetadataForm({...editMetadataForm, company: e.target.value})}><option value="">انتخاب...</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">شماره ثبت سفارش</label><input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.registrationNumber || ''} onChange={e => setEditMetadataForm({...editMetadataForm, registrationNumber: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">بانک عامل</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.operatingBank || ''} onChange={e => setEditMetadataForm({...editMetadataForm, operatingBank: e.target.value})}><option value="">انتخاب...</option>{operatingBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div>
+                                <div className="space-y-1.5"><div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">بانک عامل</label><select className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={editMetadataForm.operatingBank || ''} onChange={e => setEditMetadataForm({...editMetadataForm, operatingBank: e.target.value})}><option value="">انتخاب...</option>{operatingBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
                                     <label className="flex items-center gap-3 cursor-pointer select-none">
                                         <input 
@@ -1636,8 +1697,49 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="glass-panel p-6 rounded-xl shadow-sm border">
                                 <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">اطلاعات کلی پروفرما</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره پرونده</label><input className="w-full border rounded p-2 text-sm" value={selectedRecord.fileNumber} onChange={e => handleUpdateProforma('fileNumber', e.target.value)}/></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره ثبت سفارش</label><input className="w-full border rounded p-2 text-sm" value={selectedRecord.registrationNumber || ''} onChange={e => handleUpdateProforma('registrationNumber', e.target.value)}/></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">شماره پروفرم</label>
+                                        <input className="w-full border rounded p-2 text-sm font-mono" value={selectedRecord.proformaNumber || selectedRecord.fileNumber || ''} onChange={e => handleUpdateProforma('proformaNumber', e.target.value)} placeholder="شماره پروفرم..."/>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">شماره سفارش</label>
+                                        <input className="w-full border rounded p-2 text-sm font-mono" value={selectedRecord.orderNumber || ''} onChange={e => handleUpdateProforma('orderNumber', e.target.value)} placeholder="شماره سفارش..."/>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-bold text-gray-700">شماره پرونده</label>
+                                            {selectedRecord.registrationNumber && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => handleUpdateProforma('fileNumber', selectedRecord.registrationNumber)}
+                                                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold"
+                                                >
+                                                    دریافت از ثبت سفارش
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input 
+                                            className="w-full border rounded p-2 text-sm bg-blue-50/40 font-mono" 
+                                            value={selectedRecord.fileNumber || ''} 
+                                            onChange={e => handleUpdateProforma('fileNumber', e.target.value)}
+                                            placeholder="تکمیل از شماره ثبت سفارش..."
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">شماره ثبت سفارش</label>
+                                        <input 
+                                            className="w-full border rounded p-2 text-sm font-mono" 
+                                            value={selectedRecord.registrationNumber || ''} 
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                handleUpdateProforma('registrationNumber', val);
+                                                if (!selectedRecord.fileNumber || selectedRecord.fileNumber === selectedRecord.registrationNumber) {
+                                                    handleUpdateProforma('fileNumber', val);
+                                                }
+                                            }}
+                                            placeholder="شماره ثبت سفارش..."
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">فروشنده</label><input className="w-full border rounded p-2 text-sm" value={selectedRecord.sellerName} onChange={e => handleUpdateProforma('sellerName', e.target.value)}/></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">ارز پایه</label><select className="w-full border rounded p-2 text-sm" value={selectedRecord.mainCurrency} onChange={e => handleUpdateProforma('mainCurrency', e.target.value)}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ ثبت سفارش</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={selectedRecord.registrationDate || ''} onChange={e => handleUpdateProforma('registrationDate', e.target.value)}/></div>
@@ -1777,14 +1879,23 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
                                 <div className="flex gap-2 items-end mb-4 bg-gray-50 p-3 rounded-lg flex-wrap">
                                     <div className="flex-1 min-w-[150px] space-y-1"><label className="text-xs text-gray-500">شرح کالا</label><input className="w-full border rounded p-2 text-sm" placeholder="نام کالا" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})}/></div>
-                                    <div className="w-32 space-y-1"><label className="text-xs text-gray-500">HS Code</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="کد تعرفه" value={newItem.hsCode || ''} onChange={e => setNewItem({...newItem, hsCode: e.target.value})}/></div>
-                                    <div className="w-24 space-y-1">
-                                        <label className="text-xs text-gray-500">وزن (KG)</label>
+                                    <div className="w-28 space-y-1"><label className="text-xs text-gray-500">HS Code</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="کد تعرفه" value={newItem.hsCode || ''} onChange={e => setNewItem({...newItem, hsCode: e.target.value})}/></div>
+                                    <div className="w-28 space-y-1">
+                                        <label className="text-xs text-gray-500">وزن خالص (KG)</label>
                                         <FormattedNumberInput 
                                             className="w-full border rounded p-2 text-sm dir-ltr font-bold" 
                                             placeholder="0" 
                                             value={newItem.weightStr} 
                                             onChange={val => setNewItem({...newItem, weightStr: formatNumberString(val), weight: val})}
+                                        />
+                                    </div>
+                                    <div className="w-28 space-y-1">
+                                        <label className="text-xs text-gray-500">وزن ناخالص (KG)</label>
+                                        <FormattedNumberInput 
+                                            className="w-full border rounded p-2 text-sm dir-ltr font-bold" 
+                                            placeholder="0" 
+                                            value={newItem.grossWeightStr} 
+                                            onChange={val => setNewItem({...newItem, grossWeightStr: formatNumberString(val), grossWeight: val})}
                                         />
                                     </div>
                                     <div className="w-32 space-y-1">
@@ -1796,21 +1907,22 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             onChange={val => setNewItem({...newItem, unitPriceStr: formatNumberString(val), unitPrice: val})}
                                         />
                                     </div>
-                                    <div className="w-32 space-y-1"><label className="text-xs text-gray-500">فی محاسبه شده</label><div className="w-full border rounded p-2 text-sm dir-ltr bg-gray-100 font-mono text-center h-[38px] flex items-center justify-center">
+                                    <div className="w-28 space-y-1"><label className="text-xs text-gray-500">فی محاسبه شده</label><div className="w-full border rounded p-2 text-sm dir-ltr bg-gray-100 font-mono text-center h-[38px] flex items-center justify-center">
                                         {formatNumberString(deformatNumberString(newItem.weightStr || '0') > 0 ? deformatNumberString(newItem.unitPriceStr || '0') / deformatNumberString(newItem.weightStr || '0') : 0)}
                                     </div></div>
                                     <button onClick={handleAddItem} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 h-[38px] min-w-[40px] flex items-center justify-center">{editingItemId ? <Save size={18}/> : <Plus size={18}/>}</button>
-                                    {editingItemId && <button onClick={() => { setEditingItemId(null); setNewItem({ name: '', weight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', unitPriceStr: '' }); }} className="bg-gray-200 text-gray-700 p-2 rounded-lg hover:bg-gray-300 h-[38px]"><X size={18}/></button>}
+                                    {editingItemId && <button onClick={() => { setEditingItemId(null); setNewItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' }); }} className="bg-gray-200 text-gray-700 p-2 rounded-lg hover:bg-gray-300 h-[38px]"><X size={18}/></button>}
                                 </div>
                                 <div className="hidden lg:block overflow-x-auto">
                                     <table className="w-full text-sm text-right">
-                                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">شرح</th><th className="p-3">HS Code</th><th className="p-3">وزن</th><th className="p-3">فی</th><th className="p-3">قیمت کل</th><th className="p-3">عملیات</th></tr></thead>
+                                        <thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">شرح</th><th className="p-3">HS Code</th><th className="p-3">وزن خالص (KG)</th><th className="p-3">وزن ناخالص (KG)</th><th className="p-3">فی</th><th className="p-3">قیمت کل</th><th className="p-3">عملیات</th></tr></thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {selectedRecord.items.map((item) => (
                                                 <tr key={item.id} className={editingItemId === item.id ? 'bg-blue-50' : ''}>
                                                     <td className="p-3">{item.name}</td>
                                                     <td className="p-3 font-mono">{item.hsCode || '-'}</td>
                                                     <td className="p-3 font-mono">{formatNumberString(item.weight)}</td>
+                                                    <td className="p-3 font-mono">{formatNumberString(item.grossWeight || item.weight)}</td>
                                                     <td className="p-3 font-mono">{formatNumberString(item.unitPrice)}</td>
                                                     <td className="p-3 font-mono font-bold">{formatNumberString(item.totalPrice)}</td>
                                                     <td className="p-3 flex gap-2">
@@ -1825,6 +1937,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 <td className="p-3">جمع کل</td>
                                                 <td></td>
                                                 <td className="p-3 font-mono">{formatNumberString(selectedRecord.items.reduce((a,b)=>a+b.weight,0))}</td>
+                                                <td className="p-3 font-mono">{formatNumberString(selectedRecord.items.reduce((a,b)=>a+(b.grossWeight || b.weight),0))}</td>
                                                 <td></td>
                                                 <td className="p-3 font-mono text-blue-700">{formatNumberString(selectedRecord.items.reduce((a,b)=>a+b.totalPrice,0))} {selectedRecord.mainCurrency}</td>
                                                 <td></td>
@@ -1846,9 +1959,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             </div>
                                             <div className="grid grid-cols-2 gap-3 text-xs">
                                                 <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500 block mb-0.5">HS Code:</span> <span className="font-mono font-bold">{item.hsCode || '-'}</span></div>
-                                                <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500 block mb-0.5">وزن:</span> <span className="font-mono font-bold">{formatNumberString(item.weight)} KG</span></div>
+                                                <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500 block mb-0.5">وزن خالص:</span> <span className="font-mono font-bold">{formatNumberString(item.weight)} KG</span></div>
+                                                <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500 block mb-0.5">وزن ناخالص:</span> <span className="font-mono font-bold">{formatNumberString(item.grossWeight || item.weight)} KG</span></div>
                                                 <div className="bg-gray-50 p-2 rounded-lg"><span className="text-gray-500 block mb-0.5">فی ارزی:</span> <span className="font-mono font-bold text-blue-600">{formatNumberString(item.unitPrice)}</span></div>
-                                                <div className="bg-blue-50 p-2 rounded-lg border border-blue-100"><span className="text-blue-500 block mb-0.5">قیمت کل:</span> <span className="font-mono font-bold text-blue-700 text-sm">{formatNumberString(item.totalPrice)} {selectedRecord.mainCurrency}</span></div>
+                                                <div className="bg-blue-50 p-2 rounded-lg border border-blue-100 col-span-2"><span className="text-blue-500 block mb-0.5">قیمت کل:</span> <span className="font-mono font-bold text-blue-700 text-sm">{formatNumberString(item.totalPrice)} {selectedRecord.mainCurrency}</span></div>
                                             </div>
                                         </div>
                                     ))}
@@ -2098,16 +2212,17 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 <button onClick={handleSyncInvoiceToProforma} className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 transition-colors" title="جایگزینی اقلام اینویس در پروفرما"><RefreshCw size={14}/> جایگزینی در پروفرما</button>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2 items-end">
-                                            <input className="flex-1 border rounded p-2 text-sm" placeholder="نام کالا" value={newInvoiceItem.name} onChange={e => setNewInvoiceItem({...newInvoiceItem, name: e.target.value})} />
-                                            <input className="w-20 border rounded p-2 text-sm dir-ltr" placeholder="وزن" value={newInvoiceItem.weight || ''} onChange={e => setNewInvoiceItem({...newInvoiceItem, weight: Number(e.target.value)})} type="number" />
+                                        <div className="flex gap-2 items-end flex-wrap">
+                                            <input className="flex-1 min-w-[140px] border rounded p-2 text-sm" placeholder="نام کالا" value={newInvoiceItem.name} onChange={e => setNewInvoiceItem({...newInvoiceItem, name: e.target.value})} />
+                                            <input className="w-20 border rounded p-2 text-sm dir-ltr" placeholder="وزن خالص" value={newInvoiceItem.weight || ''} onChange={e => setNewInvoiceItem({...newInvoiceItem, weight: Number(e.target.value)})} type="number" step="0.001" />
+                                            <input className="w-20 border rounded p-2 text-sm dir-ltr" placeholder="وزن ناخالص" value={newInvoiceItem.grossWeight || ''} onChange={e => setNewInvoiceItem({...newInvoiceItem, grossWeight: Number(e.target.value)})} type="number" step="0.001" />
                                             <input className="w-24 border rounded p-2 text-sm dir-ltr" placeholder="فی (Unit)" value={newInvoiceItem.unitPrice || ''} onChange={e => setNewInvoiceItem({...newInvoiceItem, unitPrice: Number(e.target.value)})} type="number" step="0.0001" />
                                             <input className="w-20 border rounded p-2 text-sm" placeholder="پارت" value={newInvoiceItem.part} onChange={e => setNewInvoiceItem({...newInvoiceItem, part: e.target.value})} />
                                             <input className="w-24 border rounded p-2 text-sm dir-ltr bg-gray-100" placeholder="قیمت کل" value={newInvoiceItem.totalPrice || ((newInvoiceItem.weight || 0) * (newInvoiceItem.unitPrice || 0))} readOnly />
                                             <button onClick={handleAddInvoiceItem} className="bg-blue-600 text-white p-2 rounded-lg"><Plus size={16}/></button>
                                         </div>
-                                        <div className="space-y-1">{shippingDocForm.invoiceItems?.map(i => (<div key={i.id} className="flex justify-between glass-panel p-2 rounded text-xs border"><span>{i.name}</span><div className="flex gap-2 items-center"><span className="bg-gray-100 px-1 rounded text-gray-500">Part: {i.part}</span><span className="font-mono">{i.weight} KG</span><span className="font-mono">@{i.unitPrice}</span><span className="font-mono font-bold">{formatNumberString(i.totalPrice)}</span><button onClick={()=>handleRemoveInvoiceItem(i.id)} className="text-red-500"><X size={14}/></button></div></div>))}</div>
-                                        <div className="flex justify-between items-center pt-2 border-t border-blue-200"><span className="font-bold text-xs">هزینه حمل (Freight)</span><input className="w-32 border rounded p-1 text-sm dir-ltr" value={shippingDocForm.freightCost} onChange={e => setShippingDocForm({...shippingDocForm, freightCost: Number(e.target.value)})} type="number" /></div>
+                                        <div className="space-y-1">{shippingDocForm.invoiceItems?.map(i => (<div key={i.id} className="flex justify-between glass-panel p-2 rounded text-xs border items-center"><span>{i.name}</span><div className="flex gap-2 items-center"><span className="bg-gray-100 px-1 rounded text-gray-500">Part: {i.part}</span><span className="font-mono text-gray-700">خالص: {formatNumberString(i.weight)} kg</span><span className="font-mono text-gray-700">ناخالص: {formatNumberString(i.grossWeight || i.weight)} kg</span><span className="font-mono">@{i.unitPrice}</span><span className="font-mono font-bold text-blue-700">{formatNumberString(i.totalPrice)}</span><button onClick={()=>handleRemoveInvoiceItem(i.id)} className="text-red-500"><X size={14}/></button></div></div>))}</div>
+                                        <div className="flex justify-between items-center pt-2 border-t border-blue-200"><span className="font-bold text-xs">هزینه حمل (Freight)</span><input className="w-32 border rounded p-1 text-sm dir-ltr" value={shippingDocForm.freightCost} onChange={e => setShippingDocForm({...shippingDocForm, freightCost: Number(e.target.value)})} type="number" step="0.01" /></div>
                                     </div>
                                 )}
 
@@ -2879,7 +2994,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <span className={`text-[10px] px-2 py-1 rounded-lg ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>{record.status === 'Completed' ? 'تکمیل شده' : 'جاری'}</span>
                                 </div>
                                 <div className="space-y-1.5 text-xs text-gray-500">
-                                    <div className="flex items-center gap-1"><FolderOpen size={12} /> پرونده: <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.fileNumber}</span></div>
+                                    <div className="flex items-center gap-1"><FolderOpen size={12} /> پروفرم: <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.proformaNumber || record.fileNumber}</span></div>
+                                    {record.orderNumber && <div className="flex items-center gap-1"><span className="text-[11px] text-gray-400">سفارش:</span> <span className="font-mono text-gray-700 dark:text-gray-300 font-semibold">{record.orderNumber}</span></div>}
                                     <div className="flex items-center gap-1"><Building2 size={12} /> فروشنده: <span className="text-gray-700 dark:text-gray-300">{record.sellerName}</span></div>
                                     <div className="flex items-center gap-1"><History size={12} /> شروع: <span>{new Date(record.startDate).toLocaleDateString('fa-IR')}</span></div>
                                 </div>
@@ -2912,13 +3028,29 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
                         </div>
                         <div className="space-y-4 text-gray-800 dark:text-gray-200">
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده *</label>
-                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newFileNumber} onChange={e => setNewFileNumber(e.target.value)} placeholder="مثال: File-1403-01..." />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پروفرم *</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newProformaNumber} onChange={e => { setNewProformaNumber(e.target.value); setNewFileNumber(e.target.value); }} placeholder="مثال: PI-1403-01 یا 2024-99..." />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره سفارش</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newOrderNumber} onChange={e => setNewOrderNumber(e.target.value)} placeholder="مثال: ORD-1403-01..." />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newFileNumberDirect} onChange={e => setNewFileNumberDirect(e.target.value)} placeholder="تکمیل از ثبت سفارش یا دستی..." />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره ثبت سفارش</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newRegistrationNumber} onChange={e => { setNewRegistrationNumber(e.target.value); if (!newFileNumberDirect) setNewFileNumberDirect(e.target.value); }} placeholder="شماره ۸ رقمی ثبت سفارش..." />
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">نام کالا (شرح کلی) *</label>
-                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: مواد اولیه پلیمر / قطعات یدکی..." />
+                                <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newGoodsName} onChange={e => setNewGoodsName(e.target.value)} placeholder="مثال: ۲۵۰ تن چیپس پلی استر نساجی..." />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">فروشنده</label>
@@ -2946,7 +3078,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             </div>
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
                                 <button onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
-                                <button onClick={handleCreateRecord} disabled={!newFileNumber || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
+                                <button onClick={handleCreateRecord} disabled={(!newProformaNumber && !newFileNumber) || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
                             </div>
                         </div>
                     </div>

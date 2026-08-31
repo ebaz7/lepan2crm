@@ -288,6 +288,8 @@ export interface UnionExitBotUser {
   allowedCommodities: string[]; // List of warehouse item IDs or names
 }
 
+export type AppSettings = SystemSettings;
+
 export interface SystemSettings {
   appName?: string;
   currentTrackingNumber: number;
@@ -934,6 +936,10 @@ export interface CurrencyPurchaseData {
     deliveryDate?: string;
     recipientName?: string;
     deliveredCurrencyType?: string;
+    allocationDate?: string;
+    queueEntryDate?: string;
+    allocationExpiryDate?: string;
+    allocationCode?: string;
 }
 
 export interface InsuranceEndorsement {
@@ -947,7 +953,8 @@ export interface TradeItem {
     id: string;
     name: string;
     hsCode?: string;
-    weight: number;
+    weight: number; // وزن خالص (Net Weight)
+    grossWeight?: number; // وزن ناخالص (Gross Weight)
     unitPrice: number;
     totalPrice: number;
 }
@@ -958,7 +965,8 @@ export type DocStatus = 'Draft' | 'Final';
 export interface InvoiceItem {
     id: string;
     name: string;
-    weight: number;
+    weight: number; // وزن خالص (Net Weight)
+    grossWeight?: number; // وزن ناخالص (Gross Weight)
     unitPrice: number;
     totalPrice: number;
     part: string;
@@ -1131,10 +1139,20 @@ export interface AgentData {
     payments: AgentPayment[];
 }
 
+export interface TradeComment {
+    id: string;
+    text: string;
+    createdAt: number;
+    createdBy: string;
+    creatorName?: string;
+    role?: string;
+}
+
 export interface TradeRecord {
     id: string;
-    fileNumber: string;
-    orderNumber?: string;
+    fileNumber: string; // شماره پرونده
+    proformaNumber?: string; // شماره پروفرم / پروفرما
+    orderNumber?: string; // شماره سفارش
     goodsName: string;
     sellerName: string;
     commodityGroup: string;
@@ -1161,12 +1179,15 @@ export interface TradeRecord {
     insuranceData?: {
         policyNumber: string;
         company: string;
+        agencyName?: string; // نام نمایندگی بیمه
+        agencyCode?: string; // کد نمایندگی بیمه
         cost: number;
         bank: string;
         endorsements: InsuranceEndorsement[];
         isPaid: boolean;
         paymentDate: string;
     };
+    comments?: TradeComment[];
     currencyPurchaseData?: CurrencyPurchaseData;
     shippingDocuments?: ShippingDocument[];
     inspectionData?: InspectionData;

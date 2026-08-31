@@ -189,7 +189,8 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
   const renderDocContent = () => {
     switch (doc.type) {
       case 'Commercial Invoice': {
-        const totalWeight = doc.invoiceItems?.reduce((sum, item) => sum + (item.weight || 0), 0) || 0;
+        const totalNetWeight = doc.invoiceItems?.reduce((sum, item) => sum + (item.weight || 0), 0) || (doc.netWeight || 0);
+        const totalGrossWeight = doc.invoiceItems?.reduce((sum, item) => sum + (item.grossWeight || item.weight || 0), 0) || (doc.grossWeight || totalNetWeight || 0);
         const totalAmount = doc.invoiceItems?.reduce((sum, item) => sum + (item.totalPrice || ((item.weight || 0) * (item.unitPrice || 0))), 0) || 0;
         const freight = doc.freightCost || 0;
         const grandTotal = totalAmount + freight;
@@ -234,8 +235,9 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
                 <tr className="bg-gray-100 border-b border-black font-bold">
                   <th className="p-2 border-r border-black w-10 text-center">ردیف</th>
                   <th className="p-2 border-r border-black">شرح کالا / Description of Goods</th>
-                  <th className="p-2 border-r border-black w-20 text-center">پارت</th>
-                  <th className="p-2 border-r border-black w-24 text-center">وزن (kg)</th>
+                  <th className="p-2 border-r border-black w-16 text-center">پارت</th>
+                  <th className="p-2 border-r border-black w-24 text-center">وزن خالص (kg)</th>
+                  <th className="p-2 border-r border-black w-24 text-center">وزن ناخالص (kg)</th>
                   <th className="p-2 border-r border-black w-24 text-center font-mono">فی ({currencyStr})</th>
                   <th className="p-2 w-28 text-center font-mono">مبلغ کل ({currencyStr})</th>
                 </tr>
@@ -247,19 +249,21 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
                     <td className="p-2 border-r border-black">{item.name}</td>
                     <td className="p-2 border-r border-black text-center font-mono">{item.part || '---'}</td>
                     <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.weight)}</td>
+                    <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.grossWeight || item.weight)}</td>
                     <td className="p-2 border-r border-black text-center font-mono">{formatCurrency(item.unitPrice)}</td>
                     <td className="p-2 text-center font-mono font-bold">{formatCurrency(item.totalPrice)}</td>
                   </tr>
                 ))}
                 {/* Freight */}
                 <tr className="border-b border-black">
-                  <td colSpan={5} className="p-2 border-r border-black text-left pl-4 font-bold">هزینه حمل (Freight Cost):</td>
+                  <td colSpan={6} className="p-2 border-r border-black text-left pl-4 font-bold">هزینه حمل (Freight Cost):</td>
                   <td className="p-2 text-center font-mono font-bold">{formatCurrency(freight)} {currencyStr}</td>
                 </tr>
                 {/* Total */}
                 <tr className="bg-gray-50 font-bold border-t border-black">
                   <td colSpan={3} className="p-2 border-r border-black text-left pl-4">جمع کل (Grand Total):</td>
-                  <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalWeight)} kg</td>
+                  <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalNetWeight)} kg</td>
+                  <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalGrossWeight)} kg</td>
                   <td className="p-2 border-r border-black text-center">-</td>
                   <td className="p-2 text-center font-mono text-sm text-blue-700">{formatCurrency(grandTotal)} {currencyStr}</td>
                 </tr>
