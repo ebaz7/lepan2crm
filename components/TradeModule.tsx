@@ -5,7 +5,7 @@ import { User, TradeRecord, TradeStage, TradeItem, SystemSettings, InsuranceEndo
 import { getTradeRecords, saveTradeRecord, updateTradeRecord, deleteTradeRecord, getSettings, uploadFile } from '../services/storageService';
 import { generateUUID, formatCurrency, formatNumberString, deformatNumberString, parsePersianDate, formatDate, calculateDaysDiff, getStatusLabel } from '../constants';
 import FormattedNumberInput from './FormattedNumberInput';
-import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2 } from 'lucide-react';
+import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2, Eye, EyeOff } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
 import AllocationReport from './AllocationReport';
@@ -170,6 +170,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const [showClearancePrint, setShowClearancePrint] = useState(false);
     const [showProformaPrint, setShowProformaPrint] = useState(false);
     const [selectedShippingDocForPrint, setSelectedShippingDocForPrint] = useState<ShippingDocument | null>(null);
+    const [expandedShippingDocIds, setExpandedShippingDocIds] = useState<Record<string, boolean>>({});
+
+    const toggleShippingDocExpand = (docId: string) => {
+        setExpandedShippingDocIds(prev => ({
+            ...prev,
+            [docId]: !prev[docId]
+        }));
+    };
     const [showQuickDocsPanel, setShowQuickDocsPanel] = useState(false);
     const [sharePlatform, setSharePlatform] = useState<'whatsapp' | 'bale' | 'telegram' | null>(null);
     const [contactSearch, setContactSearch] = useState('');
@@ -2271,37 +2279,273 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="flex justify-end pt-4 border-t"><button onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
                                 
                                 <div className="mt-6">
-                                    <h4 className="font-bold text-sm text-gray-500 mb-2">اسناد ثبت شده</h4>
-                                    <div className="space-y-2">
-                                        {selectedRecord.shippingDocuments?.filter(d => d.type === activeShippingSubTab).map(doc => (
-                                            <div key={doc.id} className="border p-3 rounded-lg flex justify-between items-center bg-gray-50">
-                                                <div className="text-sm flex items-center gap-2 flex-wrap">
-                                                    <span className="font-mono font-bold text-gray-800">{doc.documentNumber}</span>
-                                                    <span className="text-xs text-gray-500">({doc.documentDate})</span>
-                                                    {doc.status && (
-                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${doc.status === 'Final' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                            {doc.status === 'Final' ? 'نهایی' : 'پیش‌نویس'}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button 
-                                                        onClick={() => setSelectedShippingDocForPrint(doc)} 
-                                                        className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition-all active:scale-95"
-                                                    >
-                                                        <Printer size={14}/>
-                                                        مشاهده و چاپ سند استاندارد
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteShippingDoc(doc.id)} 
-                                                        className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                                                        title="حذف سند"
-                                                    >
-                                                        <Trash2 size={16}/>
-                                                    </button>
-                                                </div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h4 className="font-bold text-sm text-gray-700 flex items-center gap-2">
+                                            <FolderOpen size={16} className="text-blue-600"/>
+                                            اسناد ثبت شده ({selectedRecord.shippingDocuments?.filter(d => d.type === activeShippingSubTab).length || 0})
+                                        </h4>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {!selectedRecord.shippingDocuments || selectedRecord.shippingDocuments.filter(d => d.type === activeShippingSubTab).length === 0 ? (
+                                            <div className="p-4 bg-gray-50 border border-dashed rounded-xl text-center text-xs text-gray-400">
+                                                هنوز سندی در این بخش ثبت نشده است.
                                             </div>
-                                        ))}
+                                        ) : (
+                                            selectedRecord.shippingDocuments.filter(d => d.type === activeShippingSubTab).map(doc => {
+                                                const isExpanded = !!expandedShippingDocIds[doc.id];
+                                                const totalNet = doc.type === 'Commercial Invoice'
+                                                    ? (doc.invoiceItems?.reduce((s, i) => s + (i.weight || 0), 0) || doc.netWeight || 0)
+                                                    : (doc.packingItems?.reduce((s, i) => s + (i.netWeight || 0), 0) || doc.netWeight || 0);
+                                                const totalGross = doc.type === 'Commercial Invoice'
+                                                    ? (doc.invoiceItems?.reduce((s, i) => s + (i.grossWeight || i.weight || 0), 0) || doc.grossWeight || totalNet)
+                                                    : (doc.packingItems?.reduce((s, i) => s + (i.grossWeight || i.netWeight || 0), 0) || doc.grossWeight || totalNet);
+                                                const totalAmount = doc.invoiceItems?.reduce((s, i) => s + (i.totalPrice || 0), 0) || 0;
+                                                const grandTotal = totalAmount + (doc.freightCost || 0);
+
+                                                return (
+                                                    <div key={doc.id} className={`border rounded-xl overflow-hidden transition-all duration-200 shadow-sm ${isExpanded ? 'border-blue-400 bg-white ring-2 ring-blue-100' : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300'}`}>
+                                                        {/* Header Bar / Summary */}
+                                                        <div 
+                                                            onClick={() => toggleShippingDocExpand(doc.id)}
+                                                            className="p-3.5 flex justify-between items-center cursor-pointer select-none gap-3 flex-wrap"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`p-1.5 rounded-lg transition-transform duration-200 ${isExpanded ? 'bg-blue-600 text-white rotate-180 shadow-sm' : 'bg-gray-200 text-gray-700'}`}>
+                                                                    <ChevronDown size={16} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                        <span className="font-mono font-bold text-gray-900 text-sm tracking-wide">{doc.documentNumber}</span>
+                                                                        {doc.documentDate && (
+                                                                            <span className="text-xs text-gray-500 font-medium">({doc.documentDate})</span>
+                                                                        )}
+                                                                        {doc.status && (
+                                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${doc.status === 'Final' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                                {doc.status === 'Final' ? 'نهایی' : 'پیش‌نویس'}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-3 flex-wrap">
+                                                                        {doc.type === 'Commercial Invoice' && (
+                                                                            <>
+                                                                                <span>اقلام: <strong className="text-gray-700 font-mono">{doc.invoiceItems?.length || 0}</strong> ردیف</span>
+                                                                                <span>وزن خالص: <strong className="text-gray-700 font-mono">{formatNumberString(totalNet)}</strong> KG</span>
+                                                                                <span>مبلغ کل: <strong className="text-blue-700 font-mono">{formatNumberString(grandTotal)}</strong> {doc.currency || selectedRecord.mainCurrency}</span>
+                                                                            </>
+                                                                        )}
+                                                                        {doc.type === 'Packing List' && (
+                                                                            <>
+                                                                                <span>بسته‌ها: <strong className="text-gray-700 font-mono">{formatNumberString(doc.packingItems?.reduce((s,i)=>s+(i.packageCount||0),0) || doc.packagesCount || 0)}</strong></span>
+                                                                                <span>وزن خالص: <strong className="text-gray-700 font-mono">{formatNumberString(totalNet)}</strong> KG</span>
+                                                                                <span>وزن ناخالص: <strong className="text-gray-700 font-mono">{formatNumberString(totalGross)}</strong> KG</span>
+                                                                            </>
+                                                                        )}
+                                                                        {(doc.type === 'Bill of Lading' || doc.type === 'Certificate of Origin') && (
+                                                                            <>
+                                                                                {doc.vesselName && <span>کشتی: <strong className="text-gray-700">{doc.vesselName}</strong></span>}
+                                                                                {totalNet > 0 && <span>وزن: <strong className="text-gray-700 font-mono">{formatNumberString(totalNet)}</strong> KG</span>}
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                                <button 
+                                                                    onClick={() => toggleShippingDocExpand(doc.id)} 
+                                                                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${isExpanded ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
+                                                                    title={isExpanded ? 'بستن منو' : 'مشاهده در همین صفحه'}
+                                                                >
+                                                                    <Eye size={14}/>
+                                                                    {isExpanded ? 'بستن منو' : 'مشاهده'}
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setSelectedShippingDocForPrint(doc)} 
+                                                                    className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-bold transition-all active:scale-95"
+                                                                    title="چاپ سند استاندارد / PDF"
+                                                                >
+                                                                    <Printer size={14}/>
+                                                                    چاپ
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteShippingDoc(doc.id)} 
+                                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                                    title="حذف سند"
+                                                                >
+                                                                    <Trash2 size={16}/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expandable Document Menu / Inline View */}
+                                                        {isExpanded && (
+                                                            <div className="p-4 border-t border-gray-200 bg-white space-y-4">
+                                                                {/* Summary Meta Grid */}
+                                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-50 p-3 rounded-lg text-xs">
+                                                                    <div><span className="text-gray-400 block mb-0.5">نوع سند:</span> <span className="font-bold text-gray-800">{doc.type}</span></div>
+                                                                    <div><span className="text-gray-400 block mb-0.5">شماره سند:</span> <span className="font-bold font-mono text-gray-800">{doc.documentNumber}</span></div>
+                                                                    <div><span className="text-gray-400 block mb-0.5">تاریخ سند:</span> <span className="font-bold text-gray-800">{doc.documentDate || '---'}</span></div>
+                                                                    <div><span className="text-gray-400 block mb-0.5">وضعیت سند:</span> <span className="font-bold text-gray-800">{doc.status === 'Final' ? 'نهایی' : 'پیش‌نویس'}</span></div>
+                                                                    {doc.vesselName && <div><span className="text-gray-400 block mb-0.5">نام شناور / کشتی:</span> <span className="font-bold text-gray-800">{doc.vesselName}</span></div>}
+                                                                    {doc.portOfLoading && <div><span className="text-gray-400 block mb-0.5">بندر بارگیری:</span> <span className="font-bold text-gray-800">{doc.portOfLoading}</span></div>}
+                                                                    {doc.portOfDischarge && <div><span className="text-gray-400 block mb-0.5">بندر تخلیه:</span> <span className="font-bold text-gray-800">{doc.portOfDischarge}</span></div>}
+                                                                    {doc.createdBy && <div><span className="text-gray-400 block mb-0.5">ثبت‌کننده:</span> <span className="font-bold text-gray-800">{doc.createdBy}</span></div>}
+                                                                </div>
+
+                                                                {/* Invoice Items Table */}
+                                                                {doc.type === 'Commercial Invoice' && (
+                                                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                                                        <div className="bg-blue-50 px-3 py-2 border-b border-blue-100 flex justify-between items-center text-xs font-bold text-blue-900">
+                                                                            <span>اقلام سیاهه تجاری (Commercial Invoice)</span>
+                                                                            <span>ارز: {doc.currency || selectedRecord.mainCurrency}</span>
+                                                                        </div>
+                                                                        <div className="overflow-x-auto">
+                                                                            <table className="w-full text-xs text-right">
+                                                                                <thead className="bg-gray-100 text-gray-700">
+                                                                                    <tr>
+                                                                                        <th className="p-2 w-10 text-center">ردیف</th>
+                                                                                        <th className="p-2">شرح کالا</th>
+                                                                                        <th className="p-2 w-16 text-center">پارت</th>
+                                                                                        <th className="p-2 text-center font-mono">وزن خالص (kg)</th>
+                                                                                        <th className="p-2 text-center font-mono">وزن ناخالص (kg)</th>
+                                                                                        <th className="p-2 text-center font-mono">فی واحد</th>
+                                                                                        <th className="p-2 text-center font-mono">مبلغ کل ({doc.currency || selectedRecord.mainCurrency})</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-gray-100">
+                                                                                    {doc.invoiceItems && doc.invoiceItems.length > 0 ? (
+                                                                                        doc.invoiceItems.map((item, idx) => (
+                                                                                            <tr key={item.id || idx} className="hover:bg-gray-50">
+                                                                                                <td className="p-2 text-center text-gray-400 font-mono">{idx + 1}</td>
+                                                                                                <td className="p-2 font-medium text-gray-800">{item.name}</td>
+                                                                                                <td className="p-2 text-center text-gray-600 font-mono">{item.part || '-'}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.weight)}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.grossWeight || item.weight)}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.unitPrice)}</td>
+                                                                                                <td className="p-2 text-center font-mono font-bold text-gray-900">{formatNumberString(item.totalPrice)}</td>
+                                                                                            </tr>
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        <tr>
+                                                                                            <td colSpan={7} className="p-3 text-center text-gray-400">هیچ قلمی ثبت نشده است</td>
+                                                                                        </tr>
+                                                                                    )}
+                                                                                    {doc.freightCost ? (
+                                                                                        <tr className="bg-gray-50/80 font-bold border-t">
+                                                                                            <td colSpan={6} className="p-2 text-left pl-4 text-gray-600">هزینه حمل (Freight):</td>
+                                                                                            <td className="p-2 text-center font-mono text-gray-900">{formatNumberString(doc.freightCost)} {doc.currency || selectedRecord.mainCurrency}</td>
+                                                                                        </tr>
+                                                                                    ) : null}
+                                                                                    <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
+                                                                                        <td colSpan={3} className="p-2 text-left pl-4 text-blue-900">جمع کل:</td>
+                                                                                        <td className="p-2 text-center font-mono text-blue-900">{formatNumberString(totalNet)}</td>
+                                                                                        <td className="p-2 text-center font-mono text-blue-900">{formatNumberString(totalGross)}</td>
+                                                                                        <td></td>
+                                                                                        <td className="p-2 text-center font-mono text-blue-800 text-sm">{formatNumberString(grandTotal)} {doc.currency || selectedRecord.mainCurrency}</td>
+                                                                                    </tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Packing List Items Table */}
+                                                                {doc.type === 'Packing List' && (
+                                                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                                                        <div className="bg-orange-50 px-3 py-2 border-b border-orange-100 text-xs font-bold text-orange-900">
+                                                                            اقلام پکینگ لیست (Packing List)
+                                                                        </div>
+                                                                        <div className="overflow-x-auto">
+                                                                            <table className="w-full text-xs text-right">
+                                                                                <thead className="bg-gray-100 text-gray-700">
+                                                                                    <tr>
+                                                                                        <th className="p-2 w-10 text-center">ردیف</th>
+                                                                                        <th className="p-2">شرح بسته / کالا</th>
+                                                                                        <th className="p-2 w-16 text-center">پارت</th>
+                                                                                        <th className="p-2 text-center font-mono">تعداد بسته</th>
+                                                                                        <th className="p-2 text-center font-mono">وزن خالص (kg)</th>
+                                                                                        <th className="p-2 text-center font-mono">وزن ناخالص (kg)</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody className="divide-y divide-gray-100">
+                                                                                    {doc.packingItems && doc.packingItems.length > 0 ? (
+                                                                                        doc.packingItems.map((item, idx) => (
+                                                                                            <tr key={item.id || idx} className="hover:bg-gray-50">
+                                                                                                <td className="p-2 text-center text-gray-400 font-mono">{idx + 1}</td>
+                                                                                                <td className="p-2 font-medium text-gray-800">{item.description}</td>
+                                                                                                <td className="p-2 text-center text-gray-600 font-mono">{item.part || '-'}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.packageCount)}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.netWeight)}</td>
+                                                                                                <td className="p-2 text-center font-mono">{formatNumberString(item.grossWeight)}</td>
+                                                                                            </tr>
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        <tr>
+                                                                                            <td colSpan={6} className="p-3 text-center text-gray-400">هیچ قلمی ثبت نشده است</td>
+                                                                                        </tr>
+                                                                                    )}
+                                                                                    <tr className="bg-orange-50 font-bold border-t-2 border-orange-200">
+                                                                                        <td colSpan={3} className="p-2 text-left pl-4 text-orange-900">جمع کل:</td>
+                                                                                        <td className="p-2 text-center font-mono text-orange-900">{formatNumberString(doc.packingItems?.reduce((s,i)=>s+(i.packageCount||0),0) || doc.packagesCount || 0)}</td>
+                                                                                        <td className="p-2 text-center font-mono text-orange-900">{formatNumberString(totalNet)}</td>
+                                                                                        <td className="p-2 text-center font-mono text-orange-900">{formatNumberString(totalGross)}</td>
+                                                                                    </tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Attachments & Notes */}
+                                                                {((doc.attachments && doc.attachments.length > 0) || doc.description) && (
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                                        {doc.attachments && doc.attachments.length > 0 && (
+                                                                            <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+                                                                                <span className="text-[11px] font-bold text-gray-600 block mb-1.5 flex items-center gap-1"><Paperclip size={13}/> فایل‌های ضمیمه</span>
+                                                                                <div className="space-y-1">
+                                                                                    {doc.attachments.map((att, i) => (
+                                                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" className="flex items-center justify-between text-xs text-blue-600 hover:text-blue-800 bg-white p-1.5 rounded border border-gray-100 hover:border-blue-200">
+                                                                                            <span className="truncate max-w-[220px]">{att.fileName}</span>
+                                                                                            <ExternalLink size={12} className="text-gray-400"/>
+                                                                                        </a>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {doc.description && (
+                                                                            <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-xs">
+                                                                                <span className="text-[11px] font-bold text-gray-600 block mb-1">توضیحات و یادداشت</span>
+                                                                                <p className="text-gray-700 leading-relaxed">{doc.description}</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Action Buttons inside Expanded View */}
+                                                                <div className="flex items-center justify-between pt-3 border-t border-gray-100 flex-wrap gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button 
+                                                                            onClick={() => setSelectedShippingDocForPrint(doc)} 
+                                                                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                                                                        >
+                                                                            <Printer size={15}/>
+                                                                            چاپ رسمی سند (PDF)
+                                                                        </button>
+                                                                    </div>
+                                                                    <button 
+                                                                        onClick={() => toggleShippingDocExpand(doc.id)} 
+                                                                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 transition-all"
+                                                                    >
+                                                                        <ChevronUp size={14}/>
+                                                                        بستن منو
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 </div>
                             </div>
