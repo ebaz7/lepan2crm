@@ -298,8 +298,8 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
             // A. Notify CEO
             const ceo = users.find(u => u.role === UserRole.CEO && u.phoneNumber);
             if (ceo) {
-              let caption = `🚛 *اصلاحیه مجوز خروج*\n`;
-              caption += `⚠️ *این مجوز ویرایش شده است*\n`;
+              let caption = `🚛 *اصلاحیه حواله خروج کارخانه*\n`;
+              caption += `⚠️ *این حواله خروج ویرایش شده است*\n`;
               caption += `شماره: ${updatedPermit.permitNumber}\n`;
               caption += `گیرنده: ${updatedPermit.recipientName}\n`;
               caption += `وضعیت: بازگشت به صف (مدیرعامل)\n\n`;
@@ -315,8 +315,8 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
             // B. Notify Group if configured
             const groupTarget = currentSettings?.exitPermitNotificationGroup;
             if (groupTarget) {
-              let groupCaption = `📝 *مجوز خروج ویرایش شد*\n`;
-              groupCaption += `🚨 *توجه: نسخه قبلی این مجوز فاقد اعتبار است.*\n`;
+              let groupCaption = `📝 *حواله خروج کارخانه ویرایش شد*\n`;
+              groupCaption += `🚨 *توجه: نسخه قبلی این حواله خروج فاقد اعتبار است.*\n`;
               groupCaption += `شماره: ${updatedPermit.permitNumber}\n`;
               groupCaption += `وضعیت فعلی: در انتظار تایید مجدد مدیریت`;
 
@@ -337,7 +337,7 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
 
     } catch (e: any) { 
       if (e.message && (e.message.includes('409') || e.message.includes('Duplicate'))) {
-        alert(`⛔ خطا: شماره مجوز خروج ${permitNumber} برای شرکت "${permit.company}" تکراری است.`);
+        alert(`⛔ خطا: شماره حواله خروج کارخانه ${permitNumber} برای شرکت "${permit.company}" تکراری است.`);
       } else {
         alert('خطا در ذخیره تغییرات: ' + (e.message || 'Unknown error'));
       }
@@ -373,8 +373,8 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
               <Save size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">ویرایش مجوز خروج بار کارخانه</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">شماره مجوز: {permit.permitNumber} | شرکت: {permit.company}</p>
+              <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">ویرایش حواله خروج کارخانه</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">شماره حواله: {permit.permitNumber} | شرکت: {permit.company}</p>
             </div>
           </div>
           <button 

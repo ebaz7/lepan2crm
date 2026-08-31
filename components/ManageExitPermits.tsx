@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ExitPermit, ExitPermitStatus, User, UserRole, SystemSettings } from '../types';
-import { getExitPermits, updateExitPermitStatus, deleteExitPermit, editExitPermit } from '../services/storageService';
+import { getExitPermits, updateExitPermitStatus, deleteExitPermit, editExitPermit, getPreviousExitPermitStatusForReject } from '../services/storageService';
+import { exitPermitQueueService } from '../services/exitPermitQueueService';
 import { getUsers, getRolePermissions } from '../services/authService';
 import { apiCall } from '../services/apiService';
 import { formatDate, formatIranianPlate } from '../constants';
 import { 
     Eye, Trash2, Search, CheckCircle, Truck, XCircle, Edit, Loader2, 
     Package, Archive, RefreshCw, UserCheck, ShieldCheck, Warehouse, 
-    User as UserIcon, Building2, Bell, AlertTriangle, MoreVertical, Edit3, FileText, Paperclip
+    User as UserIcon, Building2, Bell, AlertTriangle, MoreVertical, Edit3, FileText, Paperclip, Undo2
 } from 'lucide-react';
 import PrintExitPermit from './PrintExitPermit';
 import WarehouseFinalizeModal from './WarehouseFinalizeModal'; 
@@ -84,7 +85,35 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         processQueue();
     }, [autoSendQueue, queueIsProcessing]);
 
-    useEffect(() => { loadData(); }, [financialYear]);
+    useEffect(() => { 
+        loadData(); 
+
+        const handleOptimisticApply = (e: any) => {
+            const { permitId, targetStatus, updates } = e.detail || {};
+            if (permitId && targetStatus) {
+                setPermits(prev => prev.map(p => p.id === permitId ? { ...p, status: targetStatus, ...(updates || {}) } : p));
+            }
+        };
+
+        const handleBackgroundSynced = (e: any) => {
+            // Silently refresh without showing loading spinners
+            getExitPermits().then(data => {
+                let safeData = Array.isArray(data) ? data : [];
+                if (financialYear && financialYear !== 'all') {
+                    safeData = safeData.filter(p => isInFinancialYear(p.date, financialYear));
+                }
+                setPermits(safeData.sort((a, b) => ((b.createdAt || 0) - (a.createdAt || 0)) || ((b.permitNumber || 0) - (a.permitNumber || 0)) ));
+            }).catch(() => {});
+        };
+
+        window.addEventListener('EXIT_PERMIT_OPTIMISTIC_APPLY', handleOptimisticApply);
+        window.addEventListener('EXIT_PERMIT_BACKGROUND_SYNCED', handleBackgroundSynced);
+
+        return () => {
+            window.removeEventListener('EXIT_PERMIT_OPTIMISTIC_APPLY', handleOptimisticApply);
+            window.removeEventListener('EXIT_PERMIT_BACKGROUND_SYNCED', handleBackgroundSynced);
+        };
+    }, [financialYear]);
     
     useEffect(() => {
         if (statusFilter) {
@@ -244,38 +273,87 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         const actionLabel = getActionLabel(p.status);
         if (!confirm(`آیا از ${actionLabel} اطمینان دارید؟`)) return;
 
-        setProcessingId(p.id);
-        
+        let nextStatus = ExitPermitStatus.PENDING_FACTORY;
+        if (p.status === ExitPermitStatus.PENDING_CEO) nextStatus = ExitPermitStatus.PENDING_FACTORY;
+        else if (p.status === ExitPermitStatus.PENDING_FACTORY) nextStatus = ExitPermitStatus.PENDING_WAREHOUSE;
+        else if (p.status === ExitPermitStatus.PENDING_FACTORY_FINAL) nextStatus = ExitPermitStatus.EXITED;
+        else nextStatus = p.status; // Fallback
+
+        const updatedPermit = { ...p, status: nextStatus, updatedAt: Date.now() };
+        let extraUpdateData: any = {};
+
+        if (p.status === ExitPermitStatus.PENDING_CEO) updatedPermit.approverCeo = currentUser.fullName;
+        else if (p.status === ExitPermitStatus.PENDING_FACTORY) updatedPermit.approverFactory = currentUser.fullName;
+        else if (p.status === ExitPermitStatus.PENDING_FACTORY_FINAL) {
+            updatedPermit.approverFactoryFinal = currentUser.fullName;
+            updatedPermit.exitTime = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+            extraUpdateData.exitTime = updatedPermit.exitTime;
+        }
+
+        // 1. Instant Optimistic UI Update: the card moves/disappears instantly with 0ms delay
+        setPermits(prev => prev.map(item => item.id === p.id ? { ...item, ...updatedPermit } : item));
+        if (viewPermit?.id === p.id) {
+            setViewPermit(null);
+        }
+
+        // 2. Hand off to background queue (non-blocking, persistent, robust)
+        exitPermitQueueService.enqueueApproval({
+            permitId: p.id,
+            permitNumber: p.permitNumber,
+            targetStatus: nextStatus,
+            prevStatus: p.status,
+            approverUser: currentUser,
+            extra: extraUpdateData,
+            permitSnapshot: updatedPermit,
+            settings: settings
+        });
+
+        // 3. Render offscreen images for bot dispatch in background
+        queueNotification(updatedPermit, p.status);
+    };
+
+    const handleReject = async (p: ExitPermit) => {
+        const prevStatus = getPreviousExitPermitStatusForReject(p.status);
+        let promptMsg = 'لطفاً دلیل رد حواله خروج کارخانه را وارد کنید:';
+        if (p.status === ExitPermitStatus.PENDING_FACTORY_FINAL) {
+            promptMsg = 'دلیل رد حواله خروج کارخانه را وارد کنید (حواله به مرحله قبل «انتظامات» بازگردانده می‌شود):';
+        } else if (p.status === ExitPermitStatus.PENDING_SECURITY) {
+            promptMsg = 'دلیل رد حواله خروج کارخانه را وارد کنید (حواله به مرحله قبل «انبار» بازگردانده می‌شود):';
+        } else if (p.status === ExitPermitStatus.PENDING_WAREHOUSE) {
+            promptMsg = 'دلیل رد حواله خروج کارخانه را وارد کنید (حواله به مرحله قبل «مدیر کارخانه» بازگردانده می‌شود):';
+        } else if (p.status === ExitPermitStatus.PENDING_FACTORY) {
+            promptMsg = 'دلیل رد حواله خروج کارخانه را وارد کنید (حواله به مرحله قبل «مدیرعامل» بازگردانده می‌شود):';
+        } else if (p.status === ExitPermitStatus.PENDING_CEO) {
+            promptMsg = 'دلیل رد حواله خروج کارخانه را وارد کنید (حواله خروج کارخانه کلاً رد می‌شود):';
+        }
+
+        const reason = prompt(promptMsg);
+        if (!reason || !reason.trim()) return;
+
+        const updatedPermit = {
+            ...p,
+            status: prevStatus,
+            rejectionReason: reason.trim(),
+            rejectedBy: currentUser.fullName,
+            updatedAt: Date.now()
+        };
+
+        // Instant optimistic update
+        setPermits(prev => prev.map(item => item.id === p.id ? { ...item, ...updatedPermit } : item));
+        if (viewPermit?.id === p.id) {
+            setViewPermit(null);
+        }
+
         try {
-            let nextStatus = ExitPermitStatus.PENDING_FACTORY;
-            if (p.status === ExitPermitStatus.PENDING_CEO) nextStatus = ExitPermitStatus.PENDING_FACTORY;
-            else if (p.status === ExitPermitStatus.PENDING_FACTORY) nextStatus = ExitPermitStatus.PENDING_WAREHOUSE;
-            else if (p.status === ExitPermitStatus.PENDING_FACTORY_FINAL) nextStatus = ExitPermitStatus.EXITED;
-            else nextStatus = p.status; // Fallback
-
-            const updatedPermit = { ...p, status: nextStatus };
-            let extraUpdateData: any = {};
-
-            if (p.status === ExitPermitStatus.PENDING_CEO) updatedPermit.approverCeo = currentUser.fullName;
-            else if (p.status === ExitPermitStatus.PENDING_FACTORY) updatedPermit.approverFactory = currentUser.fullName;
-            else if (p.status === ExitPermitStatus.PENDING_FACTORY_FINAL) {
-                updatedPermit.approverFactoryFinal = currentUser.fullName;
-                updatedPermit.exitTime = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-                extraUpdateData.exitTime = updatedPermit.exitTime;
-            }
-
-            await updateExitPermitStatus(p.id, nextStatus, currentUser, extraUpdateData);
-            
-            // Release processing spinner immediately and reload data for instant UI response
-            setProcessingId(null);
+            await updateExitPermitStatus(p.id, prevStatus, currentUser, {
+                rejectionReason: reason.trim(),
+                isBackwardReject: true
+            });
             loadData();
-            
-            // Queue notification in background safely and guaranteed
-            queueNotification(updatedPermit, p.status);
-
         } catch (e) {
-            alert('خطا در عملیات تایید');
-            setProcessingId(null);
+            console.error('Rejection failed', e);
+            alert('خطا در ثبت رد حواله خروج');
+            loadData();
         }
     };
 
@@ -496,30 +574,29 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         if (!securityFinalize) return;
         const currentPermit = securityFinalize;
         setSecurityFinalize(null);
-        setProcessingId(currentPermit.id);
-        try {
-            const nextStatus = ExitPermitStatus.PENDING_FACTORY_FINAL;
-            const updatedPermit = { 
-                ...currentPermit, 
-                status: nextStatus,
-                driverName: data.driverName,
-                driverPhone: data.driverPhone,
-                plateNumber: data.plateNumber,
-                attachments: data.attachments,
-                approverSecurity: currentUser.fullName,
-                updatedAt: Date.now()
-            };
+        
+        const nextStatus = ExitPermitStatus.PENDING_FACTORY_FINAL;
+        const updatedPermit = { 
+            ...currentPermit, 
+            status: nextStatus,
+            driverName: data.driverName,
+            driverPhone: data.driverPhone,
+            plateNumber: data.plateNumber,
+            attachments: data.attachments,
+            approverSecurity: currentUser.fullName,
+            updatedAt: Date.now()
+        };
 
+        // 1. Optimistic instant state update
+        setPermits(prev => prev.map(p => p.id === currentPermit.id ? updatedPermit : p));
+
+        try {
             await editExitPermit(updatedPermit); 
-            
-            setProcessingId(null);
-            loadData();
-            
             // Queue notification in background safely and guaranteed
             queueNotification(updatedPermit, ExitPermitStatus.PENDING_SECURITY);
         } catch (e) {
             alert('خطا در ثبت مشخصات انتظامات');
-            setProcessingId(null);
+            loadData();
         }
     };
 
@@ -527,41 +604,44 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         if (!warehouseFinalize) return;
         const currentPermit = warehouseFinalize;
         setWarehouseFinalize(null);
-        setProcessingId(currentPermit.id);
+        
+        const currentAttachments = [...(currentPermit.attachments || [])];
+        if (attachmentDataUrl) {
+            const docName = `حواله_فروش_سایان_${sayanRemittanceData?.remittanceNumber || currentPermit.permitNumber}.png`;
+            currentAttachments.push({
+                fileName: docName,
+                data: attachmentDataUrl
+            });
+        }
+
+        const updated: ExitPermit = { 
+            ...currentPermit, 
+            items: finalItems, 
+            approverWarehouse: currentUser.fullName, 
+            status: ExitPermitStatus.PENDING_SECURITY,
+            weight: finalItems.reduce((a,b)=>a+(Number(b.weight)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.weight)||0),0) : currentPermit.weight,
+            cartonCount: finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),0) : currentPermit.cartonCount,
+            attachments: currentAttachments,
+            sayanRemittanceNumber: sayanRemittanceData?.remittanceNumber || currentPermit.sayanRemittanceNumber,
+            sayanSubCode: sayanRemittanceData?.subCode || currentPermit.sayanSubCode,
+            sayanArchiveCode: sayanRemittanceData?.archiveCode || currentPermit.sayanArchiveCode,
+            sayanSyncedAt: sayanRemittanceData ? Date.now() : currentPermit.sayanSyncedAt,
+            sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc,
+            sayanRemittanceDocs: sayanRemittanceDocs || currentPermit.sayanRemittanceDocs,
+            updatedAt: Date.now()
+        };
+        
+        // 1. Optimistic instant state update
+        setPermits(prev => prev.map(p => p.id === currentPermit.id ? updated : p));
+
         try {
-            const currentAttachments = [...(currentPermit.attachments || [])];
-            if (attachmentDataUrl) {
-                const docName = `حواله_فروش_سایان_${sayanRemittanceData?.remittanceNumber || currentPermit.permitNumber}.png`;
-                currentAttachments.push({
-                    fileName: docName,
-                    data: attachmentDataUrl
-                });
-            }
-
-            const updated: ExitPermit = { 
-                ...currentPermit, 
-                items: finalItems, 
-                approverWarehouse: currentUser.fullName, 
-                status: ExitPermitStatus.PENDING_SECURITY,
-                weight: finalItems.reduce((a,b)=>a+(Number(b.weight)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.weight)||0),0) : currentPermit.weight,
-                cartonCount: finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),1) > 1 ? finalItems.reduce((a,b)=>a+(Number(b.cartonCount)||0),0) : currentPermit.cartonCount,
-                attachments: currentAttachments,
-                sayanRemittanceNumber: sayanRemittanceData?.remittanceNumber || currentPermit.sayanRemittanceNumber,
-                sayanSubCode: sayanRemittanceData?.subCode || currentPermit.sayanSubCode,
-                sayanArchiveCode: sayanRemittanceData?.archiveCode || currentPermit.sayanArchiveCode,
-                sayanSyncedAt: sayanRemittanceData ? Date.now() : currentPermit.sayanSyncedAt,
-                sayanRemittanceDoc: sayanRemittanceData || currentPermit.sayanRemittanceDoc,
-                sayanRemittanceDocs: sayanRemittanceDocs || currentPermit.sayanRemittanceDocs
-            };
-            
             await editExitPermit(updated); 
-            
-            setProcessingId(null);
-            loadData();
-
             // Queue notification in background safely and guaranteed
             queueNotification(updated, ExitPermitStatus.PENDING_WAREHOUSE);
-        } catch(e) { alert('خطا در ثبت انبار'); setProcessingId(null); }
+        } catch(e) { 
+            alert('خطا در ثبت انبار'); 
+            loadData();
+        }
     };
 
     const sendNotification = async (permit: ExitPermit, prevStatus: ExitPermitStatus, extraInfo?: string) => {
@@ -854,14 +934,26 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 </div>
             )}
 
+            {p.rejectionReason && (
+                <div className={`mb-3 text-[11px] p-2 rounded-xl font-bold flex items-center gap-1.5 ${p.status === ExitPermitStatus.REJECTED ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                    <AlertTriangle size={14} className={p.status === ExitPermitStatus.REJECTED ? 'text-red-500 shrink-0' : 'text-amber-600 shrink-0'} />
+                    <span className="leading-snug">{p.status === ExitPermitStatus.REJECTED ? `دلیل رد حواله: ${p.rejectionReason}` : `⚠️ بازگشت به این مرحله: ${p.rejectionReason}`}</span>
+                </div>
+            )}
+
             <div className="flex gap-2 mt-2">
-                {canAct && !processingId && (
-                     <button onClick={() => { setViewMode(p.status === ExitPermitStatus.EXITED ? 'EXIT' : 'PROFORMA'); handleApprove(p); }} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-xs font-bold shadow-sm">
-                         {getActionLabel(p.status)}
-                     </button>
+                {canAct && (
+                     <>
+                         <button onClick={() => { setViewMode(p.status === ExitPermitStatus.EXITED ? 'EXIT' : 'PROFORMA'); handleApprove(p); }} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1">
+                             <CheckCircle size={14}/> {getActionLabel(p.status)}
+                         </button>
+                         <button onClick={() => handleReject(p)} className="p-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg border border-red-200 transition-colors" title="رد و بازگشت به مرحله قبل">
+                             <Undo2 size={16}/>
+                         </button>
+                     </>
                 )}
                 {(currentUser.role === UserRole.ADMIN || (settings ? getRolePermissions(currentUser.role, settings, currentUser).canCancelExitPermit : false)) && 
-                 p.status !== ExitPermitStatus.EXITED && p.status !== ExitPermitStatus.REJECTED && p.status !== ExitPermitStatus.CANCELED && !processingId && (
+                 p.status !== ExitPermitStatus.EXITED && p.status !== ExitPermitStatus.REJECTED && p.status !== ExitPermitStatus.CANCELED && (
                      <button onClick={() => handleCancel(p)} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold shadow-sm">
                           کنسل کردن
                      </button>
@@ -919,17 +1011,28 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                                         </span>
                                     )}
                                 </div>
+                                {p.rejectionReason && (
+                                    <div className={`mt-2 text-xs p-1.5 px-2.5 rounded-lg font-bold flex items-center gap-1.5 w-fit ${p.status === ExitPermitStatus.REJECTED ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                                        <AlertTriangle size={13} className={p.status === ExitPermitStatus.REJECTED ? 'text-red-500 shrink-0' : 'text-amber-600 shrink-0'} />
+                                        <span>{p.status === ExitPermitStatus.REJECTED ? `دلیل رد حواله: ${p.rejectionReason}` : `⚠️ بازگشت به این مرحله: ${p.rejectionReason}`}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
                         <div className="flex gap-2">
-                            {canAct && !processingId && (
-                                <button onClick={() => { setViewMode(p.status === ExitPermitStatus.EXITED ? 'EXIT' : 'PROFORMA'); handleApprove(p); }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center gap-2 transition-transform active:scale-95">
-                                    <CheckCircle size={16}/> {getActionLabel(p.status)}
-                                </button>
+                            {canAct && (
+                                <>
+                                    <button onClick={() => { setViewMode(p.status === ExitPermitStatus.EXITED ? 'EXIT' : 'PROFORMA'); handleApprove(p); }} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center gap-2 transition-transform active:scale-95">
+                                        <CheckCircle size={16}/> {getActionLabel(p.status)}
+                                    </button>
+                                    <button onClick={() => handleReject(p)} className="bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-100 border border-red-200 flex items-center gap-1.5 transition-transform active:scale-95" title="رد و بازگشت به مرحله قبل">
+                                        <Undo2 size={16}/> رد / بازگشت
+                                    </button>
+                                </>
                             )}
                             {(currentUser.role === UserRole.ADMIN || (settings ? getRolePermissions(currentUser.role, settings, currentUser).canCancelExitPermit : false)) && 
-                             p.status !== ExitPermitStatus.EXITED && p.status !== ExitPermitStatus.REJECTED && p.status !== ExitPermitStatus.CANCELED && !processingId && (
+                             p.status !== ExitPermitStatus.EXITED && p.status !== ExitPermitStatus.REJECTED && p.status !== ExitPermitStatus.CANCELED && (
                                  <button onClick={() => handleCancel(p)} className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 shadow-lg shadow-red-200 flex items-center gap-2 transition-transform active:scale-95" title="کنسل کردن">
                                      <XCircle size={16}/> لغو/کنسل کردن
                                  </button>
@@ -991,7 +1094,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                 <div className="flex justify-between items-center glass-panel p-4 rounded-2xl shadow-sm border border-gray-200">
                     <h1 className="text-xl font-black text-gray-800 flex items-center gap-2">
                         {mode === 'INVOICE' ? <FileText className="text-blue-600"/> : <Truck className="text-teal-600"/>} 
-                        {mode === 'INVOICE' ? 'مدیریت فاکتورها' : 'مدیریت خروج'}
+                        {mode === 'INVOICE' ? 'مدیریت فاکتورها' : 'مدیریت حواله خروج کارخانه'}
                     </h1>
                     <button onClick={loadData} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><RefreshCw size={18} className={loading ? 'animate-spin' : ''}/></button>
                 </div>
@@ -1002,7 +1105,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                         className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'CARTABLE' ? 'glass-panel text-blue-700 shadow-md' : 'text-gray-500'}`}
                     >
                         <Bell size={16} className={myCartablePermits.length > 0 ? "animate-pulse text-red-500" : ""}/>
-                        {mode === 'INVOICE' ? 'کارتابل فاکتورها' : 'کارتابل من'} ({myCartablePermits.length})
+                        {mode === 'INVOICE' ? 'کارتابل فاکتورها' : 'کارتابل حواله خروج'} ({myCartablePermits.length})
                     </button>
                     {mode === 'INVOICE' ? (
                         <button 
@@ -1018,14 +1121,14 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                                     onClick={() => { setActiveTab('PROFORMA_ARCHIVE'); setViewMode('PROFORMA'); }} 
                                     className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'PROFORMA_ARCHIVE' ? 'glass-panel text-blue-800 shadow-md' : 'text-gray-500'}`}
                                 >
-                                    بایگانی موقت
+                                    بایگانی موقت حواله خروج
                                 </button>
                             )}
                             <button 
                                 onClick={() => { setActiveTab('EXIT_ARCHIVE'); setViewMode('EXIT'); }} 
                                 className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'EXIT_ARCHIVE' ? 'glass-panel text-green-800 shadow-md' : 'text-gray-500'}`}
                             >
-                                بایگانی خروج
+                                بایگانی حواله خروج کارخانه
                             </button>
                         </>
                     )}
@@ -1069,13 +1172,8 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                     }
                     onReject={
                         (isMyTurn(viewPermit) || currentUser.role === UserRole.ADMIN) 
-                        ? async () => {
-                            const reason = prompt('دلیل رد:'); 
-                            if(reason) { 
-                                await updateExitPermitStatus(viewPermit.id, ExitPermitStatus.REJECTED, currentUser, { rejectionReason: reason }); 
-                                loadData(); setViewPermit(null); 
-                            } 
-                        } : undefined
+                        ? () => handleReject(viewPermit)
+                        : undefined
                     }
                     onCancel={
                         (currentUser.role === UserRole.ADMIN || (settings ? getRolePermissions(currentUser.role, settings, currentUser).canCancelExitPermit : false)) &&

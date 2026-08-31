@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PaymentOrder, OrderStatus, SystemSettings, User, ExitPermit, ExitPermitStatus, WarehouseTransaction, UserRole, SystemAnnouncement } from '../types';
 import { formatCurrency, getShamsiDateFromIso } from '../constants';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy, Flame, Sparkles, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy, Flame, Sparkles, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { getRolePermissions } from '../services/authService';
 import { getExitPermits, getWarehouseTransactions, getNotes, getPurchaseRequests, getTaskGroups, getTasks, updateTask } from '../services/storageService';
 import { isInFinancialYear } from '../utils/dateUtils';
@@ -91,6 +91,24 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
   const [currentMotivationalIndex, setCurrentMotivationalIndex] = useState(0);
   const [isLoadingMotivational, setIsLoadingMotivational] = useState(false);
   const [copiedMotivational, setCopiedMotivational] = useState(false);
+  const [showQuickTiles, setShowQuickTiles] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('dashboard_show_quick_tiles');
+      return saved !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleQuickTiles = () => {
+    setShowQuickTiles(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('dashboard_show_quick_tiles', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Warehouse Alert State
   const [warehouseAlertData, setWarehouseAlertData] = useState<{ totalCurrentAllWeight: number, diffAllWeight: number, ratioAllWeight: number } | null>(null);
@@ -1106,8 +1124,8 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                                     <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl"><CheckSquare size={24} className="text-white"/></div>
                                     <span className="bg-zinc-900/60 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full animate-pulse">{pendingExitCount} مورد</span>
                                 </div>
-                                <h3 className="text-xl font-black mb-1">تایید مجوز خروج</h3>
-                                <p className="text-rose-50 text-xs opacity-85">مجوزهای منتظر اقدام شما</p>
+                                <h3 className="text-xl font-black mb-1">تایید حواله خروج کارخانه</h3>
+                                <p className="text-rose-50 text-xs opacity-85">حواله‌های منتظر اقدام شما</p>
                             </div>
                         </div>
                     )}
@@ -1364,50 +1382,65 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
         )}
 
         {/* QUICK ACCESS SQUARE TILES GRID */}
-        <div className="glass-panel p-4 md:p-5 rounded-3xl border border-blue-100/80 shadow-sm bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/20 dark:from-gray-800 dark:to-gray-900">
-            <div className="flex items-center justify-between mb-3.5">
-                <div className="flex items-center gap-2">
+        <div className="glass-panel p-4 md:p-5 rounded-3xl border border-blue-100/80 shadow-sm bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/20 dark:from-gray-800 dark:to-gray-900 transition-all duration-300">
+            <div className="flex items-center justify-between mb-2">
+                <div 
+                    onClick={toggleQuickTiles}
+                    className="flex items-center gap-2 cursor-pointer select-none group"
+                >
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></div>
-                    <h3 className="font-black text-sm md:text-base text-gray-800 dark:text-gray-100">
+                    <h3 className="font-black text-sm md:text-base text-gray-800 dark:text-gray-100 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
                         کاشی‌های دسترسی سریع (Quick Access Tiles)
                     </h3>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                        {quickTiles.length} بخش
+                    </span>
                 </div>
-                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
-                    پیشنهادی موبایل و دسکتاپ
-                </span>
-            </div>
-
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2.5 md:gap-3">
-                {quickTiles.map((tile) => (
+                <div className="flex items-center gap-2">
                     <button
-                        key={tile.id}
-                        onClick={tile.onClick}
-                        className="group relative flex flex-col items-center justify-between p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow-lg hover:border-blue-300 active:scale-95 transition-all aspect-square cursor-pointer"
+                        onClick={toggleQuickTiles}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold transition-all active:scale-95"
+                        title={showQuickTiles ? 'بستن منو و آزادسازی فضای صفحه' : 'باز کردن منوی دسترسی سریع'}
                     >
-                        {/* Pending Count Badge */}
-                        {tile.count !== undefined && tile.count > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-bounce z-20">
-                                {tile.count}
-                            </span>
-                        )}
-
-                        {/* Top Category Badge / Pill */}
-                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/40 truncate max-w-full">
-                            {tile.badge}
-                        </span>
-
-                        {/* Vibrant Gradient Icon Box */}
-                        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br ${tile.gradient} text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform my-1`}>
-                            <tile.icon size={20} className="sm:w-5 sm:h-5" />
-                        </div>
-
-                        {/* Title */}
-                        <span className="text-[10px] sm:text-[11px] font-black text-gray-800 dark:text-gray-200 text-center leading-tight line-clamp-1">
-                            {tile.title}
-                        </span>
+                        <span>{showQuickTiles ? 'بستن منو' : 'نمایش سریع'}</span>
+                        {showQuickTiles ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
-                ))}
+                </div>
             </div>
+
+            {showQuickTiles && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2.5 md:gap-3 mt-3 animate-fade-in">
+                    {quickTiles.map((tile) => (
+                        <button
+                            key={tile.id}
+                            onClick={tile.onClick}
+                            className="group relative flex flex-col items-center justify-between p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow-lg hover:border-blue-300 active:scale-95 transition-all aspect-square cursor-pointer"
+                        >
+                            {/* Pending Count Badge */}
+                            {tile.count !== undefined && tile.count > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-bounce z-20">
+                                    {tile.count}
+                                </span>
+                            )}
+
+                            {/* Top Category Badge / Pill */}
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/40 truncate max-w-full">
+                                {tile.badge}
+                            </span>
+
+                            {/* Vibrant Gradient Icon Box */}
+                            <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br ${tile.gradient} text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform my-1`}>
+                                <tile.icon size={20} className="sm:w-5 sm:h-5" />
+                            </div>
+
+                            {/* Title */}
+                            <span className="text-[10px] sm:text-[11px] font-black text-gray-800 dark:text-gray-200 text-center leading-tight line-clamp-1">
+                                {tile.title}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
 
         {/* Bank Report Modal */}

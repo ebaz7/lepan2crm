@@ -9,12 +9,13 @@ interface Props {
   onView: (order: PaymentOrder) => void;
   onDelete?: (id: string) => void;
   onApprove?: (id: string, currentStatus: OrderStatus) => void;
+  onReject?: (id: string, currentStatus: OrderStatus) => void;
   canDelete: boolean;
   canApprove: boolean;
   isProcessing?: boolean;
 }
 
-const MobileOrderCard: React.FC<Props> = ({ order, onView, onDelete, onApprove, canDelete, canApprove, isProcessing }) => {
+const MobileOrderCard: React.FC<Props> = ({ order, onView, onDelete, onApprove, onReject, canDelete, canApprove, isProcessing }) => {
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case OrderStatus.APPROVED_CEO: return 'bg-green-100 text-green-800 border-green-200';
@@ -48,6 +49,11 @@ const MobileOrderCard: React.FC<Props> = ({ order, onView, onDelete, onApprove, 
         <div className="mt-1 text-[10px] text-gray-500 flex items-center gap-1">
             <span className="font-bold">بانک:</span> {order.paymentDetails.map(d => d.bankName || d.method).join(', ')}
         </div>
+        {order.rejectionReason && (
+            <div className={`mt-2 text-[10px] p-1.5 rounded font-bold ${order.status === OrderStatus.REJECTED ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                {order.status === OrderStatus.REJECTED ? `❌ دلیل رد: ${order.rejectionReason}` : `⚠️ بازگشت از مرحله قبل: ${order.rejectionReason}`}
+            </div>
+        )}
       </div>
 
       <div className="flex justify-between items-center">
@@ -60,9 +66,20 @@ const MobileOrderCard: React.FC<Props> = ({ order, onView, onDelete, onApprove, 
             <button 
               onClick={(e) => { e.stopPropagation(); onApprove(order.id, order.status); }} 
               disabled={isProcessing}
+              title="تایید"
               className={`p-2 rounded-xl transition-all ${isProcessing ? 'bg-gray-100 text-gray-400' : 'bg-green-50 text-green-600 active:bg-green-600 active:text-white'}`}
             >
               <CheckCircle size={18} className={isProcessing ? 'animate-pulse' : ''} />
+            </button>
+          )}
+          {canApprove && onReject && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onReject(order.id, order.status); }} 
+              disabled={isProcessing}
+              title="رد و بازگشت به مرحله قبل"
+              className="p-2 bg-red-50 text-red-600 rounded-xl active:bg-red-600 active:text-white transition-all"
+            >
+              <XCircle size={18} />
             </button>
           )}
           {canDelete && onDelete && (

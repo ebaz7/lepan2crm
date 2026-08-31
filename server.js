@@ -4823,9 +4823,10 @@ const unsubscribeHandler = (req, res) => {
         if (endpoint) {
             // Remove any subscription matching this device endpoint
             db.subscriptions = db.subscriptions.filter(s => s.endpoint !== endpoint && (!s.subscription || s.subscription.endpoint !== endpoint));
-        } else if (username) {
+        }
+        if (username) {
             // Remove subscriptions for this username
-            db.subscriptions = db.subscriptions.filter(s => s.username && s.username.toLowerCase() !== String(username).toLowerCase());
+            db.subscriptions = db.subscriptions.filter(s => !s.username || s.username.toLowerCase() !== String(username).toLowerCase());
         }
 
         // Always purge empty/anonymous subscriptions

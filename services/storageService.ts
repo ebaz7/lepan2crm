@@ -7,48 +7,127 @@ const safeArray = <T>(data: any): T[] => {
     return Array.isArray(data) ? data : [];
 };
 
+export const getPreviousPaymentOrderStatusForReject = (current: OrderStatus): OrderStatus => {
+  switch (current) {
+    case OrderStatus.APPROVED_MANAGER:
+      // CEO rejects -> returns to Management cartable
+      return OrderStatus.APPROVED_FINANCE;
+    case OrderStatus.APPROVED_FINANCE:
+      // Management rejects -> returns to Financial cartable
+      return OrderStatus.PENDING;
+    case OrderStatus.PENDING:
+      // Financial rejects -> rejected back to Requester
+      return OrderStatus.REJECTED;
+    default:
+      return OrderStatus.REJECTED;
+  }
+};
+
+export const getPreviousExitPermitStatusForReject = (current: ExitPermitStatus): ExitPermitStatus => {
+  switch (current) {
+    case ExitPermitStatus.PENDING_FACTORY_FINAL:
+      // Factory Manager rejects final exit -> returns to Security
+      return ExitPermitStatus.PENDING_SECURITY;
+    case ExitPermitStatus.PENDING_SECURITY:
+      // Security rejects -> returns to Warehouse
+      return ExitPermitStatus.PENDING_WAREHOUSE;
+    case ExitPermitStatus.PENDING_WAREHOUSE:
+      // Warehouse rejects -> returns to Factory Manager
+      return ExitPermitStatus.PENDING_FACTORY;
+    case ExitPermitStatus.PENDING_FACTORY:
+      // Factory Manager rejects -> returns to CEO
+      return ExitPermitStatus.PENDING_CEO;
+    case ExitPermitStatus.PENDING_CEO:
+    default:
+      // CEO rejects -> final rejected
+      return ExitPermitStatus.REJECTED;
+  }
+};
+
 export const getOrders = async (): Promise<PaymentOrder[]> => { 
     const res = await apiCall<PaymentOrder[]>('/orders'); 
     return safeArray(res);
 };
 export const saveOrder = async (order: PaymentOrder): Promise<PaymentOrder[]> => { return await apiCall<PaymentOrder[]>('/orders', 'POST', order); };
 export const editOrder = async (updatedOrder: PaymentOrder): Promise<PaymentOrder[]> => { return await apiCall<PaymentOrder[]>(`/orders/${updatedOrder.id}`, 'PUT', updatedOrder); };
-export const updateOrderStatus = async (id: string, status: OrderStatus, approverUser: User, rejectionReason?: string): Promise<PaymentOrder[]> => {
-  const updates: any = { status };
-  if (status === OrderStatus.APPROVED_FINANCE) updates.approverFinancial = approverUser.fullName;
-  else if (status === OrderStatus.APPROVED_MANAGER) updates.approverManager = approverUser.fullName;
-  else if (status === OrderStatus.APPROVED_CEO) updates.approverCeo = approverUser.fullName;
-  if (status === OrderStatus.REJECTED) { if (rejectionReason) updates.rejectionReason = rejectionReason; updates.rejectedBy = approverUser.fullName; }
+export const updateOrderStatus = async (id: string, status: OrderStatus, approverUser: User, rejectionReason?: string, isBackwardReject?: boolean): Promise<PaymentOrder[]> => {
+  const updates: any = { status, updatedAt: Date.now() };
+
+  if (isBackwardReject || rejectionReason) {
+      updates.rejectionReason = rejectionReason || 'رد جهت بررسی و اصلاح در مرحله قبل';
+      updates.rejectedBy = approverUser.fullName;
+
+      if (status === OrderStatus.APPROVED_FINANCE) {
+          // Returned from CEO to Management
+          updates.approverCeo = null;
+          updates.approverManager = null;
+      } else if (status === OrderStatus.PENDING) {
+          // Returned from Management to Financial
+          updates.approverCeo = null;
+          updates.approverManager = null;
+          updates.approverFinancial = null;
+      } else if (status === OrderStatus.REJECTED) {
+          updates.approverCeo = null;
+          updates.approverManager = null;
+          updates.approverFinancial = null;
+      }
+  } else {
+      // Forward approval
+      if (status === OrderStatus.APPROVED_FINANCE) updates.approverFinancial = approverUser.fullName;
+      else if (status === OrderStatus.APPROVED_MANAGER) updates.approverManager = approverUser.fullName;
+      else if (status === OrderStatus.APPROVED_CEO) updates.approverCeo = approverUser.fullName;
+  }
   
   return await apiCall<PaymentOrder[]>(`/orders/${id}`, 'PUT', updates);
 };
 export const deleteOrder = async (id: string): Promise<PaymentOrder[]> => { return await apiCall<PaymentOrder[]>(`/orders/${id}`, 'DELETE'); };
 
 export const getExitPermits = async (): Promise<ExitPermit[]> => { 
-    const res = await apiCall<ExitPermit[]>('/exit-permits');
+    const res = await apiCall<ExitPermit[]>('/exit-permits'); 
     return safeArray(res);
 };
 export const saveExitPermit = async (permit: ExitPermit): Promise<ExitPermit[]> => { return await apiCall<ExitPermit[]>('/exit-permits', 'POST', permit); };
 export const editExitPermit = async (updatedPermit: ExitPermit): Promise<ExitPermit[]> => { return await apiCall<ExitPermit[]>(`/exit-permits/${updatedPermit.id}`, 'PUT', updatedPermit); };
 
-export const updateExitPermitStatus = async (id: string, status: ExitPermitStatus, approverUser: User, extra?: { rejectionReason?: string, exitTime?: string }): Promise<ExitPermit[]> => {
+export const updateExitPermitStatus = async (id: string, status: ExitPermitStatus, approverUser: User, extra?: { rejectionReason?: string, exitTime?: string, isReject?: boolean }): Promise<ExitPermit[]> => {
     const permits = await getExitPermits();
     const permit = permits.find(p => p.id === id);
     if(permit) {
         const updates: any = { status, updatedAt: Date.now() };
         
-        if (status === ExitPermitStatus.PENDING_FACTORY) updates.approverCeo = approverUser.fullName;
-        else if (status === ExitPermitStatus.PENDING_WAREHOUSE) updates.approverFactory = approverUser.fullName;
-        else if (status === ExitPermitStatus.PENDING_SECURITY) updates.approverWarehouse = approverUser.fullName;
-        else if (status === ExitPermitStatus.PENDING_FACTORY_FINAL) updates.approverSecurity = approverUser.fullName;
-        else if (status === ExitPermitStatus.EXITED) {
-            updates.approverFactoryFinal = approverUser.fullName;
-            if (extra?.exitTime) updates.exitTime = extra.exitTime;
-        }
-
-        if (status === ExitPermitStatus.REJECTED) {
-            updates.rejectionReason = extra?.rejectionReason || 'توسط کاربر رد شد';
+        if (extra?.isReject || extra?.rejectionReason) {
+            updates.rejectionReason = extra.rejectionReason || 'رد جهت بازبینی و اصلاح در مرحله قبل';
             updates.rejectedBy = approverUser.fullName;
+
+            if (status === ExitPermitStatus.PENDING_SECURITY) {
+                // Returned from Factory Manager to Security
+                updates.approverFactoryFinal = null;
+                updates.approverSecurity = null;
+            } else if (status === ExitPermitStatus.PENDING_WAREHOUSE) {
+                // Returned from Security to Warehouse
+                updates.approverSecurity = null;
+                updates.approverWarehouse = null;
+            } else if (status === ExitPermitStatus.PENDING_FACTORY) {
+                // Returned from Warehouse to Factory Manager
+                updates.approverWarehouse = null;
+                updates.approverFactory = null;
+            } else if (status === ExitPermitStatus.PENDING_CEO) {
+                // Returned from Factory Manager to CEO
+                updates.approverFactory = null;
+                updates.approverCeo = null;
+            } else if (status === ExitPermitStatus.REJECTED) {
+                updates.approverCeo = null;
+            }
+        } else {
+            // Forward approval progression
+            if (status === ExitPermitStatus.PENDING_FACTORY) updates.approverCeo = approverUser.fullName;
+            else if (status === ExitPermitStatus.PENDING_WAREHOUSE) updates.approverFactory = approverUser.fullName;
+            else if (status === ExitPermitStatus.PENDING_SECURITY) updates.approverWarehouse = approverUser.fullName;
+            else if (status === ExitPermitStatus.PENDING_FACTORY_FINAL) updates.approverSecurity = approverUser.fullName;
+            else if (status === ExitPermitStatus.EXITED) {
+                updates.approverFactoryFinal = approverUser.fullName;
+                if (extra?.exitTime) updates.exitTime = extra.exitTime;
+            }
         }
 
         if (status === ExitPermitStatus.CANCELED) {

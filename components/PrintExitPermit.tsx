@@ -384,7 +384,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
                     {currentCompany?.logo && <img src={currentCompany.logo} className="h-20 w-20 object-contain mix-blend-multiply" alt="logo" />}
                     <div className="flex flex-col">
                         <h1 className={`${mode === 'CUSTOMER_INVOICE' ? 'text-4xl text-blue-900' : 'text-3xl text-gray-900'} font-black mb-1`}>
-                            {mode === 'CUSTOMER_INVOICE' ? 'فاکتور فروش و تحویل کالا' : (mode === 'PROFORMA' ? 'پیش‌فاکتور فروش کالا' : (permit.status === ExitPermitStatus.EXITED ? 'خروج کارخانه (تکمیل شده)' : 'مجوز خروج کارخانه'))}
+                            {mode === 'CUSTOMER_INVOICE' ? 'فاکتور فروش و تحویل کالا' : (mode === 'PROFORMA' ? 'پیش‌فاکتور فروش کالا' : (permit.status === ExitPermitStatus.EXITED ? 'حواله خروج کارخانه (تکمیل شده)' : 'حواله خروج کارخانه'))}
                         </h1>
                         <p className={`text-sm font-bold ${mode === 'CUSTOMER_INVOICE' ? 'text-blue-700' : 'text-gray-600'}`}>
                             {mode === 'CUSTOMER_INVOICE' ? (permit.company || settings?.appName || 'شرکت تولیدی بازرگانی') : (mode === 'PROFORMA' ? 'سند موقت فروش و رزرو کالا' : 'سیستم مکانیزه مدیریت بار و خروج')}

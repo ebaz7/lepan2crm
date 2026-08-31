@@ -4,7 +4,7 @@ import { PaymentOrder, OrderStatus, User, UserRole, SystemSettings, PaymentMetho
 import { updateOrderStatus, deleteOrder } from '../services/storageService';
 import { getRolePermissions } from '../services/authService';
 import { formatCurrency, formatDate, getStatusLabel, jalaliToGregorian, formatNumberString, deformatNumberString, parseSafeDate } from '../constants';
-import { Eye, Trash2, Search, Filter, FileSpreadsheet, Paperclip, ListChecks, Archive, X, Building2, Calculator, AlertTriangle, RefreshCcw, Loader2, ShieldAlert } from 'lucide-react';
+import { Eye, Trash2, Search, Filter, FileSpreadsheet, Paperclip, ListChecks, Archive, X, Building2, Calculator, AlertTriangle, RefreshCcw, Loader2, ShieldAlert, XCircle } from 'lucide-react';
 import PrintVoucher from './PrintVoucher';
 import EditOrderModal from './EditOrderModal';
 import { apiCall } from '../services/apiService';
@@ -183,14 +183,40 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
     }
   };
 
-  const handleReject = async (id: string) => {
-      const reason = window.prompt('لطفا دلیل رد درخواست را وارد کنید:');
+  const getPrevStatusForReject = (current: OrderStatus): OrderStatus => {
+      if (current === OrderStatus.APPROVED_MANAGER) return OrderStatus.APPROVED_FINANCE;
+      if (current === OrderStatus.APPROVED_FINANCE) return OrderStatus.PENDING;
+      return OrderStatus.REJECTED;
+  };
+
+  const getRejectPromptText = (current: OrderStatus): string => {
+      if (current === OrderStatus.APPROVED_MANAGER) {
+          return 'لطفاً دلیل رد درخواست را وارد کنید (درخواست به مرحله قبل «کارتابل مدیریت» بازگردانده می‌شود):';
+      }
+      if (current === OrderStatus.APPROVED_FINANCE) {
+          return 'لطفاً دلیل رد درخواست را وارد کنید (درخواست به مرحله قبل «کارتابل مالی» بازگردانده می‌شود):';
+      }
+      return 'لطفاً دلیل رد درخواست را وارد کنید (درخواست به ثبت‌کننده ارجاع و رد نهایی می‌شود):';
+  };
+
+  const handleReject = async (id: string, currentStatus?: OrderStatus) => {
+      const order = safeOrders.find(o => o.id === id);
+      const status = currentStatus || order?.status || OrderStatus.PENDING;
+      const prevStatus = getPrevStatusForReject(status);
+      const promptText = getRejectPromptText(status);
+
+      const reason = window.prompt(promptText);
       if (reason !== null) {
+          setProcessingId(id);
           try {
-              await updateOrderStatus(id, OrderStatus.REJECTED, currentUser, reason || 'بدون توضیح');
+              await updateOrderStatus(id, prevStatus, currentUser, reason || 'رد جهت بررسی و اصلاح در مرحله قبل', true);
               await refreshData();
               setViewOrder(null); 
-          } catch(e) { alert("خطا"); }
+          } catch(e) { 
+              alert("خطا در ثبت رد درخواست"); 
+          } finally {
+              setProcessingId(null);
+          }
       }
   };
 
@@ -414,6 +440,7 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
                             onView={setViewOrder} 
                             onDelete={handleDelete}
                             onApprove={handleApprove}
+                            onReject={handleReject}
                             canDelete={canDelete(order)}
                             canApprove={canApprove(order)}
                             isProcessing={processingId === order.id}
@@ -472,20 +499,32 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
                                     {isRevocation && <RefreshCcw size={12} className="ml-1 animate-spin-slow"/>}
                                     {getStatusLabel(order.status)}
                                 </span>
-                                {order.status === OrderStatus.REJECTED && order.rejectionReason && (
-                                    <div className="text-[10px] text-red-500 mt-1 max-w-[140px] truncate" title={order.rejectionReason}>دلیل: {order.rejectionReason}</div>
+                                {order.rejectionReason && (
+                                    <div className={`text-[10px] mt-1 max-w-[140px] truncate ${order.status === OrderStatus.REJECTED ? 'text-red-500' : 'text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200'}`} title={order.rejectionReason}>
+                                        {order.status === OrderStatus.REJECTED ? `دلیل رد: ${order.rejectionReason}` : `⚠️ بازگشت: ${order.rejectionReason}`}
+                                    </div>
                                 )}
                             </td>
                             <td className="px-6 py-4"><div className="flex justify-center items-center gap-2">
                                  {canApprove(order) && (
-                                    <button 
-                                       onClick={(e) => { e.stopPropagation(); handleApprove(order.id, order.status); }} 
-                                       disabled={processingId === order.id}
-                                       className="p-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition-all shadow-sm border border-green-100"
-                                       title="تایید سریع"
-                                    >
-                                       {processingId === order.id ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16}/>}
-                                    </button>
+                                    <>
+                                       <button 
+                                          onClick={(e) => { e.stopPropagation(); handleApprove(order.id, order.status); }} 
+                                          disabled={processingId === order.id}
+                                          className="p-1.5 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition-all shadow-sm border border-green-100"
+                                          title="تایید سریع"
+                                       >
+                                          {processingId === order.id ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16}/>}
+                                       </button>
+                                       <button 
+                                          onClick={(e) => { e.stopPropagation(); handleReject(order.id, order.status); }} 
+                                          disabled={processingId === order.id}
+                                          className="p-1.5 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-all shadow-sm border border-red-100"
+                                          title={order.status === OrderStatus.APPROVED_MANAGER ? 'رد و بازگشت به کارتابل مدیریت' : (order.status === OrderStatus.APPROVED_FINANCE ? 'رد و بازگشت به کارتابل مالی' : 'رد درخواست')}
+                                       >
+                                          <XCircle size={16}/>
+                                       </button>
+                                    </>
                                  )}
                                  <button 
                                     onClick={() => setViewOrder(order)} 
@@ -511,7 +550,7 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
                 onClose={() => setViewOrder(null)} 
                 settings={settings}
                 onApprove={canApprove(viewOrder) ? () => handleApprove(viewOrder.id, viewOrder.status) : undefined}
-                onReject={canApprove(viewOrder) ? () => handleReject(viewOrder.id) : undefined}
+                onReject={canApprove(viewOrder) ? () => handleReject(viewOrder.id, viewOrder.status) : undefined}
                 onEdit={canEdit(viewOrder) ? () => handleEdit(viewOrder) : undefined}
                 onRevoke={
                     (!isRevocationStatus(viewOrder.status) && viewOrder.status !== OrderStatus.REVOKED && 

@@ -1268,7 +1268,7 @@ function App() {
          return {
              gradient: 'from-amber-600 to-orange-500',
              icon: <FileWarning size={20} className="text-white" />,
-             badge: 'مجوز خروج',
+             badge: 'حواله خروج کارخانه',
              badgeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
              barColor: 'bg-amber-500'
          };
