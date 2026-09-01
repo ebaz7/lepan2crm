@@ -1713,7 +1713,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     };
 
     return (
-        <div className="absolute inset-0 bg-white dark:bg-[#1c1c1e] md:bg-gray-100/30 text-gray-800 dark:text-gray-200 md:p-2 lg:p-4 font-sans no-print overflow-hidden">
+        <div className="w-full h-full flex flex-col flex-1 min-h-0 bg-white dark:bg-[#1c1c1e] text-gray-800 dark:text-gray-200 md:p-2 font-sans no-print overflow-hidden relative">
             <div className="flex-1 flex flex-row bg-white dark:bg-[#1c1c1e] md:rounded-2xl overflow-hidden md:shadow-xl md:border border-gray-200/50 dark:border-white/5 relative w-full h-full min-h-0">
                 
                 {/* --- LIST SIDEBAR --- */}
@@ -1820,10 +1820,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
             <div className={`flex-1 flex flex-col min-h-0 h-full bg-white dark:bg-[#0b141a] md:bg-[#f0f2f5] z-30 md:z-10 w-full relative ${activeChannel ? 'flex' : 'hidden md:flex'}`}>
                 {activeChannel ? (
                     <>
-                        {/* Chat Header */}
-                        <div className="sticky top-0 glass-panel p-2 px-4 flex justify-between items-center shadow-sm z-50 shrink-0 safe-pt bg-white/90 dark:bg-[#0b141a]/90 backdrop-blur-md">
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => window.history.back()} className="md:hidden p-1 hover:bg-gray-100 rounded-full"><ArrowRight/></button>
+                        {/* Chat Header - Slim & compact header */}
+                        <div className="sticky top-0 bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-md px-3 py-1.5 sm:py-2 flex justify-between items-center shadow-xs border-b border-gray-100 dark:border-zinc-800/80 z-30 shrink-0">
+                            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                <button 
+                                    onClick={() => setActiveChannel(null)} 
+                                    className="md:hidden p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-zinc-600 dark:text-zinc-300 transition-colors shrink-0 active:scale-95"
+                                    title="بازگشت به گفتگوها"
+                                >
+                                    <ArrowRight size={18} />
+                                </button>
                                 
                                 {/* Dynamic Conversation Avatar */}
                                 {(() => {
@@ -1864,14 +1870,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                     if (tg) setShowGroupInfo({...tg, isTaskGroup: true});
                                                 }
                                             }}
-                                            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shadow-inner cursor-pointer overflow-hidden shrink-0 ${bgColor}`}
+                                            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-xs cursor-pointer overflow-hidden shrink-0 ${bgColor}`}
                                         >
                                             {avatarUrl ? <img src={resolveImageUrl(avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : initial}
                                         </div>
                                     );
                                 })()}
 
-                                <div className="flex flex-col cursor-pointer" onClick={() => {
+                                <div className="flex flex-col cursor-pointer min-w-0" onClick={() => {
                                     if(activeChannel.type === 'private') setShowContactInfo(users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase()) || null);
                                     else if(activeChannel.type === 'group') setShowGroupInfo(groups.find(g=>g.id===activeChannel.id) || null);
                                     else if(activeChannel.type === 'task_group') {
@@ -1879,13 +1885,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         if (tg) setShowGroupInfo({...tg, isTaskGroup: true});
                                     }
                                 }}>
-                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+                                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-sm leading-tight truncate">
                                         {activeChannel.type === 'system' ? 'پیام‌ها و اعلانات سیستم' :
                                          activeChannel.type === 'private' ? (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.fullName || activeChannel.id) : 
                                          activeChannel.type === 'group' ? groups.find(g=>g.id===activeChannel.id)?.name :
                                          activeChannel.type === 'task_group' ? taskGroups.find(g=>g.id===activeChannel.id)?.name : 'کانال عمومی'}
                                     </h3>
-                                    <span className="text-[10px] text-blue-500">
+                                    <span className="text-[10px] text-blue-500 truncate leading-none mt-0.5">
                                         {activeChannel.type === 'system' ? 'مرکز دریافت اعلانات کارتابل و پیام‌های خودکار' :
                                          activeChannel.type === 'private' ? (
                                             users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen && (Date.now() - (users.find(u=>u.username?.toLowerCase()===activeChannel.id?.toLowerCase())?.lastSeen || 0) < 300000) ? 'آنلاین' : 
@@ -1894,7 +1900,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 shrink-0">
                                 {(activeChannel.type === 'group' || activeChannel.type === 'task_group') && (currentUser?.role === UserRole.ADMIN || groups.find(g=>g.id===activeChannel.id)?.createdBy?.toLowerCase() === currentUser?.username?.toLowerCase() || taskGroups.find(g=>g.id===activeChannel.id)?.createdBy?.toLowerCase() === currentUser?.username?.toLowerCase()) && (
                                     <button 
                                         onClick={() => {
@@ -1902,24 +1908,24 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             const grpName = isTask ? taskGroups.find(g=>g.id===activeChannel.id)?.name : groups.find(g=>g.id===activeChannel.id)?.name;
                                             handleDeleteGroup(activeChannel.id, isTask, grpName || '');
                                         }} 
-                                        className="p-2 hover:bg-red-50 text-red-600 rounded-full transition-colors" 
+                                        className="p-1.5 hover:bg-red-50 text-red-600 rounded-full transition-colors" 
                                         title={currentUser?.role === UserRole.ADMIN ? "حذف گروه توسط ادمین" : "حذف و انحلال گروه"}
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={16} />
                                     </button>
                                 )}
                                 {activeChannel.type !== 'task_group' && (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => onRefresh()} className="p-2 hover:bg-gray-100 rounded-full text-blue-600" title="بروزرسانی"><RefreshCw size={20} className={isUploading ? 'animate-spin' : ''}/></button>
+                                    <div className="flex gap-1 items-center">
+                                        <button onClick={() => onRefresh()} className="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-blue-600 transition-colors" title="بروزرسانی"><RefreshCw size={16} className={isUploading ? 'animate-spin' : ''}/></button>
                                         {selectionMode ? (
-                                            <div className="flex gap-2 animate-fade-in">
-                                                <button onClick={() => setShowForwardModal(true)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100" title="فوروارد"><Forward size={18}/></button>
-                                                <button onClick={() => handleDelete(false)} className="p-2 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100" title="حذف برای من"><Trash2 size={18}/></button>
-                                                <button onClick={() => handleDelete(true)} className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100" title="حذف دو طرفه"><Trash2 size={18}/></button>
-                                                <button onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
+                                            <div className="flex gap-1 animate-fade-in">
+                                                <button onClick={() => setShowForwardModal(true)} className="p-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100" title="فوروارد"><Forward size={16}/></button>
+                                                <button onClick={() => handleDelete(false)} className="p-1.5 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100" title="حذف برای من"><Trash2 size={16}/></button>
+                                                <button onClick={() => handleDelete(true)} className="p-1.5 bg-red-50 text-red-600 rounded-full hover:bg-red-100" title="حذف دو طرفه"><Trash2 size={16}/></button>
+                                                <button onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }} className="p-1.5 hover:bg-gray-100 rounded-full"><X size={16}/></button>
                                             </div>
                                         ) : (
-                                            <button onClick={() => setShowInnerSearch(!showInnerSearch)} className={`p-2 rounded-full ${showInnerSearch ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}><Search size={20}/></button>
+                                            <button onClick={() => setShowInnerSearch(!showInnerSearch)} className={`p-1.5 rounded-full transition-colors ${showInnerSearch ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}><Search size={16}/></button>
                                         )}
                                     </div>
                                 )}
@@ -2346,7 +2352,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 sticky bottom-0 bg-white/95 dark:bg-[#0b141a]/95 backdrop-blur-xl glass-panel p-1.5 sm:p-2 px-2.5 sm:px-3.5 flex items-end gap-1.5 sm:gap-2 border-t border-zinc-200/80 dark:border-zinc-800/80 relative z-20 pb-[calc(8px+env(safe-area-inset-bottom))] md:pb-2 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+                        <div className="shrink-0 sticky bottom-0 bg-white dark:bg-[#1c1c1e] p-2 sm:p-2.5 px-3 flex items-end gap-1.5 sm:gap-2 border-t border-gray-200/80 dark:border-zinc-800/80 relative z-20 pb-[max(8px,env(safe-area-inset-bottom))] shadow-xs">
                             {activeChannel.type === 'system' ? (
                                 <div className="flex-1 py-2 px-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between gap-2 shadow-xs">
                                     <div className="flex items-center gap-2 text-xs sm:text-sm text-indigo-800 dark:text-indigo-200 font-medium">
@@ -2394,20 +2400,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
 
                                     {/* Unified Compact Messenger Input Capsule */}
-                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-2 py-1 min-h-[40px] sm:min-h-[44px] relative transition-all duration-200 border gap-1 ${
+                                    <div className={`flex-1 rounded-2xl flex items-center px-2 py-1 min-h-[38px] sm:min-h-[42px] relative transition-all duration-200 border gap-1 ${
                                         inputText.length > 0 
                                             ? 'bg-white dark:bg-zinc-800/95 border-blue-500/50 dark:border-blue-500/60 shadow-xs ring-1 ring-blue-500/20' 
-                                            : 'bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:bg-white dark:focus-within:bg-zinc-800 focus-within:ring-1 focus-within:ring-blue-500/10'
+                                            : 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:bg-white dark:focus-within:bg-zinc-800'
                                     }`}>
                                         
                                         {/* Paperclip Button */}
                                         <div className="relative shrink-0">
                                             <button 
                                                 onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} 
-                                                className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 rounded-full transition-all active:scale-95 cursor-pointer"
+                                                className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 rounded-full transition-all active:scale-95 cursor-pointer"
                                                 title="افزودن پیوست"
                                             >
-                                                <Paperclip size={18} />
+                                                <Paperclip size={17} />
                                             </button>
 
                                             {/* Attachment Dropup Menu */}
@@ -2426,14 +2432,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         {/* Smile / Emoji Button */}
                                         <button 
                                             onClick={() => setShowStickerPicker(prev => !prev)} 
-                                            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all shrink-0 active:scale-95 cursor-pointer ${
+                                            className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full transition-all shrink-0 active:scale-95 cursor-pointer ${
                                                 showStickerPicker 
                                                     ? 'text-amber-500 bg-amber-100/80 dark:bg-amber-950/70' 
                                                     : 'text-zinc-500 hover:text-amber-500 dark:text-zinc-400 dark:hover:text-amber-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60'
                                             }`}
                                             title="استیکرها و ایموجی‌ها"
                                         >
-                                            <Smile size={18} />
+                                            <Smile size={17} />
                                         </button>
 
                                         {/* Unified Seamless Auto-resizing Text Input */}
@@ -2443,13 +2449,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             onChange={e => {
                                                 setInputText(e.target.value);
                                                 e.target.style.height = 'auto';
-                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
                                             }}
                                             onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                                             placeholder="نوشتن پیام..."
-                                            className="bg-transparent border-none outline-none w-full text-sm sm:text-[15px] resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-normal py-1 px-1"
+                                            className="bg-transparent border-none outline-none w-full text-xs sm:text-sm resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-normal py-1 px-1"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '26px', maxHeight: '180px' }}
+                                            style={{ height: 'auto', minHeight: '24px', maxHeight: '140px' }}
                                         />
                                     </div>
 
@@ -2458,13 +2464,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         <button 
                                             onClick={handleSendMessage} 
                                             disabled={isUploading}
-                                            className="w-10 h-10 sm:w-11 sm:h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-md shadow-blue-600/25 transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer group"
+                                            className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-sm transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer group"
                                             title="ارسال پیام"
                                         >
                                             {isUploading ? (
-                                                <Loader2 size={18} className="animate-spin text-white"/>
+                                                <Loader2 size={16} className="animate-spin text-white"/>
                                             ) : (
-                                                <Send size={18} className="text-white transform -rotate-45 rtl:-rotate-135 transition-transform group-hover:scale-110" />
+                                                <Send size={16} className="text-white transform -rotate-45 rtl:-rotate-135 transition-transform group-hover:scale-110" />
                                             )}
                                         </button>
                                     ) : (
@@ -2473,17 +2479,17 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             onMouseUp={stopRecording}
                                             onTouchStart={startRecording}
                                             onTouchEnd={stopRecording}
-                                            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-xs transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer ${
+                                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full shadow-xs transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer ${
                                                 isRecording 
                                                     ? 'bg-rose-500 text-white scale-105 shadow-rose-500/40 animate-pulse' 
-                                                    : 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'
+                                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'
                                             }`}
                                             title="پیام صوتی (نگه دارید)"
                                         >
                                             {isRecording ? (
-                                                <span className="text-white font-mono text-xs font-bold">{formatTime(recordingTime)}</span>
+                                                <span className="text-white font-mono text-[11px] font-bold">{formatTime(recordingTime)}</span>
                                             ) : (
-                                                <Mic size={18} />
+                                                <Mic size={17} />
                                             )}
                                         </button>
                                     )}

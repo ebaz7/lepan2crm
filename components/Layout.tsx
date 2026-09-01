@@ -300,15 +300,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   useEffect(() => {
     checkVersion();
-    const interval = setInterval(checkVersion, 20000);
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', onVisibilityChange);
+    // Check for updates in background once every 1 hour (3,600,000 ms) to avoid server load & lag
+    const interval = setInterval(checkVersion, 60 * 60 * 1000);
 
     const handleUpdatePublished = (e: any) => {
       if (e?.detail) {
@@ -330,8 +323,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
     return () => {
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onVisibilityChange);
       window.removeEventListener('app:update-published', handleUpdatePublished);
     };
   }, []);
@@ -1137,8 +1128,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       </AnimatePresence>
 
       <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 m-0 sm:m-2.5 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-none sm:rounded-2xl md:rounded-[24px] border-0 sm:border border-white/45 dark:border-zinc-900/35 shadow-none sm:shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:sm:shadow-[0_16px_48px_rgba(0,0,0,0.3)] md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
-          {/* Mobile Header - Sleek flat design matching shadcn/ui */}
-          <header className="px-3 py-2.5 md:hidden no-print flex items-center justify-between shrink-0 relative z-[60] safe-pt sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl">
+          {/* Mobile Header - Sleek flat design matching shadcn/ui (Hidden in chat to avoid duplicate headers) */}
+          <header className={`px-3 py-2.5 md:hidden no-print items-center justify-between shrink-0 relative z-[60] safe-pt sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl ${activeTab === 'chat' ? 'hidden' : 'flex'}`}>
               <div className="flex items-center gap-3">
                   {activeTab === 'dashboard' ? (
                   <button 

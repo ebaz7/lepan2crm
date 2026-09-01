@@ -248,27 +248,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       dir="rtl"
     >
       
-      {/* Background Architectural Mesh & Subtle Ambient Grid */}
-      <div className="absolute inset-0 pointer-events-none opacity-20">
-        <div 
-          className="w-full h-full"
-          style={{
-            backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px)`,
-            backgroundSize: '32px 32px'
-          }}
-        />
-      </div>
-
-      {/* Dynamic Ambient Room Light and Floor Reflection (Centered under Lamp Column) */}
-      {/* We will place this directly behind the lamp in the grid container instead of absolute to screen */}
-
-      {/* Dark Ambient Overlay when Lamp is OFF for striking contrast */}
+      {/* --- REAL HIGH-QUALITY BACKGROUND IMAGE FROM THE PHOTO --- */}
       <motion.div 
         animate={{
-          opacity: isLampOn ? 0 : 0.85
+          filter: isLampOn 
+            ? 'brightness(1) contrast(1)' 
+            : 'brightness(0.06) contrast(1.15) saturate(0.25)'
         }}
-        transition={{ duration: 0.5 }}
-        className="absolute inset-0 bg-[#020408] pointer-events-none z-0"
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        className="absolute inset-0 z-0 select-none pointer-events-none transition-all duration-700"
+        style={{
+          backgroundImage: "url('/login-bg.jpg')",
+          backgroundPosition: '72.5% 50%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat'
+        }}
       />
 
       {/* Top Floating Control Bar */}
@@ -314,162 +308,101 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
       </div>
 
-      {/* Main Interactive Stage Container */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-        
-        {/* ========================================================
-            RIGHT COLUMN (Desktop Lamp & Light Beam Visual Showcase)
-           ======================================================== */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center relative min-h-[380px] lg:min-h-[500px]">
-          
-          {/* Dynamic Ambient Room Light and Floor Reflection (Centered under Lamp) */}
-          <motion.div 
-            initial={{ x: "-50%" }}
-            animate={{
-              x: "-50%",
-              opacity: isLampOn ? 0.6 : 0,
-              scale: isLampOn ? 1 : 0.7
+      {/* --- REALISTIC INTERACTIVE PULL-STRING (سیم کششی خاموش و روشن کردن چراغ) --- */}
+      <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden">
+        <motion.div 
+          onClick={toggleLamp}
+          animate={{ 
+            y: isPulling ? 25 : 0 
+          }}
+          transition={{ type: 'spring', stiffness: 500, damping: 14 }}
+          className="absolute left-[72.5%] top-[42%] h-[240px] pointer-events-auto cursor-pointer group flex flex-col items-center"
+          style={{ transform: 'translateX(-50%)' }}
+          title="برای خاموش/روشن کردن، این سیم را بکشید یا کلیک کنید"
+        >
+          {/* Beaded Brass Pull Chain */}
+          <div 
+            className="w-[3px] h-[130px] bg-repeat-y group-hover:scale-x-125 transition-transform"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)',
+              backgroundSize: '3px 6px'
             }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="absolute bottom-[-150px] left-1/2 w-[500px] h-[400px] bg-gradient-to-t from-amber-500/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full"
           />
-
-          {/* Executive Desk Lamp SVG Component */}
-          <div className="relative flex flex-col items-center">
-            
-            {/* Lamp Ceiling Mount / Stand Top */}
-            <div className="w-16 h-4 bg-gradient-to-r from-slate-700 via-slate-400 to-slate-800 rounded-full shadow-md border-t border-slate-300/40" />
-            
-            {/* Lamp Rod / Cable */}
-            <div className="w-1.5 h-14 bg-gradient-to-b from-slate-600 via-slate-400 to-slate-700" />
-            
-            {/* Modern Metal Shade with 3D Depth */}
-            <div className="relative z-20 flex flex-col items-center">
-              <div className="w-48 h-20 bg-gradient-to-b from-slate-700 via-slate-900 to-[#0e141f] rounded-t-full border-t-2 border-x-2 border-slate-500/60 shadow-[0_15px_35px_rgba(0,0,0,0.8)] flex items-center justify-center relative overflow-hidden">
-                {/* 3D Cylindrical Metallic Reflection */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent transform -skew-x-12" />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-800/30 to-black/60 pointer-events-none" />
-                
-                {/* Brand Icon with Illumination Reaction */}
-                <Building2 size={24} className={`transition-colors duration-500 ${isLampOn ? 'text-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]' : 'text-slate-700'}`} />
-              </div>
-              
-              {/* Bottom Rim of Shade (Origin of Light) */}
-              <div className={`w-52 h-4 rounded-full border border-slate-400/40 relative z-30 transition-all duration-500 flex items-center justify-center ${
-                isLampOn 
-                  ? 'bg-amber-300 shadow-[0_0_35px_rgba(251,191,36,1)] border-amber-200' 
-                  : 'bg-slate-800 shadow-inner'
-              }`}>
-                {/* Internal Bulb Core */}
-                {isLampOn && (
-                  <div className="w-24 h-2 rounded-full bg-white blur-[1px] shadow-[0_0_15px_#fff]" />
-                )}
-              </div>
-
-              {/* Realistic Spotlight Cone: Mathematically locked to w-52 (208px) shade rim */}
-              <motion.div 
-                initial={{ x: "-50%" }}
-                animate={{
-                  x: "-50%",
-                  opacity: isLampOn ? 1 : 0,
-                  scaleY: isLampOn ? 1 : 0.6
-                }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="absolute top-full left-1/2 w-[320px] h-[380px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
-              >
-                {/* Outer Volumetric Soft Glow Cone */}
-                <div 
-                  className="w-full h-full relative"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.42) 0%, rgba(245, 158, 11, 0.16) 45%, rgba(217, 119, 6, 0.02) 85%, transparent 100%)',
-                    clipPath: 'polygon(17.5% 0%, 82.5% 0%, 100% 100%, 0% 100%)',
-                    filter: 'blur(4px)'
-                  }}
-                >
-                  {/* High Intensity Central Core Light Beam */}
-                  <div 
-                    className="absolute inset-0 mx-auto w-[220px]"
-                    style={{
-                      background: 'linear-gradient(180deg, rgba(255, 250, 225, 0.65) 0%, rgba(251, 191, 36, 0.25) 35%, transparent 85%)',
-                      clipPath: 'polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)',
-                      filter: 'blur(6px)'
-                    }}
-                  />
-                </div>
-                {/* Floor/Base illumination oval right underneath */}
-                {isLampOn && (
-                  <div className="w-[280px] h-[32px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/45 to-transparent blur-md -mt-8" />
-                )}
-              </motion.div>
-            </div>
-
-            {/* Interactive Pull String / Switch */}
-            <motion.div 
-              onClick={toggleLamp}
-              animate={{ 
-                y: isPulling ? 24 : 0 
-              }}
-              transition={{ type: 'spring', stiffness: 450, damping: 15 }}
-              className="relative z-40 flex flex-col items-center cursor-pointer group -mt-1"
-              title="برای روشن/خاموش کردن بکشید"
-            >
-              {/* Pull Chain */}
-              <div className="w-0.5 h-16 bg-gradient-to-b from-amber-200/80 via-amber-400 to-amber-600 group-hover:scale-x-125 transition-transform shadow-xs" />
-              
-              {/* Pull Handle / Teardrop Switch */}
-              <div className="w-3.5 h-5 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 rounded-full shadow-lg shadow-amber-500/40 border border-amber-200/60 flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-all">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/90" />
-              </div>
-
-              {/* Click/Pull Hint Tag for First Time Users */}
-              {!hasInteracted && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: [0.4, 1, 0.4], y: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="absolute -bottom-8 whitespace-nowrap px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-bold shadow-md backdrop-blur-md"
-                >
-                  کلیک یا لمس برای تغییر نور
-                </motion.div>
-              )}
-            </motion.div>
-
+          
+          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز) */}
+          <div className="w-3.5 h-8 bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] rounded-b-full rounded-t-sm shadow-2xl shadow-black/80 border border-[#fef3c7]/40 flex flex-col items-center justify-end pb-1 group-hover:scale-110 group-active:scale-95 transition-all">
+            <div className="w-full h-0.5 bg-[#451a03]/50 mb-0.5" />
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-200/90" />
           </div>
 
-          {/* Company Identity / Corporate Description */}
+          {/* Floating Pulsing Tutorial Hint */}
+          {!hasInteracted && (
+            <motion.div 
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: [0.6, 1, 0.6], x: [10, 15, 10] }}
+              transition={{ repeat: Infinity, duration: 2.2 }}
+              className="absolute left-6 top-10 whitespace-nowrap px-3 py-1 bg-amber-500/25 text-amber-200 border border-amber-500/40 rounded-full text-[11px] font-bold shadow-2xl backdrop-blur-md flex items-center gap-1.5"
+            >
+              <Sparkles size={12} className="text-amber-400 animate-pulse" />
+              <span>بند را بکشید</span>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Main Stage Grid Container */}
+      <div className="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center px-4">
+        
+        {/* RIGHT COLUMN: Company Identity (Visually on the Right Side under the Hanging Lamp on Desktop, but below Login on Mobile) */}
+        <div className="lg:col-span-6 flex flex-col justify-center items-center order-2 lg:order-1 min-h-[160px] lg:min-h-[450px] relative z-10 py-6 text-center">
+          {/* Spacer to push content under the hanging lamp area on desktop */}
+          <div className="hidden lg:block h-32" />
+          
           <motion.div 
-            animate={{ opacity: isLampOn ? 1 : 0.4 }}
-            transition={{ duration: 0.4 }}
-            className="text-center mt-12 lg:mt-16 space-y-2 z-20"
+            animate={{ 
+              opacity: isLampOn ? 1 : 0.35,
+              y: isLampOn ? 0 : 5
+            }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="space-y-4 max-w-lg mx-auto"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/60 border border-slate-700/50 rounded-full text-xs font-semibold text-slate-300 shadow-inner">
-              <Building2 size={14} className="text-amber-400" />
+            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md ${
+              isLampOn
+                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+                : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
+            }`}>
+              <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
               <span>سامانه یکپارچه مالی و بازرگانی</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-100">
+            
+            <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight transition-all duration-500 ${
+              isLampOn 
+                ? 'text-slate-100 drop-shadow-[0_0_15px_rgba(251,191,36,0.15)]' 
+                : 'text-slate-500'
+            }`}>
               مدیریت و کنترل هوشمند سازمانی
             </h2>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+            
+            <p className={`text-xs sm:text-sm max-w-md mx-auto leading-relaxed transition-all duration-500 ${
+              isLampOn ? 'text-slate-300 font-medium' : 'text-slate-600'
+            }`}>
               سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار، برگه‌های خروج و اسناد اعتباری
             </p>
           </motion.div>
-
         </div>
 
-        {/* ========================================================
-            LEFT COLUMN (Modern Frosted Glass Login Panel)
-           ======================================================== */}
-        <div className="lg:col-span-7 flex justify-center relative z-20">
+        {/* LEFT COLUMN: Modern Glass Login Panel (Visually on the Left Side on Desktop, and first on Mobile) */}
+        <div className="lg:col-span-6 flex justify-center lg:justify-start order-1 lg:order-2 relative z-20">
           
           <motion.div 
             animate={{
               boxShadow: isLampOn 
-                ? '0 25px 60px -15px rgba(251, 191, 36, 0.15), 0 0 40px rgba(245, 158, 11, 0.05)'
-                : '0 20px 40px -15px rgba(0, 0, 0, 0.7)',
-              borderColor: isLampOn ? 'rgba(251, 191, 36, 0.3)' : 'rgba(255, 255, 255, 0.08)'
+                ? '0 30px 70px -15px rgba(251, 191, 36, 0.12), 0 0 50px rgba(245, 158, 11, 0.04)'
+                : '0 20px 40px -15px rgba(0, 0, 0, 0.8)',
+              borderColor: isLampOn ? 'rgba(251, 191, 36, 0.25)' : 'rgba(255, 255, 255, 0.06)'
             }}
             transition={{ duration: 0.5 }}
-            className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border rounded-[2rem] p-7 sm:p-9 shadow-2xl relative overflow-hidden"
+            className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl border rounded-[2rem] p-7 sm:p-9 shadow-2xl relative overflow-hidden"
           >
             
             {/* Ambient Top Glow Border inside the Card */}
@@ -556,20 +489,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             ) : (
               /* --- PRIMARY LOGIN FORM VIEW --- */
               <div className="space-y-6">
-                
-                {/* Form Header */}
-                <div className="flex items-center justify-between border-b border-slate-800 pb-5">
+
+                {/* Form Title & Login State Badge */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-black text-slate-100 flex items-center gap-2">
-                      <span>ورود به حساب</span>
-                      <Sparkles size={18} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-600'} />
+                    <h1 className="text-xl font-black text-slate-100 flex items-center gap-1.5">
+                      <span>ورود به حساب کاربری</span>
+                      <Sparkles size={16} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-600'} />
                     </h1>
-                    <p className="text-xs text-slate-400 mt-1">مشخصات کاربری مجاز خود را وارد کنید</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">مشخصات کاربری مجاز خود را وارد کنید</p>
                   </div>
                   
                   {/* Badge */}
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs font-bold text-slate-300">
-                    <KeyRound size={14} className="text-amber-400" />
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 border border-slate-800/80 rounded-xl text-[10px] font-bold text-slate-300">
+                    <KeyRound size={12} className="text-amber-400" />
                     <span>{isNative ? 'موبایل' : 'نسخه وب'}</span>
                   </div>
                 </div>
