@@ -253,7 +253,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         animate={{
           filter: isLampOn 
             ? 'brightness(1) contrast(1)' 
-            : 'brightness(0.06) contrast(1.15) saturate(0.25)'
+            : 'brightness(0.18) contrast(1.05) saturate(0.4)'
         }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
         className="absolute inset-0 z-0 select-none pointer-events-none transition-all duration-700"
@@ -313,26 +313,41 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <motion.div 
           onClick={toggleLamp}
           animate={{ 
-            y: isPulling ? 15 : 0 
+            y: isPulling ? 12 : 0,
+            opacity: isLampOn ? 0.75 : 0.12
           }}
-          transition={{ type: 'spring', stiffness: 500, damping: 14 }}
-          className="absolute left-[72.5%] top-[41%] h-[100px] pointer-events-auto cursor-pointer group flex flex-col items-center"
-          style={{ transform: 'translateX(-50%)' }}
+          whileHover={{ opacity: isLampOn ? 0.95 : 0.45 }}
+          transition={{ 
+            y: { type: 'spring', stiffness: 500, damping: 14 },
+            opacity: { duration: 0.3 }
+          }}
+          className="absolute left-[75.8%] top-[38.5%] h-[90px] pointer-events-auto cursor-pointer group flex flex-col items-center"
+          style={{ 
+            transform: 'translateX(-50%)'
+          }}
           title="برای خاموش/روشن کردن، کلیک کنید"
         >
           {/* Beaded Brass Pull Chain */}
           <div 
-            className="w-[2.5px] h-[55px] bg-repeat-y group-hover:scale-x-125 transition-transform"
+            className="w-[2.5px] h-[50px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
             style={{
-              backgroundImage: 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)',
+              backgroundImage: isLampOn 
+                ? 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)'
+                : 'radial-gradient(circle, rgba(255,255,255,0.1) 30%, rgba(33,24,24,0.6) 90%)',
               backgroundSize: '2.5px 5px'
             }}
           />
           
           {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز کوچک‌تر) */}
-          <div className="w-2.5 h-6 bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] rounded-b-full rounded-t-sm shadow-2xl shadow-black/80 border border-[#fef3c7]/40 flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all">
-            <div className="w-full h-0.5 bg-[#451a03]/50 mb-0.5" />
-            <div className="w-1 h-1 rounded-full bg-amber-200/90" />
+          <div 
+            className={`w-2.5 h-6 rounded-b-full rounded-t-sm border shadow-2xl flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all duration-500 ${
+              isLampOn
+                ? 'bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] border-[#fef3c7]/40 shadow-amber-500/20'
+                : 'bg-[#211818]/60 backdrop-blur-sm border-white/5 shadow-black/80'
+            }`}
+          >
+            <div className={`w-full h-0.5 mb-0.5 transition-all duration-500 ${isLampOn ? 'bg-[#451a03]/50' : 'bg-transparent'}`} />
+            <div className={`w-1 h-1 rounded-full transition-all duration-500 ${isLampOn ? 'bg-amber-200/90' : 'bg-white/10'}`} />
           </div>
         </motion.div>
       </div>
@@ -341,17 +356,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center px-4">
         
         {/* RIGHT COLUMN: Company Identity (Visually on the Right Side under the Hanging Lamp on Desktop, but below Login on Mobile) */}
-        <div className="lg:col-span-6 flex flex-col justify-center items-center order-2 lg:order-1 min-h-[160px] lg:min-h-[450px] relative z-10 py-6 text-center">
+        <div className="lg:col-span-6 flex flex-col justify-center items-center order-2 lg:order-1 min-h-[160px] lg:min-h-[450px] relative z-10 pt-6 pb-[24px] pr-0 pl-[30px] text-center">
           {/* Spacer to push content under the hanging lamp area on desktop */}
-          <div className="hidden lg:block h-32" />
+          <div className="hidden lg:block h-80" />
           
           <motion.div 
             animate={{ 
-              opacity: isLampOn ? 1 : 0.35,
+              opacity: isLampOn ? 1 : 0.08,
               y: isLampOn ? 0 : 5
             }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="space-y-4 max-w-lg mx-auto"
+            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[220px] lg:translate-y-[60px]"
           >
             <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md ${
               isLampOn
