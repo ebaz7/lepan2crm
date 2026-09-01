@@ -34,25 +34,26 @@ const BackupManager: React.FC = () => {
         loadBackupSettings();
     }, []);
 
-    const handleSendToBots = async () => {
+    const handleSendToBots = async (mode: 'auto' | 'db' | 'full' = 'auto') => {
         setSendingToBots(true);
         try {
-            const host = getServerHost() || '';
-            const baseUrl = host ? `${host}/api` : '/api';
-            const res = await fetch(`${baseUrl}/backups/send-to-bot`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: 'پشتیبان ارسالی دستی توسط کاربر از پنل تنظیمات' })
+            const data = await apiCall<any>('/backups/send-to-bot', 'POST', { 
+                reason: 'پشتیبان دستی ارسالی از پنل تنظیمات',
+                mode 
             });
-            const data = await res.json();
-            if (data.success) {
-                alert(`✅ فایل بکاپ با موفقیت ایجاد و به ربات‌ها ارسال شد!\nنام فایل: ${data.filename}\nوضعیت: ${data.botSendResult?.tgSent ? 'تلگرام ارسال شد ✓ ' : ''}${data.botSendResult?.baleSent ? 'بله ارسال شد ✓' : ''}`);
+            
+            if (data && data.success) {
+                const tgStatus = data.botSendResult?.tgSent ? '✅ تلگرام: ارسال شد' : '⚪ تلگرام: تنظیم نشده یا ارسال نشد';
+                const baleStatus = data.botSendResult?.baleSent ? '✅ بله: ارسال شد' : '⚪ بله: تنظیم نشده یا ارسال نشد';
+                
+                alert(`✅ فایل پشتیبان با موفقیت ایجاد و به ربات‌ها ارسال گردید!\n\n📁 نام فایل: ${data.filename}\n\nوضعیت ارسال:\n${tgStatus}\n${baleStatus}`);
                 fetchAutoBackups();
             } else {
-                alert('خطا در ارسال بکاپ به بات: ' + (data.error || data.message || 'نامشخص'));
+                const errMsg = data?.error || data?.message || (data?.botSendResult?.errors?.join('\n')) || 'پاسخ نامشخص از ربات';
+                alert('⚠️ خطا در ارسال بکاپ به ربات:\n' + errMsg + '\n\nلطفاً اطمینان حاصل کنید که توکن ربات و شناسه چت ادمین در تب پیام‌رسان‌ها به درستی تنظیم شده باشد.');
             }
         } catch (e: any) {
-            alert('خطا در ارتباط با سرور: ' + e.message);
+            alert('❌ خطا در ارتباط با سرور: ' + (e.message || 'مشکل در برقراری ارتباط'));
         } finally {
             setSendingToBots(false);
         }
@@ -510,27 +511,24 @@ const BackupManager: React.FC = () => {
 
                     <button 
                         type="button" 
-                        onClick={handleSendToBots} 
+                        onClick={() => handleSendToBots('db')} 
                         disabled={sendingToBots}
                         className="w-full flex items-center justify-between bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white px-4 py-3.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-500/20 cursor-pointer disabled:opacity-50"
                     >
                         <span className="flex items-center gap-2">
                             {sendingToBots ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>} 
-                            ارسال فایل کامل بکاپ به ربات‌های تلگرام و بله
+                            ارسال دیتابیس کامل به ربات‌های تلگرام و بله
                         </span>
                         <span className="text-[10px] bg-white/20 px-2 py-1 rounded text-white font-mono">
-                            BOT SEND
+                            DB BOT
                         </span>
                     </button>
                     
                     <div className="text-[10px] text-gray-500 leading-relaxed bg-gray-50 p-3 rounded-lg border">
-                        <div className="flex items-center gap-1 font-bold text-gray-700 mb-1"><FileJson size={12}/> محتویات فایل بکاپ:</div>
-                        <ul className="list-disc list-inside grid grid-cols-2 gap-x-2 gap-y-1">
-                            <li>تمام اطلاعات دیتابیس</li>
-                            <li>تصاویر و ویس‌های چت</li>
-                            <li>اسناد PDF و اکسل</li>
-                            <li>عکس‌های پرسنلی</li>
-                            <li>تمام منوهای سیستم</li>
+                        <div className="flex items-center gap-1 font-bold text-gray-700 mb-1"><FileJson size={12}/> اطلاعات بکاپ‌ها:</div>
+                        <ul className="list-disc list-inside space-y-1">
+                            <li><strong className="text-gray-700">بکاپ ربات‌ها:</strong> دیتابیس کامل سیستم بدون فایل‌های ضمیمه (فوق‌سریع و پایدار).</li>
+                            <li><strong className="text-gray-700">دانلود مستقیم وب:</strong> شامل دیتابیس کامل به همراه کلیه فایل‌های پیوست و رسانه‌ها.</li>
                         </ul>
                     </div>
                 </div>

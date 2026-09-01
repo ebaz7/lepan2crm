@@ -2101,7 +2101,7 @@ const Settings: React.FC<SettingsProps> = ({
   }
 
   return (
-    <div className="glass-panel rounded-2xl shadow-sm border border-gray-200/50 dark:border-white/10 overflow-hidden flex flex-col md:flex-row min-h-[600px] mb-20 animate-fade-in">
+    <div className="glass-panel rounded-2xl shadow-sm border border-gray-200/50 dark:border-white/10 flex flex-col md:flex-row min-h-[600px] mb-20 animate-fade-in">
       {/* Sidebar / Category Tabs */}
       <div className="w-full md:w-64 shrink-0 bg-gray-50/80 dark:bg-gray-900/60 backdrop-blur-md text-gray-800 dark:text-gray-200 border-b md:border-b-0 md:border-l border-gray-200/80 dark:border-gray-800 p-3 md:p-4">
         <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 mb-3 md:mb-6 flex items-center gap-2 px-1 md:px-2">
@@ -2240,7 +2240,7 @@ const Settings: React.FC<SettingsProps> = ({
         </nav>
       </div>
 
-      <div ref={settingsContentRef} className="flex-1 p-4 md:p-8 overflow-y-auto max-h-[calc(100dvh-120px)] md:max-h-none scroll-smooth pb-20">
+      <div ref={settingsContentRef} className="flex-1 p-4 md:p-8 overflow-y-visible md:overflow-y-visible scroll-smooth pb-20 min-w-0">
         {!settings ? (
           <div className="glass-panel rounded-2xl p-12 flex flex-col items-center justify-center gap-4 text-center my-8 max-w-xl mx-auto">
             <Loader2 size={36} className="animate-spin text-pink-600" />

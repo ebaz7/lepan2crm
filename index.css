@@ -2044,6 +2044,17 @@ html[data-gpu-active="true"] * {
   overscroll-behavior: contain;
 }
 
+#main-scroll-container {
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+}
+
+/* Ensure root and app container allow scroll propagation */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
 /* Fast hardware-accelerated transitions */
 .animate-fast {
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;

@@ -207,7 +207,31 @@ app.post('/api/share-target', upload.single('files'), (req, res) => {
 // --- AUTOMATIC BACKUP LOGIC ---
 let activeBackupJob = null;
 
-const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودکار سیستم", force = false) => {
+const createDbOnlyBackupZip = async (timestamp) => {
+    const filename = `Backup_DB_${timestamp}.zip`;
+    const filePath = path.join(BACKUPS_DIR, filename);
+    if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+
+    return new Promise((resolve, reject) => {
+        const output = fs.createWriteStream(filePath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', () => {
+            resolve({ filePath, filename, size: archive.pointer() });
+        });
+
+        archive.on('error', (err) => reject(err));
+        archive.pipe(output);
+
+        if (fs.existsSync(DB_FILE)) {
+            archive.file(DB_FILE, { name: 'database.json' });
+        }
+
+        archive.finalize();
+    });
+};
+
+const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودکار دیتابیس سیستم", force = false) => {
     const db = getDb();
     const settings = db.settings || {};
     
@@ -221,22 +245,28 @@ const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودک�
     const errors = [];
 
     try {
-        if (!fs.existsSync(filePath)) {
-            console.error("Backup file not found to send to bots:", filePath);
+        // We ALWAYS send the clean complete database archive (DB-only) to bots to guarantee fast delivery without size/timeout issues
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const dbBackup = await createDbOnlyBackupZip(timestamp);
+        const fileToSend = dbBackup.filePath;
+        const filenameToSend = dbBackup.filename;
+
+        if (!fs.existsSync(fileToSend)) {
+            console.error("Backup file not found to send to bots:", fileToSend);
             return { success: false, message: "فایل بکاپ یافت نشد" };
         }
 
-        const buffer = fs.readFileSync(filePath);
-        const caption = `📁 نسخه پشتیبان (${reason})\n⏰ تاریخ: ${new Date().toLocaleString('fa-IR')}\n💾 نام فایل: ${filename}`;
+        const buffer = fs.readFileSync(fileToSend);
+        const caption = `📁 نسخه پشتیبان دیتابیس کامل سامانه (${reason})\n⏰ تاریخ: ${new Date().toLocaleString('fa-IR')}\n💾 نام فایل: ${filenameToSend}\n✨ شامل کلیه اطلاعات مالی، حواله‌ها، کاربران، چت‌ها و تنظیمات`;
 
         // Detect Telegram Chat ID from various config fields
         const tgChatId = settings.backupAdminTelegramChatId || settings.telegramChatId || settings.telegramAdminId || settings.telegramChannelId || settings.telegram_chat_id;
         if (settings.telegramBotToken && tgChatId) {
             try {
-                console.log(`Sending backup to Telegram admin chat: ${tgChatId}`);
+                console.log(`Sending DB backup to Telegram admin chat: ${tgChatId}`);
                 const tg = await safeImport('./backend/telegram.js');
                 if (tg && tg.sendBotDocument) {
-                    await tg.sendBotDocument(tgChatId, buffer, filename, caption);
+                    await tg.sendBotDocument(tgChatId, buffer, filenameToSend, caption);
                     tgSent = true;
                     console.log("Backup sent to Telegram successfully ✅");
                 }
@@ -250,10 +280,10 @@ const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودک�
         const baleChatId = settings.backupAdminBaleChatId || settings.baleChatId || settings.baleAdminId || settings.baleChannelId || settings.bale_chat_id;
         if (settings.baleBotToken && baleChatId) {
             try {
-                console.log(`Sending backup to Bale admin chat: ${baleChatId}`);
+                console.log(`Sending DB backup to Bale admin chat: ${baleChatId}`);
                 const bale = await safeImport('./backend/bale.js');
                 if (bale && bale.sendBotDocument) {
-                    await bale.sendBotDocument(baleChatId, buffer, filename, caption);
+                    await bale.sendBotDocument(baleChatId, buffer, filenameToSend, caption);
                     baleSent = true;
                     console.log("Backup sent to Bale successfully ✅");
                 }
@@ -267,7 +297,8 @@ const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودک�
             success: tgSent || baleSent,
             tgSent,
             baleSent,
-            errors
+            errors,
+            filenameSent: filenameToSend
         };
     } catch (e) {
         console.error("Error in sendBackupToBots:", e);
@@ -7003,26 +7034,47 @@ app.get('/api/full-backup', (req, res) => {
     }
 });
 
-// SEND LATEST OR NEW BACKUP TO TELEGRAM/BALE BOTS
+// SEND BACKUP TO TELEGRAM/BALE BOTS
 app.post('/api/backups/send-to-bot', async (req, res) => {
     try {
-        const reason = req.body?.reason || "پشتیبان دستی / بروزرسانی سامانه";
+        const reason = req.body?.reason || "پشتیبان ارسالی دستی از پنل مدیریت";
+        const mode = req.body?.mode || "auto"; // 'db' | 'full' | 'auto'
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const filename = `Backup_${timestamp}.zip`;
-        const filePath = path.join(BACKUPS_DIR, filename);
+        
+        if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 
-        // Create the zip backup file
-        const output = fs.createWriteStream(filePath);
-        const archive = archiver('zip', { zlib: { level: 9 } });
-
-        output.on('close', async () => {
-            const sendResult = await sendBackupToBots(filePath, filename, reason, true);
-            res.json({
-                success: true,
-                filename,
-                size: archive.pointer(),
+        // If mode is 'db' (or default fast bot backup mode):
+        if (mode === 'db' || mode === 'auto') {
+            const dbBackup = await createDbOnlyBackupZip(timestamp);
+            const sendResult = await sendBackupToBots(dbBackup.filePath, dbBackup.filename, reason, true);
+            return res.json({
+                success: sendResult.success,
+                filename: dbBackup.filename,
+                size: dbBackup.size,
                 botSendResult: sendResult
             });
+        }
+
+        // Full backup mode requested:
+        const filename = `Backup_Full_${timestamp}.zip`;
+        const filePath = path.join(BACKUPS_DIR, filename);
+
+        const output = fs.createWriteStream(filePath);
+        const archive = archiver('zip', { zlib: { level: 6 } }); // Fast compression level
+
+        output.on('close', async () => {
+            try {
+                const sendResult = await sendBackupToBots(filePath, filename, reason, true);
+                res.json({
+                    success: sendResult.success,
+                    filename: sendResult.filenameSent || filename,
+                    size: archive.pointer(),
+                    botSendResult: sendResult
+                });
+            } catch (sendErr) {
+                console.error("Bot dispatch error after archiving:", sendErr);
+                res.status(500).json({ success: false, error: sendErr.message });
+            }
         });
 
         archive.on('error', (err) => {
