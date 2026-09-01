@@ -7163,7 +7163,7 @@ app.get('/api/version', (req, res) => {
             buildNumber, 
             title, 
             releaseNotes,
-            timestamp: publishedAt || Date.now()
+            timestamp: publishedAt || 0
         });
     } catch (e) {
         res.json({ version: '1.3.2', buildNumber: '20260901.103', title: 'نسخۀ جدید' });
