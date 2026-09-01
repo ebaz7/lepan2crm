@@ -284,6 +284,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       if (updateResult.hasUpdate && updateResult.serverInfo) {
         setUpdateInfo(updateResult.serverInfo);
         setIsUpdateAvailable(true);
+        setIsUpdateDismissed(false);
       }
     } catch (e) {
       console.debug('Version check error', e);
@@ -292,7 +293,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
 
   useEffect(() => {
     checkVersion();
-    const interval = setInterval(checkVersion, 45000);
+    const interval = setInterval(checkVersion, 20000);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -302,9 +303,21 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', onVisibilityChange);
 
+    const handleUpdatePublished = (e: any) => {
+      if (e?.detail) {
+        setUpdateInfo(e.detail);
+        setIsUpdateAvailable(true);
+        setIsUpdateDismissed(false);
+      } else {
+        checkVersion();
+      }
+    };
+    window.addEventListener('app:update-published', handleUpdatePublished);
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         setIsUpdateAvailable(true);
+        setIsUpdateDismissed(false);
       });
     }
 
@@ -312,6 +325,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onVisibilityChange);
+      window.removeEventListener('app:update-published', handleUpdatePublished);
     };
   }, []);
 

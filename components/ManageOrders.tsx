@@ -23,7 +23,12 @@ interface ManageOrdersProps {
 }
 
 const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, currentUser, initialTab = 'current', settings, statusFilter, financialYear }) => {
-  let safeOrders = Array.isArray(orders) ? orders : [];
+  const [localOrders, setLocalOrders] = useState<PaymentOrder[]>(orders);
+  useEffect(() => {
+      setLocalOrders(orders);
+  }, [orders]);
+
+  let safeOrders = Array.isArray(localOrders) ? localOrders : [];
   if (financialYear && financialYear !== 'all') {
       safeOrders = safeOrders.filter(o => isInFinancialYear(o.date, financialYear));
   }
@@ -160,12 +165,16 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
         if (!window.confirm(`⚠️ تایید ابطال:\nوضعیت بعدی: ${getStatusLabel(nextStatus)}\nآیا اطمینان دارید؟`)) return;
     }
     
+    const prevOrders = [...localOrders];
+    // 1. Instant Optimistic UI Update: updates/removes instantly with 0ms delay
+    setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: nextStatus, updatedAt: Date.now() } : o));
+    setViewOrder(null);
     setProcessingId(id);
+
+    // 2. Run background server processing
     try {
         const updatedOrders = await updateOrderStatus(id, nextStatus, currentUser); 
         
-        // Find the updated order to dispatch the WhatsApp job
-        // We do this BEFORE refreshData to be "fast"
         const order = updatedOrders.find(o => o.id === id);
         if (order) {
             const event = new CustomEvent('QUEUE_WHATSAPP_JOB', { 
@@ -175,9 +184,10 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
         }
 
         refreshData(); 
-        setViewOrder(null); 
     } catch (e) {
-        alert('خطا در انجام عملیات');
+        // Rollback state on error
+        setLocalOrders(prevOrders);
+        alert('خطا در انجام عملیات تایید. تغییرات به حالت قبل بازگشت.');
     } finally {
         setProcessingId(null);
     }

@@ -446,6 +446,13 @@ export interface SystemSettings {
   salesContacts?: SalesContact[];
   birthdayGreetingTemplate?: BirthdayGreetingTemplate;
   
+  // SYSTEM & PWA / WEB AUTO-UPDATER SETTINGS
+  systemVersion?: string;
+  systemBuildNumber?: string;
+  releaseTitle?: string;
+  releaseNotes?: string;
+  systemUpdatePublishedAt?: number | string;
+
   // WINDOWS DESKTOP & TAURI AUTO-UPDATER SETTINGS
   desktopUpdateUrl?: string;
   desktopAutoCheckUpdates?: boolean;

@@ -7153,19 +7153,83 @@ app.get('/api/version', (req, res) => {
         const db = typeof getDb === 'function' ? getDb() : {};
         const settings = (db && db.settings) || {};
         const version = settings.systemVersion || settings.desktopLatestVersion || '1.3.2';
-        const buildNumber = settings.systemBuildNumber || '20260831.102';
+        const buildNumber = settings.systemBuildNumber || (settings.systemUpdatePublishedAt ? `b_${settings.systemUpdatePublishedAt}` : '20260901.103');
         const title = settings.releaseTitle || 'نسخۀ جدید';
         const releaseNotes = settings.releaseNotes || settings.desktopReleaseNotes || 'به‌روزرسانی و بهینه‌سازی سامانه مالی و بازرگانی';
+        const publishedAt = settings.systemUpdatePublishedAt || 0;
         
         res.json({ 
             version, 
             buildNumber, 
             title, 
             releaseNotes,
-            timestamp: Date.now()
+            timestamp: publishedAt || Date.now()
         });
     } catch (e) {
-        res.json({ version: '1.3.2', buildNumber: '20260831.102', title: 'نسخۀ جدید' });
+        res.json({ version: '1.3.2', buildNumber: '20260901.103', title: 'نسخۀ جدید' });
+    }
+});
+
+// PUBLISH NEW UPDATE ACROSS THE SYSTEM (Web, PWA, Desktop)
+app.post('/api/version/publish', async (req, res) => {
+    try {
+        const { version, title, releaseNotes, sendToBots = true } = req.body || {};
+        if (!version) {
+            return res.status(400).json({ success: false, error: 'شماره نسخه الزامی است' });
+        }
+
+        const db = typeof getDb === 'function' ? getDb() : {};
+        if (!db.settings) db.settings = {};
+
+        const now = Date.now();
+        const buildNumber = `b_${now.toString(36).toUpperCase()}`;
+        const newVersion = version.trim();
+        const newTitle = title?.trim() || `نسخه جدید ${newVersion}`;
+        const newNotes = releaseNotes?.trim() || 'به‌روزرسانی، ارتقای عملکرد و بهینه‌سازی کلی سیستم.';
+
+        db.settings.systemVersion = newVersion;
+        db.settings.desktopLatestVersion = newVersion;
+        db.settings.systemBuildNumber = buildNumber;
+        db.settings.releaseTitle = newTitle;
+        db.settings.releaseNotes = newNotes;
+        db.settings.desktopReleaseNotes = newNotes;
+        db.settings.systemUpdatePublishedAt = now;
+
+        if (dbManager && typeof dbManager.saveDbImmediate === 'function') {
+            dbManager.saveDbImmediate(db);
+        }
+
+        let botDispatch = null;
+        if (sendToBots) {
+            try {
+                // Send automated DB backup on new release
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const dbBackup = await createDbOnlyBackupZip(timestamp);
+                botDispatch = await sendBackupToBots(
+                    dbBackup.filePath, 
+                    dbBackup.filename, 
+                    `انتشار نسخه ${newVersion}`, 
+                    true
+                );
+            } catch (botErr) {
+                console.warn('Bot backup on version publish error:', botErr.message);
+            }
+        }
+
+        console.log(`🚀 New application update published: v${newVersion} (${buildNumber})`);
+
+        res.json({
+            success: true,
+            version: newVersion,
+            buildNumber,
+            title: newTitle,
+            releaseNotes: newNotes,
+            timestamp: now,
+            botDispatch
+        });
+    } catch (e) {
+        console.error('Error publishing new version:', e);
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

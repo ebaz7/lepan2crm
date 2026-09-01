@@ -2053,6 +2053,26 @@ html[data-gpu-active="true"] * {
 html, body, #root {
   height: 100%;
   width: 100%;
+  overflow-x: hidden;
+}
+
+/* Global robust mouse wheel and touch scrolling */
+#main-scroll-container {
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+  pointer-events: auto !important;
+}
+
+.overflow-y-auto,
+.overflow-x-auto,
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto !important;
+}
+
+/* Ensure mouse wheel events propagate to main scroll container when hovering over middle of screen or cards */
+body * {
+  pointer-events: auto;
 }
 
 /* Fast hardware-accelerated transitions */

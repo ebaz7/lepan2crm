@@ -91,7 +91,10 @@ import {
   History,
   HardDrive,
   CheckCircle,
+  Rocket,
+  ArrowUpCircle,
 } from "lucide-react";
+import { publishApplicationUpdate } from "../services/updateService";
 import { apiCall, getServerHost } from "../services/apiService";
 import { Capacitor } from "@capacitor/core";
 import {
@@ -611,16 +614,79 @@ const Settings: React.FC<SettingsProps> = ({
     }
   };
 
+  const [publishingNewRelease, setPublishingNewRelease] = useState(false);
+  const [releaseVersionInput, setReleaseVersionInput] = useState(() => settings?.desktopLatestVersion || settings?.systemVersion || "1.3.3");
+  const [releaseTitleInput, setReleaseTitleInput] = useState(() => settings?.releaseTitle || "نسخه جدید سامانه");
+  const [releaseNotesInput, setReleaseNotesInput] = useState(() => settings?.desktopReleaseNotes || settings?.releaseNotes || "بهبود عملکرد، بهینه‌سازی سرعت و اصلاحات پایداری");
+  const [releaseSendToBots, setReleaseSendToBots] = useState(true);
+
+  const handlePublishNewRelease = async () => {
+    if (!releaseVersionInput.trim()) {
+      alert("لطفاً شماره نسخه را مشخص فرمایید.");
+      return;
+    }
+    setPublishingNewRelease(true);
+    setDesktopSaveMessage("");
+    try {
+      const res = await publishApplicationUpdate({
+        version: releaseVersionInput.trim(),
+        title: releaseTitleInput.trim(),
+        releaseNotes: releaseNotesInput.trim(),
+        sendToBots: releaseSendToBots
+      });
+      if (res.success && res.data) {
+        const updated: SystemSettings = {
+          ...settings,
+          systemVersion: res.data.version,
+          desktopLatestVersion: res.data.version,
+          systemBuildNumber: res.data.buildNumber,
+          releaseTitle: res.data.title,
+          releaseNotes: res.data.releaseNotes,
+          desktopReleaseNotes: res.data.releaseNotes,
+          systemUpdatePublishedAt: res.data.timestamp
+        };
+        await saveSettings(updated);
+        setSettings(updated);
+        if (onUpdateSettings) onUpdateSettings(updated);
+        setDesktopSaveMessage(`🚀 نسخه جدید ${res.data.version} با موفقیت در سراسر سامانه منتشر شد و بنر اعلان آن برای کلیه کاربران ارسال گردید!`);
+        setTimeout(() => setDesktopSaveMessage(""), 6000);
+      } else {
+        setDesktopSaveMessage(`خطا در انتشار نسخه جدید: ${res.error || "خطای ناشناخته"} ❌`);
+      }
+    } catch (e: any) {
+      setDesktopSaveMessage(`خطا در انتشار: ${e.message} ❌`);
+    } finally {
+      setPublishingNewRelease(false);
+    }
+  };
+
   const handleSaveDesktopSettings = async () => {
     setSavingDesktopSettings(true);
     setDesktopSaveMessage("");
     try {
+      const targetVer = settings.desktopLatestVersion?.trim() || settings.systemVersion?.trim() || "1.3.2";
+      const targetNotes = settings.desktopReleaseNotes || settings.releaseNotes || "";
+      const targetTitle = settings.releaseTitle || "نسخه جدید سامانه";
+
+      // Publish update so /api/version and clients receive it immediately
+      const publishRes = await publishApplicationUpdate({
+        version: targetVer,
+        title: targetTitle,
+        releaseNotes: targetNotes,
+        sendToBots: false
+      });
+
       const updated: SystemSettings = {
         ...settings,
         desktopUpdateUrl: settings.desktopUpdateUrl?.trim() || "",
         desktopDirectDownloadUrl: settings.desktopDirectDownloadUrl?.trim() || "",
-        desktopLatestVersion: settings.desktopLatestVersion?.trim() || "1.0.0",
-        desktopReleaseNotes: settings.desktopReleaseNotes || "",
+        desktopLatestVersion: targetVer,
+        systemVersion: targetVer,
+        systemBuildNumber: publishRes.data?.buildNumber || settings.systemBuildNumber || `b_${Date.now()}`,
+        releaseTitle: targetTitle,
+        releaseNotes: targetNotes,
+        desktopReleaseNotes: targetNotes,
+        systemUpdatePublishedAt: publishRes.data?.timestamp || Date.now(),
         desktopAutoCheckUpdates: settings.desktopAutoCheckUpdates !== false,
         desktopUpdateIntervalMinutes: Number(settings.desktopUpdateIntervalMinutes) || 60,
         desktopUpdateChannel: settings.desktopUpdateChannel || "stable",
@@ -630,8 +696,8 @@ const Settings: React.FC<SettingsProps> = ({
       await saveSettings(updated);
       setSettings(updated);
       if (onUpdateSettings) onUpdateSettings(updated);
-      setDesktopSaveMessage("تنظیمات بروزرسانی و کلاینت دسکتاپ با موفقیت ذخیره شد ✅");
-      setTimeout(() => setDesktopSaveMessage(""), 4000);
+      setDesktopSaveMessage("تنظیمات بروزرسانی و نسخه سرور با موفقیت ذخیره و در سامانه فعال شد ✅");
+      setTimeout(() => setDesktopSaveMessage(""), 5000);
     } catch (e: any) {
       setDesktopSaveMessage("خطا در ذخیره تنظیمات ❌");
     } finally {
@@ -7931,6 +7997,111 @@ const Settings: React.FC<SettingsProps> = ({
                 {desktopSaveMessage}
               </div>
             )}
+
+            {/* --- LIVE UPDATE PUBLISHER & BROADCAST CARD (Web / PWA / Desktop) --- */}
+            <div className="glass-panel p-5 md:p-6 rounded-2xl border-2 border-purple-200 dark:border-purple-900/60 shadow-lg bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/80 dark:from-purple-950/30 dark:via-slate-900/50 dark:to-indigo-950/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-purple-100 dark:border-purple-900/40 pb-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/30">
+                    <Rocket size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm md:text-base text-gray-900 dark:text-white flex items-center gap-2">
+                      انتشار و اعلان فوری نسخه جدید به کلیه کاربران (Live Publisher)
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      با ثبت نسخه در این بخش، فوراً بنر اعلان بالای صفحه برای تمامی کاربران وب، موبایل PWA و کلاینت‌ها نمایش داده می‌شود.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-xs font-bold font-mono">
+                  <span>بیلد فعلی سرور:</span>
+                  <span>{settings.systemBuildNumber || 'آماده انتشار'}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                    <Sliders size={13} className="text-purple-600" /> شماره نسخه جدید (Version):
+                  </label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={releaseVersionInput}
+                    onChange={(e) => {
+                      setReleaseVersionInput(e.target.value);
+                      setSettings({ ...settings, desktopLatestVersion: e.target.value, systemVersion: e.target.value });
+                    }}
+                    placeholder="مثال: 1.3.3"
+                    className="w-full text-xs font-mono font-bold p-2.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1 sm:col-span-1 md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                    <FileText size={13} className="text-purple-600" /> عنوان یا تیتر انتشار (Title):
+                  </label>
+                  <input
+                    type="text"
+                    value={releaseTitleInput}
+                    onChange={(e) => {
+                      setReleaseTitleInput(e.target.value);
+                      setSettings({ ...settings, releaseTitle: e.target.value });
+                    }}
+                    placeholder="مثال: نسخه جدید سامانه با اصلاحات و بهینه‌سازی‌ها"
+                    className="w-full text-xs font-bold p-2.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1 sm:col-span-2 md:col-span-3">
+                  <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                    <ClipboardList size={13} className="text-purple-600" /> یادداشت‌های تغییرات و ویژگی‌های نسخه جدید (Changelog):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={releaseNotesInput}
+                    onChange={(e) => {
+                      setReleaseNotesInput(e.target.value);
+                      setSettings({ ...settings, desktopReleaseNotes: e.target.value, releaseNotes: e.target.value });
+                    }}
+                    placeholder="توضیحاتی که کاربران در بنر اعلان بروزرسانی مشاهده خواهند کرد..."
+                    className="w-full text-xs p-2.5 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-purple-100 dark:border-purple-900/40">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={releaseSendToBots}
+                    onChange={(e) => setReleaseSendToBots(e.target.checked)}
+                    className="w-4 h-4 rounded-md text-purple-600 focus:ring-purple-500 border-gray-300"
+                  />
+                  <span>ارسال خودکار نسخه پشتیبان دیتابیس به بات‌های بله و تلگرام همزمان با انتشار</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handlePublishNewRelease}
+                  disabled={publishingNewRelease}
+                  className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/30 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {publishingNewRelease ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>در حال انتشار و اطلاع‌رسانی...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Rocket size={16} />
+                      <span>🚀 انتشار فوری نسخه جدید و فعال‌سازی اعلان برای همه</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
 
             {/* --- VERSION & STATUS DASHBOARD TILES --- */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

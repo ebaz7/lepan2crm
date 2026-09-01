@@ -14,7 +14,7 @@ export const CURRENT_CLIENT_BUILD: AppVersionInfo = {
   releaseNotes: 'نسخه پایدار سامانه مالی و بازرگانی'
 };
 
-// Check for updates by querying /api/version and checking ServiceWorker lifecycle
+// Check for updates by querying /api/version
 export async function checkServerUpdate(): Promise<{ hasUpdate: boolean; serverInfo: AppVersionInfo | null }> {
   try {
     const res = await fetch(`/api/version?t=${Date.now()}`, {
@@ -30,28 +30,72 @@ export async function checkServerUpdate(): Promise<{ hasUpdate: boolean; serverI
       return { hasUpdate: false, serverInfo: null };
     }
 
-    const lastApplied = typeof window !== 'undefined' ? localStorage.getItem('last_applied_build') : null;
     const serverBuild = data.buildNumber || data.version;
     const serverVer = data.version || data.buildNumber;
+    const serverSig = `${serverVer}_${serverBuild}_${data.timestamp || 0}`;
 
-    // If the last applied build in localStorage matches the server build, no update is needed!
-    if (lastApplied && lastApplied === serverBuild) {
+    // Get the build signature that this specific browser session first booted with
+    let sessionBootSig = typeof window !== 'undefined' ? sessionStorage.getItem('client_boot_sig') : null;
+    if (!sessionBootSig) {
+      // First check upon page load: record the boot signature
+      sessionBootSig = CURRENT_CLIENT_BUILD.version;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('client_boot_sig', sessionBootSig);
+      }
+    }
+
+    // Check if user already clicked update for this specific server release signature
+    const lastApplied = typeof window !== 'undefined' ? localStorage.getItem('last_applied_release_sig') : null;
+    if (lastApplied && lastApplied === serverSig) {
       return { hasUpdate: false, serverInfo: data };
     }
 
     const currentBuild = CURRENT_CLIENT_BUILD.buildNumber;
     const currentVer = CURRENT_CLIENT_BUILD.version;
 
-    // Check if server version or build is different from current client bundle
-    const hasVersionDiff = (serverBuild && serverBuild !== currentBuild) || (serverVer && serverVer !== currentVer);
+    // Check if server version, build number or timestamp indicates a new update
+    const hasVersionDiff = (serverBuild && serverBuild !== currentBuild) || 
+                           (serverVer && serverVer !== currentVer) ||
+                           (sessionBootSig && sessionBootSig !== serverVer && sessionBootSig !== serverSig);
 
     return {
-      hasUpdate: hasVersionDiff,
+      hasUpdate: Boolean(hasVersionDiff),
       serverInfo: data
     };
   } catch (error) {
     console.debug('Update check failed (offline or network error):', error);
     return { hasUpdate: false, serverInfo: null };
+  }
+}
+
+// Publish a new update to all clients
+export async function publishApplicationUpdate(payload: {
+  version: string;
+  title?: string;
+  releaseNotes?: string;
+  sendToBots?: boolean;
+}): Promise<{ success: boolean; data?: AppVersionInfo; error?: string }> {
+  try {
+    const res = await fetch('/api/version/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'خطا در انتشار به‌روزرسانی' };
+    }
+
+    // Notify window components immediately
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('last_applied_release_sig');
+      window.dispatchEvent(new CustomEvent('app:update-published', { detail: data }));
+    }
+
+    return { success: true, data };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'خطا در برقراری ارتباط با سرور' };
   }
 }
 
@@ -99,9 +143,10 @@ export async function applyApplicationUpdate(serverInfo?: AppVersionInfo | null)
       console.warn('Backup to bot before update note:', botErr);
     }
 
-    // 4. Mark update timestamp
+    // 4. Mark update signature
     if (serverInfo) {
-      localStorage.setItem('last_applied_build', serverInfo.buildNumber || serverInfo.version);
+      const serverSig = `${serverInfo.version}_${serverInfo.buildNumber}_${serverInfo.timestamp || 0}`;
+      localStorage.setItem('last_applied_release_sig', serverSig);
     }
   } catch (e) {
     console.error('Error during applyApplicationUpdate:', e);

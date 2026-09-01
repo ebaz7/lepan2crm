@@ -957,17 +957,25 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     const handleApproveBijak = async (tx: WarehouseTransaction) => {
         if (!confirm('آیا تایید می‌کنید؟ پس از تایید، بیجک به صورت خودکار برای انبار و مدیریت ارسال می‌شود.')) return;
         
+        const prevTransactions = [...transactions];
+        const updatedTx = { ...tx, status: 'APPROVED' as const, approvedBy: currentUser.fullName };
+
+        // 1. Instant Optimistic UI Update: removes/updates instantly with 0ms delay
+        setTransactions(prev => prev.map(t => t.id === tx.id ? updatedTx : t));
+        setViewBijak(null);
+
+        // 2. Background server processing
         try {
-            const updatedTx = { ...tx, status: 'APPROVED' as const, approvedBy: currentUser.fullName };
             await updateWarehouseTransaction(updatedTx);
             loadData();
             
             // Add to notification queue
             setActiveAutoSends(prev => [...prev, { tx: updatedTx, type: 'APPROVED' }]);
-            
-            setViewBijak(null);
-            alert("تایید و در صف ارسال قرار گرفت.");
-        } catch (e) { alert("خطا در عملیات تایید"); }
+        } catch (e) {
+            // Rollback state on error
+            setTransactions(prevTransactions);
+            alert("خطا در عملیات تایید. تغییرات به حالت قبل بازگشت.");
+        }
     };
 
     const handleRejectBijak = async (tx: WarehouseTransaction) => {
