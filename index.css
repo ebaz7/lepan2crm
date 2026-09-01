@@ -114,6 +114,31 @@
     --border-color: #000000;
     --gemini-spark: linear-gradient(135deg, #ccff00 0%, #ff007f 100%);
   }
+
+  /* 6. Luxe Gold & Noir Theme (زرد، سفید و مشکی سازمانی) */
+  .theme-gold-noir {
+    --app-bg: #090c10;
+    --glass-bg: rgba(15, 20, 30, 0.94);
+    --glass-bg-hover: rgba(22, 29, 44, 0.98);
+    --glass-border: rgba(251, 191, 36, 0.35);
+    --glass-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.7), 0 0 20px rgba(251, 191, 36, 0.12);
+    --text-primary: #ffffff;
+    --text-secondary: #fef08a;
+    --border-color: rgba(251, 191, 36, 0.3);
+    --gemini-spark: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  }
+}
+
+/* Global Smooth Performance & GPU Compositing Optimization */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#main-scroll-container {
+  transform: translateZ(0);
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Eye-Friendly Background Blobs */
@@ -126,7 +151,9 @@
   z-index: -2;
   overflow: hidden;
   background: var(--app-bg);
-  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 0.4s ease-out;
+  contain: strict;
+  transform: translateZ(0);
 }
 
 /* Only force solid background color if we are NOT in aurora theme, NOT using a custom background, and NOT using any beautiful gradient presets */
@@ -146,9 +173,11 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
+  filter: blur(60px);
   opacity: 0;
   display: none;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
   animation: blob-float 28s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -156,8 +185,8 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 .has-preset-bg-aurora-light .blob,
 .has-custom-bg .blob {
   display: block;
-  opacity: 0.15 !important;
-  filter: blur(140px) !important;
+  opacity: 0.18 !important;
+  filter: blur(60px) !important;
 }
 
 .blob-1 {

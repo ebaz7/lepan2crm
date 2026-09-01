@@ -28,7 +28,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -59,12 +59,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testMessage, setTestMessage] = useState('');
 
-  // Mouse move parallax for spotlight/desk reflection
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const spotlightX = useTransform(mouseX, [-300, 300], [-25, 25]);
-  const spotlightY = useTransform(mouseY, [-300, 300], [-15, 15]);
-
   useEffect(() => {
     try {
       const savedUsername = localStorage.getItem('saved_username');
@@ -85,14 +79,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       console.error("Login Init Error", e);
     }
   }, []);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    mouseX.set(x);
-    mouseY.set(y);
-  };
 
   const toggleLamp = () => {
     setIsPulling(true);
@@ -254,7 +240,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div 
-      onMouseMove={handleMouseMove}
       className={`min-h-screen w-full flex items-center justify-center p-4 md:p-8 relative font-sans overflow-hidden select-none transition-colors duration-700 ${
         isLampOn 
           ? 'bg-[#090d16] text-slate-100' 
@@ -410,22 +395,26 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             {/* Realistic Spotlight Cone: Starts EXACTLY from the bottom rim of the lampshade */}
             <motion.div 
-              style={{ x: spotlightX, y: spotlightY }}
               animate={{
                 opacity: isLampOn ? 1 : 0,
-                scale: isLampOn ? 1 : 0.9
+                scaleY: isLampOn ? 1 : 0.6
               }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="absolute top-[88px] left-1/2 -translate-x-1/2 w-[420px] sm:w-[540px] lg:w-[680px] h-[450px] pointer-events-none z-10 origin-top"
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className="absolute top-[140px] left-1/2 -translate-x-1/2 w-[340px] sm:w-[380px] h-[360px] pointer-events-none z-10 origin-top flex flex-col items-center"
             >
+              {/* Golden Volumetric Cone radiating strictly below the shade */}
               <div 
                 className="w-full h-full"
                 style={{
-                  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.4) 0%, rgba(245, 158, 11, 0.18) 35%, rgba(217, 119, 6, 0.05) 70%, transparent 100%)',
-                  clipPath: 'polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%)',
-                  filter: 'blur(12px)'
+                  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.45) 0%, rgba(245, 158, 11, 0.18) 35%, rgba(217, 119, 6, 0.02) 75%, transparent 100%)',
+                  clipPath: 'polygon(22% 0%, 78% 0%, 94% 100%, 6% 100%)',
+                  filter: 'blur(6px)'
                 }}
               />
+              {/* Floor/Base illumination oval right underneath */}
+              {isLampOn && (
+                <div className="w-[300px] h-[30px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/25 to-transparent blur-md -mt-6" />
+              )}
             </motion.div>
 
           </div>

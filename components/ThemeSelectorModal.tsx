@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Sparkles, LayoutGrid, Box, Feather, Zap, Image, Layers, Moon, Sun } from 'lucide-react';
 
-export type AppThemeMode = 'light-aurora' | 'theme-bento' | 'theme-claymorphism' | 'theme-skeuomorphism' | 'theme-minimalism' | 'theme-maximalism';
+export type AppThemeMode = 'light-aurora' | 'theme-bento' | 'theme-claymorphism' | 'theme-skeuomorphism' | 'theme-minimalism' | 'theme-maximalism' | 'theme-gold-noir';
 
 interface ThemeSelectorModalProps {
   isOpen: boolean;
@@ -13,6 +13,15 @@ interface ThemeSelectorModalProps {
 }
 
 export const THEME_OPTIONS: { id: AppThemeMode; name: string; desc: string; icon: any; badge: string; bgGradient: string; borderStyle: string }[] = [
+  {
+    id: 'theme-gold-noir',
+    name: 'طلایی و مشکی لوکس (Gold & Noir)',
+    desc: 'پوسته باشکوه مشکی و طلایی متالیک سازمانی با کنتراست فوق‌العاده و خوانایی بی‌نظیر',
+    icon: Sparkles,
+    badge: 'جدید و محبوب',
+    bgGradient: 'from-amber-400 via-amber-600 to-slate-950',
+    borderStyle: 'border-amber-400/40 shadow-xl bg-slate-950 text-amber-300 font-bold',
+  },
   {
     id: 'light-aurora',
     name: 'شیشه‌ای (Glassmorphism)',

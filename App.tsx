@@ -183,7 +183,8 @@ function App() {
       'theme-claymorphism',
       'theme-skeuomorphism',
       'theme-minimalism',
-      'theme-maximalism'
+      'theme-maximalism',
+      'theme-gold-noir'
     );
     if (themeName && themeName !== 'light') {
       root.classList.add(themeName);
