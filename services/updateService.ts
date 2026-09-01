@@ -32,34 +32,38 @@ export async function checkServerUpdate(): Promise<{ hasUpdate: boolean; serverI
 
     const serverBuild = data.buildNumber || data.version;
     const serverVer = data.version || data.buildNumber;
-    const serverSig = `${serverVer}_${serverBuild}_${data.timestamp || 0}`;
+    const serverTimestamp = Number(data.timestamp) || 0;
+    const serverSig = `${serverVer}_${serverBuild}_${serverTimestamp}`;
 
-    // Get the build signature that this specific browser session first booted with
-    let sessionBootSig = typeof window !== 'undefined' ? sessionStorage.getItem('client_boot_sig') : null;
-    if (!sessionBootSig) {
-      // First check upon page load: record the boot signature
-      sessionBootSig = CURRENT_CLIENT_BUILD.version;
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('client_boot_sig', sessionBootSig);
-      }
+    if (typeof window === 'undefined') {
+      return { hasUpdate: false, serverInfo: data };
     }
 
-    // Check if user already clicked update for this specific server release signature
-    const lastApplied = typeof window !== 'undefined' ? localStorage.getItem('last_applied_release_sig') : null;
+    // Check if user already dismissed or applied this exact version/signature
+    const lastApplied = localStorage.getItem('last_applied_release_sig');
     if (lastApplied && lastApplied === serverSig) {
       return { hasUpdate: false, serverInfo: data };
     }
 
-    const currentBuild = CURRENT_CLIENT_BUILD.buildNumber;
-    const currentVer = CURRENT_CLIENT_BUILD.version;
+    // Get the baseline/last seen server build from localStorage
+    const baselineBuild = localStorage.getItem('baseline_server_build');
+    const baselineTimestamp = Number(localStorage.getItem('baseline_server_timestamp')) || 0;
 
-    // Check if server version, build number or timestamp indicates a new update
-    const hasVersionDiff = (serverBuild && serverBuild !== currentBuild) || 
-                           (serverVer && serverVer !== currentVer) ||
-                           (sessionBootSig && sessionBootSig !== serverVer && sessionBootSig !== serverSig);
+    if (!baselineBuild) {
+      // First time initialization: store current server version as baseline so it doesn't show banner on initial load
+      localStorage.setItem('baseline_server_build', serverBuild);
+      localStorage.setItem('baseline_server_timestamp', serverTimestamp.toString());
+      return { hasUpdate: false, serverInfo: data };
+    }
+
+    // An update is ONLY available if serverBuild or serverTimestamp is strictly newer than the baseline stored in localStorage
+    const isNewerBuild = serverBuild !== baselineBuild;
+    const isNewerTimestamp = serverTimestamp > baselineTimestamp;
+
+    const hasUpdate = Boolean(isNewerBuild || isNewerTimestamp);
 
     return {
-      hasUpdate: Boolean(hasVersionDiff),
+      hasUpdate,
       serverInfo: data
     };
   } catch (error) {
@@ -87,9 +91,11 @@ export async function publishApplicationUpdate(payload: {
       return { success: false, error: data.error || 'خطا در انتشار به‌روزرسانی' };
     }
 
-    // Notify window components immediately
+    // Notify window components immediately and reset baseline so clients detect it as new
     if (typeof window !== 'undefined') {
       localStorage.removeItem('last_applied_release_sig');
+      localStorage.setItem('baseline_server_build', 'old_version_baseline');
+      localStorage.setItem('baseline_server_timestamp', '0');
       window.dispatchEvent(new CustomEvent('app:update-published', { detail: data }));
     }
 
@@ -145,8 +151,12 @@ export async function applyApplicationUpdate(serverInfo?: AppVersionInfo | null)
 
     // 4. Mark update signature
     if (serverInfo) {
-      const serverSig = `${serverInfo.version}_${serverInfo.buildNumber}_${serverInfo.timestamp || 0}`;
+      const serverBuild = serverInfo.buildNumber || serverInfo.version;
+      const serverTimestamp = Number(serverInfo.timestamp) || Date.now();
+      const serverSig = `${serverInfo.version || serverBuild}_${serverBuild}_${serverTimestamp}`;
       localStorage.setItem('last_applied_release_sig', serverSig);
+      localStorage.setItem('baseline_server_build', serverBuild);
+      localStorage.setItem('baseline_server_timestamp', serverTimestamp.toString());
     }
   } catch (e) {
     console.error('Error during applyApplicationUpdate:', e);

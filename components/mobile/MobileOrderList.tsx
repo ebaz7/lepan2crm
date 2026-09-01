@@ -44,7 +44,7 @@ const MobileOrderList: React.FC<Props> = ({ orders, currentUser, refreshData }) 
       return false;
   };
 
-  const handleApprove = async (id: string, currentStatus: OrderStatus) => {
+  const handleApprove = (id: string, currentStatus: OrderStatus) => {
       const getNextStatus = (s: OrderStatus) => {
           if (s === OrderStatus.PENDING) return OrderStatus.APPROVED_FINANCE;
           if (s === OrderStatus.APPROVED_FINANCE) return OrderStatus.APPROVED_MANAGER;
@@ -52,22 +52,28 @@ const MobileOrderList: React.FC<Props> = ({ orders, currentUser, refreshData }) 
           return s;
       };
       
-      setProcessingId(id);
-      try {
-          const updatedOrders = await updateOrderStatus(id, getNextStatus(currentStatus), currentUser);
-          const order = updatedOrders.find(o => o.id === id);
-          if (order) {
-              const event = new CustomEvent('QUEUE_WHATSAPP_JOB', { 
-                  detail: { order: order, type: 'approve' } 
-              });
-              window.dispatchEvent(event);
-          }
-          refreshData();
-      } catch (e) {
-          alert('خطا در انجام عملیات');
-      } finally {
-          setProcessingId(null);
-      }
+      const nextStatus = getNextStatus(currentStatus);
+      const prevOrders = [...localOrders];
+      
+      // 1. Optimistic Update
+      setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: nextStatus, updatedAt: Date.now() } : o));
+      
+      // 2. Background process
+      updateOrderStatus(id, nextStatus, currentUser)
+          .then(updatedOrders => {
+              const order = updatedOrders.find(o => o.id === id);
+              if (order) {
+                  const event = new CustomEvent('QUEUE_WHATSAPP_JOB', { 
+                      detail: { order: order, type: 'approve' } 
+                  });
+                  window.dispatchEvent(event);
+              }
+              refreshData();
+          })
+          .catch(e => {
+              setLocalOrders(prevOrders);
+              alert('خطا در انجام عملیات');
+          });
   };
 
   const canDelete = (order: PaymentOrder) => {

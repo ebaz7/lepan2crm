@@ -111,6 +111,13 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   }, []);
 
   useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     const handleGlobalClose = () => {
         setShowNotifDropdown(false);
         setShowMobileMenu(false);
@@ -326,6 +333,35 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onVisibilityChange);
       window.removeEventListener('app:update-published', handleUpdatePublished);
+    };
+  }, []);
+
+  // Global robust mouse wheel scrolling anywhere on screen
+  useEffect(() => {
+    const handleGlobalWheel = (e: WheelEvent) => {
+      const scrollContainer = document.getElementById('main-scroll-container');
+      if (!scrollContainer) return;
+
+      let target = e.target as HTMLElement | null;
+      let isInsideSubScrollable = false;
+      while (target && target !== document.body) {
+        if (target === scrollContainer) break;
+        const overflowY = window.getComputedStyle(target).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && target.scrollHeight > target.clientHeight) {
+          isInsideSubScrollable = true;
+          break;
+        }
+        target = target.parentElement;
+      }
+
+      if (!isInsideSubScrollable) {
+        scrollContainer.scrollTop += e.deltaY;
+      }
+    };
+
+    window.addEventListener('wheel', handleGlobalWheel, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', handleGlobalWheel);
     };
   }, []);
 

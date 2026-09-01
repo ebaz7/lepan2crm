@@ -537,7 +537,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         }
     };
 
-    const handleCancel = async (p: ExitPermit) => {
+    const handleCancel = (p: ExitPermit) => {
         const perms = settings ? getRolePermissions(currentUser.role, settings, currentUser) : {};
         const canCancel = currentUser.role === UserRole.ADMIN || perms.canCancelExitPermit === true;
         if (!canCancel) {
@@ -548,32 +548,33 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         const reason = prompt('لطفاً دلیل لغو و کنسلی این برگه خروج را وارد نمایید:');
         if (!reason) return;
 
-        setProcessingId(p.id);
-        try {
-            const nextStatus = ExitPermitStatus.CANCELED;
-            const updatedPermit = { 
-                ...p, 
-                status: nextStatus,
-                rejectionReason: reason,
-                rejectedBy: currentUser.fullName,
-                updatedAt: Date.now()
-            };
+        const nextStatus = ExitPermitStatus.CANCELED;
+        const updatedPermit = { 
+            ...p, 
+            status: nextStatus,
+            rejectionReason: reason,
+            rejectedBy: currentUser.fullName,
+            updatedAt: Date.now()
+        };
 
-            await updateExitPermitStatus(p.id, nextStatus, currentUser, { rejectionReason: reason });
-            
-            setActiveAutoSends(prev => [...prev, updatedPermit]);
-            
-            setTimeout(async () => {
-                await sendCancellationNotification(updatedPermit, p.status, reason);
-                setProcessingId(null);
-                setActiveAutoSends(prev => prev.filter(x => x.id !== updatedPermit.id));
-                loadData();
-            }, 2500);
-
-        } catch (e) {
-            alert('خطا در انجام کنسلی برگه خروج');
-            setProcessingId(null);
-        }
+        const prevPermits = [...permits];
+        // 1. Optimistic Update
+        setPermits(prev => prev.map(item => item.id === p.id ? updatedPermit : item));
+        
+        // 2. Background task
+        updateExitPermitStatus(p.id, nextStatus, currentUser, { rejectionReason: reason })
+            .then(() => {
+                setActiveAutoSends(prev => [...prev, updatedPermit]);
+                setTimeout(() => {
+                    sendCancellationNotification(updatedPermit, p.status, reason);
+                    setActiveAutoSends(prev => prev.filter(x => x.id !== updatedPermit.id));
+                    loadData();
+                }, 1500);
+            })
+            .catch(e => {
+                setPermits(prevPermits);
+                alert('خطا در انجام کنسلی برگه خروج');
+            });
     };
 
     const handleSecuritySubmit = async (data: { driverName: string; driverPhone: string; plateNumber: string; exitTime: string; attachments: {fileName: string, data: string}[] }) => {

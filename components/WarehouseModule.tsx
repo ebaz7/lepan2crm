@@ -954,7 +954,7 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         }
     };
 
-    const handleApproveBijak = async (tx: WarehouseTransaction) => {
+    const handleApproveBijak = (tx: WarehouseTransaction) => {
         if (!confirm('آیا تایید می‌کنید؟ پس از تایید، بیجک به صورت خودکار برای انبار و مدیریت ارسال می‌شود.')) return;
         
         const prevTransactions = [...transactions];
@@ -964,18 +964,18 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
         setTransactions(prev => prev.map(t => t.id === tx.id ? updatedTx : t));
         setViewBijak(null);
 
-        // 2. Background server processing
-        try {
-            await updateWarehouseTransaction(updatedTx);
-            loadData();
-            
-            // Add to notification queue
-            setActiveAutoSends(prev => [...prev, { tx: updatedTx, type: 'APPROVED' }]);
-        } catch (e) {
-            // Rollback state on error
-            setTransactions(prevTransactions);
-            alert("خطا در عملیات تایید. تغییرات به حالت قبل بازگشت.");
-        }
+        // 2. Background server processing (Fire-and-forget)
+        updateWarehouseTransaction(updatedTx)
+            .then(() => {
+                loadData();
+                // Add to notification queue
+                setActiveAutoSends(prev => [...prev, { tx: updatedTx, type: 'APPROVED' }]);
+            })
+            .catch(e => {
+                // Rollback state on error
+                setTransactions(prevTransactions);
+                alert("خطا در عملیات تایید. تغییرات به حالت قبل بازگشت.");
+            });
     };
 
     const handleRejectBijak = async (tx: WarehouseTransaction) => {

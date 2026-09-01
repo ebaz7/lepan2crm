@@ -1314,7 +1314,7 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
   };
 
   // --- WORKFLOW APPROVAL ACTIONS ---
-  const handleApproveSales = async (receipt: ChequeReceipt) => {
+  const handleApproveSales = (receipt: ChequeReceipt) => {
     if (!receipt) return;
     const updated: ChequeReceipt = {
       ...receipt,
@@ -1323,21 +1323,20 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
       salesManagerApprovedAt: Date.now()
     };
     
-    setLoading(true);
-    try {
-      await updateChequeReceipt(updated);
-      setSelectedReceipt(updated);
-      loadReceipts();
-      alert('رسید دریافتی چک به تایید مدیریت فروش رسید و جهت تایید نهایی به کارتابل مدیر عامل ارسال شد.');
-    } catch (e) {
-      console.error(e);
-      alert('خطا در ثبت تاییدیه');
-    } finally {
-      setLoading(false);
-    }
+    // 1. Optimistic Update
+    setReceipts(prev => prev.map(r => r.id === receipt.id ? updated : r));
+    setSelectedReceipt(null);
+    
+    // 2. Background
+    updateChequeReceipt(updated)
+      .then(() => loadReceipts())
+      .catch(e => {
+        alert('خطا در تایید رسید');
+        loadReceipts();
+      });
   };
 
-  const handleApproveCeo = async (receipt: ChequeReceipt) => {
+  const handleApproveCeo = (receipt: ChequeReceipt) => {
     if (!receipt) return;
     const updated: ChequeReceipt = {
       ...receipt,
@@ -1346,18 +1345,17 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
       ceoApprovedAt: Date.now()
     };
     
-    setLoading(true);
-    try {
-      await updateChequeReceipt(updated);
-      setSelectedReceipt(updated);
-      loadReceipts();
-      alert('رسید با موفقیت به تایید نهایی مدیر عامل رسید. هم‌اکنون این چک‌ها آماده واریز به صندوق و ثبت مالی می‌باشند.');
-    } catch (e) {
-      console.error(e);
-      alert('خطا در ثبت تاییدیه مدیر عامل');
-    } finally {
-      setLoading(false);
-    }
+    // 1. Optimistic Update
+    setReceipts(prev => prev.map(r => r.id === receipt.id ? updated : r));
+    setSelectedReceipt(null);
+    
+    // 2. Background
+    updateChequeReceipt(updated)
+      .then(() => loadReceipts())
+      .catch(e => {
+        alert('خطا در تایید مدیر عامل');
+        loadReceipts();
+      });
   };
 
   const handleArchiveReceipt = async (receipt: ChequeReceipt) => {

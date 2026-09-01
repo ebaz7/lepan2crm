@@ -156,7 +156,7 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
 
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handleApprove = async (id: string, currentStatus: OrderStatus) => {
+  const handleApprove = (id: string, currentStatus: OrderStatus) => {
     const nextStatus = getNextStatus(currentStatus);
     const isRevocation = isRevocationStatus(currentStatus);
     
@@ -169,28 +169,25 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
     // 1. Instant Optimistic UI Update: updates/removes instantly with 0ms delay
     setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: nextStatus, updatedAt: Date.now() } : o));
     setViewOrder(null);
-    setProcessingId(id);
 
-    // 2. Run background server processing
-    try {
-        const updatedOrders = await updateOrderStatus(id, nextStatus, currentUser); 
-        
-        const order = updatedOrders.find(o => o.id === id);
-        if (order) {
-            const event = new CustomEvent('QUEUE_WHATSAPP_JOB', { 
-                detail: { order: order, type: 'approve' } 
-            });
-            window.dispatchEvent(event);
-        }
-
-        refreshData(); 
-    } catch (e) {
-        // Rollback state on error
-        setLocalOrders(prevOrders);
-        alert('خطا در انجام عملیات تایید. تغییرات به حالت قبل بازگشت.');
-    } finally {
-        setProcessingId(null);
-    }
+    // 2. Run background server processing (Fire-and-forget)
+    updateOrderStatus(id, nextStatus, currentUser)
+        .then((updatedOrders) => {
+            const order = updatedOrders.find(o => o.id === id);
+            if (order) {
+                const event = new CustomEvent('QUEUE_WHATSAPP_JOB', { 
+                    detail: { order: order, type: 'approve' } 
+                });
+                window.dispatchEvent(event);
+            }
+            // Silently refresh data to keep things in sync
+            refreshData(); 
+        })
+        .catch(e => {
+            // Rollback state on error
+            setLocalOrders(prevOrders);
+            alert('خطا در انجام عملیات تایید. تغییرات به حالت قبل بازگشت.');
+        });
   };
 
   const getPrevStatusForReject = (current: OrderStatus): OrderStatus => {
@@ -209,7 +206,7 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
       return 'لطفاً دلیل رد درخواست را وارد کنید (درخواست به ثبت‌کننده ارجاع و رد نهایی می‌شود):';
   };
 
-  const handleReject = async (id: string, currentStatus?: OrderStatus) => {
+  const handleReject = (id: string, currentStatus?: OrderStatus) => {
       const order = safeOrders.find(o => o.id === id);
       const status = currentStatus || order?.status || OrderStatus.PENDING;
       const prevStatus = getPrevStatusForReject(status);
@@ -217,41 +214,54 @@ const ManageOrders: React.FC<ManageOrdersProps> = ({ orders, refreshData, curren
 
       const reason = window.prompt(promptText);
       if (reason !== null) {
-          setProcessingId(id);
-          try {
-              await updateOrderStatus(id, prevStatus, currentUser, reason || 'رد جهت بررسی و اصلاح در مرحله قبل', true);
-              await refreshData();
-              setViewOrder(null); 
-          } catch(e) { 
-              alert("خطا در ثبت رد درخواست"); 
-          } finally {
-              setProcessingId(null);
-          }
+          const prevOrders = [...localOrders];
+          // 1. Optimistic Update
+          setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: prevStatus, updatedAt: Date.now() } : o));
+          setViewOrder(null);
+
+          // 2. Background task
+          updateOrderStatus(id, prevStatus, currentUser, reason || 'رد جهت بررسی و اصلاح در مرحله قبل', true)
+              .then(() => refreshData())
+              .catch(e => {
+                  setLocalOrders(prevOrders);
+                  alert("خطا در ثبت رد درخواست");
+              });
       }
   };
 
-  const handleRevoke = async (id: string) => {
+  const handleRevoke = (id: string) => {
       if (window.confirm('⚠️ آیا درخواست ابطال این دستور پرداخت را دارید؟')) {
-          try {
-              await apiCall(`/orders/${id}`, 'PUT', { status: OrderStatus.REVOCATION_PENDING_FINANCE, updatedAt: Date.now() });
-              await refreshData();
-              setViewOrder(null);
-          } catch (e) {
-              alert('خطا در عملیات ابطال.');
-          }
+          const prevOrders = [...localOrders];
+          // 1. Optimistic Update
+          setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: OrderStatus.REVOCATION_PENDING_FINANCE, updatedAt: Date.now() } : o));
+          setViewOrder(null);
+
+          // 2. Background task
+          apiCall(`/orders/${id}`, 'PUT', { status: OrderStatus.REVOCATION_PENDING_FINANCE, updatedAt: Date.now() })
+              .then(() => refreshData())
+              .catch(e => {
+                  setLocalOrders(prevOrders);
+                  alert('خطا در عملیات ابطال.');
+              });
       }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (window.confirm('آیا از حذف این دستور پرداخت اطمینان دارید؟')) {
-      try {
-          await deleteOrder(id);
-          await refreshData();
-      } catch(e: any) { 
-          console.error("Delete failed", e);
-          const msg = e.message || 'خطا در ارتباط با سرور';
-          alert("خطا در حذف: " + msg); 
-      }
+      const prevOrders = [...localOrders];
+      // 1. Optimistic Update
+      setLocalOrders(prev => prev.filter(o => o.id !== id));
+      setViewOrder(null);
+
+      // 2. Background task
+      deleteOrder(id)
+          .then(() => refreshData())
+          .catch(e => {
+              setLocalOrders(prevOrders);
+              console.error("Delete failed", e);
+              const msg = e.message || 'خطا در ارتباط با سرور';
+              alert("خطا در حذف: " + msg); 
+          });
     }
   };
 
