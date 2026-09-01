@@ -314,14 +314,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           onClick={toggleLamp}
           animate={{ 
             y: isPulling ? 12 : 0,
-            opacity: isLampOn ? 0.75 : 0.12
+            opacity: isLampOn ? 0.75 : 0.35
           }}
-          whileHover={{ opacity: isLampOn ? 0.95 : 0.45 }}
+          whileHover={{ opacity: isLampOn ? 0.95 : 0.65 }}
           transition={{ 
             y: { type: 'spring', stiffness: 500, damping: 14 },
             opacity: { duration: 0.3 }
           }}
-          className="absolute left-[75.8%] top-[38.5%] h-[90px] pointer-events-auto cursor-pointer group flex flex-col items-center"
+          className="absolute left-[73.2%] top-[33.5%] h-[115px] pointer-events-auto cursor-pointer group flex flex-col items-center"
           style={{ 
             transform: 'translateX(-50%)'
           }}
@@ -329,11 +329,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         >
           {/* Beaded Brass Pull Chain */}
           <div 
-            className="w-[2.5px] h-[50px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
+            className="w-[2.5px] h-[75px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
             style={{
               backgroundImage: isLampOn 
                 ? 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)'
-                : 'radial-gradient(circle, rgba(255,255,255,0.1) 30%, rgba(33,24,24,0.6) 90%)',
+                : 'radial-gradient(circle, #b45309 30%, #451a03 90%)',
               backgroundSize: '2.5px 5px'
             }}
           />
@@ -343,7 +343,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             className={`w-2.5 h-6 rounded-b-full rounded-t-sm border shadow-2xl flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all duration-500 ${
               isLampOn
                 ? 'bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] border-[#fef3c7]/40 shadow-amber-500/20'
-                : 'bg-[#211818]/60 backdrop-blur-sm border-white/5 shadow-black/80'
+                : 'bg-gradient-to-b from-[#b45309]/50 via-[#78350f]/60 to-[#451a03]/80 border-amber-900/30 shadow-black/80'
             }`}
           >
             <div className={`w-full h-0.5 mb-0.5 transition-all duration-500 ${isLampOn ? 'bg-[#451a03]/50' : 'bg-transparent'}`} />
@@ -366,7 +366,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               y: isLampOn ? 0 : 5
             }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[220px] lg:translate-y-[60px]"
+            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[140px] lg:translate-y-[60px]"
           >
             <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md ${
               isLampOn
