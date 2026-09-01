@@ -259,14 +259,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         />
       </div>
 
-      {/* Dynamic Ambient Room Light and Floor Reflection */}
+      {/* Dynamic Ambient Room Light and Floor Reflection (Centered under Lamp Column) */}
       <motion.div 
         animate={{
-          opacity: isLampOn ? 0.65 : 0,
-          scale: isLampOn ? 1 : 0.6
+          opacity: isLampOn ? 0.6 : 0,
+          scale: isLampOn ? 1 : 0.7
         }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[1100px] h-[450px] bg-gradient-to-t from-amber-500/25 via-amber-600/10 to-transparent blur-3xl pointer-events-none rounded-t-full"
+        className="absolute bottom-4 right-[15%] lg:right-[35%] w-[400px] h-[300px] bg-gradient-to-t from-amber-500/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full"
       />
 
       {/* Dark Ambient Overlay when Lamp is OFF for striking contrast */}
@@ -361,27 +361,37 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 )}
               </div>
 
-              {/* Realistic Spotlight Cone: Mathematically aligned directly under the w-52 (208px) shade rim */}
+              {/* Realistic Spotlight Cone: Mathematically locked to w-52 (208px) shade rim */}
               <motion.div 
                 animate={{
                   opacity: isLampOn ? 1 : 0,
                   scaleY: isLampOn ? 1 : 0.6
                 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="absolute top-full left-1/2 -translate-x-1/2 w-[320px] h-[360px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
+                className="absolute top-full left-1/2 -translate-x-1/2 w-[320px] h-[380px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
               >
-                {/* Golden Volumetric Cone radiating strictly below the shade */}
+                {/* Outer Volumetric Soft Glow Cone */}
                 <div 
-                  className="w-full h-full"
+                  className="w-full h-full relative"
                   style={{
-                    background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.45) 0%, rgba(245, 158, 11, 0.16) 40%, rgba(217, 119, 6, 0.02) 80%, transparent 100%)',
+                    background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.42) 0%, rgba(245, 158, 11, 0.16) 45%, rgba(217, 119, 6, 0.02) 85%, transparent 100%)',
                     clipPath: 'polygon(17.5% 0%, 82.5% 0%, 100% 100%, 0% 100%)',
-                    filter: 'blur(3px)'
+                    filter: 'blur(4px)'
                   }}
-                />
+                >
+                  {/* High Intensity Central Core Light Beam */}
+                  <div 
+                    className="absolute inset-0 mx-auto w-[220px]"
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255, 250, 225, 0.65) 0%, rgba(251, 191, 36, 0.25) 35%, transparent 85%)',
+                      clipPath: 'polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)',
+                      filter: 'blur(6px)'
+                    }}
+                  />
+                </div>
                 {/* Floor/Base illumination oval right underneath */}
                 {isLampOn && (
-                  <div className="w-[260px] h-[28px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/35 to-transparent blur-md -mt-6" />
+                  <div className="w-[280px] h-[32px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/45 to-transparent blur-md -mt-8" />
                 )}
               </motion.div>
             </div>
