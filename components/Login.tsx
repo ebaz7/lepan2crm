@@ -313,40 +313,27 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <motion.div 
           onClick={toggleLamp}
           animate={{ 
-            y: isPulling ? 25 : 0 
+            y: isPulling ? 15 : 0 
           }}
           transition={{ type: 'spring', stiffness: 500, damping: 14 }}
-          className="absolute left-[72.5%] top-[42%] h-[240px] pointer-events-auto cursor-pointer group flex flex-col items-center"
+          className="absolute left-[72.5%] top-[41%] h-[100px] pointer-events-auto cursor-pointer group flex flex-col items-center"
           style={{ transform: 'translateX(-50%)' }}
-          title="برای خاموش/روشن کردن، این سیم را بکشید یا کلیک کنید"
+          title="برای خاموش/روشن کردن، کلیک کنید"
         >
           {/* Beaded Brass Pull Chain */}
           <div 
-            className="w-[3px] h-[130px] bg-repeat-y group-hover:scale-x-125 transition-transform"
+            className="w-[2.5px] h-[55px] bg-repeat-y group-hover:scale-x-125 transition-transform"
             style={{
               backgroundImage: 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)',
-              backgroundSize: '3px 6px'
+              backgroundSize: '2.5px 5px'
             }}
           />
           
-          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز) */}
-          <div className="w-3.5 h-8 bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] rounded-b-full rounded-t-sm shadow-2xl shadow-black/80 border border-[#fef3c7]/40 flex flex-col items-center justify-end pb-1 group-hover:scale-110 group-active:scale-95 transition-all">
+          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز کوچک‌تر) */}
+          <div className="w-2.5 h-6 bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] rounded-b-full rounded-t-sm shadow-2xl shadow-black/80 border border-[#fef3c7]/40 flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all">
             <div className="w-full h-0.5 bg-[#451a03]/50 mb-0.5" />
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-200/90" />
+            <div className="w-1 h-1 rounded-full bg-amber-200/90" />
           </div>
-
-          {/* Floating Pulsing Tutorial Hint */}
-          {!hasInteracted && (
-            <motion.div 
-              initial={{ opacity: 0, x: 15 }}
-              animate={{ opacity: [0.6, 1, 0.6], x: [10, 15, 10] }}
-              transition={{ repeat: Infinity, duration: 2.2 }}
-              className="absolute left-6 top-10 whitespace-nowrap px-3 py-1 bg-amber-500/25 text-amber-200 border border-amber-500/40 rounded-full text-[11px] font-bold shadow-2xl backdrop-blur-md flex items-center gap-1.5"
-            >
-              <Sparkles size={12} className="text-amber-400 animate-pulse" />
-              <span>بند را بکشید</span>
-            </motion.div>
-          )}
         </motion.div>
       </div>
 
