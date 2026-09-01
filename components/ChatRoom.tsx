@@ -2421,20 +2421,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
 
                                     {/* Main Input Text Area Box */}
-                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-4 sm:px-5 py-2.5 sm:py-3 min-h-[50px] sm:min-h-[54px] relative transition-all duration-200 border ${inputText.length > 0 ? 'bg-white dark:bg-zinc-800/95 border-blue-500/50 dark:border-blue-500/60 shadow-md shadow-blue-500/5 ring-2 ring-blue-500/15 dark:ring-blue-500/25' : 'bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:ring-2 focus-within:ring-blue-500/10'}`}>
+                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-4 sm:px-6 py-3 sm:py-3.5 min-h-[58px] sm:min-h-[64px] relative transition-all duration-200 border ${inputText.length > 0 ? 'bg-white dark:bg-zinc-800/95 border-blue-500/50 dark:border-blue-500/60 shadow-md shadow-blue-500/5 ring-2 ring-blue-500/15 dark:ring-blue-500/25' : 'bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:ring-2 focus-within:ring-blue-500/10'}`}>
                                         <textarea 
                                             ref={inputAreaRef}
                                             value={inputText}
                                             onChange={e => {
                                                 setInputText(e.target.value);
                                                 e.target.style.height = 'auto';
-                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 220)}px`;
                                             }}
                                             onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                                             placeholder="نوشتن پیام..."
-                                            className="bg-transparent border-none outline-none w-full text-sm sm:text-[15px] resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-relaxed"
+                                            className="bg-transparent border-none outline-none w-full text-[15px] sm:text-base md:text-[17px] resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-relaxed py-1"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '26px', maxHeight: '180px' }}
+                                            style={{ height: 'auto', minHeight: '32px', maxHeight: '220px' }}
                                         />
                                     </div>
 

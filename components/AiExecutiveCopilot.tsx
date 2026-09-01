@@ -299,29 +299,80 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
         }
     };
 
-    // Position calculation to never overlap chat input bar or bottom navigation
-    const bottomPositionClass = isBottomBarVisible 
-        ? 'bottom-24' 
-        : activeTab === 'chat' 
-            ? 'bottom-20 sm:bottom-22' 
-            : 'bottom-6';
+    // Floating Button and Window Position state (Smart / Draggable / Auto-position)
+    const [positionOffset, setPositionOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const isDraggingRef = useRef(false);
+    const dragStartRef = useRef<{ startX: number; startY: number; initialOffsetX: number; initialOffsetY: number }>({ startX: 0, startY: 0, initialOffsetX: 0, initialOffsetY: 0 });
+
+    // Dynamic smart position calculation:
+    // In chat tab, move higher or auto-dock so it never blocks the input box or attachment icons
+    const defaultPositionClass = activeTab === 'chat'
+        ? 'bottom-28 sm:bottom-24 left-4'
+        : isBottomBarVisible 
+            ? 'bottom-24 left-4 sm:left-6' 
+            : 'bottom-6 left-4 sm:left-6';
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        // Allow dragging the closed pill button
+        if (isOpen) return;
+        isDraggingRef.current = false;
+        dragStartRef.current = {
+            startX: e.clientX,
+            startY: e.clientY,
+            initialOffsetX: positionOffset.x,
+            initialOffsetY: positionOffset.y
+        };
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            const dx = moveEvent.clientX - dragStartRef.current.startX;
+            const dy = moveEvent.clientY - dragStartRef.current.startY;
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+                isDraggingRef.current = true;
+            }
+            if (isDraggingRef.current) {
+                setPositionOffset({
+                    x: dragStartRef.current.initialOffsetX + dx,
+                    y: dragStartRef.current.initialOffsetY + dy
+                });
+            }
+        };
+
+        const handlePointerUp = () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+    };
 
     // Floating Button when Closed
     if (!isOpen) {
         return (
-            <div className={`fixed ${bottomPositionClass} left-4 sm:left-6 z-50 transition-all duration-300`} dir="rtl">
+            <div 
+                className={`fixed ${defaultPositionClass} z-50 transition-all duration-300 touch-none select-none`}
+                style={{
+                    transform: `translate(${positionOffset.x}px, ${positionOffset.y}px)`
+                }}
+                dir="rtl"
+            >
                 <button
                     type="button"
-                    onClick={() => setIsOpen(true)}
-                    className="relative group p-1.5 px-3 bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 hover:from-indigo-800 hover:to-violet-600 text-white rounded-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-1.5 border border-indigo-300/40"
-                    title="ایجنت هوش مصنوعی و فرمان صوتی"
+                    onPointerDown={handlePointerDown}
+                    onClick={() => {
+                        if (!isDraggingRef.current) {
+                            setIsOpen(true);
+                        }
+                    }}
+                    className="relative group p-2 px-3.5 bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 hover:from-indigo-800 hover:to-violet-600 text-white rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 border border-indigo-300/40 cursor-grab active:cursor-grabbing backdrop-blur-md"
+                    title="ایجنت هوش مصنوعی و فرمان صوتی (قابل جابجایی)"
                 >
                     <div className="relative">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                        <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full ring-1 ring-indigo-900 animate-ping" />
+                        <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full ring-2 ring-indigo-900 animate-ping" />
                     </div>
-                    <span className="text-[10px] font-black tracking-tight hidden sm:inline">
-                        دستیار هوشمند و صوتی AI
+                    <span className="text-[11px] font-black tracking-tight">
+                        دستیار هوشمند AI
                     </span>
                 </button>
             </div>
@@ -329,7 +380,13 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     }
 
     return (
-        <div className={`fixed ${bottomPositionClass} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-72 h-12' : 'w-[94vw] sm:w-[380px] h-[480px] max-h-[80vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
+        <div 
+            className={`fixed ${defaultPositionClass} z-50 transition-all duration-300 ${isMinimized ? 'w-72 h-12' : 'w-[94vw] sm:w-[380px] h-[480px] max-h-[80vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} 
+            style={{
+                transform: `translate(${positionOffset.x}px, ${positionOffset.y}px)`
+            }}
+            dir="rtl"
+        >
             
             {/* Copilot Header */}
             <div className="p-2.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/40">

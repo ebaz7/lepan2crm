@@ -17,7 +17,13 @@ const MobileOrderList: React.FC<Props> = ({ orders, currentUser, refreshData }) 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<PaymentOrder | null>(null);
 
-  const filteredOrders = orders.filter(o => {
+  const [localOrders, setLocalOrders] = useState<PaymentOrder[]>(orders);
+  
+  React.useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
+  const filteredOrders = localOrders.filter(o => {
     const matchesSearch = o.payee.includes(searchTerm) || o.description.includes(searchTerm) || o.trackingNumber.toString().includes(searchTerm);
     if (!matchesSearch) return false;
 
