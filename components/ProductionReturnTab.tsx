@@ -39,7 +39,7 @@ function formatDateToJalali(dateStr?: string): string {
 export interface SayanGroupDefinition {
     code: string;
     title: string;
-    parentCategory: "مواد اولیه" | "محصولات" | "مواد کمکی و بسته بندی" | "قطعات یدکی" | "ضایعات" | "عمرانی" | "انبار قطعات و ملزومات" | "سایر";
+    parentCategory: "مواد اولیه" | "محصولات" | "ضایعات" | "سایر";
     unit: string;
 }
 
@@ -64,101 +64,99 @@ const SAYAN_MASTER_GROUPS: Record<string, SayanGroupDefinition> = {
     "0409": { code: "0409", title: "الیاف", parentCategory: "محصولات", unit: "کیلوگرم" },
     "0410": { code: "0410", title: "FDY", parentCategory: "محصولات", unit: "کیلوگرم" },
 
-    // 3. مواد کمکی و بسته‌بندی
-    "0201": { code: "0201", title: "کارتن و جعبه", parentCategory: "مواد کمکی و بسته بندی", unit: "عدد" },
-    "0202": { code: "0202", title: "دوک و پالت", parentCategory: "مواد کمکی و بسته بندی", unit: "عدد" },
-    "0203": { code: "0203", title: "نایلون حباب‌دار و استرچ", parentCategory: "مواد کمکی و بسته بندی", unit: "کیلوگرم" },
-
-    // 4. ضایعات
+    // 3. ضایعات
     "0501": { code: "0501", title: "ضایعات بافت و نخ", parentCategory: "ضایعات", unit: "کیلوگرم" },
 };
 
-// Item Name resolver for displaying human-readable standard names
+// Item Name resolver: Directly preserves authentic Sayan name and only fallbacks if missing
 export const resolveProdItemName = (code: string, rawName: string): string => {
     const cleanCode = (code || "").trim();
     const cleanName = (rawName || "").trim();
 
-    if (cleanCode.startsWith("01020203") || cleanCode.startsWith("010203")) return "نخ شوایتر 150/48";
-    if (cleanCode.startsWith("01020204") || cleanCode.startsWith("010204")) return "نخ شوایتر 100/36";
-    if (cleanCode.startsWith("01020205") || cleanCode.startsWith("010205")) return "نخ شوایتر 75/36";
-    if (cleanCode.startsWith("01020206") || cleanCode.startsWith("010206")) return "نخ شوایتر 300/96";
-    if (cleanCode.startsWith("01020209") || cleanCode.startsWith("010209")) return "نخ شوایتر 150/144";
-    if (cleanCode.startsWith("01020214") || cleanCode.startsWith("010214")) return "نخ شوایتر 50/24";
-    if (cleanCode.startsWith("01020216") || cleanCode.startsWith("010216")) return "نخ شوایتر 75/72";
-    if (cleanCode.startsWith("01030211") || cleanCode.startsWith("010311")) return "نخ DTY 150/48";
-    if (cleanCode.startsWith("010302") || cleanCode.startsWith("0103")) return "نخ DTY";
-    if (cleanCode.startsWith("0101")) return "چیپس پلی‌استر";
-    if (cleanCode.startsWith("0104")) return "نخ لاستیک (Rubber)";
-    if (cleanCode.startsWith("0105")) return "نخ لاکرا (Lycra)";
-    if (cleanCode.startsWith("0401")) return "نخ اسپاندکس (کاور)";
-    if (cleanCode.startsWith("0402")) return "کش بافت";
-    if (cleanCode.startsWith("0403")) return "اسپاندکس جوشی";
-    if (cleanCode.startsWith("0405")) return "پلی استر شوایتر";
-    if (cleanCode.startsWith("0408")) return "نخ ملت";
-    if (cleanCode.startsWith("0410")) return "نخ FDY";
+    // If a valid genuine name was extracted from Sayan DB (not just duplicate of item code), use it directly!
+    if (cleanName && cleanName !== cleanCode && cleanName !== "کالای بدون نام") {
+        return cleanName;
+    }
+
+    // Fallback based on Sayan group prefix if no text name exists
+    const prefix4 = cleanCode.slice(0, 4);
+    if (SAYAN_MASTER_GROUPS[prefix4]) {
+        return `${SAYAN_MASTER_GROUPS[prefix4].title} (${cleanCode})`;
+    }
 
     return cleanName || (cleanCode ? `کالای کد ${cleanCode}` : 'کالای نامشخص');
 };
 
 // Precise group classification according to Sayan ERP master groups
-export const detectSayanGroup = (itemCode: string, itemName: string): SayanGroupDefinition => {
+export const detectSayanGroup = (itemCode: string, itemName: string, rawGroupName?: string): SayanGroupDefinition => {
     const cleanCode = (itemCode || "").trim();
     const cleanName = (itemName || "").trim().toLowerCase();
+    const cleanRawGroup = (rawGroupName || "").trim();
 
-    // 1. Direct 4-digit code prefix check
+    // 1. Direct 4-digit code prefix check from Sayan master groups
     const prefix4 = cleanCode.slice(0, 4);
     if (SAYAN_MASTER_GROUPS[prefix4]) {
         return SAYAN_MASTER_GROUPS[prefix4];
     }
 
-    // 2. Intelligent keyword and pattern matching
-    if (cleanCode.startsWith("0405") || cleanName.includes("شوایتر")) {
-        return SAYAN_MASTER_GROUPS["0405"]; // پلی استر شوایتر (محصولات)
-    }
-    if (cleanCode.startsWith("0103") || cleanName.includes("dty") || cleanName.includes("پلی استر")) {
-        return SAYAN_MASTER_GROUPS["0103"]; // dty یا پلی استر (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0102") || cleanName.includes("poy")) {
-        return SAYAN_MASTER_GROUPS["0102"]; // POY (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0105") || cleanName.includes("لاکرا") || cleanName.includes("lycra")) {
-        return SAYAN_MASTER_GROUPS["0105"]; // لاکرا (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0401") || cleanName.includes("اسپاندکس") || cleanName.includes("کاور")) {
-        return SAYAN_MASTER_GROUPS["0401"]; // اسپاندکس (کاور) (محصولات)
-    }
-    if (cleanCode.startsWith("0402") || (cleanName.includes("کش") && !cleanName.includes("لاکرا"))) {
-        return SAYAN_MASTER_GROUPS["0402"]; // کش (محصولات)
-    }
-    if (cleanCode.startsWith("0104") || cleanName.includes("لاستیک")) {
-        return SAYAN_MASTER_GROUPS["0104"]; // لاستیک (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0403") || cleanName.includes("جوشی") || cleanName.includes("ساپورت")) {
-        return SAYAN_MASTER_GROUPS["0403"]; // اسپاندکس جوشی (محصولات)
-    }
-    if (cleanCode.startsWith("0408") || cleanName.includes("ملت")) {
-        return SAYAN_MASTER_GROUPS["0408"]; // نخ ملت (محصولات)
-    }
-    if (cleanCode.startsWith("0410") || cleanName.includes("fdy")) {
-        return SAYAN_MASTER_GROUPS["0410"]; // FDY (محصولات)
-    }
-    if (cleanCode.startsWith("0101") || cleanName.includes("چیپس")) {
-        return SAYAN_MASTER_GROUPS["0101"]; // چیپس (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0106") || cleanName.includes("اسپان")) {
-        return SAYAN_MASTER_GROUPS["0106"]; // پلی استر اسپان (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0107") || cleanName.includes("مستربچ")) {
-        return SAYAN_MASTER_GROUPS["0107"]; // مستربچ (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0108") || (cleanName.includes("نایلون") && cleanCode.startsWith("01"))) {
-        return SAYAN_MASTER_GROUPS["0108"]; // نایلون (مواد اولیه)
-    }
-    if (cleanCode.startsWith("0407") || (cleanName.includes("نایلون") && cleanCode.startsWith("04"))) {
-        return SAYAN_MASTER_GROUPS["0407"]; // نایلون (محصولات)
+    // 2. If Sayan SQL returned a valid GroupName from IND_TBL_002, use it
+    if (cleanRawGroup && cleanRawGroup !== "null") {
+        const cat = cleanCode.startsWith("01") ? "مواد اولیه" : cleanCode.startsWith("04") ? "محصولات" : "سایر";
+        return {
+            code: prefix4 || "سایر",
+            title: cleanRawGroup,
+            parentCategory: cat as any,
+            unit: "کیلوگرم"
+        };
     }
 
-    // Default fallback group
+    // 3. Intelligent matching for Sayan catalog categories
+    if (cleanCode.startsWith("0405") || cleanName.includes("شوایتر")) {
+        return SAYAN_MASTER_GROUPS["0405"]; // پلی استر شوایتر
+    }
+    if (cleanCode.startsWith("0103") || cleanName.includes("dty") || cleanName.includes("پلی استر")) {
+        return SAYAN_MASTER_GROUPS["0103"]; // dty یا پلی استر
+    }
+    if (cleanCode.startsWith("0102") || cleanName.includes("poy")) {
+        return SAYAN_MASTER_GROUPS["0102"]; // POY
+    }
+    if (cleanCode.startsWith("0105") || cleanName.includes("لاکرا") || cleanName.includes("lycra")) {
+        return SAYAN_MASTER_GROUPS["0105"]; // لاکرا
+    }
+    if (cleanCode.startsWith("0401") || cleanName.includes("اسپاندکس") || cleanName.includes("کاور")) {
+        return SAYAN_MASTER_GROUPS["0401"]; // اسپاندکس (کاور)
+    }
+    if (cleanCode.startsWith("0402") || (cleanName.includes("کش") && !cleanName.includes("لاکرا"))) {
+        return SAYAN_MASTER_GROUPS["0402"]; // کش
+    }
+    if (cleanCode.startsWith("0104") || cleanName.includes("لاستیک")) {
+        return SAYAN_MASTER_GROUPS["0104"]; // لاستیک
+    }
+    if (cleanCode.startsWith("0403") || cleanName.includes("جوشی") || cleanName.includes("ساپورت")) {
+        return SAYAN_MASTER_GROUPS["0403"]; // اسپاندکس جوشی (ساپورت)
+    }
+    if (cleanCode.startsWith("0408") || cleanName.includes("ملت")) {
+        return SAYAN_MASTER_GROUPS["0408"]; // نخ ملت
+    }
+    if (cleanCode.startsWith("0410") || cleanName.includes("fdy")) {
+        return SAYAN_MASTER_GROUPS["0410"]; // FDY
+    }
+    if (cleanCode.startsWith("0101") || cleanName.includes("چیپس")) {
+        return SAYAN_MASTER_GROUPS["0101"]; // چیپس
+    }
+    if (cleanCode.startsWith("0106") || cleanName.includes("اسپان")) {
+        return SAYAN_MASTER_GROUPS["0106"]; // پلی استر اسپان
+    }
+    if (cleanCode.startsWith("0107") || cleanName.includes("مستربچ")) {
+        return SAYAN_MASTER_GROUPS["0107"]; // مستربچ
+    }
+    if (cleanCode.startsWith("0108") || (cleanName.includes("نایلون") && cleanCode.startsWith("01"))) {
+        return SAYAN_MASTER_GROUPS["0108"]; // نایلون مواد اولیه
+    }
+    if (cleanCode.startsWith("0407") || (cleanName.includes("نایلون") && cleanCode.startsWith("04"))) {
+        return SAYAN_MASTER_GROUPS["0407"]; // نایلون محصولات
+    }
+
     const fallbackCategory = cleanCode.startsWith("01") ? "مواد اولیه" : cleanCode.startsWith("04") ? "محصولات" : "سایر";
     return {
         code: prefix4 || "سایر",
@@ -215,8 +213,16 @@ export default function ProductionReturnTab({
                 ? data
                 : [];
 
+            // Filter out auxiliary packaging materials (02%) and keep authentic production goods (04%), raw materials (01%), waste (05%)
+            const productionOnlyList = rawList.filter((item: any) => {
+                const c = String(item.ItemCode || item.code || item.item_code || '').trim();
+                // Exclude packaging materials (cartons, boxes, pallets, spools starting with 02)
+                if (c.startsWith("02")) return false;
+                return true;
+            });
+
             // Normalize and enrich each row with Sayan master group metadata
-            const normalized = rawList.map((item: any) => {
+            const normalized = productionOnlyList.map((item: any) => {
                 const docNo = String(
                     item.DocNumber || 
                     item.ArchiveCode || 
@@ -248,7 +254,7 @@ export default function ProductionReturnTab({
                 );
 
                 // Group mapping from Sayan ERP definition
-                const groupDef = detectSayanGroup(itemCode, itemName);
+                const groupDef = detectSayanGroup(itemCode, itemName, item.GroupName);
                 const resolvedName = resolveProdItemName(itemCode, itemName);
 
                 return {
@@ -505,11 +511,14 @@ export default function ProductionReturnTab({
                     category: item.ParentCategory
                 });
             }
-            const prodKey = item.ItemCode || item.ResolvedName;
-            if (prodKey && !products.has(prodKey)) {
-                products.set(prodKey, {
+            const prodCode = item.ItemCode;
+            if (prodCode && !products.has(prodCode)) {
+                const displayName = item.ItemName && item.ItemName !== item.ItemCode && item.ItemName !== "کالای بدون نام"
+                    ? `${item.ItemName} (${item.ItemCode})`
+                    : (item.ResolvedName || `کد ${item.ItemCode}`);
+                products.set(prodCode, {
                     code: item.ItemCode,
-                    name: item.ResolvedName || item.ItemName
+                    name: displayName
                 });
             }
         });
