@@ -207,6 +207,56 @@ app.post('/api/share-target', upload.single('files'), (req, res) => {
 // --- AUTOMATIC BACKUP LOGIC ---
 let activeBackupJob = null;
 
+const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودکار سیستم") => {
+    const db = getDb();
+    const settings = db.settings || {};
+    
+    if (!settings.backupBotSendEnabled) {
+        console.log("Bot Backup send is not enabled in settings.");
+        return;
+    }
+
+    try {
+        if (!fs.existsSync(filePath)) {
+            console.error("Backup file not found to send to bots:", filePath);
+            return;
+        }
+
+        const buffer = fs.readFileSync(filePath);
+        const caption = `📁 نسخه پشتیبان (${reason})\n⏰ تاریخ: ${new Date().toLocaleString('fa-IR')}\n💾 نام فایل: ${filename}`;
+
+        // Send to Telegram
+        if (settings.telegramBotToken && settings.backupAdminTelegramChatId) {
+            try {
+                console.log(`Sending backup to Telegram admin chat: ${settings.backupAdminTelegramChatId}`);
+                const tg = await safeImport('./backend/telegram.js');
+                if (tg && tg.sendBotDocument) {
+                    await tg.sendBotDocument(settings.backupAdminTelegramChatId, buffer, filename, caption);
+                    console.log("Backup sent to Telegram successfully ✅");
+                }
+            } catch (tgErr) {
+                console.error("Failed to send backup to Telegram:", tgErr.message);
+            }
+        }
+
+        // Send to Bale
+        if (settings.baleBotToken && settings.backupAdminBaleChatId) {
+            try {
+                console.log(`Sending backup to Bale admin chat: ${settings.backupAdminBaleChatId}`);
+                const bale = await safeImport('./backend/bale.js');
+                if (bale && bale.sendBotDocument) {
+                    await bale.sendBotDocument(settings.backupAdminBaleChatId, buffer, filename, caption);
+                    console.log("Backup sent to Bale successfully ✅");
+                }
+            } catch (baleErr) {
+                console.error("Failed to send backup to Bale:", baleErr.message);
+            }
+        }
+    } catch (e) {
+        console.error("Error in sendBackupToBots:", e);
+    }
+};
+
 const performAutoBackup = () => {
     const db = getDb();
     const settings = db.settings || {};
@@ -223,6 +273,7 @@ const performAutoBackup = () => {
 
         output.on('close', () => {
             console.log(`✅ Auto Backup Created: ${filename} (${(archive.pointer() / 1024 / 1024).toFixed(2)} MB)`);
+            sendBackupToBots(filePath, filename, "بکاپ خودکار دوره‌ای");
         });
 
         archive.on('error', (err) => { throw err; });
@@ -5484,6 +5535,12 @@ app.post('/api/settings', async (req, res) => {
         setupDailyReports();
     } catch (e) {
         console.error("Failed to run setupDailyReports from settings save:", e);
+    }
+
+    try {
+        setupAutoBackup();
+    } catch (e) {
+        console.error("Failed to run setupAutoBackup from settings save:", e);
     }
 
     try {

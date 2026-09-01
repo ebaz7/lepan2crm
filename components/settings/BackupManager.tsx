@@ -23,6 +23,9 @@ const BackupManager: React.FC = () => {
     // Backup Configuration
     const [backupInterval, setBackupInterval] = useState(3);
     const [backupMode, setBackupMode] = useState<'full' | 'db-only'>('full');
+    const [backupBotSendEnabled, setBackupBotSendEnabled] = useState(false);
+    const [backupAdminTelegramChatId, setBackupAdminTelegramChatId] = useState('');
+    const [backupAdminBaleChatId, setBackupAdminBaleChatId] = useState('');
     const [savingSettings, setSavingSettings] = useState(false);
 
     useEffect(() => {
@@ -36,6 +39,9 @@ const BackupManager: React.FC = () => {
             if (settings) {
                 setBackupInterval(settings.backupIntervalHours || 3);
                 setBackupMode(settings.backupMode || 'full');
+                setBackupBotSendEnabled(!!settings.backupBotSendEnabled);
+                setBackupAdminTelegramChatId(settings.backupAdminTelegramChatId || '');
+                setBackupAdminBaleChatId(settings.backupAdminBaleChatId || '');
             }
         } catch (e) { console.error("Load settings failed", e); }
     };
@@ -45,7 +51,10 @@ const BackupManager: React.FC = () => {
         try {
             await apiCall('/settings', 'POST', { 
                 backupIntervalHours: backupInterval,
-                backupMode: backupMode
+                backupMode: backupMode,
+                backupBotSendEnabled,
+                backupAdminTelegramChatId: backupAdminTelegramChatId.trim(),
+                backupAdminBaleChatId: backupAdminBaleChatId.trim()
             });
             alert('تنظیمات بکاپ با موفقیت ذخیره شد.');
         } catch (e) { alert('خطا در ذخیره تنظیمات'); }
@@ -381,9 +390,51 @@ const BackupManager: React.FC = () => {
                                 </select>
                             </div>
                         </div>
-                        <p className="text-[10px] text-green-700 leading-relaxed">
+                        <p className="text-[10px] text-green-700 leading-relaxed mb-4">
                             سیستم طبق بازه زمانی انتخابی شما، پشتیبان تهیه می‌کند. نسخه پشتیبان شامل {backupMode === 'full' ? 'تمام دیتابیس و فایل‌های آپلود شده' : 'فقط اطلاعات متنی دیتابیس'} می‌باشد.
                         </p>
+
+                        {/* Messenger Bot Integration for Auto Backups */}
+                        <div className="pt-3 border-t border-green-200/50">
+                            <label className="flex items-center gap-2 cursor-pointer select-none mb-3">
+                                <input 
+                                    type="checkbox" 
+                                    checked={backupBotSendEnabled} 
+                                    onChange={e => setBackupBotSendEnabled(e.target.checked)} 
+                                    className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
+                                />
+                                <span className="text-xs font-bold text-green-900">ارسال خودکار فایل بکاپ به ربات‌های بله و تلگرام برای ادمین</span>
+                            </label>
+                            
+                            {backupBotSendEnabled && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2 animate-fade-in">
+                                    <div className="glass-panel p-2.5 rounded-lg border border-green-200 bg-white/60">
+                                        <label className="text-[10px] font-bold text-gray-500 block mb-1">شناسه چت تلگرام ادمین (Admin Telegram Chat ID)</label>
+                                        <input 
+                                            type="text" 
+                                            dir="ltr"
+                                            placeholder="مثال: 12345678"
+                                            value={backupAdminTelegramChatId} 
+                                            onChange={e => setBackupAdminTelegramChatId(e.target.value)} 
+                                            className="w-full text-xs font-mono font-bold bg-transparent border-0 border-b border-gray-300 focus:border-green-600 focus:ring-0 p-1"
+                                        />
+                                        <span className="text-[9px] text-gray-400 mt-1 block">توکن ربات تلگرام باید در تب ربات‌ها فعال باشد.</span>
+                                    </div>
+                                    <div className="glass-panel p-2.5 rounded-lg border border-green-200 bg-white/60">
+                                        <label className="text-[10px] font-bold text-gray-500 block mb-1">شناسه چت بله ادمین (Admin Bale Chat ID)</label>
+                                        <input 
+                                            type="text" 
+                                            dir="ltr"
+                                            placeholder="مثال: 12345678"
+                                            value={backupAdminBaleChatId} 
+                                            onChange={e => setBackupAdminBaleChatId(e.target.value)} 
+                                            className="w-full text-xs font-mono font-bold bg-transparent border-0 border-b border-gray-300 focus:border-green-600 focus:ring-0 p-1"
+                                        />
+                                        <span className="text-[9px] text-gray-400 mt-1 block">توکن ربات بله باید در تب ربات‌ها فعال باشد.</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 

@@ -121,7 +121,7 @@ cls
 echo ========================================================
 echo                        UPDATE
 echo ========================================================
-call :BACKUP
+call :BACKUP update
 
 echo.
 set /p repo="Enter GitHub repository URL (e.g. https://github.com/user/repo.git): "
@@ -184,7 +184,7 @@ cls
 echo ========================================================
 echo                      UNINSTALL
 echo ========================================================
-call :BACKUP
+call :BACKUP uninstall
 
 echo.
 echo Removing Windows Service...
@@ -237,4 +237,9 @@ mkdir "!backup_dir!"
 if exist database.json copy database.json "!backup_dir!\" >nul
 if exist .env copy .env "!backup_dir!\" >nul
 echo Backup saved in !backup_dir! folder.
+
+if not "%1"=="" (
+    echo Sending backup to Telegram and Bale bots...
+    node send-pre-action-backup.js "%1"
+)
 exit /b

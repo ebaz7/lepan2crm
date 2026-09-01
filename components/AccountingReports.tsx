@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-hot-toast';
 // @ts-ignore
 import DatePicker from "react-multi-date-picker";
@@ -7775,1013 +7776,51 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                         <th className="p-3 text-left w-48">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                    {detailedList.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={5} className="p-4 text-center text-slate-400 dark:text-zinc-500 font-medium">Ù…ÙˆØ±Ø¯ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</td>
-                                                        </tr>
-                                                    ) : (
-                                                        detailedList.map((item, idx) => (
-                                                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                                                <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                                                <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">
-                                                                    {item.code}
-                                                                </td>
-                                                                <td className="p-3 font-black text-slate-900 dark:text-zinc-100">
-                                                                    {item.name}
-                                                                </td>
-                                                                <td className="p-3">
-                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold border ${item.color}`}>
-                                                                        <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`} />
-                                                                        {item.groupName}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-3 text-left font-black text-indigo-600 dark:text-indigo-400 font-mono text-sm">
-                                                                    {Math.round(item.totalQty).toLocaleString('fa-IR')}
-                                                                </td>
-                                                            </tr>
-                                                        ))
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-
-                            {/* RAW DOCUMENT ROWS VERIFICATION SECTION (Ù†Ù…Ø§ÛŒØ´ Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§ÛŒ Ø§Ø³Ù†Ø§Ø¯ Ø¬Ù‡Øª Ø±Ø§Ø³ØªÛŒâ€ŒØ¢Ø²Ù…Ø§ÛŒÛŒ Ø¯Ù‚ÛŒÙ‚) */}
-                            <div className="mt-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                                <div className="p-4 bg-slate-50 dark:bg-zinc-950/60 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
-                                            <FileSpreadsheet className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
-                                                Ø±ÛŒØ² Ø§Ø³Ù†Ø§Ø¯ Ø«Ø¨Øªâ€ŒØ´Ø¯Ù‡ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯
-                                                <span className="text-xs font-mono font-black px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full">
-                                                    {rawDocumentRows.length} Ø±Ø¯ÛŒÙ Ø³Ù†Ø¯
-                                                </span>
-                                            </h3>
-                                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                                                Ù†Ù…Ø§ÛŒØ´ Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§ÛŒ Ø§Ø³Ù†Ø§Ø¯ Ù‡Ù…Ø±Ø§Ù‡ Ø¨Ø§ Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯ØŒ Ø´Ù…Ø§Ø±Ù‡ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ Ùˆ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ Ø¬Ù‡Øª ØªØ·Ø¨ÛŒÙ‚ Ùˆ Ø±Ø§Ø³ØªÛŒâ€ŒØ¢Ø²Ù…Ø§ÛŒÛŒ
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setShowRawDocsVerification(!showRawDocsVerification)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                                                showRawDocsVerification 
-                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/20' 
-                                                    : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800/80'
-                                            }`}
-                                        >
-                                            {showRawDocsVerification ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                            <span>{showRawDocsVerification ? 'Ø¨Ø³ØªÙ† Ø¬Ø¯ÙˆÙ„ Ø±ÛŒØ² Ø§Ø³Ù†Ø§Ø¯' : `Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ø±ÛŒØ² Ø§Ø³Ù†Ø§Ø¯ (${rawDocumentRows.length} Ø±Ø¯ÛŒÙ)`}</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {showRawDocsVerification && (
-                                    <div className="p-4 space-y-3 animate-fade-in">
-                                        {/* Search & Totals Summary */}
-                                        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-zinc-950/30 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
-                                            <div className="relative w-full sm:w-72">
-                                                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯ØŒ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ ÛŒØ§ Ú©Ø§Ù„Ø§..."
-                                                    value={rawDocsSearch}
-                                                    onChange={e => setRawDocsSearch(e.target.value)}
-                                                    className="w-full pl-3 pr-9 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
-                                                />
-                                                {rawDocsSearch && (
-                                                    <button onClick={() => setRawDocsSearch('')} className="absolute left-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200">
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            <div className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-zinc-400">
-                                                <span>ØªØ¹Ø¯Ø§Ø¯ Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§: <span className="font-mono text-slate-900 dark:text-zinc-100 font-extrabold">{displayedRawRows.length}</span></span>
-                                                <span>|</span>
-                                                <span>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">{Math.round(displayedRawRows.reduce((s, r) => s + r.quantity, 0)).toLocaleString('fa-IR')}</span> Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Verification Table */}
-                                        <div className="overflow-x-auto custom-scrollbar border border-slate-200/80 dark:border-zinc-800 rounded-lg max-h-[500px]">
-                                            <table className="w-full border-collapse text-right text-xs">
-                                                <thead className="sticky top-0 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-black z-10 shadow-sm">
-                                                    <tr>
-                                                        <th className="p-2.5 w-12 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                        <th className="p-2.5 w-24 text-center">Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯</th>
-                                                        <th className="p-2.5 w-24 text-center">Ø´Ù…Ø§Ø±Ù‡ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ</th>
-                                                        <th className="p-2.5 w-24 text-center">ØªØ§Ø±ÛŒØ® Ø³Ù†Ø¯</th>
-                                                        <th className="p-2.5">Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§</th>
-                                                        <th className="p-2.5 w-28">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                                                        <th className="p-2.5 w-32">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                                                        <th className="p-2.5 text-left w-32">ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (kg)</th>
-                                                        <th className="p-2.5">ØªÙˆØ¶ÛŒØ­Ø§Øª Ùˆ Ù…Ø´Ø®ØµØ§Øª Ø±Ø¯ÛŒÙ</th>
-                                                        <th className="p-2.5 w-24 text-center">Ø¹Ù…Ù„ÛŒØ§Øª</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                    {displayedRawRows.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={10} className="p-4 text-center text-slate-400 font-medium">Ù…ÙˆØ±Ø¯ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</td>
-                                                        </tr>
-                                                    ) : (
-                                                        displayedRawRows.map((row, idx) => {
-                                                            const parentDoc = documentsList.find(d => String(d.archiveNo) === String(row.archiveNo) && String(d.docId) === String(row.docId));
-                                                            return (
-                                                                <tr key={idx} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-colors">
-                                                                    <td className="p-2.5 text-center font-mono text-slate-400 font-bold">{idx + 1}</td>
-                                                                    <td className="p-2.5 text-center">
-                                                                        <span className="font-mono font-extrabold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/30">
-                                                                            {row.docId}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="p-2.5 text-center">
-                                                                        <span className="font-mono font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
-                                                                            {row.archiveNo}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="p-2.5 text-center font-mono text-slate-600 dark:text-zinc-400 font-medium whitespace-nowrap">
-                                                                        {row.date}
-                                                                    </td>
-                                                                    <td className="p-2.5 font-bold text-slate-900 dark:text-zinc-100">
-                                                                        {row.itemName}
-                                                                    </td>
-                                                                    <td className="p-2.5 font-mono text-slate-500 dark:text-zinc-400 text-[11px]">
-                                                                        {row.itemCode}
-                                                                    </td>
-                                                                    <td className="p-2.5">
-                                                                        <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                                                                            {row.groupName}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="p-2.5 text-left font-mono font-black text-slate-900 dark:text-zinc-100 text-sm">
-                                                                        {Math.round(row.quantity).toLocaleString('fa-IR')}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-slate-500 dark:text-zinc-400 text-[11px] max-w-xs truncate" title={row.lineNotes}>
-                                                                        {row.lineNotes || 'â€”'}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-center">
-                                                                        {parentDoc && (
-                                                                            <button
-                                                                                onClick={() => setSelectedDocModal(parentDoc)}
-                                                                                className="flex items-center justify-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-600 rounded text-[10px] font-bold transition-all border border-indigo-100 dark:border-indigo-900/30 cursor-pointer"
-                                                                                title="Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ú©Ù„ Ø³Ù†Ø¯"
-                                                                            >
-                                                                                <FolderOpen className="w-3 h-3" />
-                                                                                <span>Ø³Ù†Ø¯</span>
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                                <tfoot className="sticky bottom-0 bg-slate-100 dark:bg-zinc-800 font-extrabold text-slate-800 dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 shadow-sm">
-                                                    <tr>
-                                                        <td colSpan={7} className="p-2.5 text-left">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§ÛŒ Ø§Ø³Ù†Ø§Ø¯:</td>
-                                                        <td className="p-2.5 text-left font-mono text-indigo-700 dark:text-indigo-400 font-black text-sm">
-                                                            {Math.round(displayedRawRows.reduce((s, r) => s + r.quantity, 0)).toLocaleString('fa-IR')}
-                                                        </td>
-                                                        <td colSpan={2} className="p-2.5 text-slate-500 text-xs">Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</td>
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* SAYAN ERP SINGLE DOCUMENT DRILL-DOWN MODAL (Ù¾Ø§Ù¾â€ŒØ¢Ù¾ Ú©Ø§Ù…Ù„ Ù†Ù…Ø§ÛŒØ´ Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø± Ø¨Ø§ Ø±ÛŒØ² Ø§Ù‚Ù„Ø§Ù…) */}
-                            {selectedDocModal && (
-                                <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in rtl">
-                                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-in">
-                                        {/* Modal Header */}
-                                        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950/80">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm shadow-indigo-600/20">
-                                                    <FolderOpen className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-zinc-100">
-                                                            Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø± - Ø±Ø³ÛŒØ¯ Ú©Ø§Ù„Ø§ÛŒ Ø¨Ø±Ú¯Ø´ØªÛŒ Ø§Ø² ØªÙˆÙ„ÛŒØ¯ (Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)
-                                                        </h3>
-                                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                                            {selectedDocModal.approvalStatus}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-bold">
-                                                        Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯: <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{selectedDocModal.docId}</span> | 
-                                                        Ú©Ø¯ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ: <span className="font-mono font-black text-slate-800 dark:text-zinc-200">{selectedDocModal.archiveNo}</span>
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handlePrintSingleDoc(selectedDocModal)}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-black transition-all border border-indigo-200 dark:border-indigo-800 cursor-pointer"
-                                                >
-                                                    <Printer className="w-3.5 h-3.5" />
-                                                    <span>Ú†Ø§Ù¾ Ø±Ø³Ù…ÛŒ Ø³Ù†Ø¯</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedDocModal(null)}
-                                                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
-                                                >
-                                                    <X className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Modal Sayan Document Information Card */}
-                                        <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-4">
-                                            <div className="bg-slate-50 dark:bg-zinc-950/50 p-4 rounded-xl border border-slate-200 dark:border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø±:</span>
-                                                    <span className="font-mono font-black text-indigo-700 dark:text-indigo-300 text-sm mt-0.5 block">{selectedDocModal.docId}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ú©Ø¯ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ Ø³ÛŒØ³ØªÙ…:</span>
-                                                    <span className="font-mono font-black text-slate-800 dark:text-zinc-200 text-sm mt-0.5 block">{selectedDocModal.archiveNo}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">ØªØ§Ø±ÛŒØ® Ùˆ Ø³Ø§Ø¹Øª Ø«Ø¨Øª:</span>
-                                                    <span className="font-mono font-bold text-slate-800 dark:text-zinc-200 mt-0.5 block">{selectedDocModal.date} {selectedDocModal.time && `â€” ${selectedDocModal.time}`}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ø§Ù†Ø¨Ø§Ø± Ù…Ù‚ØµØ¯:</span>
-                                                    <span className="font-extrabold text-slate-800 dark:text-zinc-200 mt-0.5 block">{selectedDocModal.warehouseName} (Ú©Ø¯ {selectedDocModal.warehouseCode})</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ø¹Ù†ÙˆØ§Ù† Ùˆ Ù†ÙˆØ¹ Ø¹Ù…Ù„ÛŒØ§Øª:</span>
-                                                    <span className="font-bold text-slate-800 dark:text-zinc-200 mt-0.5 block">{selectedDocModal.opName} ({selectedDocModal.opCode})</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ù†ÙˆØ¹ Ø¯ÙˆØ±Ù‡ Ù…Ø§Ù„ÛŒ:</span>
-                                                    <span className="font-bold text-slate-800 dark:text-zinc-200 mt-0.5 block">{selectedDocModal.periodType}</span>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <span className="text-slate-400 dark:text-zinc-500 font-bold block text-[11px]">Ø´Ø±Ø­ / ÛŒØ§Ø¯Ø¯Ø§Ø´Øª Ø³Ù†Ø¯:</span>
-                                                    <span className="font-bold text-slate-800 dark:text-zinc-200 mt-0.5 block">{selectedDocModal.description || 'â€”'}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Modal Lines Table */}
-                                            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs">
-                                                <div className="p-3 bg-slate-100/80 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
-                                                    <h4 className="text-xs font-black text-slate-800 dark:text-zinc-200 flex items-center gap-2">
-                                                        <span>ğŸ“‹</span>
-                                                        <span>Ø±ÛŒØ² Ø§Ù‚Ù„Ø§Ù… Ùˆ Ú©Ø§Ù„Ø§Ù‡Ø§ÛŒ Ø¯Ø§Ø®Ù„ Ø³Ù†Ø¯ ({selectedDocModal.items.length} Ù‚Ù„Ù… Ú©Ø§Ù„Ø§)</span>
-                                                    </h4>
-                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                                                        Ù…Ø¬Ù…ÙˆØ¹: {Math.round(selectedDocModal.totalQty).toLocaleString('fa-IR')} Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                                                    </span>
-                                                </div>
-                                                <div className="overflow-x-auto custom-scrollbar">
-                                                    <table className="w-full border-collapse text-right text-xs">
-                                                        <thead>
-                                                            <tr className="bg-slate-50 dark:bg-zinc-950/60 text-slate-600 dark:text-zinc-400 font-black border-b border-slate-200 dark:border-zinc-800">
-                                                                <th className="p-3 w-12 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                                <th className="p-3 w-32 font-mono">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                                                                <th className="p-3">Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§</th>
-                                                                <th className="p-3 w-32">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                                                                <th className="p-3 text-left w-36">ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (kg)</th>
-                                                                <th className="p-3 min-w-48">Ù…Ø´Ø®ØµØ§Øª ÙÙ†ÛŒ Ùˆ Ø´Ù†Ø§Ø³Ù†Ø§Ù…Ù‡ Ø±Ø¯ÛŒÙ</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                            {selectedDocModal.items.map((item, itemIdx) => {
-                                                                const badges = item.lineNotes ? item.lineNotes.split('|').map(s => s.trim()).filter(Boolean) : [];
-                                                                return (
-                                                                    <tr key={itemIdx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                                                        <td className="p-3 text-center font-mono font-bold text-slate-400">{itemIdx + 1}</td>
-                                                                        <td className="p-3 font-mono font-bold text-slate-700 dark:text-zinc-300">{item.itemCode}</td>
-                                                                        <td className="p-3 font-black text-slate-900 dark:text-zinc-100">{item.itemName}</td>
-                                                                        <td className="p-3">
-                                                                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded text-[11px] font-bold text-slate-700 dark:text-zinc-300">
-                                                                                {item.groupName}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="p-3 text-left font-mono font-black text-indigo-600 dark:text-indigo-400 text-sm">
-                                                                            {Math.round(item.quantity).toLocaleString('fa-IR')}
-                                                                        </td>
-                                                                        <td className="p-3">
-                                                                            {badges.length > 0 ? (
-                                                                                <div className="flex flex-wrap gap-1">
-                                                                                    {badges.map((b, bIdx) => (
-                                                                                        <span key={bIdx} className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded text-[10px] font-medium border border-slate-200 dark:border-zinc-700">
-                                                                                            {b}
-                                                                                        </span>
-                                                                                    ))}
-                                                                                </div>
-                                                                            ) : (
-                                                                                <span className="text-slate-400">â€”</span>
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                        <tfoot className="bg-slate-50 dark:bg-zinc-950 font-black text-slate-900 dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-800">
-                                                            <tr>
-                                                                <td colSpan={4} className="p-3 text-left font-extrabold">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ú©Ù„ Ø³Ù†Ø¯:</td>
-                                                                <td className="p-3 text-left font-mono font-black text-indigo-700 dark:text-indigo-300 text-sm">
-                                                                    {Math.round(selectedDocModal.totalQty).toLocaleString('fa-IR')}
-                                                                </td>
-                                                                <td className="p-3 text-slate-500 font-bold text-xs">Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</td>
-                                                            </tr>
-                                                        </tfoot>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Modal Footer */}
-                                        <div className="p-3.5 sm:p-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center justify-between">
-                                            <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
-                                                ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ Ø±Ø¯ÛŒÙâ€ŒÙ‡Ø§: <span className="font-mono font-black text-slate-800 dark:text-zinc-200">{selectedDocModal.items.length}</span> Ø±Ø¯ÛŒÙ
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handlePrintSingleDoc(selectedDocModal)}
-                                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-black transition-all shadow-sm shadow-indigo-600/20 cursor-pointer flex items-center gap-1.5"
-                                                >
-                                                    <Printer className="w-4 h-4" />
-                                                    <span>Ú†Ø§Ù¾ Ø§ÛŒÙ† Ø³Ù†Ø¯</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedDocModal(null)}
-                                                    className="px-4 py-2 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold transition-all border border-slate-200 dark:border-zinc-700 cursor-pointer"
-                                                >
-                                                    Ø¨Ø³ØªÙ†
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
-            </div>
-
-            {/* Premium Statement Modal */}
-            {isStatementModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 animate-fade-in rtl">
-                    <div className="bg-white dark:bg-zinc-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-zinc-800 w-full h-full sm:h-auto max-w-6xl sm:max-h-[90vh] flex flex-col overflow-hidden">
-                        {/* Modal Header */}
-                        <div className="p-3.5 sm:p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
-                            <div>
-                                <h3 className="text-base sm:text-lg font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-blue-600" />
-                                    Ø±ÛŒØ² ØµÙˆØ±ØªØ­Ø³Ø§Ø¨ Ùˆ Ø¯ÙØ§ØªØ±Ø­Ø³Ø§Ø¨ Ø§Ø´Ø®Ø§Øµ
-                                </h3>
-                                <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1 font-bold">
-                                    Ù†Ø§Ù… Ø´Ø®Øµ: <span className="text-slate-900 dark:text-zinc-100 text-xs sm:text-sm font-black">{modalTafsiliName}</span> (Ú©Ø¯ ØªÙØµÛŒÙ„ÛŒ: <span className="text-slate-900 dark:text-zinc-100 font-mono font-bold">{modalTafsiliCode}</span>)
-                                </div>
-                                <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 font-bold">
-                                    Ø¨Ø§Ø²Ù‡ Ø²Ù…Ø§Ù†ÛŒ: {dateFrom || '---'} ØªØ§ {dateTo || '---'}
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    setIsStatementModalOpen(false);
-                                    setStatementData([]);
-                                    setGuaranteeCheques([]);
-                                    setStatementSearch('');
-                                }}
-                                className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        {/* Modal Toolbar */}
-                        <div className="p-2.5 sm:p-4 bg-slate-100/50 dark:bg-zinc-900/50 border-b border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-2.5">
-                            <div className="relative w-full sm:w-80">
-                                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø´Ø±Ø­ ØªØ±Ø§Ú©Ù†Ø´ ÛŒØ§ Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯..." 
-                                    value={statementSearch} 
-                                    onChange={e => setStatementSearch(e.target.value)} 
-                                    className="w-full pl-3 pr-9 py-2 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" 
-                                />
-                            </div>
-
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <button 
-                                    onClick={() => fetchStatement(modalTafsiliCode)} 
-                                    disabled={isLoading}
-                                    className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer"
-                                >
-                                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                    Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø¯Ø§Ø¯Ù‡â€ŒÙ‡Ø§
-                                </button>
-                                <button 
-                                    onClick={handlePrintStatement}
-                                    disabled={isLoading || filteredStatementData.length === 0}
-                                    className="flex-1 sm:flex-none px-4 py-2 border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer"
-                                >
-                                    <Printer className="w-3.5 h-3.5 text-slate-500" />
-                                    Ú†Ø§Ù¾ / PDF
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Modal Body (Table of Transactions) */}
-                        <div className="p-2 sm:p-6 overflow-y-auto flex-1 bg-slate-50/50 dark:bg-zinc-950/50">
-                            {isLoading ? (
-                                <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 font-bold text-sm">
-                                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                                    <span>Ø¯Ø± Ø­Ø§Ù„ Ø¯Ø±ÛŒØ§ÙØª Ùˆ ØªØ­Ù„ÛŒÙ„ Ø±ÛŒØ² Ú¯Ø±Ø¯Ø´ Ø­Ø³Ø§Ø¨ Ø³Ø§ÛŒØ§Ù†...</span>
-                                </div>
-                            ) : filteredStatementData.length > 0 ? (
-                                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                                    {/* Desktop View */}
-                                    <table className="w-full text-right text-xs hidden md:table">
-                                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                                            <tr>
-                                                <th className="p-3 font-bold text-slate-700 w-24">ØªØ§Ø±ÛŒØ® Ø³Ù†Ø¯</th>
-                                                <th className="p-3 font-bold text-slate-700 w-24">Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯</th>
-                                                <th className="p-3 font-bold text-slate-700 w-40">Ø³Ø±ÙØµÙ„ Ù…Ø¹ÛŒÙ†</th>
-                                                <th className="p-3 font-bold text-slate-700">Ø´Ø±Ø­ Ø¢Ø±ØªÛŒÚ©Ù„</th>
-                                                <th className="p-3 font-bold text-slate-700 text-left w-36">Ø¨Ø¯Ù‡Ú©Ø§Ø± (Ø±ÛŒØ§Ù„)</th>
-                                                <th className="p-3 font-bold text-slate-700 text-left w-36">Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø± (Ø±ÛŒØ§Ù„)</th>
-                                                <th className="p-3 font-bold text-slate-700 text-left w-40">Ù…Ø§Ù†Ø¯Ù‡ Ø­Ø³Ø§Ø¨ (Ø±ÛŒØ§Ù„)</th>
-                                                <th className="p-3 font-bold text-slate-700 w-20 text-center">ØªØ´Ø®ÛŒØµ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {filteredStatementData.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
-                                                    <td className="p-3 font-medium text-slate-500 whitespace-nowrap">{formatDateToJalali(row.Date)}</td>
-                                                    <td className="p-3 font-mono text-slate-600 font-semibold">{row.SanadNo}</td>
-                                                    <td className="p-3 text-slate-600 font-medium whitespace-nowrap">
-                                                        {row.MoeinGroup && row.MoeinParent && row.MoeinCode ? (
-                                                            <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-extrabold">
-                                                                {row.MoeinGroup}{row.MoeinParent}{row.MoeinCode} - {row.MoeinName || 'Ø³Ø§ÛŒØ±'}
-                                                            </span>
-                                                        ) : (
-                                                            '-'
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3 font-medium text-slate-800 leading-relaxed">{row.Description || 'Ø«Ø¨Øª Ø­Ø³Ø§Ø¨Ø¯Ø§Ø±ÛŒ'}</td>
-                                                    <td className="p-3 text-left text-rose-600 font-mono font-medium">{row.bed > 0 ? formatMoney(row.bed) : '-'}</td>
-                                                    <td className="p-3 text-left text-emerald-600 font-mono font-medium">{row.bes > 0 ? formatMoney(row.bes) : '-'}</td>
-                                                    <td className={`p-3 text-left font-extrabold font-mono ${row.balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                                                        {formatMoney(row.balance)}
-                                                    </td>
-                                                    <td className="p-3 text-center">
-                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                                                            row.balance > 0 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
-                                                        }`}>
-                                                            {row.balance > 0 ? 'Ø¨Ø¯Ù‡Ú©Ø§Ø±' : 'Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø±'}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-
-                                            {/* Summary Sticky Foot */}
-                                            <tr className="bg-slate-50 font-extrabold border-t-2 border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.03)] sticky bottom-0 z-10">
-                                                <td colSpan={4} className="p-4 text-left font-extrabold text-slate-700">Ù…Ø¬Ù…ÙˆØ¹ Ø¯ÙˆØ±Ù‡ ØªØ±Ø§Ú©Ù†Ø´â€ŒÙ‡Ø§:</td>
-                                                <td className="p-4 text-left text-rose-700 font-mono text-sm">
-                                                    {formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))}
-                                                </td>
-                                                <td className="p-4 text-left text-emerald-700 font-mono text-sm">
-                                                    {formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))}
-                                                </td>
-                                                <td colSpan={2} className={`p-4 text-left font-black font-mono text-sm ${
-                                                    filteredStatementData[filteredStatementData.length - 1]?.balance > 0 ? 'text-rose-700' : 'text-emerald-700'
-                                                }`}>
-                                                    {formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)}
-                                                    <span className="text-[10px] font-bold mr-1">
-                                                        ({(filteredStatementData[filteredStatementData.length - 1]?.balance || 0) > 0 ? 'Ø¨Ø¯Ù‡Ú©Ø§Ø±' : 'Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø±'})
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-
-                                    {/* Mobile View */}
-                                    <div className="block md:hidden divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
-                                        {filteredStatementData.map((row, idx) => (
-                                            <div key={idx} className="p-2.5 sm:p-4 space-y-2 text-xs">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-[10px] text-slate-400 font-bold font-mono">Ø³Ù†Ø¯: {row.SanadNo} | {formatDateToJalali(row.Date)}</span>
-                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold ${
-                                                        row.balance > 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                                    }`}>
-                                                        {row.balance > 0 ? 'Ø¨Ø¯Ù‡Ú©Ø§Ø±' : 'Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø±'}
-                                                    </span>
-                                                </div>
-                                                
-                                                {row.MoeinGroup && row.MoeinParent && row.MoeinCode && (
-                                                    <div className="inline-block bg-slate-50 text-slate-700 px-2 py-1 rounded text-[10px] font-bold border border-slate-100">
-                                                        Ù…Ø¹ÛŒÙ†: {row.MoeinGroup}{row.MoeinParent}{row.MoeinCode} - {row.MoeinName || 'Ø³Ø§ÛŒØ±'}
-                                                    </div>
-                                                )}
-
-                                                <div className="text-slate-800 font-medium leading-relaxed bg-slate-50/50 p-2.5 rounded-xl border border-dashed border-slate-150">
-                                                    {row.Description || 'Ø«Ø¨Øª Ø­Ø³Ø§Ø¨Ø¯Ø§Ø±ÛŒ'}
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px] bg-slate-50 p-2 rounded-lg">
-                                                    <div>
-                                                        <span className="text-[9px] text-slate-400 font-sans block">Ø¨Ø¯Ù‡Ú©Ø§Ø±</span>
-                                                        <span className="font-bold text-rose-600">{row.bed > 0 ? formatMoney(row.bed) : '-'}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-[9px] text-slate-400 font-sans block">Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø±</span>
-                                                        <span className="font-bold text-emerald-600">{row.bes > 0 ? formatMoney(row.bes) : '-'}</span>
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <span className="text-[9px] text-slate-400 font-sans block">Ù…Ø§Ù†Ø¯Ù‡</span>
-                                                        <span className={`font-black ${row.balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{formatMoney(row.balance)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                        {/* Mobile Sticky / Persistent summary */}
-                                        <div className="p-4 bg-slate-50 border-t-2 border-slate-200 text-xs font-black space-y-2">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-600">Ø¬Ù…Ø¹ Ú¯Ø±Ø¯Ø´ Ø¨Ø¯Ù‡Ú©Ø§Ø± Ø¯ÙˆØ±Ù‡:</span>
-                                                <span className="text-rose-700 font-mono font-bold text-sm">{formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))} Ø±ÛŒØ§Ù„</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-600">Ø¬Ù…Ø¹ Ú¯Ø±Ø¯Ø´ Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø± Ø¯ÙˆØ±Ù‡:</span>
-                                                <span className="text-emerald-700 font-mono font-bold text-sm">{formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))} Ø±ÛŒØ§Ù„</span>
-                                            </div>
-                                            <div className="flex justify-between border-t border-slate-200/60 pt-1 mt-1 text-sm">
-                                                <span className="text-slate-700">Ù…Ø§Ù†Ø¯Ù‡ Ù†Ù‡Ø§ÛŒÛŒ Ø¯ÙˆØ±Ù‡:</span>
-                                                <span className={`font-mono text-base ${
-                                                    filteredStatementData[filteredStatementData.length - 1]?.balance > 0 ? 'text-rose-700' : 'text-emerald-700'
-                                                }`}>
-                                                    {formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)} Ø±ÛŒØ§Ù„
-                                                    <span className="text-[10px] font-bold mr-1">
-                                                        ({(filteredStatementData[filteredStatementData.length - 1]?.balance || 0) > 0 ? 'Ø¨Ø¯Ù‡Ú©Ø§Ø±' : 'Ø¨Ø³ØªØ§Ù†Ú©Ø§Ø±'})
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-24 text-slate-400 font-medium border-2 border-dashed border-slate-200 bg-white rounded-2xl shadow-sm">
-                                    Ù‡ÛŒÚ† ØªØ±Ø§Ú©Ù†Ø´ÛŒ Ø¯Ø± Ø¨Ø§Ø²Ù‡ Ø²Ù…Ø§Ù†ÛŒ ØªØ¹ÛŒÛŒÙ†â€ŒØ´Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.
-                                </div>
-                            )}
-
-                            {/* Guarantee Cheques Section */}
-                            {!isLoading && guaranteeCheques.length > 0 && (
-                                <div className="mt-6 space-y-3 bg-amber-50/40 p-3 sm:p-5 rounded-2xl border border-amber-200/60 shadow-sm animate-fadeIn">
-                                    <div className="flex items-center gap-2 text-amber-900">
-                                        <CheckSquare className="w-5 h-5 text-amber-600" />
-                                        <h3 className="text-sm font-bold">Ú†Ú©â€ŒÙ‡Ø§ÛŒ ØªØ¶Ù…ÛŒÙ†ÛŒ Ùˆ ØªØ¹Ù‡Ø¯Ø§Øª Ù…Ø±ØªØ¨Ø·</h3>
-                                    </div>
-                                    <div className="rounded-xl border border-amber-200 overflow-hidden bg-white max-h-[300px] overflow-y-auto shadow-inner">
-                                        {/* Desktop View */}
-                                        <table className="w-full text-right text-xs hidden md:table">
-                                            <thead className="bg-amber-50/80 sticky top-0 border-b border-amber-200 z-10">
-                                                <tr>
-                                                    <th className="p-3 font-bold text-amber-800 w-24">ØªØ§Ø±ÛŒØ® Ø³Ù†Ø¯</th>
-                                                    <th className="p-3 font-bold text-amber-800 w-24">Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯</th>
-                                                    <th className="p-3 font-bold text-amber-800 w-40">Ø³Ø±ÙØµÙ„ Ù…Ø¹ÛŒÙ†</th>
-                                                    <th className="p-3 font-bold text-amber-800">Ø´Ø±Ø­ Ø¢Ø±ØªÛŒÚ©Ù„</th>
-                                                    <th className="p-3 font-bold text-amber-800 text-left w-36">Ù…Ø¨Ù„Øº ØªØ¶Ù…ÛŒÙ† (Ø±ÛŒØ§Ù„)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-amber-100/60">
-                                                {guaranteeCheques.map((row, idx) => (
-                                                    <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
-                                                        <td className="p-3 font-medium text-slate-500 whitespace-nowrap">{formatDateToJalali(row.Date)}</td>
-                                                        <td className="p-3 font-mono text-slate-600 font-semibold">{row.SanadNo}</td>
-                                                        <td className="p-3 text-slate-600 font-medium whitespace-nowrap">
-                                                            <span className="bg-amber-100/70 text-amber-800 px-2.5 py-0.5 rounded text-[10px] font-bold">
-                                                                {row.MoeinGroup}{row.MoeinParent}{row.MoeinCode} - {row.MoeinName || 'Ø³Ø§ÛŒØ±'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-3 font-medium text-slate-800 leading-relaxed">{row.Description}</td>
-                                                        <td className="p-3 text-left text-amber-700 font-mono font-bold">
-                                                            {formatMoney(row.bed > 0 ? row.bed : row.bes)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-
-                                        {/* Mobile View */}
-                                        <div className="block md:hidden divide-y divide-amber-100/60 bg-white">
-                                            {guaranteeCheques.map((row, idx) => (
-                                                <div key={idx} className="p-4 space-y-2 text-xs">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] text-slate-400 font-bold font-mono">Ø³Ù†Ø¯: {row.SanadNo} | {formatDateToJalali(row.Date)}</span>
-                                                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[9px] font-bold">
-                                                            {row.MoeinGroup}{row.MoeinParent}{row.MoeinCode} - {row.MoeinName || 'Ø³Ø§ÛŒØ±'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-slate-800 font-medium leading-relaxed bg-amber-50/20 p-2.5 rounded-lg border border-dashed border-amber-200">
-                                                        {row.Description}
-                                                    </div>
-                                                    <div className="flex justify-between items-center font-mono">
-                                                        <span className="text-[9px] text-slate-400 font-sans">Ù…Ø¨Ù„Øº ØªØ¶Ù…ÛŒÙ†</span>
-                                                        <span className="font-extrabold text-amber-700 text-sm">{formatMoney(row.bed > 0 ? row.bed : row.bes)} Ø±ÛŒØ§Ù„</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-4 border-t border-slate-100 flex justify-end bg-slate-50">
-                            <button 
-                                onClick={() => {
-                                    setIsStatementModalOpen(false);
-                                    setStatementData([]);
-                                    setGuaranteeCheques([]);
-                                    setStatementSearch('');
-                                }}
-                                className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                            >
-                                Ø¨Ø³ØªÙ† Ù¾Ù†Ø¬Ø±Ù‡
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Cheques Bot Dispatch Modal */}
-            {isChequeBotModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in rtl">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
-                        {/* Modal Header */}
-                        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-white/10 backdrop-blur-sm rounded-xl">
-                                    <Share2 className="w-5 h-5 text-blue-300" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base sm:text-lg font-black">
-                                        Ø§Ø±Ø³Ø§Ù„ Ù‡ÙˆØ´Ù…Ù†Ø¯ Ú¯Ø²Ø§Ø±Ø´ Ú†Ú©â€ŒÙ‡Ø§ Ø¨Ù‡ Ù¾ÛŒØ§Ù…â€ŒØ±Ø³Ø§Ù†â€ŒÙ‡Ø§ (Ø¨Ø§Øª)
-                                    </h3>
-                                    <p className="text-xs text-blue-200 mt-0.5">
-                                        Ø§Ø±Ø³Ø§Ù„ Ù…ØªÙ† ØªØ­Ù„ÛŒÙ„ÛŒ Ø¨Ù‡ Ù‡Ù…Ø±Ø§Ù‡ ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ Ù¾ÛŒÙˆØ³Øª PDF Ùˆ Ø§Ú©Ø³Ù„
-                                    </p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setIsChequeBotModalOpen(false)}
-                                className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs">
-                            {(() => {
-                                const todayShamsiStr = formatDateToJalali(new Date().toISOString());
-                                return (
-                                    <>
-                                        {/* Target Scope Selection */}
-                                        <div>
-                                            <label className="font-black text-slate-800 text-xs block mb-2">Ù†ÙˆØ¹ Ùˆ Ø¯Ø§Ù…Ù†Ù‡ Ú¯Ø²Ø§Ø±Ø´ Ø§Ø±Ø³Ø§Ù„ÛŒ:</label>
-                                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setChequeBotTargetType('vault')}
-                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                                                        chequeBotTargetType === 'vault'
-                                                            ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 font-black shadow-xs'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[11px]">ğŸ›ï¸ Ú†Ú©â€ŒÙ‡Ø§ÛŒ ØµÙ†Ø¯ÙˆÙ‚</span>
-                                                        {chequeBotTargetType === 'vault' && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
-                                                        ÙÙ‚Ø· Ú†Ú©â€ŒÙ‡Ø§ÛŒ Ù†Ø²Ø¯ ØµÙ†Ø¯ÙˆÙ‚ Ø®Ø²Ø§Ù†Ù‡â€ŒØ¯Ø§Ø±ÛŒ
-                                                    </div>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setChequeBotTargetType('returned')}
-                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                                                        chequeBotTargetType === 'returned'
-                                                            ? 'bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 text-rose-950 font-black shadow-xs'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[11px]">ğŸ”´ Ú†Ú©â€ŒÙ‡Ø§ÛŒ Ø¨Ø±Ú¯Ø´ØªÛŒ</span>
-                                                        {chequeBotTargetType === 'returned' && <Check className="w-3.5 h-3.5 text-rose-600" />}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
-                                                        Ø§Ø³Ù†Ø§Ø¯ Ø¨Ø±Ú¯Ø´ØªÛŒ Ùˆ ÙˆØ§Ø®ÙˆØ§Ø³Øªâ€ŒØ´Ø¯Ù‡ Ø¬Ù‡Øª Ù¾ÛŒÚ¯ÛŒØ±ÛŒ
-                                                    </div>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setChequeBotTargetType('matured')}
-                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                                                        chequeBotTargetType === 'matured'
-                                                            ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 text-amber-950 font-black shadow-xs'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[11px]">ğŸ”” Ø³Ø±Ø±Ø³ÛŒØ¯ Ø´Ø¯Ù‡ Ø§Ù…Ø±ÙˆØ²</span>
-                                                        {chequeBotTargetType === 'matured' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
-                                                        Ú†Ú©â€ŒÙ‡Ø§ÛŒ ØµÙ†Ø¯ÙˆÙ‚ Ø³Ø±Ø±Ø³ÛŒØ¯ Ø§Ù…Ø±ÙˆØ² {todayShamsiStr}
-                                                    </div>
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setChequeBotTargetType('filtered')}
-                                                    className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
-                                                        chequeBotTargetType === 'filtered'
-                                                            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-black shadow-xs'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-bold'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[11px]">ğŸ¯ Ù„ÛŒØ³Øª ÙÛŒÙ„ØªØ±Ø´Ø¯Ù‡ ÙØ¹Ù„ÛŒ</span>
-                                                        {chequeBotTargetType === 'filtered' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                                                    </div>
-                                                    <div className="text-[9px] text-slate-500 font-medium leading-relaxed">
-                                                        Ø¯Ù‚ÛŒÙ‚Ø§Ù‹ {filteredCheques.length} ÙÙ‚Ø±Ù‡ Ù…Ø·Ø§Ø¨Ù‚ Ø¬Ø¯ÙˆÙ„ Ùˆ Ø³ÙˆØ±Øª Ø¬Ø§Ø±ÛŒ
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                            {/* Platforms Selection */}
-                            <div>
-                                <label className="font-black text-slate-800 text-xs block mb-2">Ù¾ÛŒØ§Ù…â€ŒØ±Ø³Ø§Ù†â€ŒÙ‡Ø§ÛŒ Ù…Ù‚ØµØ¯:</label>
-                                <div className="grid grid-cols-3 gap-2.5">
-                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                                        chequeBotSelectedPlatforms.includes('telegram') 
-                                            ? 'bg-sky-50 border-sky-400 font-bold text-sky-900 shadow-xs' 
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                                    }`}>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox"
-                                                className="w-4 h-4 text-sky-600 rounded"
-                                                checked={chequeBotSelectedPlatforms.includes('telegram')}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) setChequeBotSelectedPlatforms([...chequeBotSelectedPlatforms, 'telegram']);
-                                                    else setChequeBotSelectedPlatforms(chequeBotSelectedPlatforms.filter(p => p !== 'telegram'));
-                                                }}
-                                            />
-                                            <span>ØªÙ„Ú¯Ø±Ø§Ù… (Telegram)</span>
-                                        </div>
-                                    </label>
-
-                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                                        chequeBotSelectedPlatforms.includes('bale') 
-                                            ? 'bg-emerald-50 border-emerald-400 font-bold text-emerald-900 shadow-xs' 
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                                    }`}>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox"
-                                                className="w-4 h-4 text-emerald-600 rounded"
-                                                checked={chequeBotSelectedPlatforms.includes('bale')}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) setChequeBotSelectedPlatforms([...chequeBotSelectedPlatforms, 'bale']);
-                                                    else setChequeBotSelectedPlatforms(chequeBotSelectedPlatforms.filter(p => p !== 'bale'));
-                                                }}
-                                            />
-                                            <span>Ø¨Ù„Ù‡ (Bale)</span>
-                                        </div>
-                                    </label>
-
-                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                                        chequeBotSelectedPlatforms.includes('whatsapp') 
-                                            ? 'bg-green-50 border-green-400 font-bold text-green-900 shadow-xs' 
-                                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                                    }`}>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox"
-                                                className="w-4 h-4 text-green-600 rounded"
-                                                checked={chequeBotSelectedPlatforms.includes('whatsapp')}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) setChequeBotSelectedPlatforms([...chequeBotSelectedPlatforms, 'whatsapp']);
-                                                    else setChequeBotSelectedPlatforms(chequeBotSelectedPlatforms.filter(p => p !== 'whatsapp'));
-                                                }}
-                                            />
-                                            <span>ÙˆØ§ØªØ³Ø§Ù¾ (WhatsApp)</span>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Attachments Selection */}
-                            <div>
-                                <label className="font-black text-slate-800 text-xs block mb-2">ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ Ù¾ÛŒÙˆØ³Øª:</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                                        chequeBotAttachPdf ? 'bg-red-50 border-red-300 font-bold text-red-900 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600'
-                                    }`}>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox"
-                                                className="w-4 h-4 text-red-600 rounded"
-                                                checked={chequeBotAttachPdf}
-                                                onChange={(e) => setChequeBotAttachPdf(e.target.checked)}
-                                            />
-                                            <span>ğŸ“„ Ù¾ÛŒÙˆØ³Øª ÙØ§ÛŒÙ„ PDF Ø±Ø³Ù…ÛŒ Ø®Ø²Ø§Ù†Ù‡â€ŒØ¯Ø§Ø±ÛŒ</span>
-                                        </div>
-                                    </label>
-
-                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                                        chequeBotAttachExcel ? 'bg-emerald-50 border-emerald-300 font-bold text-emerald-900 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600'
-                                    }`}>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox"
-                                                className="w-4 h-4 text-emerald-600 rounded"
-                                                checked={chequeBotAttachExcel}
-                                                onChange={(e) => setChequeBotAttachExcel(e.target.checked)}
-                                            />
-                                            <span>ğŸ“Š Ù¾ÛŒÙˆØ³Øª ÙØ§ÛŒÙ„ Ø§Ú©Ø³Ù„ (Excel/CSV)</span>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Target Group IDs Override */}
-                            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <label className="font-black text-slate-700 text-xs flex items-center gap-1.5">
-                                        <span>ğŸ¯ Ø´Ù†Ø§Ø³Ù‡ Ú¯Ø±ÙˆÙ‡/Ú©Ø§Ù†Ø§Ù„ Ù…Ù‚ØµØ¯ (Ø§Ø®ØªÛŒØ§Ø±ÛŒ Ø¬Ù‡Øª Ø§Ø±Ø³Ø§Ù„ Ø§Ø®ØªØµØ§ØµÛŒ):</span>
-                                    </label>
-                                    <span className="text-[10px] text-slate-500 font-medium">
-                                        Ø¯Ø± ØµÙˆØ±Øª Ø®Ø§Ù„ÛŒ Ø¨ÙˆØ¯Ù†ØŒ Ø§Ø² Ú¯Ø±ÙˆÙ‡â€ŒÙ‡Ø§ÛŒ Ù¾ÛŒØ´â€ŒÙØ±Ø¶ ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    {chequeBotSelectedPlatforms.includes('telegram') && (
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">Ø´Ù†Ø§Ø³Ù‡ ØªÙ„Ú¯Ø±Ø§Ù…:</label>
-                                            <input
-                                                type="text"
-                                                placeholder={settings?.chequeVaultTelegramGroupId || settings?.botAccountingGroupIdTele || settings?.telegramGroupId || "-100..."}
-                                                value={chequeBotCustomGroupTele}
-                                                onChange={(e) => setChequeBotCustomGroupTele(e.target.value)}
-                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-sky-500"
-                                            />
-                                        </div>
-                                    )}
-                                    {chequeBotSelectedPlatforms.includes('bale') && (
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">Ø´Ù†Ø§Ø³Ù‡ Ø¨Ù„Ù‡:</label>
-                                            <input
-                                                type="text"
-                                                placeholder={settings?.chequeVaultBaleGroupId || settings?.botAccountingGroupIdBale || settings?.baleGroupId || "ID..."}
-                                                value={chequeBotCustomGroupBale}
-                                                onChange={(e) => setChequeBotCustomGroupBale(e.target.value)}
-                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                            />
-                                        </div>
-                                    )}
-                                    {chequeBotSelectedPlatforms.includes('whatsapp') && (
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-600 block mb-1">Ø´Ù†Ø§Ø³Ù‡ ÙˆØ§ØªØ³Ø§Ù¾:</label>
-                                            <input
-                                                type="text"
-                                                placeholder={settings?.chequeVaultWhatsappGroupId || settings?.botAccountingGroupIdWhatsApp || "...@g.us"}
-                                                value={chequeBotCustomGroupWa}
-                                                onChange={(e) => setChequeBotCustomGroupWa(e.target.value)}
-                                                className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white dir-ltr font-mono focus:outline-none focus:ring-1 focus:ring-green-500"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Custom Title Input */}
-                            <div>
-                                <label className="font-black text-slate-700 text-xs block mb-1">
-                                    Ø¹Ù†ÙˆØ§Ù† Ø³ÙØ§Ø±Ø´ÛŒ Ú¯Ø²Ø§Ø±Ø´ (Ø§Ø®ØªÛŒØ§Ø±ÛŒ):
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Ù…Ø«Ù„Ø§Ù‹: Ú¯Ø²Ø§Ø±Ø´ ÙˆÛŒÚ˜Ù‡ Ú†Ú©â€ŒÙ‡Ø§ÛŒ Ù†Ø²Ø¯ ØµÙ†Ø¯ÙˆÙ‚ Ø®Ø²Ø§Ù†Ù‡â€ŒØ¯Ø§Ø±ÛŒ - Ø¬Ù„Ø³Ù‡ Ù‡ÛŒØ¦Øª Ù…Ø¯ÛŒØ±Ù‡"
-                                    value={chequeBotCustomTitle}
-                                    onChange={(e) => setChequeBotCustomTitle(e.target.value)}
-                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                />
-                            </div>
-
-                            {/* Summary Card */}
-                            <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200/60 flex items-center justify-between">
-                                <div>
-                                    <span className="text-[11px] text-blue-900 font-bold block">
-                                        ØªØ¹Ø¯Ø§Ø¯ Ø§Ù‚Ù„Ø§Ù… Ø§Ù†ØªØ®Ø§Ø¨ÛŒ Ø¬Ù‡Øª Ø§Ø±Ø³Ø§Ù„:
-                                    </span>
-                                    <span className="text-sm font-black text-blue-950 font-mono">
-                                        {chequeBotTargetType === 'filtered' 
-                                            ? filteredCheques.length 
-                                            : (chequeBotTargetType === 'returned' 
-                                                ? chequesData.filter(c => c.statusGroup === 'returned').length 
-                                                : (chequeBotTargetType === 'matured'
-                                                    ? chequesData.filter(c => c.statusGroup === 'in_hand' && formatDateToJalali(c.dueDate) === todayShamsiStr).length
-                                                    : chequesData.filter(c => c.statusGroup === 'in_hand').length))
-                                        } ÙÙ‚Ø±Ù‡ Ú†Ú©
-                                    </span>
-                                </div>
-                                <div className="text-left font-mono">
-                                    <span className="text-[10px] text-blue-800 block">Ù…Ø¬Ù…ÙˆØ¹ Ù…Ø¨Ù„Øº</span>
-                                    <span className="text-sm font-black text-blue-900">
-                                        {formatMoney(
-                                            chequeBotTargetType === 'filtered'
-                                                ? filteredCheques.reduce((s, c) => s + c.amount, 0)
-                                                : (chequeBotTargetType === 'returned'
-                                                    ? chequesData.filter(c => c.statusGroup === 'returned').reduce((s, c) => s + c.amount, 0)
-                                                    : (chequeBotTargetType === 'matured'
-                                                        ? chequesData.filter(c => c.statusGroup === 'in_hand' && formatDateToJalali(c.dueDate) === todayShamsiStr).reduce((s, c) => s + c.amount, 0)
-                                                        : chequesData.filter(c => c.statusGroup === 'in_hand').reduce((s, c) => s + c.amount, 0)))
-                                        )} Ø±ÛŒØ§Ù„
-                                    </span>
-                                </div>
-                            </div>
-                                    </>
-                                );
-                            })()}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-                            <button
-                                type="button"
-                                onClick={() => setIsChequeBotModalOpen(false)}
-                                disabled={isSendingChequesBot}
-                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                            >
-                                Ø§Ù†ØµØ±Ø§Ù
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => handleSendChequesToBot()}
-                                disabled={isSendingChequesBot || chequeBotSelectedPlatforms.length === 0}
-                                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isSendingChequesBot ? (
-                                    <>
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                        <span>Ø¯Ø± Ø­Ø§Ù„ Ø³Ø§Ø®Øª Ø§Ø³Ù†Ø§Ø¯ Ùˆ Ø§Ø±Ø³Ø§Ù„ Ø¨Ù‡ Ø¨Ø§Øª...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Share2 className="w-4 h-4" />
-                                        <span>ØªØ§ÛŒÛŒØ¯ Ùˆ Ø§Ø±Ø³Ø§Ù„ ÙÙˆØ±ÛŒ Ø¨Ù‡ Ù¾ÛŒØ§Ù…â€ŒØ±Ø³Ø§Ù†â€ŒÙ‡Ø§</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* AI Sales Strategic Advisor Modal */}
-            <AiSalesAdvisorModal
-                isOpen={isAiSalesAdvisorOpen}
-                onClose={() => setIsAiSalesAdvisorOpen(false)}
-                salesData={{
-                    salesData,
-                    dateFrom,
-                    dateTo,
-                    compareMode,
-                    compareSalesDataA,
-                    compareSalesDataB,
-                    salesDateFromB,
-                    salesDateToB
-                }}
-            />
-        </div>
-    );
-}
+                                                <tbody className="divide-xœì][sÇ•~Ï¯˜°\&˜ xÓ…KJ+KV–[²¤µv¶T®h‰Ydf ’†Ye©DIµQ%ñÃVíCªò°”Ù,YR²Úÿ@zóØü„=§{.=÷î¢9‰)`0—¾ûwÎ¶ÒÔïéM­jµU[«ÎÔëJS5ï.:g¿Ğ»êÙz}z¡>qşgŠÄ1hj¶ª·µæUİ²km­»a·”ååe¥®\P*RÄcÉ6åÚã? ©4ŒöjOí.v”F[µ¬kjG[èUç[Û²«­kk&ıLÇgŞrŒÎœZ7ºvµ£5õ~gâühwôdøbxğî©òîépot¸¯Œ_–¦í¦|«ánÉ>O)‹9†:0µW©è¶Ö9¥èÍ­)eù|'ã©ÜÕ¶—ğ¸À,´Œ{š¹¸¶áŒü®A:öŞ/Şêœ­+¶©v-İÖn¦Õ0-Éõl[3¸.æë‚ÌúšÑn†VÈÄyìŒòKef'ßŒ§´ƒ®8£kÄ·âtt’†ån
+œÿZÃhj;ù»Vê ­µÕÆ]v\ÎEÇe¦àqéBî¸ÔÕ%è&óèÁ½ÛÖ»Zu½­m)8–»K6Ô^u¦¶ ô¶ª³øÏvuF1~·©9+ööL½·õ9³×³	7~à®3ØÍ;wvŠix|ã7I[ä¯Ó¶êz¿İvÛĞ4lh2]\ès7àe½k…,<–¦±g,›²6%™ï¶¶nG¶§ŞmêFˆn9'ç=‹ôîæNQ{öÕnÕÈœ¶V³[mÿ‹½=Ÿ®µ­­Ú¦Şİ¨L®«Õ•›“SGaoË‹xLMÉIâ=‡v®Ím±¦ÂMêZ[ã¿ii¤U¾Ë9/M ˆÔßÓ¿Pn^üL¹|ıÒ¿~òñµ[ÊÍëŸ­*Ÿ~|såÊÊ¥‹·V®_SV?¾Dş­Œv‡{ '¾R¨Ì8ºÿãWOGñœ2Ü¾Éqox ŸÃ¹}¼Î÷ß=…«†~OïÆkFàîSÊ/¦Ó'j	†€İ˜»zVij³€î>W¶BvéPcúÃFgİmêœu1xnµÒÖÛÆfµ¥7›ZW±Zj¾qíÜpQ"g$ÁP#A4<í¶³ºÆÙRÂ¨ğOuÓT{A–õï}ËÖ×·«kš½©AÓ‘…ñrÎpÓã¢?q¦«ÿ¹cİŞÀ±qh%38Îù:'•4ÖŠ°È+H~—®€±Ú35µiµ4Íögú3?!Â^¶¼;„‚nÍ±mt˜í?|6Õ°Ä}6V²ŒQœşY	î5|Tâû MøËğÙp	è–£Ç
+|{ñö ¾ìãUpéşèÉè!Üu N¸C"€-+¢w¢
+vuŸü…çÙ˜µX¬Å3qkq!%(‡ÉÚLuó²Ñèw`äo›–c~ØñH­BÆRbx$­¥éÖœà½ÈÜ™AY™Yw±šDfCbÜxÒè1\Üˆ®»=eø
+ï¾ÀïdP‡Oçá`uîÁƒFOàÿÀ½1‹Ÿïp¹ıáß†Ï›á…‰<Opø{eJòâ°´Ö·m£+4F÷R[oÜ]TˆùÆÒìÕ–±y“lëSÍÔ×õ†Š†”ÊÏ­ø%AVÓJÕçˆvÈè`ÀÚ„‡]ßÒ£‚ŠæÈ'¾ifµgèä©„W~Bg)ÒsA™ôÉò[Ò*b9¢ó£'¹Ÿüß¦gë“rMX$Mˆ‘êÎºÍ¡äL”‚Ìyr_š…7F¬tI&º³õI¡^€¾Í}½•$MôeéãmíúúzP:™#¦ø‹
+Œ*^”r…ØŞ Œö|J“&@ñCJù¸<0ô¨$0	­ºTñ’c*
+D„…Ê™ÜpêÎ(c[š¦¨Pí‹—¤&Ú‡r¥ãô€†Vİb¤võ.êuµ©Á Ë¨®jªÙh)*·Ğ¢`)«ıNG5·3Õ³´ö	+-¬Ö4}&Fqš«+=b—cµ‰o&AÕB25xº~OS6©½Íê,nVÏÈˆÇKÎxÇoÌ°G]³Œv£©o´l´Ld„”ïÕz·×·¥h´½İsD»	©û{ k-àŠš¹<(ÈP 3_Ä‹dA9TÊÛoàÛÃá^­V“kÅ=µİæNé‹E'BÎL²IKínÀÃ4G6¹É>´¢ÕlÕÜĞìy¥¤-.°DÈ²ëµQö0«çbnû²Ãd3Š+Çp¨Œ@£­E£oƒz×èjÎ)4CVgØ/ÒtA
+ŠÄ¢Î6?É#•g~rr*àôv0š“	#[8¼Ñ© çc~!C?›Ë´ôëåAº#EMÈÓ„Ø*{n	íÅ»‡ÏÂ'¹—à ¤½7@ßˆU$¨µ.Fma_BŠg0dğ™8?hêİm­	Ë“•¢ÉIÖC»ñe¾ÛÜ?'Ño<íZt0¸ü0ìx0ş“ÈĞ˜Z³ßĞ*ë”bÒ]­üR1k¿í«][··O)õ©d7‹3À GO€g½íÊY^ÄŒ…‚{…½€øyİ¹ä<Ïv¾UUû¶Ê­eªÕ0v{M5“˜hYévyàgu«ÚªŞÑÛú\T|#™ê¼¯ÍS{–F×‘­\2 ³µí–¦|ˆ á6înJ_÷E[ÖĞ( à2Ì/àBŠøææğÉA_ƒŠr´ÍêÌ,q2qŞİÏKÓv«ğ—ÍÎ‡^–ÇşÖ€°:·ïã»A,ş®´>OœG•|´Kl›¯`F¿õ$ğrºxvâ<¼à Ü·ÌÒFHô˜¸ßä‡ĞwÆ™‘+w7¦Ê˜7t¨ÿ
+‹ã[X$ûÄˆF—ï†¯É÷ñnÎ7ÀéÑ¹o–¡\ ¾(³EÇp ¶{Nœévùa¨ñrÛ‘E©‹Ä¢ïÀÓğ”‘àSÓØôcOÅ­üìÑ0º–­ôTÆTMeYi:öQ‹»®ë(Õâ{á´YC]T¿§]3¦ÈÊqÎC›Ø_@ön€'®4#Ó³Sÿ«ù¦f÷ÍnÎø[<²cp=C†Ú-üL˜ÁL9a¸´‰Í^ÀF&„•:o‹8ÊJ±a¹<í*¨ûäUÉª[\XBš}šªRcFĞ2ÌøõİÍ æqõN£»®¨èZ÷xû§˜ I<Š
+œ¤Ï:†k+l¾Iò¦ªdÙË)İºZÆBò¨öO}1ÅĞx3+v(ÄŞMf]İRNİëĞ¢â£KÍØR*â 2Fh~-2¼üq
+¯´„8&&ê©Œ1»TˆrÇ¬LRÏ–	ØêÅ‰}ô»`ïıöñá¸Ìl÷F±`
+<X‡ Nkì/OÇ8š—Pû&qöšınnšP`Úè"‡A·î5xf¦àƒ•/¿T&üêëÉ÷gl—h¾Z/í›N:d¢.y˜ÈL­­5l­	İøÄhªíŠ×«‚ö{¤útC@ µéù™ 6¶xñŒNÊ¸ßƒAØBlhx¬â´ïæJÀÆ
+h²¡ S¹`™´ƒR‰‰@(ßÛo0äø"Š}a±Ü¥+$ézOë}„ù¢!R_Iİÿ«¦8Æí=_:#é8R/6Ì£C$7Úë†aÇ¸ ×=òYR°0^È!;6g¼Ù!û¬¿Å™ñt";4%€.YÌé°à••¹¥:¯¸\^ÌLOŞñvÂlÒBğÅg/$$Û#Ûi7&îî÷œïåˆ_"êÿíâ5åã›7”Õ•k¿ºú±W¾|såêÕêåëŸ]S>¹~ùâU¥2úä‘şjôuïï‚XÂ‚ÅV0TÃ60ü˜ÀÂ\ ÂèŒv³ñÉ+$ô¢ ÒÆºçŸS~¾¼¬L¢°·JOs/i˜,°†iƒœœ2G1ê[ 8ê]ºYª~ÆÍ¯ÁîošFè@ßDÍî”s3¥dHµ:‹èÄ	ÓæE5†[šcìFyÍnµ]Î€…ÜN@Ua¶Ún¼Ø¹Ù{­ÏÔ4ì÷ÄÛí£…´I1A'ûŸ4[›'|À8pØ¤Pá©°ŠTúÙ¼xˆühñ¤'obˆ[ÿ0ıDˆZæÊNG¬ÉJ#Iú¢8$±b±ŸŞmRw¹w‹ñŒ¼!š|\S-mœÙ¢„¿Š²İKÄ{`ï†€¾A|ºR!jlL“òîÕ»Wr
+$a´uàî°<ÆšMédÔÒ@6–ÖÑLµİôÍ¬î‰³Œ¢à;Ç¤7\<—{~"ì´¦öz¦qOm¯Úªİ·òòú¶ä¾$·FañA\M*$^:…{D"cSësMœNwpCâ¿”ãA÷Y ®V¨í‰Êël|Ã}ÿz¾Õ" Ş÷oÏúQF
+Ò˜ÃÌ2%·Ôn³­İ mÑ^±­ÁUÂ“•NÇ‡îOµÇeaLÁ‘°3*–Q$’U€.oëpXntNãvÈk–ÜdJ1ıA"]î¹d¯¾Å8õ7í"×Îef•7¥¸â|*]`äù×>]çYğÃ3A÷E€~²4”Wa¦^ÿ>Ğ%¸nişº8]f•ŒâEµÓUuX¥›FAYé®f‡Â¾.©f³(µÕÓ¬· `n–‚ùœ
+gª:»€Éæ
+£ˆ)aÃÔ›ä,j
+ñ¿Îa¢’*nòU¢2S<Óô¤mÃ•†ÜÀ¤ˆ<È¨C‹¹a©2‘û¹z¢#“^dŠšï¾]ğTÆÈ
+Qf1	Ëî¸&3MÌæÉü²÷{?›œÑv/áÛDj‘ÌyåNf¶¿oÖWJ“w#¿Æèğ¶ŞÑĞè}çÇ¯¾V>ˆÿ}G<Ÿ×»÷~â}sÔhwô`øš8‹n^Ï.ÏLoª¦Ö2ú–F¢‹XÊe$tuê§;ÁoFFOpš	óq-³Ä¦» ™6zÎÇıôŸVw"ÊâÊU8£Gw6{š©Í[Û=í0¨-Û+««Ø iïBñb1A·O8êğ€$h!Ùi©ÍôÈNiSEKï­Î¥ãäÊ˜!}õªŞÕ,‰$$äÍÜ¾æ‚Ó‚K+€á¬ÉÄO‡â+µ…{„e÷Zk>1¿2¯"P‚o‘¬ñ¿ÿé¿ËLéf†Ã?Y»NA7ìÉÂw^k[$}ôòUâ³àIîc¤™%iætk¾HbÍwÅ]Ù"Ç´ùÑu‹è²¨ZYİ"”oIrP•feO’•gò#ÿ­r©6‚Ï0¹m~§©“ÒğŸ§[ˆœR”«¦ùeåIJ}åÜ,»uL°“üÖÒ2et´ğÌ>)ïä÷9]V~Ÿ”tônu³:–Ä,ûÉ}F÷İÄõÃW$Hù%’l¹¨Å–/_:-÷€CKÏãI¬Ÿ-;W
+Iÿ‚M³¦67@f^&gptB'jV¯­Û•É/'§H“,âR¬íT¦¦jëz¨Oå#Ãhkj“ßÜş<_Š<
+Kó‚‡Ÿê…ãQ+¹è·3»ôb²±Õ)ÂH»XpÆ—„ÖI%ÌpéCÑÇÓLîÀ@¿uÄbUvë
+ˆ§Fñ¥ãvB@Âdl|Ò¼Ú<J)èE#çJ_Æ<À÷,Å«xì;‘‚‚cÀãñíÏe»n&¾ó9óğ%EH„Z	·‡D|Y;¥¬­R39í D°øµ0ç§Ù©¡ÖNZ CLì>kÅcåİ£Ì±{L•€ñÏwtäKò˜tdø"&ÎÿøÕ×eş‘$ÇùaÚxäL7¹“_*Àöb§Y±Ä’à`®ó›°rg‹¥a ·ó;Ò‘æ§ëÂ°™ô9Q×ÆI‹kYñk%Ô}–°’ç¤R‡ÚÇÁ„”–"A×LWò­ÄAØÌÍb`lÿFY§¬àå!ÆW`8r`à ÅÈ[*Àµpoh¸áüh®<0.¦Z%URò¢®LĞå6 ÌIn9Á*±ÊĞ<*C³!tat&ˆŒ¥£¤Ã5KÑS‡‹&¯Îxf I´«üÑ	(r$­Ë„ê­|è 3™Š|tÁŠËÈMt8H$·\ê‘x)½ìTêunÖ”ê`)+4å•1ºãÎT%ô¬8™åš¦ÖA›Î5‚›¢’NXÄè–w	¹‚d‚("ûo¶—:	€f{êÍ›í¥.íE<»©	ïIÍöB›"“ù¥åUbmÑğš
+æô9çfƒ©gfƒI"„’½¤È¶Ié]’ŠÕæLï’!ñQÇeï );Üü@‡…³Æå“ã–®èmí<0ÃI_û€ÄqKnÜßkR‘fø-Ş<#á£ûQá+ÎYüü}ÍAîxòzÈ«›TXÓ-œ¨-£=d› Üº‹ h/U‚ÑÁİrK]·ô¶î¸b©æà$NÙ‡1}j}l:‡ì÷Çx¯CouÜÓä­ÙiYx™WÜ<9Î„ÀÂcÚLNåÈçAPAßcØÎ÷\@2`guÅ4:$Ş»Z­Nî –¸G¸eø§‹è:Ï%NYÜÌ×…äR¾ˆ`{+1¬¶²®¶-ÓLŒ°û„Ëª­VnÎç¯ú*H–¶¦]ji¿ík–ĞÍŞkıÒÀÙ÷îdÏ\ÌÈô’¹gãeîóL¸q4¨FHæØr!¤şi ò§3éz¶pœeïòyş-Ã v1¦?Ë´ØÿŸ¦çd¢ü=IŞC>›ÆfD@ˆrÙÌê\Eï¹RÇÅ¹'úy¡îiA{¾$CL{¾2JÖ“¨V"ì½ı«×Ñõ„=«ç{¡SŞ
+R¾›£éÃÔ'\’ï¹5ègcUí¹$U;b ˆañ±z>w¥yÂuê~…{ÁÏ¤)ÙòXƒ%ÙuÍƒz
+Ïöáeªx„ëºf7ZŞÜWÂ¢ï¼7u=ÍeĞu¯jÆ–Ïb˜—J‘yX<©ÉãMä¯%u¾ @“İ-=µ¡ÛÛ¨8åãaxğ‰rş*”%ü¨™³€V¢+Ò„H^rÒŞE*¨€ |S[75«ui3%ßô`|:zT1W’›5‚xF¯‡àÈk€’[Ç¬]İ]Ç|‹Y´(Ópg­uU‹^Ú"4‘Ûzã\€ñô½ØCÄB*3·À1øO+7._)håghMüèGr¨P€¬±®ÜÂ‘V8ÔVzvê©”Ê¤§#	›œ…KÌ°”Á¶$N"«u@®M5^Â«³)™c¸c0â(2º°°Î¨±¤ÉA˜±ñ[D%Ò¯|üÅÈoÑ$B\¼Ä …1pÕ+Å·=½$	ÌdƒDÉë’âPà1*.•@ò†»F´‡ìl\éK [sÏ î™Ëšu”åS]ÛäJHÄJF±‘ŠÓ¶Ns‘Ü$à|¦ØÈ¤ °dĞ©á*Q]ù¤cÑ¨©jQ¨Y"¢ Ë½’¹S€™Ä‹ÃÊÖ8^<³ ›ñZ2±´Àîğ:‹Kµ—¦bøg4U¿{Š!!åw8ŒsdE„W=«8tì¡$Ì1gCP%‚xÈÁA-´¤–G±ÇÙMdŠAdñ>šù¡¯Åß.)'ç€o
+¼A<'#°ÓØ<¥èÒ¸†ìÚó 5Wä0ÀGÁ!(¦Äñ€æı¼L¼ÿ¬¶Õ¶NÊ]â‰©@¹TdaÈ†L~°´î¸kğı«jWm’Œ¶ î½%T&øÄĞôî¯æ†^}ïÌR÷0p
+Í.¹C_Y ¨&Dür‡‰è&Ö:wtoh<v¡Ñ`NïœRenÁŞ¯•#à¾ÈY4/Ö"?Jd²:)ÿv¹Î—°#-m¨xUôliî^¾JCE³VzŒØ—€N–°Ù	¦²ºa±»ŞsÓ8-]ƒ­@õJ?1ºÚvÅùgæ®ÔVºå2²j%6Ô*º¡ƒ;i`¦Ğ¶é64§}“şèé™Ä¦zŠ'wîä(!<ˆŒ }ÿQØ*‰Kº‡aÚóÁ]ÆÅŸ¦ò%™ˆ™Y`1d^İºIfŠÂ,„
+Çà%ÒmÉµVğˆ[£¬ÒBZVr0|Y½d£8šb‚4Öİëw:ª¹­¬R+Â=Äóô%gt
+-_ıá™ÏY;5İ®ÿ¦:ÛÛúÍiøÏÜXS+õSäµúÜÔçJ¸à©„½„¶8²6ŸL%ÃÊ:ƒ`ó’„²îbÃ!¹Â´h>–	°™|È´ ×³¼š ıW„¬
+ü•”•ª‰[Ê 1ÔêÈŒ‘5ş1Š-‡ŠAd­SäHd¨dOìğÜN5EW•™Ï/HÈÂí“fBÙ@¤‡ L×eÅœØØÊH©ù™+§DePP'µ\­=yèÎ6ñÎ=)·SäcMok‚>‘p¤?I˜Üi.:±\k	şísB¶½’ìz¤§±F½@Ÿ[Ãf6g˜ˆÃ3-f¯ĞÔØl¨²{ÇD ø	"İ:+ò¥’eH,.Ev¬úãh>çŠU|”“œáÒ…Bw2õ6å´¤|Úôµ£1§×¾AÆ'ä¬ƒa wI0#%®¬^$nËeô§¾(_²fâÙ\<^ÉU!ªù’WÅÁ=|+(k YDÃ4”$†B4U«¥5C“&œTÌ+»-sf¨ÜÚœ'Ÿ6“MlÈî¼Ãj“e–¹rL%°ÚsIœÖR»–[Ë%¹…d°O)1áZÆÅlà‡S2ù0'$ÀòÊÆ fò?´y‰,Z
+´z‹Ì–nQô<î0¶<şd·Å!Ìaùi„„,ÌŒfê—§•šié–B—åóÖ(	²‹5/ÇäGñT¾œy‚âÔ<í1)K(Úš‡o˜°Q6JËµ?K2Š}Œ…9&· ³±âSÉô¡¨D‡3‘Á(·’&3Ş^Â|ZGw>“3a²"î	ì^ŞG6ı®×È#=¢u‡B§à9w¸œ/a“Ì'†|ÿ(Ãï­ù‹ş¡ZôK'8eeOÊrˆ£4X­¡5€v4W¶/BÅ™/¸˜Ô?ÜtsôøİÓ·>s
+V|—ƒäJDb9zôãWO‡¯	õ16ğL­aÎsQ¶õ²F(NÚeU#¸­L‘vğsGõá‡ÊF(ı‹Éá²D†§ø×iO¸%EÕÎÌİB}z*snÂ"væ‚6+zƒÃıÄl&©^Ñˆ3Ï#]“ôÅb£%¸ÆİÕßÂ8†P>LÖ ú`HytL‚$/	¬}Î	ó ô¯£]\ Ny&X°ğÓ­Ú´KÒ=ş/qi€ •áÅfy“dy{ÚÉ¬5W'Œ'Œ'ôòGv…\XÒ .Ò»±€¸è›b€\Ş:Bl…]şàJÇ&I&0Î†’Ğ¶-Ó%ùòbp]â//Û%øúñ]¢C« ßÏF‡ÿËĞ¬üh&á E©2qÙØ"ÚíÂ¿$öà Â“‹@Ñ¦g!Œ<JS Âˆ¾ùˆ¢ŒR76¤QB+Æ„6"oAÿøëøL=¼¡Ñi\[ˆ¡)Œ'øŸğı¥,V98MI‹Ö‚¥K&Áè—·FfŒÑ±
+¸ß×¿•«d‹, Cª „h|®pI±(?<d#ıÈÛ£ıXöé'Ù„é–ÂCÓ¢ùŠ	âóŞ2†@>ò®÷/˜/¶Ù,·ŠcUY±~E££Â£’Ÿ;¤É<gÃ!MíÔ&OåÍ·f™âa]æ–g·àXã#bU·rBYBÈ'_ˆ÷fòÿ\A¯©c‘ÇY>!ñw¡O±±~T/¼»u´n ^2+;íI¦éì×–˜iz«ºà%îô]=¡ì'~</€™·nK)Y¤İ*+Êè„£I1}‘ñæø)®òI¸ÒIàGÜ®ãè#ÃV.ë@íF+¹	½®}/«‘ÌX$µØHÔSé8
+hé¼Ğ­2{ˆuCæ³«†pÙ0Aƒ_«¶Q™Ä4:4y!ÖV¸§«n‘/ü
+WøuüÜ»‚	Ããİw<å¸ãó¨»³:=³º|¯³qµ¢~(Ëc¸xÈ§P pgëxë­8¥6¸¥t¤\¿•ÑãÑô­ Rˆ!fß“ß^)Œ£(&Æı@d±]t¥;‰‚İß+Äù¾Ï³!àÌì%ÖA!ó2ëÒìú.a~¦MôÈ’®>&¾×=üxŸÔ}{èûlq`È€…`~Xâµİ{ûhÕ|!<KÓ½BVR‰u8ˆÜeÜSX-
+o3ÂÁ\°æ¥ßã.+AöÿXËJ¬¾R!š½×5j-pµ^™¸at-ØBSİ²Ù±ôUÛT–•»QWÛTğD«¯¬^wJOqH ¦f÷Í.§©oI,šà)v ¬6Œ¦Ğˆ<87ŠG™¶Õ5­…}Ä•auiœcp]ÃXóÑ#§ä5IÊ„ÈC¨}‚öîéâÒ4y[¾8Ø‹¤4÷¿ÎJUZªƒ>@¼#Q"ç‘8º.nÁ+*“÷Ô~Û–­’Ì–ócP‚*C%Us`˜Ñ‘¤öNïrYM)Ú©©á‰£n‰RpcV	Ôİ˜vóRI3XâŞÈ·¬|­¢ˆë0´#„çğĞ˜"¤*À¾¯@ÓcªÜ„$Oüo’Ë˜çÿş§?ü×ÿıÏ”PdÛk²şdô ¯©q±˜Qe¥!}©e Øí‡n-7Û.¤İóÀ¶ïÿš"˜ ï±ş7SÊğ;ä*È`PÈwPÁã5ºº2Õñd.T¸ÑšÇ–¿x,€Å¸)7ØìaãôX9qÂb¼ã˜°˜¯_…ùË³á‚_aPdyÆ[ÎœLÆƒÕÿ™°-ØCÂÌj. Áì¿#_÷}0Æğ9Lç>1©¼=@'ú	»á:8Ù¨å}ós·07š!¤f7ŞYß8 ”†ãÇ…á|Õ•^ ièÒâ¬=´c±¼ò˜»ª9yN ©ô“c:IZghö¼iSAûåXì¸ó|l×Á8“0”0Ìu˜óßqÏpï8&œç÷
+šò‰ƒqt}îLùÏèşğşZ÷ñ–8'ûa“VıLË˜¤Àb~çç¤b³w¨±‹À‡ş†9÷C='¬ê!qí¼Äl˜“ïùaZİJ|O¦@ôÑİ€ùB¢%à ãsÊåvÄ%@ ’»üzxÀïãKÈÛéİàN6)Ã8«(‹1Ò›à«‘¡S©5½É­éİF»ßÔ¬Ê¤¿m˜jgrJ,[+å¢Öİm–CÁ· ğÎ+œ>ç×Œ î(ö*vx:–ò1A¡Ä4œiDÁìz·×·ÅÓæR³ÜbÍØ2føË¼?s§ı€Q‰c“°ú·àZçc #·Ôîl¼Š&d>ôu¥¢ÕlÂ•kNë§w¤•ÛµZ-¹§¿_¼ñÃáCkcÔYj#R˜rÅJG¥GCNı‘–hG”2{$ğÀÃ©Í¼?zH2®ÅW*·œæN‰
+^Bqşç8Şô~Mmkr´>YcŠ¡ù‚tB÷yzÄè>[oL´Ÿ®ËãE÷IŸÍ§#|Téı³ÑCĞÏ*A#O¨|ÚÁµ›6[ªm©½¥ß0¡É¥ßc¨<ıá„Æs=õˆÑx:wc¤ğşš<^TŞë×‘¡ôşHQjOBö‰ç¥ò6÷b¯7º_À3ymim[m´çw­i)ÀšÂŒh¡ĞõÙãdS£“{£¹î†Ëi¬f„ßæ¢üO‡¸¥<ávG·Ã‘/˜×y+  vÆRï¹QV5Òü÷?ıñ!²s	AÛ¡á3XÄ‡*Ÿˆí)GhÙ|¼Õ€fVbHH‚aå„Œ÷Ì0Â¬‰Rˆ	yòa‘“ÿˆ%'.jW©ÆM_Zıô¸ÉŞ‘V2\¹l)×AyiHã’Š´cJãñÿ'fŒökd`úc7³¸ä?“hÊ
+r	ÂêFX§3B`sw	şIlôK
+Ş|1z2z<Åğ,Á¢Sÿ±RÁHiŒ›¦,Í‘f`ëô¸xoøúİÓ)¡ BøPŞTs¡à
+0>ÉÜÿÚ}ø¢X„ÿdx #ó;û½7`A]aø
+¿ß‡[ÿª ø?°¯wIêtg[FÍ€Ä@‚Îñ±œãÄ7¦)øÕ”9!N%êÙ+WZŞ9¾(IÈ°æé†3$×·»WX7œ$º™ppIç¯= +Z:©™Ë`†¶Şİ°.8FœOµèú	i^ib"Aÿº5àšWüî\7¯²£˜@{d­V›çá÷Ôv_c‚K@gúl|uÁBAèé¾`@š!a‹æùïy%I¢²hLú)¿"¹nVÛ¶È}Ûè[‹Fß&Åy»FWsN‘àÌöF©‹­‘úüòç ŠøÆŞ3ÊA:Çˆf gŠ›^àÅ¡«‚·O¬\.œRàKË£øôcC)˜˜îcG-ßß{E1X§À1¢Ÿ9ÓÁM;\w!@$şq£Ö·Š¥Ÿ©åÑ‰ÏÔcC%\?øûB#
+´]Ğ	Uné60²b„¯ãêLœãŠø1|CÒ6íaz¹—D}AJÕ1y›BŠşÔ"ÇèòšøÉ(éaÉÍhÛ=DäÃ"Û³Ñ“wOßş':dò(U´y<¤ù1ÏÓZh>zÌ×ÌxÒC1à 6äir¤&–¼Ô2	ÌV›%0±Rä¤˜Yö“¢){`3âñíìU§”÷%Õl
+"©åÑO@……nín–HÌD[„)Q sg
+È‹Í…p¯8…ìù­gûÃ7d×€ë²wbRÜG[ÚğYœı0›Îˆã+w”0aæÿÌ…ÏY5‹Gk‰ÆUæ§@.8ş:‹”ÔuBlHˆ5ËVí¾E­úÁ÷LIu!«¹Ò,uDïş¨.ÅÆ¤•lÔš}Ô#!—‘Ünß¥Z¹(ÓJ÷SüÅŠ$ 2Ç£`‹ö«?‰îÊlÿ Ùğg]‹T¢x>Ú¥ù,¢%¡
+#ÊBk¨´x”4ÁÇ~C«T¬SJƒÊ#Ê/amªTİN)uñzÙ\„«ü-ÏĞ®âû˜ÕÏÜ	dÆHİÊ:BRÄ/³At‘©õ2nš(äÃÏ¾.#àugªr„«°dU+Ë’9Vb‰I
+ÎRŞÔ-,©×\èÖªÖÅt ±…Ç‰–A™ÏU…QëÆXõ„×Ä³z?cƒpe­Ë¤#éik8]Î\İ2`¶Ò¶”{¤N7Z:SLÛPô¯.º2N“•AuÖ¤â§iµ§ö†3ñ¯ğ³¬ø×yª`•“ÈbbÃtšî'69sB¨\F‚wDÚĞm‚Ã÷Î9×vo56³ÂÔ²×kì¼](>QüÒMmİÔ¬Ö¥Í¸ <·ÕÓ»\EA¼ÇR”	xù–Æñ¼¤@6q"©&áGú<#~LôJÔj5±8N…¢Qá£WP…Ìhí£ádğ
+(QOhtTze’Â‡,ÃXuH•¢ØßîcEYUÛš¥€à‹uCo(›÷tØ	å¢–.êäç*rQ¤%º…üégğj<$Ü†¥¸uô¾Dnmá…(.âCœ½NÅşÜ„~_ò™üë-#ş·†ÑéÁ†1ĞR/Xup‘ï²â/sûAZ›up»È!¸³Š™RéÎÏş  ÿÿ H˜*
