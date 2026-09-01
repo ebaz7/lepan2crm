@@ -260,14 +260,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       {/* Dynamic Ambient Room Light and Floor Reflection (Centered under Lamp Column) */}
-      <motion.div 
-        animate={{
-          opacity: isLampOn ? 0.6 : 0,
-          scale: isLampOn ? 1 : 0.7
-        }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="absolute bottom-4 right-[15%] lg:right-[35%] w-[400px] h-[300px] bg-gradient-to-t from-amber-500/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full"
-      />
+      {/* We will place this directly behind the lamp in the grid container instead of absolute to screen */}
 
       {/* Dark Ambient Overlay when Lamp is OFF for striking contrast */}
       <motion.div 
@@ -329,6 +322,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
            ======================================================== */}
         <div className="lg:col-span-5 flex flex-col items-center justify-center relative min-h-[380px] lg:min-h-[500px]">
           
+          {/* Dynamic Ambient Room Light and Floor Reflection (Centered under Lamp) */}
+          <motion.div 
+            initial={{ x: "-50%" }}
+            animate={{
+              x: "-50%",
+              opacity: isLampOn ? 0.6 : 0,
+              scale: isLampOn ? 1 : 0.7
+            }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="absolute bottom-[-150px] left-1/2 w-[500px] h-[400px] bg-gradient-to-t from-amber-500/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none rounded-full"
+          />
+
           {/* Executive Desk Lamp SVG Component */}
           <div className="relative flex flex-col items-center">
             
@@ -363,12 +368,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               {/* Realistic Spotlight Cone: Mathematically locked to w-52 (208px) shade rim */}
               <motion.div 
+                initial={{ x: "-50%" }}
                 animate={{
+                  x: "-50%",
                   opacity: isLampOn ? 1 : 0,
                   scaleY: isLampOn ? 1 : 0.6
                 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="absolute top-full left-1/2 -translate-x-1/2 w-[320px] h-[380px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
+                className="absolute top-full left-1/2 w-[320px] h-[380px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
               >
                 {/* Outer Volumetric Soft Glow Cone */}
                 <div 

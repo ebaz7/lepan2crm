@@ -2346,18 +2346,18 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 sticky bottom-0 bg-white/95 dark:bg-[#0b141a]/95 backdrop-blur-xl glass-panel p-2.5 sm:p-3.5 flex items-end gap-2 sm:gap-3 border-t border-zinc-200/80 dark:border-zinc-800/80 relative z-20 pb-[calc(14px+env(safe-area-inset-bottom))] md:pb-3.5 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+                        <div className="shrink-0 sticky bottom-0 bg-white/95 dark:bg-[#0b141a]/95 backdrop-blur-xl glass-panel p-1.5 sm:p-2 px-2.5 sm:px-3.5 flex items-end gap-1.5 sm:gap-2 border-t border-zinc-200/80 dark:border-zinc-800/80 relative z-20 pb-[calc(8px+env(safe-area-inset-bottom))] md:pb-2 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
                             {activeChannel.type === 'system' ? (
-                                <div className="flex-1 py-2.5 px-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between gap-2 shadow-xs">
+                                <div className="flex-1 py-2 px-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between gap-2 shadow-xs">
                                     <div className="flex items-center gap-2 text-xs sm:text-sm text-indigo-800 dark:text-indigo-200 font-medium">
-                                        <Bell size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                        <Bell size={16} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
                                         <span>کانال هوشمند اعلانات و پیام‌های اتوماتیک کارتابل</span>
                                     </div>
                                     <button
                                         onClick={() => markAsRead('system', 'system')}
-                                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-95 shadow-sm shrink-0 flex items-center gap-1.5"
+                                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm shrink-0 flex items-center gap-1.5"
                                     >
-                                        <CheckCheck size={16} />
+                                        <CheckCheck size={14} />
                                         <span>خواندن همه</span>
                                     </button>
                                 </div>
@@ -2367,89 +2367,104 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     {localSharedData && (
                                         <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up bg-blue-50/90 dark:bg-blue-950/90">
                                             <div className="flex items-center gap-2 border-r-4 border-orange-500 pr-2">
-                                                <Paperclip size={18} className="text-orange-500"/>
+                                                <Paperclip size={16} className="text-orange-500"/>
                                                 <div className="flex flex-col text-xs">
                                                     <span className="font-bold text-orange-600">فایل پیوست آماده‌ی ارسال</span>
                                                     <span className="text-gray-500 truncate max-w-[200px]">{localSharedData.fileUrl ? localSharedData.fileUrl.split('/').pop() : localSharedData.text}</span>
                                                 </div>
                                             </div>
-                                            <button onClick={() => { setLocalSharedData(null); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
+                                            <button onClick={() => { setLocalSharedData(null); }}><X size={16} className="text-gray-400 hover:text-red-500"/></button>
                                         </div>
                                     )}
 
                                     {(replyingTo || editingMessageId) && (
                                         <div className="absolute bottom-full left-0 right-0 glass-panel border-t border-b p-2 flex justify-between items-center shadow-sm z-10 animate-slide-up">
                                             <div className="flex items-center gap-2 border-r-4 border-blue-500 pr-2">
-                                                {editingMessageId ? <Edit2 size={18} className="text-blue-500"/> : <Reply size={18} className="text-blue-500"/>}
+                                                {editingMessageId ? <Edit2 size={16} className="text-blue-500"/> : <Reply size={16} className="text-blue-500"/>}
                                                 <div className="flex flex-col text-xs">
                                                     <span className="font-bold text-blue-600">{editingMessageId ? 'ویرایش پیام' : `پاسخ به ${replyingTo?.sender}`}</span>
                                                     <span className="text-gray-500 truncate max-w-[200px]">{editingMessageId ? '...' : replyingTo?.message}</span>
                                                 </div>
                                             </div>
-                                            <button onClick={() => { setReplyingTo(null); setEditingMessageId(null); setInputText(''); }}><X size={18} className="text-gray-400 hover:text-red-500"/></button>
+                                            <button onClick={() => { setReplyingTo(null); setEditingMessageId(null); setInputText(''); }}><X size={16} className="text-gray-400 hover:text-red-500"/></button>
                                         </div>
                                     )}
 
-                                    <button 
-                                        onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} 
-                                        className="p-3 sm:p-3.5 text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-2xl transition-all mb-0.5 relative shrink-0 active:scale-95 cursor-pointer shadow-xs border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700/50"
-                                        title="افزودن پیوست"
-                                    >
-                                        <Paperclip size={22} className="sm:w-[24px] sm:h-[24px]"/>
-                                        {/* Attachment Menu */}
-                                        <div id="chat-file-menu" className="hidden absolute bottom-16 right-0 glass-panel shadow-2xl rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-2 flex flex-col gap-1.5 min-w-[180px] animate-scale-in z-50 backdrop-blur-xl bg-white/95 dark:bg-zinc-900/95">
-                                            <button onClick={() => galleryInputRef.current?.click()} className="flex items-center gap-2.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 p-2.5 rounded-xl text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
-                                                <ImageIcon size={18} className="text-blue-500"/> 
-                                                <span>گالری (عکس / فیلم)</span>
-                                            </button>
-                                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2.5 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2.5 rounded-xl text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
-                                                <File size={18} className="text-amber-500"/> 
-                                                <span>سند و فایل</span>
-                                            </button>
-                                        </div>
-                                    </button>
-                                    
-                                    <button 
-                                        onClick={() => setShowStickerPicker(prev => !prev)} 
-                                        className={`p-3 sm:p-3.5 rounded-2xl transition-all mb-0.5 shrink-0 active:scale-95 cursor-pointer shadow-xs border ${showStickerPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800/60 shadow-inner' : 'text-zinc-500 hover:text-amber-500 dark:text-zinc-400 dark:hover:text-amber-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700/50'}`}
-                                        title="استیکرها و ایموجی‌ها"
-                                    >
-                                        <Smile size={22} className="sm:w-[24px] sm:h-[24px]"/>
-                                    </button>
-                                    
                                     <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
 
-                                    {/* Main Input Text Area Box */}
-                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-4 sm:px-6 py-3 sm:py-3.5 min-h-[58px] sm:min-h-[64px] relative transition-all duration-200 border ${inputText.length > 0 ? 'bg-white dark:bg-zinc-800/95 border-blue-500/50 dark:border-blue-500/60 shadow-md shadow-blue-500/5 ring-2 ring-blue-500/15 dark:ring-blue-500/25' : 'bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:ring-2 focus-within:ring-blue-500/10'}`}>
+                                    {/* Unified Compact Messenger Input Capsule */}
+                                    <div className={`flex-1 rounded-2xl sm:rounded-3xl flex items-center px-2 py-1 min-h-[40px] sm:min-h-[44px] relative transition-all duration-200 border gap-1 ${
+                                        inputText.length > 0 
+                                            ? 'bg-white dark:bg-zinc-800/95 border-blue-500/50 dark:border-blue-500/60 shadow-xs ring-1 ring-blue-500/20' 
+                                            : 'bg-zinc-100/90 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 focus-within:border-blue-500/40 focus-within:bg-white dark:focus-within:bg-zinc-800 focus-within:ring-1 focus-within:ring-blue-500/10'
+                                    }`}>
+                                        
+                                        {/* Paperclip Button */}
+                                        <div className="relative shrink-0">
+                                            <button 
+                                                onClick={() => document.getElementById('chat-file-menu')?.classList.toggle('hidden')} 
+                                                className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 rounded-full transition-all active:scale-95 cursor-pointer"
+                                                title="افزودن پیوست"
+                                            >
+                                                <Paperclip size={18} />
+                                            </button>
+
+                                            {/* Attachment Dropup Menu */}
+                                            <div id="chat-file-menu" className="hidden absolute bottom-12 right-0 glass-panel shadow-2xl rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-1.5 flex flex-col gap-1 min-w-[170px] animate-scale-in z-50 backdrop-blur-xl bg-white/95 dark:bg-zinc-900/95">
+                                                <button onClick={() => { galleryInputRef.current?.click(); document.getElementById('chat-file-menu')?.classList.add('hidden'); }} className="flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 p-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
+                                                    <ImageIcon size={16} className="text-blue-500"/> 
+                                                    <span>گالری (عکس / فیلم)</span>
+                                                </button>
+                                                <button onClick={() => { fileInputRef.current?.click(); document.getElementById('chat-file-menu')?.classList.add('hidden'); }} className="flex items-center gap-2 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
+                                                    <File size={16} className="text-amber-500"/> 
+                                                    <span>سند و فایل</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Smile / Emoji Button */}
+                                        <button 
+                                            onClick={() => setShowStickerPicker(prev => !prev)} 
+                                            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all shrink-0 active:scale-95 cursor-pointer ${
+                                                showStickerPicker 
+                                                    ? 'text-amber-500 bg-amber-100/80 dark:bg-amber-950/70' 
+                                                    : 'text-zinc-500 hover:text-amber-500 dark:text-zinc-400 dark:hover:text-amber-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60'
+                                            }`}
+                                            title="استیکرها و ایموجی‌ها"
+                                        >
+                                            <Smile size={18} />
+                                        </button>
+
+                                        {/* Unified Seamless Auto-resizing Text Input */}
                                         <textarea 
                                             ref={inputAreaRef}
                                             value={inputText}
                                             onChange={e => {
                                                 setInputText(e.target.value);
                                                 e.target.style.height = 'auto';
-                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 220)}px`;
+                                                e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
                                             }}
                                             onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                                             placeholder="نوشتن پیام..."
-                                            className="bg-transparent border-none outline-none w-full text-[15px] sm:text-base md:text-[17px] resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-relaxed py-1"
+                                            className="bg-transparent border-none outline-none w-full text-sm sm:text-[15px] resize-none custom-scrollbar relative z-10 placeholder-zinc-400 dark:placeholder-zinc-500 text-zinc-800 dark:text-zinc-100 font-medium leading-normal py-1 px-1"
                                             rows={1}
-                                            style={{ height: 'auto', minHeight: '32px', maxHeight: '220px' }}
+                                            style={{ height: 'auto', minHeight: '26px', maxHeight: '180px' }}
                                         />
                                     </div>
 
-                                    {/* Send / Voice Action Button */}
+                                    {/* Sleek Send / Voice Action Button */}
                                     {inputText.trim() || isUploading || localSharedData?.fileUrl ? (
                                         <button 
                                             onClick={handleSendMessage} 
                                             disabled={isUploading}
-                                            className="w-12 h-12 sm:w-13 sm:h-13 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-2xl sm:rounded-3xl shadow-md shadow-blue-600/30 hover:shadow-lg hover:shadow-blue-600/40 transition-all active:scale-95 mb-0.5 shrink-0 flex items-center justify-center cursor-pointer group"
+                                            className="w-10 h-10 sm:w-11 sm:h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-md shadow-blue-600/25 transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer group"
                                             title="ارسال پیام"
                                         >
                                             {isUploading ? (
-                                                <Loader2 size={22} className="animate-spin text-white"/>
+                                                <Loader2 size={18} className="animate-spin text-white"/>
                                             ) : (
-                                                <Send size={22} className="text-white transform -rotate-45 rtl:-rotate-135 transition-transform group-hover:scale-110" />
+                                                <Send size={18} className="text-white transform -rotate-45 rtl:-rotate-135 transition-transform group-hover:scale-110" />
                                             )}
                                         </button>
                                     ) : (
@@ -2458,13 +2473,17 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             onMouseUp={stopRecording}
                                             onTouchStart={startRecording}
                                             onTouchEnd={stopRecording}
-                                            className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl sm:rounded-3xl shadow-md transition-all active:scale-95 mb-0.5 shrink-0 flex items-center justify-center cursor-pointer ${isRecording ? 'bg-rose-500 text-white scale-105 shadow-rose-500/40 animate-pulse' : 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 shadow-zinc-300/30 dark:shadow-none'}`}
+                                            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full shadow-xs transition-all active:scale-95 shrink-0 flex items-center justify-center cursor-pointer ${
+                                                isRecording 
+                                                    ? 'bg-rose-500 text-white scale-105 shadow-rose-500/40 animate-pulse' 
+                                                    : 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'
+                                            }`}
                                             title="پیام صوتی (نگه دارید)"
                                         >
                                             {isRecording ? (
                                                 <span className="text-white font-mono text-xs font-bold">{formatTime(recordingTime)}</span>
                                             ) : (
-                                                <Mic size={22} />
+                                                <Mic size={18} />
                                             )}
                                         </button>
                                     )}
