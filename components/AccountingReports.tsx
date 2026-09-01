@@ -1,3 +1,4 @@
+import ProductionReturnTab from './ProductionReturnTab';
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'react-hot-toast';
@@ -2414,704 +2415,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // ==========================================
-    // NEW TAB: RETURN FROM PRODUCTION (Ú¯Ø²Ø§Ø±Ø´ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ - Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)
-    // ==========================================
-    const fetchProdReturns = async () => {
-        setIsFetchingProdReturns(true);
-        try {
-            const url = `/api/sayan/production-returns?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success) {
-                    setProdReturnsData(data.items || []);
-                    setProdReturnsIsMock(!!data.isMock);
-                } else {
-                    toast.error(data.message || 'Ø®Ø·Ø§ Ø¯Ø± Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯');
-                }
-            } else {
-                toast.error('Ø®Ø·Ø§ Ø¯Ø± Ø¨Ø±Ù‚Ø±Ø§Ø±ÛŒ Ø§Ø±ØªØ¨Ø§Ø· Ø¨Ø§ Ø³Ø±ÙˆØ±');
-            }
-        } catch (err) {
-            console.error("Failed to fetch production returns", err);
-            toast.error('Ø®Ø·Ø§ÛŒ Ø§Ø±ØªØ¨Ø§Ø· Ø¨Ø§ Ø³Ø±ÙˆØ±');
-        } finally {
-            setIsFetchingProdReturns(false);
-        }
-    };
-
-    // --- PRODUCTION RETURNS HELPERS (Exactly matching Sayan ERP Chart of Accounts) ---
-    const resolveProdItemName = (code: string, rawName: string): string => {
-        const c = (code || '').trim();
-        const n = (rawName || '').trim();
-        
-        // If rawName is meaningful text (contains Persian letters and is not just numeric code or placeholder)
-        if (n && n !== c && !/^\d+$/.test(n) && !n.includes('Ú©Ø§Ù„Ø§ÛŒ Ø¨Ø¯ÙˆÙ† Ù†Ø§Ù…')) {
-            return n;
-        }
-        
-        // Known fallback names matching Sayan
-        if (c.startsWith('0401')) return `Ø§Ø³Ù¾Ø§Ù†Ø¯Ú©Ø³ (Ú©Ø§ÙˆØ±) (${c})`;
-        if (c.startsWith('0402')) return `Ú©Ø´ (${c})`;
-        if (c.startsWith('0403')) return `Ø§Ø³Ù¾Ø§Ù†Ø¯Ú©Ø³ Ø¬ÙˆØ´ÛŒ ( Ø³Ø§Ù¾ÙˆØ±Øª ) (${c})`;
-        if (c.startsWith('0405')) return `Ù¾Ù„ÛŒ Ø§Ø³ØªØ± Ø´ÙˆØ§ÛŒØªØ± (${c})`;
-        if (c.startsWith('0407')) return `Ù†Ø§ÛŒÙ„ÙˆÙ† (${c})`;
-        if (c.startsWith('0408')) return `Ù†Ø® Ù…Ù„Øª (${c})`;
-        if (c.startsWith('0409')) return `Ø§Ù„ÛŒØ§Ù (${c})`;
-        if (c.startsWith('0410')) return `FDY (${c})`;
-
-        if (c.startsWith('0101')) return `Ú†ÛŒÙ¾Ø³ (${c})`;
-        if (c.startsWith('0102')) return `POY (${c})`;
-        if (c.startsWith('0103')) return `dty ÛŒØ§ Ù¾Ù„ÛŒ Ø§Ø³ØªØ± (${c})`;
-        if (c.startsWith('0104')) return `Ù„Ø§Ø³ØªÛŒÚ© (${c})`;
-        if (c.startsWith('0105')) return `Ù„Ø§Ú©Ø±Ø§ (${c})`;
-        if (c.startsWith('0106')) return `Ù¾Ù„ÛŒ Ø§Ø³ØªØ± Ø§Ø³Ù¾Ø§Ù† (${c})`;
-        if (c.startsWith('0107')) return `Ù…Ø³ØªØ± Ø¨Ú† (${c})`;
-        if (c.startsWith('0108')) return `Ù†Ø§ÛŒÙ„ÙˆÙ† (${c})`;
-
-        return n || `Ú©Ø§Ù„Ø§ÛŒ Ú©Ø¯ ${c}`;
-    };
-
-    const getProdReturnsAnalyzed = () => {
-        const classifyProductGroup = (itemCode: string, itemName: string) => {
-            const code = (itemCode || '').trim();
-            const name = (itemName || '').toLowerCase();
-            
-            // 1. Ù…Ø­ØµÙˆÙ„Ø§Øª (04xx)
-            if (code.startsWith('0401') || name.includes('Ú©Ø§ÙˆØ±')) {
-                return { code: '0401', name: 'Ø§Ø³Ù¾Ø§Ù†Ø¯Ú©Ø³ (Ú©Ø§ÙˆØ±)', isProduction: true };
-            }
-            if (code.startsWith('0402') || name.includes('Ú©Ø´') || name.includes('Ù‚ÛŒØ·Ø§Ù†')) {
-                return { code: '0402', name: 'Ú©Ø´', isProduction: true };
-            }
-            if (code.startsWith('0403') || name.includes('Ø³Ø§Ù¾ÙˆØ±Øª') || name.includes('Ø¬ÙˆØ´ÛŒ')) {
-                return { code: '0403', name: 'Ø§Ø³Ù¾Ø§Ù†Ø¯Ú©Ø³ Ø¬ÙˆØ´ÛŒ ( Ø³Ø§Ù¾ÙˆØ±Øª )', isProduction: true };
-            }
-            if (code.startsWith('0405') || name.includes('Ø´ÙˆØ§ÛŒØªØ±')) {
-                return { code: '0405', name: 'Ù¾Ù„ÛŒ Ø§Ø³ØªØ± Ø´ÙˆØ§ÛŒØªØ±', isProduction: true };
-            }
-            if (code.startsWith('0407')) {
-                return { code: '0407', name: 'Ù†Ø§ÛŒÙ„ÙˆÙ†', isProduction: true };
-            }
-            if (code.startsWith('0408') || name.includes('Ù…Ù„Øª')) {
-                return { code: '0408', name: 'Ù†Ø® Ù…Ù„Øª', isProduction: true };
-            }
-            if (code.startsWith('0409') || name.includes('Ø§Ù„ÛŒØ§Ù')) {
-                return { code: '0409', name: 'Ø§Ù„ÛŒØ§Ù', isProduction: true };
-            }
-            if (code.startsWith('0410') || name.includes('fdy')) {
-                return { code: '0410', name: 'FDY', isProduction: true };
-            }
-
-            // 2. Ù…ÙˆØ§Ø¯ Ø§ÙˆÙ„ÛŒÙ‡ (01xx)
-            if (code.startsWith('0101') || name.includes('Ú†ÛŒÙ¾Ø³')) {
-                return { code: '0101', name: 'Ú†ÛŒÙ¾Ø³', isProduction: false };
-            }
-            if (code.startsWith('0102') || name.includes('poy') || name.includes('Ù¾ÙˆÛŒ')) {
-                return { code: '0102', name: 'POY', isProduction: false };
-            }
-            if (code.startsWith('0103') || name.includes('dty') || name.includes('Ø¯ÛŒ ØªÛŒ ÙˆØ§ÛŒ') || name.includes('Ù¾Ù„ÛŒ Ø§Ø³ØªØ±')) {
-                return { code: '0103', name: 'dty ÛŒØ§ Ù¾Ù„ÛŒ Ø§Ø³ØªØ±', isProduction: false };
-            }
-            if (code.startsWith('0104') || name.includes('Ù„Ø§Ø³ØªÛŒÚ©')) {
-                return { code: '0104', name: 'Ù„Ø§Ø³ØªÛŒÚ©', isProduction: false };
-            }
-            if (code.startsWith('0105') || name.includes('Ù„Ø§Ú©Ø±Ø§')) {
-                return { code: '0105', name: 'Ù„Ø§Ú©Ø±Ø§', isProduction: false };
-            }
-            if (code.startsWith('0106') || name.includes('Ø§Ø³Ù¾Ø§Ù†')) {
-                return { code: '0106', name: 'Ù¾Ù„ÛŒ Ø§Ø³ØªØ± Ø§Ø³Ù¾Ø§Ù†', isProduction: false };
-            }
-            if (code.startsWith('0107') || name.includes('Ù…Ø³ØªØ± Ø¨Ú†') || name.includes('Ù…Ø³ØªØ±Ø¨Ú†')) {
-                return { code: '0107', name: 'Ù…Ø³ØªØ± Ø¨Ú†', isProduction: false };
-            }
-            if (code.startsWith('0108') || name.includes('Ù†Ø§ÛŒÙ„ÙˆÙ†')) {
-                return { code: '0108', name: 'Ù†Ø§ÛŒÙ„ÙˆÙ†', isProduction: false };
-            }
-
-            return { code: code.substring(0, 4) || 'Ø³Ø§ÛŒØ±', name: itemName || `Ú©Ø¯ ${code}`, isProduction: code.startsWith('04') };
-        };
-
-        const filteredRaw = prodReturnsData.filter(item => {
-            const code = (item.ItemCode || '').trim();
-            const rawName = (item.ItemName || '').toLowerCase();
-            const resolvedName = resolveProdItemName(code, item.ItemName).toLowerCase();
-            
-            // Exclude Lycra (0105) and Rubber (0104) and related keywords from production returns
-            if (code.startsWith('0104') || code.startsWith('0105') || 
-                rawName.includes('Ù„Ø§Ú©Ø±Ø§') || rawName.includes('Ù„Ø§Ø³ØªÛŒÚ©') || 
-                rawName.includes('lycra') || rawName.includes('rubber') ||
-                resolvedName.includes('Ù„Ø§Ú©Ø±Ø§') || resolvedName.includes('Ù„Ø§Ø³ØªÛŒÚ©')) {
-                return false;
-            }
-
-            // Support item-specific reports
-            if (selectedProductForReport && selectedProductForReport !== 'all') {
-                const productKey = `${code}_${resolveProdItemName(code, item.ItemName)}`;
-                if (productKey !== selectedProductForReport) {
-                    return false;
-                }
-            }
-
-            if (!prodReturnsSearch) return true;
-            const s = prodReturnsSearch.toLowerCase();
-            const archiveNo = String(item.ArchiveNo || item.SubCode || '').toLowerCase();
-            return (item.ItemName || '').toLowerCase().includes(s) || 
-                   resolvedName.includes(s) ||
-                   (item.ItemCode || '').toLowerCase().includes(s) || 
-                   (item.DocId || '').toLowerCase().includes(s) ||
-                   archiveNo.includes(s);
-        });
-
-        const totalWeight = filteredRaw.reduce((sum, item) => sum + parseFloat(item.Quantity || 0), 0);
-
-        const productionGroupsMap = new Map<string, { code: string; name: string; itemsCount: number; totalQty: number }>();
-        const materialGroupsMap = new Map<string, { code: string; name: string; itemsCount: number; totalQty: number }>();
-
-        filteredRaw.forEach(item => {
-            const resolvedName = resolveProdItemName(item.ItemCode, item.ItemName);
-            const groupInfo = classifyProductGroup(item.ItemCode, resolvedName);
-            const mapToUse = groupInfo.isProduction ? productionGroupsMap : materialGroupsMap;
-            
-            if (!mapToUse.has(groupInfo.code)) {
-                mapToUse.set(groupInfo.code, {
-                    code: groupInfo.code,
-                    name: groupInfo.name,
-                    itemsCount: 0,
-                    totalQty: 0
-                });
-            }
-            const grp = mapToUse.get(groupInfo.code)!;
-            grp.itemsCount += 1;
-            grp.totalQty += parseFloat(item.Quantity || 0);
-        });
-
-        const productionGroupsList = Array.from(productionGroupsMap.values()).sort((a, b) => b.totalQty - a.totalQty);
-        const materialGroupsList = Array.from(materialGroupsMap.values()).sort((a, b) => b.totalQty - a.totalQty);
-
-        const totalProdWeight = productionGroupsList.reduce((sum, g) => sum + g.totalQty, 0);
-        const totalMatWeight = materialGroupsList.reduce((sum, g) => sum + g.totalQty, 0);
-
-        const detailedMap = new Map<string, { code: string; name: string; groupName: string; color: string; dot: string; totalQty: number }>();
-        filteredRaw.forEach(item => {
-            const code = (item.ItemCode || '').trim();
-            const resolvedName = resolveProdItemName(code, item.ItemName);
-            const key = `${code}_${resolvedName}`;
-            const groupInfo = classifyProductGroup(code, resolvedName);
-            
-            if (!detailedMap.has(key)) {
-                detailedMap.set(key, {
-                    code,
-                    name: resolvedName,
-                    groupName: groupInfo.name,
-                    color: groupInfo.isProduction ? 'text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-800/30' : 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800/30',
-                    dot: groupInfo.isProduction ? 'bg-indigo-500' : 'bg-blue-500',
-                    totalQty: 0
-                });
-            }
-            detailedMap.get(key)!.totalQty += parseFloat(item.Quantity || 0);
-        });
-
-        const detailedList = Array.from(detailedMap.values()).sort((a, b) => b.totalQty - a.totalQty);
-
-        // Group by DocId (Document Number) and Archive Code
-        const documentsMap = new Map<string, {
-            key: string;
-            docId: string;
-            archiveNo: string;
-            date: string;
-            time: string;
-            rawDate: string;
-            opCode: string;
-            opName: string;
-            periodType: string;
-            warehouseCode: string;
-            warehouseName: string;
-            description: string;
-            approvalStatus: string;
-            sendStatus: string;
-            totalQty: number;
-            itemsCount: number;
-            items: any[];
-        }>();
-
-        filteredRaw.forEach(item => {
-            const docId = String(item.DocNumber || item.DocId || item.SubCode || 'â€”').trim();
-            const archiveNo = String(item.ArchiveCode || item.ArchiveNo || item.DocId || 'â€”').trim();
-            const key = `${archiveNo}_${docId}`;
-            
-            let displayDate = '';
-            let displayTime = 'â€”';
-            if (item.Date) {
-                try {
-                    const d = new Date(item.Date);
-                    displayDate = d.toLocaleDateString('fa-IR');
-                    if (item.Date.includes('T')) {
-                        const timePart = item.Date.split('T')[1].substring(0, 8);
-                        if (timePart) displayTime = timePart;
-                    } else {
-                        const hours = String(d.getHours()).padStart(2, '0');
-                        const minutes = String(d.getMinutes()).padStart(2, '0');
-                        const seconds = String(d.getSeconds()).padStart(2, '0');
-                        displayTime = `${hours}:${minutes}:${seconds}`;
-                    }
-                } catch(e) {
-                    displayDate = item.Date;
-                }
-            } else {
-                displayDate = dateFrom;
-            }
-
-            if (!documentsMap.has(key)) {
-                documentsMap.set(key, {
-                    key,
-                    docId,
-                    archiveNo,
-                    date: displayDate,
-                    time: displayTime,
-                    rawDate: item.Date,
-                    opCode: item.DocType || '44',
-                    opName: 'Ø±Ø³ÛŒØ¯ Ú©Ø§Ù„Ø§ÛŒ Ø¨Ø±Ú¯Ø´ØªÛŒ Ø§Ø² ØªÙˆÙ„ÛŒØ¯',
-                    periodType: 'Ø·ÛŒ Ø¯ÙˆØ±Ù‡',
-                    warehouseCode: String(item.WarehouseCode || '11').trim(),
-                    warehouseName: 'Ø§Ù†Ø¨Ø§Ø± Ú©Ø§Ø±Ø®Ø§Ù†Ù‡',
-                    description: item.HeaderDescription || item.DocDescription || 'Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†',
-                    approvalStatus: 'ØªØ§ÛŒÛŒØ¯ Ø´Ø¯Ù‡',
-                    sendStatus: 'Ø·ÛŒ Ø¯ÙˆØ±Ù‡',
-                    totalQty: 0,
-                    itemsCount: 0,
-                    items: []
-                });
-            }
-            const doc = documentsMap.get(key)!;
-            const qty = parseFloat(item.Quantity || 0);
-            doc.totalQty += qty;
-            doc.itemsCount += 1;
-            const resolvedName = resolveProdItemName(item.ItemCode, item.ItemName);
-            doc.items.push({
-                lineId: item.LineId || `${doc.items.length + 1}`,
-                itemCode: (item.ItemCode || '').trim(),
-                itemName: resolvedName,
-                quantity: qty,
-                groupName: classifyProductGroup(item.ItemCode, resolvedName).name,
-                lineNotes: item.LineNotes || item.DocDescription || '',
-                date: displayDate,
-                time: displayTime
-            });
-        });
-
-        const documentsList = Array.from(documentsMap.values()).sort((a, b) => {
-            const numA = parseInt(a.archiveNo, 10);
-            const numB = parseInt(b.archiveNo, 10);
-            if (!isNaN(numA) && !isNaN(numB)) {
-                return numB - numA; // newest/highest archive first
-            }
-            const docNumA = parseInt(a.docId, 10);
-            const docNumB = parseInt(b.docId, 10);
-            if (!isNaN(docNumA) && !isNaN(docNumB)) {
-                return docNumB - docNumA;
-            }
-            return b.archiveNo.localeCompare(a.archiveNo);
-        });
-
-        // Detailed flat list of raw document rows for precise 104-row verification
-        const rawDocumentRows = filteredRaw.map((item, idx) => {
-            const code = (item.ItemCode || '').trim();
-            const resolvedName = resolveProdItemName(code, item.ItemName);
-            const grp = classifyProductGroup(code, resolvedName);
-            let displayDate = '';
-            let displayTime = 'â€”';
-            if (item.Date) {
-                try {
-                    const d = new Date(item.Date);
-                    displayDate = d.toLocaleDateString('fa-IR');
-                    if (item.Date.includes('T')) {
-                        const timePart = item.Date.split('T')[1].substring(0, 8);
-                        if (timePart) displayTime = timePart;
-                    }
-                } catch(e) {
-                    displayDate = item.Date;
-                }
-            } else {
-                displayDate = dateFrom;
-            }
-            return {
-                id: item.LineId || `line_${idx}`,
-                lineId: item.LineId || `${idx + 1}`,
-                docId: String(item.DocNumber || item.DocId || 'â€”').trim(),
-                archiveNo: String(item.ArchiveCode || item.ArchiveNo || item.DocId || 'â€”').trim(),
-                date: displayDate,
-                time: displayTime,
-                rawDate: item.Date,
-                itemCode: code,
-                itemName: resolvedName,
-                groupName: grp.name,
-                groupCode: grp.code,
-                warehouseCode: String(item.WarehouseCode || '11').trim(),
-                warehouseName: 'Ø§Ù†Ø¨Ø§Ø± Ú©Ø§Ø±Ø®Ø§Ù†Ù‡',
-                description: item.HeaderDescription || item.DocDescription || 'Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†',
-                quantity: parseFloat(item.Quantity || 0),
-                lineNotes: item.LineNotes || item.DocDescription || ''
-            };
-        }).sort((a, b) => {
-            const numDocA = parseInt(a.archiveNo, 10);
-            const numDocB = parseInt(b.archiveNo, 10);
-            if (!isNaN(numDocA) && !isNaN(numDocB) && numDocA !== numDocB) {
-                return numDocB - numDocA;
-            }
-            return a.itemCode.localeCompare(b.itemCode);
-        });
-
-        return {
-            filteredRaw,
-            totalWeight,
-            productionGroupsList,
-            materialGroupsList,
-            totalProdWeight,
-            totalMatWeight,
-            detailedList,
-            documentsList,
-            rawDocumentRows
-        };
-    };
-
-    const handlePrintSingleDoc = (doc: any) => {
-        if (!doc) return;
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const html = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="fa">
-            <head>
-                <meta charset="UTF-8">
-                <title>Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø± Ø´Ù…Ø§Ø±Ù‡ ${doc.docId} - Ú©Ø¯ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ ${doc.archiveNo}</title>
-                <style>
-                    body { font-family: Tahoma, 'Segoe UI', Arial, sans-serif; direction: rtl; padding: 25px; color: #111; font-size: 12px; }
-                    .header { border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start; }
-                    .company-title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
-                    .doc-title { font-size: 14px; font-weight: bold; color: #4338ca; }
-                    .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #f8fafc; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 15px; font-size: 11px; }
-                    .meta-item { display: flex; flex-direction: column; gap: 2px; }
-                    .meta-label { color: #64748b; font-size: 10px; }
-                    .meta-value { font-weight: bold; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                    th { background: #f1f5f9; border: 1px solid #94a3b8; padding: 8px; font-weight: bold; text-align: right; }
-                    td { border: 1px solid #cbd5e1; padding: 7px 8px; text-align: right; }
-                    .num { font-family: monospace; font-weight: bold; direction: ltr; text-align: left; }
-                    .total-row { background: #f8fafc; font-weight: bold; border-top: 2px solid #334155; }
-                    .signatures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 50px; text-align: center; font-size: 11px; }
-                    .sig-box { border-top: 1px dashed #64748b; padding-top: 8px; min-height: 60px; }
-                    @media print {
-                        body { padding: 0; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div>
-                        <div class="company-title">Ø´Ø±Ú©Øª Ù„ÛŒØ§Ù† Ø¨Ø§ÙØª</div>
-                        <div class="doc-title">Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø±: Ø±Ø³ÛŒØ¯ Ú©Ø§Ù„Ø§ÛŒ Ø¨Ø±Ú¯Ø´ØªÛŒ Ø§Ø² ØªÙˆÙ„ÛŒØ¯ (Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)</div>
-                    </div>
-                    <div style="text-align: left; font-size: 11px;">
-                        <div>Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯: <b>${doc.docId}</b></div>
-                        <div>Ú©Ø¯ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ: <b>${doc.archiveNo}</b></div>
-                        <div>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª: <b>${doc.date}</b> - Ø³Ø§Ø¹Øª: <b>${doc.time}</b></div>
-                    </div>
-                </div>
-
-                <div class="meta-grid">
-                    <div class="meta-item"><span class="meta-label">Ú©Ø¯ Ùˆ Ù†Ø§Ù… Ø§Ù†Ø¨Ø§Ø±:</span><span class="meta-value">${doc.warehouseCode} - ${doc.warehouseName}</span></div>
-                    <div class="meta-item"><span class="meta-label">Ù†ÙˆØ¹ Ø¹Ù…Ù„ÛŒØ§Øª:</span><span class="meta-value">${doc.opCode} - ${doc.opName}</span></div>
-                    <div class="meta-item"><span class="meta-label">Ù†ÙˆØ¹ Ø¯ÙˆØ±Ù‡ / ÙˆØ¶Ø¹ÛŒØª:</span><span class="meta-value">${doc.periodType} / ${doc.approvalStatus}</span></div>
-                    <div class="meta-item"><span class="meta-label">Ø´Ø±Ø­ Ùˆ ØªÙˆØ¶ÛŒØ­Ø§Øª Ø³Ù†Ø¯:</span><span class="meta-value">${doc.description || 'â€”'}</span></div>
-                </div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 40px; text-align: center;">Ø±Ø¯ÛŒÙ</th>
-                            <th style="width: 120px;">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                            <th>Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§</th>
-                            <th style="width: 120px;">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                            <th style="width: 110px; text-align: left;">ÙˆØ²Ù† (kg)</th>
-                            <th>Ù…Ø´Ø®ØµØ§Øª Ùˆ ØªÙˆØ¶ÛŒØ­Ø§Øª Ø±Ø¯ÛŒÙ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${doc.items.map((it: any, idx: number) => `
-                            <tr>
-                                <td style="text-align: center;">${idx + 1}</td>
-                                <td class="num">${it.itemCode}</td>
-                                <td><b>${it.itemName}</b></td>
-                                <td>${it.groupName}</td>
-                                <td class="num">${Math.round(it.quantity).toLocaleString('fa-IR')}</td>
-                                <td style="font-size: 10px; color: #334155;">${it.lineNotes || 'â€”'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                    <tfoot>
-                        <tr class="total-row">
-                            <td colspan="4" style="text-align: left; padding: 10px;"><b>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ú©Ù„ Ø³Ù†Ø¯ (${doc.items.length} Ø±Ø¯ÛŒÙ Ú©Ø§Ù„Ø§):</b></td>
-                            <td class="num" style="color: #4338ca; font-size: 13px;"><b>${Math.round(doc.totalQty).toLocaleString('fa-IR')}</b></td>
-                            <td>Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</td>
-                        </tr>
-                    </tfoot>
-                </table>
-
-                <div class="signatures">
-                    <div class="sig-box">ØªØ­ÙˆÛŒÙ„ Ø¯Ù‡Ù†Ø¯Ù‡ (Ø³Ø§Ù„Ù† ØªÙˆÙ„ÛŒØ¯)</div>
-                    <div class="sig-box">ØªØ­ÙˆÛŒÙ„ Ú¯ÛŒØ±Ù†Ø¯Ù‡ (Ø§Ù†Ø¨Ø§Ø±)</div>
-                    <div class="sig-box">Ù…Ø³Ø¦ÙˆÙ„ Ø§Ù†Ø¨Ø§Ø±Ø¯Ø§Ø±ÛŒ</div>
-                    <div class="sig-box">Ù…Ø¯ÛŒØ± Ú©Ø§Ø±Ø®Ø§Ù†Ù‡ / Ø­Ø³Ø§Ø¨Ø¯Ø§Ø±ÛŒ</div>
-                </div>
-
-                <script>
-                    window.onload = () => { window.print(); }
-                </script>
-            </body>
-            </html>
-        `;
-        printWindow.document.write(html);
-        printWindow.document.close();
-    };
-
-    const handlePrintReturns = () => {
-        const { productionGroupsList, materialGroupsList, totalProdWeight, totalMatWeight, detailedList, totalWeight, documentsList } = getProdReturnsAnalyzed();
-        
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        let tablesHtml = '';
-
-        if (prodReturnsGrouping === 'group') {
-            tablesHtml = `
-                <div class="section-title">Ú¯Ø²Ø§Ø±Ø´ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ (Ø§Ø¯ØºØ§Ù… Ø¯Ø± Ø³Ø·Ø­ Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§)</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">Ø±Ø¯ÛŒÙ</th>
-                            <th>Ú©Ø¯ Ú¯Ø±ÙˆÙ‡</th>
-                            <th>Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                            <th>ØªØ¹Ø¯Ø§Ø¯ Ø§Ù‚Ù„Ø§Ù…</th>
-                            <th>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
-                            <th>Ø³Ù‡Ù… Ø§Ø² Ú©Ù„</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${productionGroupsList.map((g, idx) => `
-                            <tr>
-                                <td>${idx + 1}</td>
-                                <td>${g.code}</td>
-                                <td class="text-right">${g.name}</td>
-                                <td>${g.itemsCount}</td>
-                                <td style="font-weight: bold;">${Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
-                                <td>${totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%</td>
-                            </tr>
-                        `).join('')}
-                        <tr class="sum-row">
-                            <td colspan="4">Ø¬Ù…Ø¹ Ú©Ù„ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯</td>
-                            <td>${Math.round(totalWeight).toLocaleString('fa-IR')}</td>
-                            <td>100%</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-        } else if (prodReturnsGrouping === 'detail') {
-            tablesHtml = `
-                <div class="section-title">Ú¯Ø²Ø§Ø±Ø´ Ø±ÛŒØ² Ú©Ø§Ù„Ø§ (Ø§Ø¯ØºØ§Ù… Ø´Ø¯Ù‡ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù†Ø§Ù… Ú©Ø§Ù„Ø§)</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">Ø±Ø¯ÛŒÙ</th>
-                            <th>Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                            <th>Ù†Ø§Ù… Ú©Ø§Ù„Ø§</th>
-                            <th>Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                            <th>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${detailedList.map((item, idx) => `
-                            <tr>
-                                <td>${idx + 1}</td>
-                                <td>${item.code}</td>
-                                <td class="text-right">${item.name}</td>
-                                <td>${item.groupName}</td>
-                                <td style="font-weight: bold;">${Math.round(item.totalQty).toLocaleString('fa-IR')}</td>
-                            </tr>
-                        `).join('')}
-                        <tr class="sum-row">
-                            <td colspan="4">Ø¬Ù…Ø¹ Ú©Ù„ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ Ø±ÛŒØ² Ø§Ù‚Ù„Ø§Ù…</td>
-                            <td>${Math.round(totalWeight).toLocaleString('fa-IR')}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-        } else {
-            tablesHtml = `
-                <div class="section-title">Ú¯Ø²Ø§Ø±Ø´ ØªÙÚ©ÛŒÚ©ÛŒ Ø§Ø³Ù†Ø§Ø¯ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ (Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)</div>
-                ${documentsList.map((doc) => `
-                    <div style="margin-top: 15px; margin-bottom: 5px; font-weight: bold; background: #f2f2f2; padding: 8px 12px; border: 1px solid #000; display: flex; justify-content: space-between; font-size: 11px;">
-                        <span>Ø³Ù†Ø¯ Ø´Ù…Ø§Ø±Ù‡: ${doc.docId} (Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ: ${doc.archiveNo})</span>
-                        <span>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª: ${doc.date}</span>
-                        <span>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø³Ù†Ø¯: ${Math.round(doc.totalQty).toLocaleString('fa-IR')} Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</span>
-                    </div>
-                    <table style="margin-bottom: 15px;">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px;">Ø±Ø¯ÛŒÙ</th>
-                                <th style="width: 120px;">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                                <th>Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§</th>
-                                <th style="width: 150px;">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                                <th style="width: 120px;">ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©â€ŒÚ¯)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${doc.items.map((item, itemIdx) => `
-                                <tr>
-                                    <td>${itemIdx + 1}</td>
-                                    <td>${item.itemCode}</td>
-                                    <td class="text-right">${item.itemName}</td>
-                                    <td>${item.groupName}</td>
-                                    <td style="font-weight: bold;">${Math.round(item.quantity).toLocaleString('fa-IR')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `).join('')}
-                <div style="font-weight: bold; font-size: 13px; text-align: left; padding: 12px; border-top: 2px solid #000; margin-top: 20px;">
-                    Ø¬Ù…Ø¹ Ú©Ù„ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ ØªÙ…Ø§Ù…ÛŒ Ø§Ø³Ù†Ø§Ø¯: ${Math.round(totalWeight).toLocaleString('fa-IR')} Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                </div>
-            `;
-        }
-
-        const html = `
-            <!DOCTYPE html>
-            <html lang="fa" dir="rtl">
-            <head>
-                <meta charset="UTF-8">
-                <title>Ú†Ø§Ù¾ Ú¯Ø²Ø§Ø±Ø´ Ø±Ø³ÛŒØ¯ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ú©Ø§Ù„Ø§</title>
-                <style>
-                    body {
-                        font-family: 'Tahoma', sans-serif;
-                        direction: rtl;
-                        padding: 40px;
-                        background: #fff;
-                        color: #000;
-                        font-size: 12px;
-                    }
-                    .header {
-                        text-align: center;
-                        border-bottom: 2px solid #000;
-                        padding-bottom: 15px;
-                        margin-bottom: 25px;
-                    }
-                    .title {
-                        font-size: 18px;
-                        font-weight: bold;
-                    }
-                    .subtitle {
-                        font-size: 12px;
-                        margin-top: 5px;
-                        color: #555;
-                    }
-                    .meta-box {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-bottom: 20px;
-                        font-weight: bold;
-                    }
-                    .section-title {
-                        font-size: 13px;
-                        font-weight: bold;
-                        border-right: 3px solid #000;
-                        padding-right: 8px;
-                        margin-bottom: 10px;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-bottom: 25px;
-                    }
-                    th, td {
-                        border: 1px solid #000;
-                        padding: 8px;
-                        text-align: center;
-                    }
-                    th {
-                        background: #f2f2f2;
-                    }
-                    .text-right {
-                        text-align: right;
-                        padding-right: 12px;
-                    }
-                    .sum-row {
-                        font-weight: bold;
-                        background: #fafafa;
-                    }
-                    @media print {
-                        body { padding: 0; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="title">Ú¯Ø²Ø§Ø±Ø´ Ø±Ø³ÛŒØ¯ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ú©Ø§Ù„Ø§ (Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)</div>
-                    <div class="subtitle">Ø¯ÙˆØ±Ù‡ Ú¯Ø²Ø§Ø±Ø´: Ø§Ø² ${dateFrom} ØªØ§ ${dateTo}</div>
-                </div>
-                <div class="meta-box">
-                    <div>ØªØ§Ø±ÛŒØ® Ú†Ø§Ù¾: ${new Date().toLocaleDateString('fa-IR')}</div>
-                    <div>Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ: ${Math.round(totalWeight).toLocaleString('fa-IR')} Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</div>
-                </div>
-                ${tablesHtml}
-                <div style="margin-top: 50px; display: flex; justify-content: space-around; font-weight: bold;">
-                    <div>Ø§Ù…Ø¶Ø§ Ú©Ù†Ù†Ø¯Ù‡ Û± (Ù…Ø³Ø¦ÙˆÙ„ Ø§Ù†Ø¨Ø§Ø± ØªÙˆÙ„ÛŒØ¯): _______________</div>
-                    <div>Ø§Ù…Ø¶Ø§ Ú©Ù†Ù†Ø¯Ù‡ Û² (Ù…Ø¯ÛŒØ± ØªÙˆÙ„ÛŒØ¯): _______________</div>
-                    <div>Ø§Ù…Ø¶Ø§ Ú©Ù†Ù†Ø¯Ù‡ Û³ (Ù…Ø¯ÛŒØ±ÛŒØª Ø¨Ø§Ø²Ø±Ú¯Ø§Ù†ÛŒ): _______________</div>
-                </div>
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        setTimeout(function() { window.close(); }, 500);
-                    };
-                </script>
-            </body>
-            </html>
-        `;
-
-        printWindow.document.write(html);
-        printWindow.document.close();
-    };
-
-    const handleExportPDF = () => {
-        const url = `/api/sayan/production-returns/pdf?dateFrom=${dateFrom}&dateTo=${dateTo}`;
-        window.open(url, '_blank');
-    };
-
-    const handleSendReturnsBot = async () => {
-        setIsSendingBot(true);
-        try {
-            const res = await fetch('/api/sayan/production-returns/send-bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dateFrom, dateTo })
-            });
-            const data = await res.json();
-            if (data.success) {
-                toast.success(data.message || 'Ú¯Ø²Ø§Ø±Ø´ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡ Ú¯Ø±ÙˆÙ‡â€ŒÙ‡Ø§ÛŒ Ù…Ù†ØªØ®Ø¨ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯ âœ…');
-            } else {
-                toast.error(data.error || 'Ø®Ø·Ø§ Ø¯Ø± Ø§Ø±Ø³Ø§Ù„ Ú¯Ø²Ø§Ø±Ø´ Ø¨Ù‡ Ø¨Ø§Øª âŒ');
-            }
-        } catch (err) {
-            console.error("Failed to send bot report", err);
-            toast.error('Ø®Ø·Ø§ÛŒ Ø§Ø±ØªØ¨Ø§Ø· Ø¨Ø§ Ø³Ø±ÙˆØ± Ø¯Ø± Ø§Ø±Ø³Ø§Ù„ Ø¨Ù‡ Ø¨Ø§Øª âŒ');
-        } finally {
-            setIsSendingBot(false);
-        }
-    };
-
-    // ==========================================
-    // ==========================================
     // TAB 4: PRODUCTION (Ú¯Ø²Ø§Ø±Ø´ Ø¢Ù…Ø§Ø± Ú©Ù„ ØªÙˆÙ„ÛŒØ¯ Ùˆ Ø¶Ø§ÛŒØ¹Ø§Øª Ø³Ø§ÛŒØ§Ù†)
     // ==========================================
     const fetchProduction = async () => {
@@ -4326,8 +3629,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             fetchProdArchive();
         } else if (activeTab === 'cheques') {
             fetchCheques();
-        } else if (activeTab === 'prodReturns') {
-            fetchProdReturns();
         }
     }, [activeTab, dateFrom, dateTo, trazCategory, compareMode, salesDateFromB, salesDateToB, prodGrouping]);
 
@@ -4449,11 +3750,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             if (activeTab === 'sales') fetchSalesData();
                             if (activeTab === 'production') { fetchProduction(); fetchProdArchive(); }
                             if (activeTab === 'cheques') fetchCheques();
-                            if (activeTab === 'prodReturns') fetchProdReturns();
+                            
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs px-3 py-1.5 font-semibold flex items-center gap-1 transition-colors cursor-pointer mr-auto lg:mr-0 mt-1 sm:mt-0"
                     >
-                        {isLoading || isFetchingProdReturns ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ'}
+                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ'}
                     </button>
                 </div>
             </div>
@@ -7222,605 +6523,16 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 )}
 
                 {/* 8. NEW TAB: RETURN FROM PRODUCTION RECEIPT (CODE 44) */}
-                {activeTab === 'prodReturns' && (() => {
-                    const { 
-                        filteredRaw, 
-                        totalWeight, 
-                        productionGroupsList, 
-                        materialGroupsList, 
-                        totalProdWeight, 
-                        totalMatWeight, 
-                        detailedList,
-                        documentsList,
-                        rawDocumentRows
-                    } = getProdReturnsAnalyzed();
-
-                    const uniqueProducts = Array.from(
-                        prodReturnsData.reduce((map, item) => {
-                            const code = (item.ItemCode || '').trim();
-                            const rawName = (item.ItemName || '').trim();
-                            const resolvedName = resolveProdItemName(code, rawName);
-                            
-                            // Exclude Lycra (0105) and Rubber (0104) and related keywords from unique product options
-                            if (code.startsWith('0104') || code.startsWith('0105') || 
-                                rawName.toLowerCase().includes('Ù„Ø§Ú©Ø±Ø§') || rawName.toLowerCase().includes('Ù„Ø§Ø³ØªÛŒÚ©') || 
-                                rawName.toLowerCase().includes('lycra') || rawName.toLowerCase().includes('rubber') ||
-                                resolvedName.toLowerCase().includes('Ù„Ø§Ú©Ø±Ø§') || resolvedName.toLowerCase().includes('Ù„Ø§Ø³ØªÛŒÚ©')) {
-                                return map;
-                            }
-                            
-                            const key = `${code}_${resolvedName}`;
-                            if (!map.has(key)) {
-                                map.set(key, { code, name: resolvedName });
-                            }
-                            return map;
-                        }, new Map<string, { code: string; name: string }>()).values()
-                    ) as { code: string; name: string }[];
-
-                    uniqueProducts.sort((a, b) => a.name.localeCompare(b.name, 'fa'));
-
-                    const displayedRawRows = rawDocumentRows.filter(r => {
-                        if (!rawDocsSearch) return true;
-                        const s = rawDocsSearch.toLowerCase();
-                        return r.docId.toLowerCase().includes(s) ||
-                               r.archiveNo.toLowerCase().includes(s) ||
-                               r.itemName.toLowerCase().includes(s) ||
-                               r.itemCode.toLowerCase().includes(s) ||
-                               r.groupName.toLowerCase().includes(s) ||
-                               r.lineNotes.toLowerCase().includes(s);
-                    });
-
-                    return (
-                        <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 rtl">
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
-                                        <Undo2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        Ú¯Ø²Ø§Ø±Ø´ Ø±Ø³ÛŒØ¯ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ú©Ø§Ù„Ø§ (Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª Û´Û´)
-                                    </h2>
-                                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                                        Ù¾Ø§ÛŒØ´ Ø¨Ø±Ø®Ø· Ùˆ Ø²Ù†Ø¯Ù‡ Ø±Ø³ÛŒØ¯Ù‡Ø§ÛŒ Ø¨Ø±Ú¯Ø´ØªÛŒ Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ú©Ø§Ø±Ø®Ø§Ù†Ù‡ Ùˆ Ø·Ø¨Ù‚Ù‡â€ŒØ¨Ù†Ø¯ÛŒ Ù‡ÙˆØ´Ù…Ù†Ø¯ Ú©Ø§Ù„Ø§Ù‡Ø§
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
-                                        prodReturnsIsMock 
-                                            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800/30' 
-                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800/30'
-                                    }`}>
-                                        <span className={`w-2 h-2 rounded-full ${prodReturnsIsMock ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                                        {prodReturnsIsMock ? 'Ø¯ÛŒØªØ§ÛŒ Ù†Ù…ÙˆÙ†Ù‡ (Ø¢ÙÙ„Ø§ÛŒÙ†)' : 'Ø¨Ø±Ø®Ø· Ø³Ø§ÛŒØ§Ù† ERP'}
-                                    </span>
-
-                                    <div className="bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-lg flex border border-slate-200 dark:border-zinc-700 mr-2">
-                                        <button
-                                            onClick={() => setProdReturnsGrouping('archive')}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${
-                                                prodReturnsGrouping === 'archive'
-                                                    ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                                            }`}
-                                        >
-                                            <Archive className="w-3.5 h-3.5" />
-                                            <span>Ø§Ø³Ù†Ø§Ø¯ Ø§Ù†Ø¨Ø§Ø± (Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ)</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setProdReturnsGrouping('document')}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${
-                                                prodReturnsGrouping === 'document'
-                                                    ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                                            }`}
-                                        >
-                                            <Layers className="w-3.5 h-3.5" />
-                                            <span>ØªÙÚ©ÛŒÚ© Ú©Ø§Ø±ØªÛŒ Ø§Ø³Ù†Ø§Ø¯</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setProdReturnsGrouping('group')}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                                prodReturnsGrouping === 'group'
-                                                    ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                                            }`}
-                                        >
-                                            Ú¯Ø±ÙˆÙ‡â€ŒØ¨Ù†Ø¯ÛŒ Ú©Ø§Ù„Ø§
-                                        </button>
-                                        <button
-                                            onClick={() => setProdReturnsGrouping('detail')}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                                prodReturnsGrouping === 'detail'
-                                                    ? 'bg-white dark:bg-zinc-700 text-indigo-700 dark:text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                                            }`}
-                                        >
-                                            Ø±ÛŒØ² Ú©Ø§Ù„Ø§ (ØªØ¬Ù…Ø¹ÛŒ)
-                                        </button>
-                                    </div>
-
-                                    {/* EXPORT ACTION BUTTONS */}
-                                    <div className="flex items-center gap-1.5 mr-auto lg:mr-2">
-                                        <button
-                                            onClick={handlePrintReturns}
-                                            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-slate-200 dark:border-zinc-700"
-                                            title="Ú†Ø§Ù¾ Ù…Ø³ØªÙ‚ÛŒÙ… ØªØ±Ø§Ø²"
-                                        >
-                                            <Printer className="w-3.5 h-3.5" />
-                                            <span>Ú†Ø§Ù¾</span>
-                                        </button>
-                                        <button
-                                            onClick={handleExportPDF}
-                                            className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-indigo-100 dark:border-indigo-900/30"
-                                            title="Ø¯Ø±ÛŒØ§ÙØª ÙØ§ÛŒÙ„ PDF Ø±Ø³Ù…ÛŒ"
-                                        >
-                                            <FileText className="w-3.5 h-3.5" />
-                                            <span>Ø®Ø±ÙˆØ¬ÛŒ PDF</span>
-                                        </button>
-                                        <button
-                                            onClick={handleSendReturnsBot}
-                                            disabled={isSendingBot}
-                                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/60 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm shadow-emerald-600/10"
-                                            title="Ø§Ø±Ø³Ø§Ù„ ØªØ±Ø§Ø² Ø¨Ù‡ Ù¾ÛŒØ§Ù…â€ŒØ±Ø³Ø§Ù†â€ŒÙ‡Ø§ÛŒ Ù…ØªØµÙ„"
-                                        >
-                                            {isSendingBot ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                <Send className="w-3.5 h-3.5" />
-                                            )}
-                                            <span>{isSendingBot ? 'Ø¯Ø± Ø­Ø§Ù„ Ø§Ø±Ø³Ø§Ù„...' : 'Ø§Ø±Ø³Ø§Ù„ Ø¨Ù‡ Ø¨Ø§Øª'}</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Search and Quick Filters */}
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50 dark:bg-zinc-950/30 p-4 rounded-xl border border-slate-100 dark:border-zinc-800/50">
-                                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                                    <div className="relative w-full sm:w-72">
-                                        <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-                                        <input
-                                            type="text"
-                                            placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø´Ø±Ø­ØŒ Ú©Ø¯ Ú©Ø§Ù„Ø§ ÛŒØ§ Ø³Ù†Ø¯..."
-                                            value={prodReturnsSearch}
-                                            onChange={e => setProdReturnsSearch(e.target.value)}
-                                            className="w-full pl-3 pr-10 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
-                                        />
-                                        {prodReturnsSearch && (
-                                            <button 
-                                                onClick={() => setProdReturnsSearch('')} 
-                                                className="absolute left-3 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
-                                            >
-                                                <X className="w-3.5 h-3.5" />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Product Specific Filter Dropdown */}
-                                    <div className="w-full sm:w-80 flex items-center gap-1.5">
-                                        <span className="text-[11px] font-black text-slate-500 whitespace-nowrap">ÙÛŒÙ„ØªØ± Ú©Ø§Ù„Ø§:</span>
-                                        <select
-                                            value={selectedProductForReport}
-                                            onChange={e => setSelectedProductForReport(e.target.value)}
-                                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                        >
-                                            <option value="all">ğŸ“Š Ú¯Ø²Ø§Ø±Ø´ Ú©Ù„ÛŒ (Ù‡Ù…Ù‡ Ú©Ø§Ù„Ø§Ù‡Ø§)</option>
-                                            {uniqueProducts.map((p, pIdx) => (
-                                                <option key={pIdx} value={`${p.code}_${p.name}`}>
-                                                    ğŸ“¦ {p.name} {p.name.includes(p.code) ? '' : `(Ú©Ø¯: ${p.code})`}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold flex items-center gap-1">
-                                    <span>ØªØ¹Ø¯Ø§Ø¯ Ø§Ù‚Ù„Ø§Ù… ÙÛŒÙ„ØªØ± Ø´Ø¯Ù‡:</span>
-                                    <span className="text-slate-800 dark:text-zinc-200 font-mono text-sm font-black">{filteredRaw.length}</span>
-                                    <span className="mr-3">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ:</span>
-                                    <span className="text-indigo-600 dark:text-indigo-400 font-mono text-sm font-black">
-                                        {totalWeight.toLocaleString('fa-IR')}
-                                    </span>
-                                    <span>Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…</span>
-                                </div>
-                            </div>
-
-                            {/* Active Product Report Banner */}
-                            {selectedProductForReport !== 'all' && (() => {
-                                const activeProdName = selectedProductForReport.split('_')[1];
-                                const activeProdCode = selectedProductForReport.split('_')[0];
-                                return (
-                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="p-2 bg-indigo-600 text-white rounded-lg">
-                                                <FileText className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs font-black text-indigo-900 dark:text-indigo-200">Ú¯Ø²Ø§Ø±Ø´ ØªÙÚ©ÛŒÚ©ÛŒ Ùˆ Ø§Ø®ØªØµØ§ØµÛŒ Ú©Ø§Ù„Ø§</h4>
-                                                <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 mt-0.5">
-                                                    Ø¯Ø± Ø­Ø§Ù„ Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ø¨Ø±Ø§ÛŒ Ú©Ø§Ù„Ø§: <span className="font-extrabold underline">{activeProdName}</span> Ø¨Ø§ Ú©Ø¯ Ú©Ø§Ù„Ø§: <span className="font-mono font-bold text-xs">{activeProdCode}</span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setSelectedProductForReport('all')}
-                                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-black transition-all shadow-sm cursor-pointer"
-                                        >
-                                            Ù„ØºÙˆ ÙÛŒÙ„ØªØ± Ø§Ø®ØªØµØ§ØµÛŒ Ú©Ø§Ù„Ø§
-                                        </button>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Loading / Empty States */}
-                            {isFetchingProdReturns ? (
-                                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-                                    <span className="text-xs text-slate-500 font-bold">Ø¯Ø± Ø­Ø§Ù„ Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ø±Ø³ÛŒØ¯Ù‡Ø§ÛŒ Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ Ø§Ø² Ø¯ÛŒØªØ§Ø¨ÛŒØ³ Ø³Ø§ÛŒØ§Ù†...</span>
-                                </div>
-                            ) : filteredRaw.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50/50 dark:bg-zinc-950/10">
-                                    <Undo2 className="w-12 h-12 text-slate-300 dark:text-zinc-700 mb-3" />
-                                    <h3 className="text-sm font-extrabold text-slate-700 dark:text-zinc-300">Ù‡ÛŒÚ† Ø±Ø³ÛŒØ¯ÛŒ Ø¯Ø± Ø¨Ø§Ø²Ù‡ Ø²Ù…Ø§Ù†ÛŒ ØªØ¹ÛŒÛŒÙ†â€ŒØ´Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯</h3>
-                                    <p className="text-xs text-slate-400 mt-1 max-w-md">Ù„Ø·ÙØ§Ù‹ Ø¨Ø§Ø²Ù‡ Ø²Ù…Ø§Ù†ÛŒ ØªØ§Ø±ÛŒØ® ÙÛŒÙ„ØªØ± Ø¨Ø§Ù„Ø§ÛŒ ØµÙØ­Ù‡ Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯ ÛŒØ§ Ú©Ù„ÛŒØ¯ Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø±Ø§ Ú©Ù„ÛŒÚ© Ù†Ù…Ø§ÛŒÛŒØ¯.</p>
-                                </div>
-                            ) : (
-                                prodReturnsGrouping === 'archive' ? (
-                                    /* SAYAN ERP ARCHIVE GRID VIEW (Ø¬Ø¯ÙˆÙ„ Ø§Ø³Ù†Ø§Ø¯ Ø§Ù†Ø¨Ø§Ø± Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø´Ø§ÛŒØ§Ù†/Ø³Ø§ÛŒØ§Ù†) */
-                                    <div className="space-y-3 animate-fade-in">
-                                        {/* Sayan Action & Status Bar */}
-                                        <div className="bg-slate-100 dark:bg-zinc-800/90 p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700/80 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        const activeDoc = (selectedDocRowKey && documentsList.find(d => d.key === selectedDocRowKey)) || documentsList[0];
-                                                        if (activeDoc) setSelectedDocModal(activeDoc);
-                                                    }}
-                                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-black transition-all shadow-sm shadow-indigo-600/20 cursor-pointer"
-                                                    title="Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Ø±ÛŒØ² Ø§Ù‚Ù„Ø§Ù… Ùˆ Ù…Ø´Ø®ØµØ§Øª Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø±"
-                                                >
-                                                    <FolderOpen className="w-4 h-4" />
-                                                    <span>Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Ø³Ù†Ø¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡</span>
-                                                </button>
-
-                                                <button
-                                                    onClick={() => {
-                                                        const activeDoc = (selectedDocRowKey && documentsList.find(d => d.key === selectedDocRowKey)) || documentsList[0];
-                                                        if (activeDoc) handlePrintSingleDoc(activeDoc);
-                                                    }}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-600 border border-slate-200 dark:border-zinc-600 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-                                                    title="Ú†Ø§Ù¾ Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø± Ø§Ù†ØªØ®Ø§Ø¨ÛŒ"
-                                                >
-                                                    <Printer className="w-3.5 h-3.5" />
-                                                    <span>Ú†Ø§Ù¾ Ø³Ù†Ø¯</span>
-                                                </button>
-                                            </div>
-
-                                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600 dark:text-zinc-300">
-                                                <span className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg">
-                                                    ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ Ø§Ø³Ù†Ø§Ø¯: <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{documentsList.length}</span> Ø³Ù†Ø¯
-                                                </span>
-                                                <span className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg">
-                                                    ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ Ø§Ù‚Ù„Ø§Ù…: <span className="font-mono font-black text-slate-800 dark:text-zinc-100">{rawDocumentRows.length}</span> Ø±Ø¯ÛŒÙ
-                                                </span>
-                                                <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40 rounded-lg">
-                                                    Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù†: <span className="font-mono font-black text-indigo-700 dark:text-indigo-300">{Math.round(totalWeight).toLocaleString('fa-IR')}</span> Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Sayan Main Document Table */}
-                                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                                            <div className="overflow-x-auto custom-scrollbar">
-                                                <table className="w-full border-collapse text-right text-xs">
-                                                    <thead>
-                                                        <tr className="bg-slate-100/90 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 font-black border-b border-slate-200 dark:border-zinc-800 select-none">
-                                                            <th className="p-3 w-12 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                            <th className="p-3 w-24 text-center">Ú©Ø¯ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ</th>
-                                                            <th className="p-3 w-24 text-center">Ø´Ù…Ø§Ø±Ù‡ Ø³Ù†Ø¯</th>
-                                                            <th className="p-3 w-20 text-center">Ú©Ø¯ Ø¹Ù…Ù„ÛŒØ§Øª</th>
-                                                            <th className="p-3">Ø¹Ù†ÙˆØ§Ù† Ø¹Ù…Ù„ÛŒØ§Øª Ø§Ù†Ø¨Ø§Ø±</th>
-                                                            <th className="p-3 w-24 text-center">Ù†ÙˆØ¹ Ø¯ÙˆØ±Ù‡</th>
-                                                            <th className="p-3 w-20 text-center">Ú©Ø¯ Ø§Ù†Ø¨Ø§Ø±</th>
-                                                            <th className="p-3">Ù†Ø§Ù… Ø§Ù†Ø¨Ø§Ø±</th>
-                                                            <th className="p-3 w-24 text-center">ØªØ§Ø±ÛŒØ®</th>
-                                                            <th className="p-3 w-20 text-center">Ø³Ø§Ø¹Øª</th>
-                                                            <th className="p-3 w-24 text-center">ÙˆØ¶Ø¹ÛŒØª ØªØ§ÛŒÛŒØ¯</th>
-                                                            <th className="p-3 min-w-36">ØªÙˆØ¶ÛŒØ­Ø§Øª Ø³Ù†Ø¯</th>
-                                                            <th className="p-3 w-24 text-center">ØªØ¹Ø¯Ø§Ø¯ Ù‚Ù„Ù…</th>
-                                                            <th className="p-3 text-left w-36">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† (kg)</th>
-                                                            <th className="p-3 w-28 text-center">Ø¹Ù…Ù„ÛŒØ§Øª</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                        {documentsList.length === 0 ? (
-                                                            <tr>
-                                                                <td colSpan={15} className="p-8 text-center text-slate-400 font-bold">Ù‡ÛŒÚ† Ø³Ù†Ø¯ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</td>
-                                                            </tr>
-                                                        ) : (
-                                                            documentsList.map((doc, docIdx) => {
-                                                                const isSelected = selectedDocRowKey === doc.key;
-                                                                return (
-                                                                    <tr
-                                                                        key={docIdx}
-                                                                        onClick={() => setSelectedDocRowKey(doc.key)}
-                                                                        onDoubleClick={() => setSelectedDocModal(doc)}
-                                                                        className={`transition-colors cursor-pointer ${
-                                                                            isSelected
-                                                                                ? 'bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100 font-semibold'
-                                                                                : 'hover:bg-slate-50 dark:hover:bg-zinc-800/40'
-                                                                        }`}
-                                                                    >
-                                                                        <td className="p-3 text-center font-mono font-bold text-slate-400">
-                                                                            {docIdx + 1}
-                                                                        </td>
-                                                                        <td className="p-3 text-center">
-                                                                            <span className="font-mono font-bold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
-                                                                                {doc.archiveNo}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="p-3 text-center">
-                                                                            <span className="font-mono font-black text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-900/30">
-                                                                                {doc.docId}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-mono font-bold text-slate-500">
-                                                                            {doc.opCode}
-                                                                        </td>
-                                                                        <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">
-                                                                            {doc.opName}
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-bold text-slate-600 dark:text-zinc-400 text-[11px]">
-                                                                            {doc.periodType}
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">
-                                                                            {doc.warehouseCode}
-                                                                        </td>
-                                                                        <td className="p-3 font-bold text-slate-700 dark:text-zinc-300">
-                                                                            {doc.warehouseName}
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-mono font-medium text-slate-700 dark:text-zinc-300 whitespace-nowrap">
-                                                                            {doc.date}
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-mono text-[11px] text-slate-500 dark:text-zinc-400 whitespace-nowrap">
-                                                                            {doc.time}
-                                                                        </td>
-                                                                        <td className="p-3 text-center">
-                                                                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/30">
-                                                                                {doc.approvalStatus}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="p-3 text-slate-600 dark:text-zinc-300 text-[11px] max-w-xs truncate" title={doc.description}>
-                                                                            {doc.description || 'â€”'}
-                                                                        </td>
-                                                                        <td className="p-3 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">
-                                                                            {doc.items.length} Ù‚Ù„Ù…
-                                                                        </td>
-                                                                        <td className="p-3 text-left font-mono font-black text-slate-900 dark:text-zinc-100 text-sm">
-                                                                            {Math.round(doc.totalQty).toLocaleString('fa-IR')}
-                                                                        </td>
-                                                                        <td className="p-3 text-center">
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setSelectedDocModal(doc);
-                                                                                }}
-                                                                                className="flex items-center justify-center gap-1 w-full px-2.5 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white rounded-md text-[11px] font-bold transition-all border border-indigo-100 dark:border-indigo-900/30 cursor-pointer shadow-xs"
-                                                                                title="Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Ùˆ Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ø±ÛŒØ² Ø§Ù‚Ù„Ø§Ù… Ø³Ù†Ø¯"
-                                                                            >
-                                                                                <FolderOpen className="w-3.5 h-3.5" />
-                                                                                <span>Ø¨Ø§Ø² Ú©Ø±Ø¯Ù†</span>
-                                                                            </button>
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })
-                                                        )}
-                                                    </tbody>
-                                                    <tfoot className="bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 font-extrabold border-t border-slate-200 dark:border-zinc-700">
-                                                        <tr>
-                                                            <td colSpan={12} className="p-3 text-left font-black">
-                                                                Ù…Ø¬Ù…ÙˆØ¹ Ú©Ù„ ÙˆØ²Ù† Ø§Ø³Ù†Ø§Ø¯ ({documentsList.length} Ø³Ù†Ø¯ Ø§Ù†Ø¨Ø§Ø±):
-                                                            </td>
-                                                            <td className="p-3 text-center font-mono font-black">
-                                                                {rawDocumentRows.length} Ù‚Ù„Ù…
-                                                            </td>
-                                                            <td className="p-3 text-left font-mono font-black text-indigo-700 dark:text-indigo-400 text-sm">
-                                                                {Math.round(totalWeight).toLocaleString('fa-IR')}
-                                                            </td>
-                                                            <td className="p-3 text-center text-xs text-slate-500 font-bold">
-                                                                Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                                                            </td>
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : prodReturnsGrouping === 'document' ? (
-                                    /* DOCUMENT-LEVEL CARD VIEW (ØªÙÚ©ÛŒÚ© Ú©Ø§Ø±ØªÛŒ Ø§Ø³Ù†Ø§Ø¯) */
-                                    <div className="space-y-4 animate-fade-in">
-                                        {documentsList.length === 0 ? (
-                                            <div className="text-center py-12 text-slate-400 dark:text-zinc-500 font-bold">Ù…ÙˆØ±Ø¯ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</div>
-                                        ) : (
-                                            documentsList.map((doc, docIdx) => (
-                                                <div key={docIdx} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm hover:border-slate-300 dark:hover:border-zinc-700 transition-all">
-                                                    {/* Document Card Header */}
-                                                    <div className="p-4 bg-slate-50 dark:bg-zinc-950/60 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
-                                                        <div className="flex flex-wrap items-center gap-3">
-                                                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-900/30">
-                                                                Ø³Ù†Ø¯ Ø´Ù…Ø§Ø±Ù‡ {doc.docId}
-                                                            </span>
-                                                            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
-                                                                Ø´Ù…Ø§Ø±Ù‡ Ø¨Ø§ÛŒÚ¯Ø§Ù†ÛŒ: <span className="font-mono">{doc.archiveNo}</span>
-                                                            </span>
-                                                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
-                                                                ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª: <span className="font-mono">{doc.date}</span> {doc.time && <span className="font-mono text-[11px]">({doc.time})</span>}
-                                                            </span>
-                                                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
-                                                                Ø§Ù†Ø¨Ø§Ø±: <span className="font-bold text-slate-700 dark:text-zinc-300">{doc.warehouseName}</span>
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="text-xs text-slate-500 dark:text-zinc-400 font-bold ml-2">
-                                                                ÙˆØ²Ù† Ø³Ù†Ø¯: <span className="font-mono text-sm font-black text-indigo-600 dark:text-indigo-400">{Math.round(doc.totalQty).toLocaleString('fa-IR')}</span> Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setSelectedDocModal(doc)}
-                                                                className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-                                                            >
-                                                                <FolderOpen className="w-3.5 h-3.5" />
-                                                                <span>Ø¨Ø§Ø² Ú©Ø±Ø¯Ù† Ø³Ù†Ø¯</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handlePrintSingleDoc(doc)}
-                                                                className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all border border-slate-200 dark:border-zinc-700 cursor-pointer"
-                                                                title="Ú†Ø§Ù¾ Ø§ÛŒÙ† Ø³Ù†Ø¯"
-                                                            >
-                                                                <Printer className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {/* Document Card Content Table */}
-                                                    <div className="overflow-x-auto custom-scrollbar">
-                                                        <table className="w-full border-collapse text-right text-xs">
-                                                            <thead>
-                                                                <tr className="bg-slate-50/50 dark:bg-zinc-950/10 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                                                    <th className="p-3 w-16 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                                    <th className="p-3 w-32">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                                                                    <th className="p-3">Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§</th>
-                                                                    <th className="p-3">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                                                                    <th className="p-3 text-left w-36">ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
-                                                                    <th className="p-3">ØªÙˆØ¶ÛŒØ­Ø§Øª Ùˆ Ù…Ø´Ø®ØµØ§Øª</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                                {doc.items.map((item, itemIdx) => (
-                                                                    <tr key={itemIdx} className="hover:bg-slate-50/20 dark:hover:bg-zinc-800/10 transition-colors">
-                                                                        <td className="p-3 text-center text-slate-400 font-bold">{itemIdx + 1}</td>
-                                                                        <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{item.itemCode}</td>
-                                                                        <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.itemName}</td>
-                                                                        <td className="p-3 font-bold text-slate-500 dark:text-zinc-400">{item.groupName}</td>
-                                                                        <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-xs">{Math.round(item.quantity).toLocaleString('fa-IR')}</td>
-                                                                        <td className="p-3 text-slate-500 dark:text-zinc-400 text-[11px]">{item.lineNotes || 'â€”'}</td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                ) : prodReturnsGrouping === 'group' ? (
-                                    /* GROUPED VIEW (Ú¯Ø±ÙˆÙ‡â€ŒØ¨Ù†Ø¯ÛŒ Ú©Ø§Ù„Ø§ Ø¯Ø± Ù‚Ø§Ù„Ø¨ Ø¬Ø¯Ø§ÙˆÙ„ ØªÙÚ©ÛŒÚ©â€ŒØ´Ø¯Ù‡) */
-                                    <div className="space-y-6">
-                                        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                                            <div className="p-4 bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-                                                <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
-                                                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                                                    Ø¨Ø±Ú¯Ø´Øª Ø§Ø² ØªÙˆÙ„ÛŒØ¯ (Ø§Ø¯ØºØ§Ù… Ø¯Ø± Ø³Ø·Ø­ Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§)
-                                                </h3>
-                                                <span className="text-xs font-bold text-slate-500">
-                                                    Ù…Ø¬Ù…ÙˆØ¹: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-extrabold">{totalWeight.toLocaleString('fa-IR')}</span> Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…
-                                                </span>
-                                            </div>
-                                            <div className="overflow-x-auto custom-scrollbar">
-                                                <table className="w-full border-collapse text-right text-xs">
-                                                    <thead>
-                                                        <tr className="bg-slate-50/50 dark:bg-zinc-950/20 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                                            <th className="p-3 w-16 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                            <th className="p-3 w-32">Ú©Ø¯ Ú¯Ø±ÙˆÙ‡</th>
-                                                            <th className="p-3">Ú¯Ø±ÙˆÙ‡ Ú©Ø§Ù„Ø§</th>
-                                                            <th className="p-3 text-center">ØªØ¹Ø¯Ø§Ø¯ Ø§Ù‚Ù„Ø§Ù… Ù…ØªÙ…Ø§ÛŒØ²</th>
-                                                            <th className="p-3 text-left">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
-                                                            <th className="p-3 text-center w-28">Ø³Ù‡Ù… Ø§Ø² Ú©Ù„</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                                        {productionGroupsList.length === 0 ? (
-                                                            <tr>
-                                                                <td colSpan={6} className="p-4 text-center text-slate-400 dark:text-zinc-500 font-medium">Ù…ÙˆØ±Ø¯ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯</td>
-                                                            </tr>
-                                                        ) : (
-                                                            productionGroupsList.map((g, idx) => (
-                                                                <tr key={idx} className="hover:bg-slate-50/30 dark:hover:bg-zinc-800/10 transition-colors">
-                                                                    <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                                                    <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{g.code}</td>
-                                                                    <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{g.name}</td>
-                                                                    <td className="p-3 text-center font-bold font-mono text-slate-700 dark:text-zinc-300">{g.itemsCount}</td>
-                                                                    <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">{Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
-                                                                    <td className="p-3 text-center">
-                                                                        <span className="inline-block bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[11px] font-black font-mono px-2 py-0.5 rounded">
-                                                                            {totalWeight > 0 ? ((g.totalQty / totalWeight) * 100).toFixed(1) : 0}%
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* DETAILED VIEW AGGREGATED BY PRODUCT NAME */
-                                    <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-x-auto custom-scrollbar">
-                                            <table className="w-full border-collapse text-right text-xs">
-                                                <thead>
-                                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                                        <th className="p-3 w-16 text-center">Ø±Ø¯ÛŒÙ</th>
-                                                        <th className="p-3 w-36">Ú©Ø¯ Ú©Ø§Ù„Ø§</th>
-                                                        <th className="p-3">Ù†Ø§Ù… Ùˆ Ø´Ø±Ø­ Ú©Ø§Ù„Ø§ (Ø§Ø¯ØºØ§Ù… Ø´Ø¯Ù‡)</th>
-                                                        <th className="p-3">Ø¯Ø³ØªÙ‡â€ŒØ¨Ù†Ø¯ÛŒ Ù‡ÙˆØ´Ù…Ù†Ø¯</th>
-                                                        <th className="p-3 text-left w-48">Ù…Ø¬Ù…ÙˆØ¹ ÙˆØ²Ù† Ø¨Ø±Ú¯Ø´ØªÛŒ (Ú©ÛŒÙ„ÙˆÚ¯Ø±Ù…)</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-xœì][sÇ•~Ï¯˜°\&˜ xÓ…KJ+KV–[²¤µv¶T®h‰Ydf ’†Ye©DIµQ%ñÃVíCªò°”Ù,YR²Úÿ@zóØü„=§{.=÷î¢9‰)`0—¾ûwÎ¶ÒÔïéM­jµU[«ÎÔëJS5ï.:g¿Ğ»êÙz}z¡>qşgŠÄ1hj¶ª·µæUİ²km­»a·”ååe¥®\P*RÄcÉ6åÚã? ©4ŒöjOí.v”F[µ¬kjG[èUç[Û²«­kk&ıLÇgŞrŒÎœZ7ºvµ£5õ~gâühwôdøbxğî©òîépot¸¯Œ_–¦í¦|«ánÉ>O)‹9†:0µW©è¶Ö9¥èÍ­)eù|'ã©ÜÕ¶—ğ¸À,´Œ{š¹¸¶áŒü®A:öŞ/Şêœ­+¶©v-İÖn¦Õ0-Éõl[3¸.æë‚ÌúšÑn†VÈÄyìŒòKef'ßŒ§´ƒ®8£kÄ·âtt’†ån
-œÿZÃhj;ù»Vê ­µÕÆ]v\ÎEÇe¦àqéBî¸ÔÕ%è&óèÁ½ÛÖ»Zu½­m)8–»K6Ô^u¦¶ ô¶ª³øÏvuF1~·©9+ööL½·õ9³×³	7~à®3ØÍ;wvŠix|ã7I[ä¯Ó¶êz¿İvÛĞ4lh2]\ès7àe½k…,<–¦±g,›²6%™ï¶¶nG¶§ŞmêFˆn9'ç=‹ôîæNQ{öÕnÕÈœ¶V³[mÿ‹½=Ÿ®µ­­Ú¦Şİ¨L®«Õ•›“SGaoË‹xLMÉIâ=‡v®Ím±¦ÂMêZ[ã¿ii¤U¾Ë9/M ˆÔßÓ¿Pn^üL¹|ıÒ¿~òñµ[ÊÍëŸ­*Ÿ~|såÊÊ¥‹·V®_SV?¾Dş­Œv‡{ '¾R¨Ì8ºÿãWOGñœ2Ü¾Éqox ŸÃ¹}¼Î÷ß=…«†~OïÆkFàîSÊ/¦Ó'j	†€İ˜»zVij³€î>W¶BvéPcúÃFgİmêœu1xnµÒÖÛÆfµ¥7›ZW±Zj¾qíÜpQ"g$ÁP#A4<í¶³ºÆÙRÂ¨ğOuÓT{A–õï}ËÖ×·«kš½©AÓ‘…ñrÎpÓã¢?q¦«ÿ¹cİŞÀ±qh%38Îù:'•4ÖŠ°È+H~—®€±Ú35µiµ4Íögú3?!Â^¶¼;„‚nÍ±mt˜í?|6Õ°Ä}6V²ŒQœşY	î5|Tâû MøËğÙp	è–£Ç
-|{ñö ¾ìãUpéşèÉè!Üu N¸C"€-+¢w¢
-vuŸü…çÙ˜µX¬Å3qkq!%(‡ÉÚLuó²Ñèw`äo›–c~ØñH­BÆRbx$­¥éÖœà½ÈÜ™AY™Yw±šDfCbÜxÒè1\Üˆ®»=eø
-ï¾ÀïdP‡Oçá`uîÁƒFOàÿÀ½1‹Ÿïp¹ıáß†Ï›á…‰<Opø{eJòâ°´Ö·m£+4F÷R[oÜ]TˆùÆÒìÕ–±y“lëSÍÔ×õ†Š†”ÊÏ­ø%AVÓJÕçˆvÈè`ÀÚ„‡]ßÒ£‚ŠæÈ'¾ifµgèä©„W~Bg)ÒsA™ôÉò[Ò*b9¢ó£'¹Ÿüß¦gë“rMX$Mˆ‘êÎºÍ¡äL”‚Ìyr_š…7F¬tI&º³õI¡^€¾Í}½•$MôeéãmíúúzP:™#¦ø‹
-Œ*^”r…ØŞ Œö|J“&@ñCJù¸<0ô¨$0	­ºTñ’c*
-D„…Ê™ÜpêÎ(c[š¦¨Pí‹—¤&Ú‡r¥ãô€†Vİb¤võ.êuµ©Á Ë¨®jªÙh)*·Ğ¢`)«ıNG5·3Õ³´ö	+-¬Ö4}&Fqš«+=b—cµ‰o&AÕB25xº~OS6©½Íê,nVÏÈˆÇKÎxÇoÌ°G]³Œv£©o´l´Ld„”ïÕz·×·¥h´½İsD»	©û{ k-àŠš¹<(ÈP 3_Ä‹dA9TÊÛoàÛÃá^­V“kÅ=µİæNé‹E'BÎL²IKínÀÃ4G6¹É>´¢ÕlÕÜĞìy¥¤-.°DÈ²ëµQö0«çbnû²Ãd3Š+Çp¨Œ@£­E£oƒz×èjÎ)4CVgØ/ÒtA
-ŠÄ¢Î6?É#•g~rr*àôv0š“	#[8¼Ñ© çc~!C?›Ë´ôëåAº#EMÈÓ„Ø*{n	íÅ»‡ÏÂ'¹—à ¤½7@ßˆU$¨µ.Fma_BŠg0dğ™8?hêİm­	Ë“•¢ÉIÖC»ñe¾ÛÜ?'Ño<íZt0¸ü0ìx0ş“ÈĞ˜Z³ßĞ*ë”bÒ]­üR1k¿í«][··O)õ©d7‹3À GO€g½íÊY^ÄŒ…‚{…½€øyİ¹ä<Ïv¾UUû¶Ê­eªÕ0v{M5“˜hYévyàgu«ÚªŞÑÛú\T|#™ê¼¯ÍS{–F×‘­\2 ³µí–¦|ˆ á6înJ_÷E[ÖĞ( à2Ì/àBŠøææğÉA_ƒŠr´ÍêÌ,q2qŞİÏKÓv«ğ—ÍÎ‡^–ÇşÖ€°:·ïã»A,ş®´>OœG•|´Kl›¯`F¿õ$ğrºxvâ<¼à Ü·ÌÒFHô˜¸ßä‡ĞwÆ™‘+w7¦Ê˜7t¨ÿ
-‹ã[X$ûÄˆF—ï†¯É÷ñnÎ7ÀéÑ¹o–¡\ ¾(³EÇp ¶{Nœévùa¨ñrÛ‘E©‹Ä¢ïÀÓğ”‘àSÓØôcOÅ­üìÑ0º–­ôTÆTMeYi:öQ‹»®ë(Õâ{á´YC]T¿§]3¦ÈÊqÎC›Ø_@ön€'®4#Ó³Sÿ«ù¦f÷ÍnÎø[<²cp=C†Ú-üL˜ÁL9a¸´‰Í^ÀF&„•:o‹8ÊJ±a¹<í*¨ûäUÉª[\XBš}šªRcFĞ2ÌøõİÍ æqõN£»®¨èZ÷xû§˜ I<Š
-œ¤Ï:†k+l¾Iò¦ªdÙË)İºZÆBò¨öO}1ÅĞx3+v(ÄŞMf]İRNİëĞ¢â£KÍØR*â 2Fh~-2¼üq
-¯´„8&&ê©Œ1»TˆrÇ¬LRÏ–	ØêÅ‰}ô»`ïıöñá¸Ìl÷F±`
-<X‡ Nkì/OÇ8š—Pû&qöšınnšP`Úè"‡A·î5xf¦àƒ•/¿T&üêëÉ÷gl—h¾Z/í›N:d¢.y˜ÈL­­5l­	İøÄhªíŠ×«‚ö{¤útC@ µéù™ 6¶xñŒNÊ¸ßƒAØBlhx¬â´ïæJÀÆ
-h²¡ S¹`™´ƒR‰‰@(ßÛo0äø"Š}a±Ü¥+$ézOë}„ù¢!R_Iİÿ«¦8Æí=_:#é8R/6Ì£C$7Úë†aÇ¸ ×=òYR°0^È!;6g¼Ù!û¬¿Å™ñt";4%€.YÌé°à••¹¥:¯¸\^ÌLOŞñvÂlÒBğÅg/$$Û#Ûi7&îî÷œïåˆ_"êÿíâ5åã›7”Õ•k¿ºú±W¾|såêÕêåëŸ]S>¹~ùâU¥2úä‘şjôuïï‚XÂ‚ÅV0TÃ60ü˜ÀÂ\ ÂèŒv³ñÉ+$ô¢ ÒÆºçŸS~¾¼¬L¢°·JOs/i˜,°†iƒœœ2G1ê[ 8ê]ºYª~ÆÍ¯ÁîošFè@ßDÍî”s3¥dHµ:‹èÄ	ÓæE5†[šcìFyÍnµ]Î€…ÜN@Ua¶Ún¼Ø¹Ù{­ÏÔ4ì÷ÄÛí£…´I1A'ûŸ4[›'|À8pØ¤Pá©°ŠTúÙ¼xˆühñ¤'obˆ[ÿ0ıDˆZæÊNG¬ÉJ#Iú¢8$±b±ŸŞmRw¹w‹ñŒ¼!š|\S-mœÙ¢„¿Š²İKÄ{`ï†€¾A|ºR!jlL“òîÕ»Wr
-$a´uàî°<ÆšMédÔÒ@6–ÖÑLµİôÍ¬î‰³Œ¢à;Ç¤7\<—{~"ì´¦öz¦qOm¯Úªİ·òòú¶ä¾$·FañA\M*$^:…{D"cSësMœNwpCâ¿”ãA÷Y ®V¨í‰Êël|Ã}ÿz¾Õ" Ş÷oÏúQF
-Ò˜ÃÌ2%·Ôn³­İ mÑ^±­ÁUÂ“•NÇ‡îOµÇeaLÁ‘°3*–Q$’U€.oëpXntNãvÈk–ÜdJ1ıA"]î¹d¯¾Å8õ7í"×Îef•7¥¸â|*]`äù×>]çYğÃ3A÷E€~²4”Wa¦^ÿ>Ğ%¸nişº8]f•ŒâEµÓUuX¥›FAYé®f‡Â¾.©f³(µÕÓ¬· `n–‚ùœ
-gª:»€Éæ
-£ˆ)aÃÔ›ä,j
-ñ¿Îa¢’*nòU¢2S<Óô¤mÃ•†ÜÀ¤ˆ<È¨C‹¹a©2‘û¹z¢#“^dŠšï¾]ğTÆÈ
-Qf1	Ëî¸&3MÌæÉü²÷{?›œÑv/áÛDj‘ÌyåNf¶¿oÖWJ“w#¿Æèğ¶ŞÑĞè}çÇ¯¾V>ˆÿ}G<Ÿ×»÷~â}sÔhwô`øš8‹n^Ï.ÏLoª¦Ö2ú–F¢‹XÊe$tuê§;ÁoFFOpš	óq-³Ä¦» ™6zÎÇıôŸVw"ÊâÊU8£Gw6{š©Í[Û=í0¨-Û+««Ø iïBñb1A·O8êğ€$h!Ùi©ÍôÈNiSEKï­Î¥ãäÊ˜!}õªŞÕ,‰$$äÍÜ¾æ‚Ó‚K+€á¬ÉÄO‡â+µ…{„e÷Zk>1¿2¯"P‚o‘¬ñ¿ÿé¿ËLéf†Ã?Y»NA7ìÉÂw^k[$}ôòUâ³àIîc¤™%iætk¾HbÍwÅ]Ù"Ç´ùÑu‹è²¨ZYİ"”oIrP•feO’•gò#ÿ­r©6‚Ï0¹m~§©“ÒğŸ§[ˆœR”«¦ùeåIJ}åÜ,»uL°“üÖÒ2et´ğÌ>)ïä÷9]V~Ÿ”tônu³:–Ä,ûÉ}F÷İÄõÃW$Hù%’l¹¨Å–/_:-÷€CKÏãI¬Ÿ-;W
-Iÿ‚M³¦67@f^&gptB'jV¯­Û•É/'§H“,âR¬íT¦¦jëz¨Oå#Ãhkj“ßÜş<_Š<
-Kó‚‡Ÿê…ãQ+¹è·3»ôb²±Õ)ÂH»XpÆ—„ÖI%ÌpéCÑÇÓLîÀ@¿uÄbUvë
-ˆ§Fñ¥ãvB@Âdl|Ò¼Ú<J)èE#çJ_Æ<À÷,Å«xì;‘‚‚cÀãñíÏe»n&¾ó9óğ%EH„Z	·‡D|Y;¥¬­R39í D°øµ0ç§Ù©¡ÖNZ CLì>kÅcåİ£Ì±{L•€ñÏwtäKò˜tdø"&ÎÿøÕ×eş‘$ÇùaÚxäL7¹“_*Àöb§Y±Ä’à`®ó›°rg‹¥a ·ó;Ò‘æ§ëÂ°™ô9Q×ÆI‹kYñk%Ô}–°’ç¤R‡ÚÇÁ„”–"A×LWò­ÄAØÌÍb`lÿFY§¬àå!ÆW`8r`à ÅÈ[*Àµpoh¸áüh®<0.¦Z%URò¢®LĞå6 ÌIn9Á*±ÊĞ<*C³!tat&ˆŒ¥£¤Ã5KÑS‡‹&¯Îxf I´«üÑ	(r$­Ë„ê­|è 3™Š|tÁŠËÈMt8H$·\ê‘x)½ìTêunÖ”ê`)+4å•1ºãÎT%ô¬8™åš¦ÖA›Î5‚›¢’NXÄè–w	¹‚d‚("ûo¶—:	€f{êÍ›í¥.íE<»©	ïIÍöB›"“ù¥åUbmÑğš
-æô9çfƒ©gfƒI"„’½¤È¶Ié]’ŠÕæLï’!ñQÇeï );Üü@‡…³Æå“ã–®èmí<0ÃI_û€ÄqKnÜßkR‘fø-Ş<#á£ûQá+ÎYüü}ÍAîxòzÈ«›TXÓ-œ¨-£=d› Üº‹ h/U‚ÑÁİrK]·ô¶î¸b©æà$NÙ‡1}j}l:‡ì÷Çx¯CouÜÓä­ÙiYx™WÜ<9Î„ÀÂcÚLNåÈçAPAßcØÎ÷\@2`guÅ4:$Ş»Z­Nî –¸G¸eø§‹è:Ï%NYÜÌ×…äR¾ˆ`{+1¬¶²®¶-ÓLŒ°û„Ëª­VnÎç¯ú*H–¶¦]ji¿ík–ĞÍŞkıÒÀÙ÷îdÏ\ÌÈô’¹gãeîóL¸q4¨FHæØr!¤şi ò§3éz¶pœeïòyş-Ã v1¦?Ë´ØÿŸ¦çd¢ü=IŞC>›ÆfD@ˆrÙÌê\Eï¹RÇÅ¹'úy¡îiA{¾$CL{¾2JÖ“¨V"ì½ı«×Ñõ„=«ç{¡SŞ
-R¾›£éÃÔ'\’ï¹5ègcUí¹$U;b ˆañ±z>w¥yÂuê~…{ÁÏ¤)ÙòXƒ%ÙuÍƒz
-Ïöáeªx„ëºf7ZŞÜWÂ¢ï¼7u=ÍeĞu¯jÆ–Ïb˜—J‘yX<©ÉãMä¯%u¾ @“İ-=µ¡ÛÛ¨8åãaxğ‰rş*”%ü¨™³€V¢+Ò„H^rÒŞE*¨€ |S[75«ui3%ßô`|:zT1W’›5‚xF¯‡àÈk€’[Ç¬]İ]Ç|‹Y´(Ópg­uU‹^Ú"4‘Ûzã\€ñô½ØCÄB*3·À1øO+7._)håghMüèGr¨P€¬±®ÜÂ‘V8ÔVzvê©”Ê¤§#	›œ…KÌ°”Á¶$N"«u@®M5^Â«³)™c¸c0â(2º°°Î¨±¤ÉA˜±ñ[D%Ò¯|üÅÈoÑ$B\¼Ä …1pÕ+Å·=½$	ÌdƒDÉë’âPà1*.•@ò†»F´‡ìl\éK [sÏ î™Ëšu”åS]ÛäJHÄJF±‘ŠÓ¶Ns‘Ü$à|¦ØÈ¤ °dĞ©á*Q]ù¤cÑ¨©jQ¨Y"¢ Ë½’¹S€™Ä‹ÃÊÖ8^<³ ›ñZ2±´Àîğ:‹Kµ—¦bøg4U¿{Š!!åw8ŒsdE„W=«8tì¡$Ì1gCP%‚xÈÁA-´¤–G±ÇÙMdŠAdñ>šù¡¯Åß.)'ç€o
-¼A<'#°ÓØ<¥èÒ¸†ìÚó 5Wä0ÀGÁ!(¦Äñ€æı¼L¼ÿ¬¶Õ¶NÊ]â‰©@¹TdaÈ†L~°´î¸kğı«jWm’Œ¶ î½%T&øÄĞôî¯æ†^}ïÌR÷0p
-Í.¹C_Y ¨&Dür‡‰è&Ö:wtoh<v¡Ñ`NïœRenÁŞ¯•#à¾ÈY4/Ö"?Jd²:)ÿv¹Î—°#-m¨xUôliî^¾JCE³VzŒØ—€N–°Ù	¦²ºa±»ŞsÓ8-]ƒ­@õJ?1ºÚvÅùgæ®ÔVºå2²j%6Ô*º¡ƒ;i`¦Ğ¶é64§}“şèé™Ä¦zŠ'wîä(!<ˆŒ }ÿQØ*‰Kº‡aÚóÁ]ÆÅŸ¦ò%™ˆ™Y`1d^İºIfŠÂ,„
-Çà%ÒmÉµVğˆ[£¬ÒBZVr0|Y½d£8šb‚4Öİëw:ª¹­¬R+Â=Äóô%gt
--_ıá™ÏY;5İ®ÿ¦:ÛÛúÍiøÏÜXS+õSäµúÜÔçJ¸à©„½„¶8²6ŸL%ÃÊ:ƒ`ó’„²îbÃ!¹Â´h>–	°™|È´ ×³¼š ıW„¬
-ü•”•ª‰[Ê 1ÔêÈŒ‘5ş1Š-‡ŠAd­SäHd¨dOìğÜN5EW•™Ï/HÈÂí“fBÙ@¤‡ L×eÅœØØÊH©ù™+§DePP'µ\­=yèÎ6ñÎ=)·SäcMok‚>‘p¤?I˜Üi.:±\k	şísB¶½’ìz¤§±F½@Ÿ[Ãf6g˜ˆÃ3-f¯ĞÔØl¨²{ÇD ø	"İ:+ò¥’eH,.Ev¬úãh>çŠU|”“œáÒ…Bw2õ6å´¤|Úôµ£1§×¾AÆ'ä¬ƒa wI0#%®¬^$nËeô§¾(_²fâÙ\<^ÉU!ªù’WÅÁ=|+(k YDÃ4”$†B4U«¥5C“&œTÌ+»-sf¨ÜÚœ'Ÿ6“MlÈî¼Ãj“e–¹rL%°ÚsIœÖR»–[Ë%¹…d°O)1áZÆÅlà‡S2ù0'$ÀòÊÆ fò?´y‰,Z
-´z‹Ì–nQô<î0¶<şd·Å!Ìaùi„„,ÌŒfê—§•šié–B—åóÖ(	²‹5/ÇäGñT¾œy‚âÔ<í1)K(Úš‡o˜°Q6JËµ?K2Š}Œ…9&· ³±âSÉô¡¨D‡3‘Á(·’&3Ş^Â|ZGw>“3a²"î	ì^ŞG6ı®×È#=¢u‡B§à9w¸œ/a“Ì'†|ÿ(Ãï­ù‹ş¡ZôK'8eeOÊrˆ£4X­¡5€v4W¶/BÅ™/¸˜Ô?ÜtsôøİÓ·>s
-V|—ƒäJDb9zôãWO‡¯	õ16ğL­aÎsQ¶õ²F(NÚeU#¸­L‘vğsGõá‡ÊF(ı‹Éá²D†§ø×iO¸%EÕÎÌİB}z*snÂ"væ‚6+zƒÃıÄl&©^Ñˆ3Ï#]“ôÅb£%¸ÆİÕßÂ8†P>LÖ ú`HytL‚$/	¬}Î	ó ô¯£]\ Ny&X°ğÓ­Ú´KÒ=ş/qi€ •áÅfy“dy{ÚÉ¬5W'Œ'Œ'ôòGv…\XÒ .Ò»±€¸è›b€\Ş:Bl…]şàJÇ&I&0Î†’Ğ¶-Ó%ùòbp]â//Û%øúñ]¢C« ßÏF‡ÿËĞ¬üh&á E©2qÙØ"ÚíÂ¿$öà Â“‹@Ñ¦g!Œ<JS Âˆ¾ùˆ¢ŒR76¤QB+Æ„6"oAÿøëøL=¼¡Ñi\[ˆ¡)Œ'øŸğı¥,V98MI‹Ö‚¥K&Áè—·FfŒÑ±
-¸ß×¿•«d‹, Cª „h|®pI±(?<d#ıÈÛ£ıXöé'Ù„é–ÂCÓ¢ùŠ	âóŞ2†@>ò®÷/˜/¶Ù,·ŠcUY±~E££Â£’Ÿ;¤É<gÃ!MíÔ&OåÍ·f™âa]æ–g·àXã#bU·rBYBÈ'_ˆ÷fòÿ\A¯©c‘ÇY>!ñw¡O±±~T/¼»u´n ^2+;íI¦éì×–˜iz«ºà%îô]=¡ì'~</€™·nK)Y¤İ*+Êè„£I1}‘ñæø)®òI¸ÒIàGÜ®ãè#ÃV.ë@íF+¹	½®}/«‘ÌX$µØHÔSé8
-hé¼Ğ­2{ˆuCæ³«†pÙ0Aƒ_«¶Q™Ä4:4y!ÖV¸§«n‘/ü
-WøuüÜ»‚	Ããİw<å¸ãó¨»³:=³º|¯³qµ¢~(Ëc¸xÈ§P pgëxë­8¥6¸¥t¤\¿•ÑãÑô­ Rˆ!fß“ß^)Œ£(&Æı@d±]t¥;‰‚İß+Äù¾Ï³!àÌì%ÖA!ó2ëÒìú.a~¦MôÈ’®>&¾×=üxŸÔ}{èûlq`È€…`~Xâµİ{ûhÕ|!<KÓ½BVR‰u8ˆÜeÜSX-
-o3ÂÁ\°æ¥ßã.+AöÿXËJ¬¾R!š½×5j-pµ^™¸at-ØBSİ²Ù±ôUÛT–•»QWÛTğD«¯¬^wJOqH ¦f÷Í.§©oI,šà)v ¬6Œ¦Ğˆ<87ŠG™¶Õ5­…}Ä•auiœcp]ÃXóÑ#§ä5IÊ„ÈC¨}‚öîéâÒ4y[¾8Ø‹¤4÷¿ÎJUZªƒ>@¼#Q"ç‘8º.nÁ+*“÷Ô~Û–­’Ì–ócP‚*C%Us`˜Ñ‘¤öNïrYM)Ú©©á‰£n‰RpcV	Ôİ˜vóRI3XâŞÈ·¬|­¢ˆë0´#„çğĞ˜"¤*À¾¯@ÓcªÜ„$Oüo’Ë˜çÿş§?ü×ÿıÏ”PdÛk²şdô ¯©q±˜Qe¥!}©e Øí‡n-7Û.¤İóÀ¶ïÿš"˜ ï±ş7SÊğ;ä*È`PÈwPÁã5ºº2Õñd.T¸ÑšÇ–¿x,€Å¸)7ØìaãôX9qÂb¼ã˜°˜¯_…ùË³á‚_aPdyÆ[ÎœLÆƒÕÿ™°-ØCÂÌj. Áì¿#_÷}0Æğ9Lç>1©¼=@'ú	»á:8Ù¨å}ós·07š!¤f7ŞYß8 ”†ãÇ…á|Õ•^ ièÒâ¬=´c±¼ò˜»ª9yN ©ô“c:IZghö¼iSAûåXì¸ó|l×Á8“0”0Ìu˜óßqÏpï8&œç÷
-šò‰ƒqt}îLùÏèşğşZ÷ñ–8'ûa“VıLË˜¤Àb~çç¤b³w¨±‹À‡ş†9÷C='¬ê!qí¼Äl˜“ïùaZİJ|O¦@ôÑİ€ùB¢%à ãsÊåvÄ%@ ’»üzxÀïãKÈÛéİàN6)Ã8«(‹1Ò›à«‘¡S©5½É­éİF»ßÔ¬Ê¤¿m˜jgrJ,[+å¢Öİm–CÁ· ğÎ+œ>ç×Œ î(ö*vx:–ò1A¡Ä4œiDÁìz·×·ÅÓæR³ÜbÍØ2føË¼?s§ı€Q‰c“°ú·àZçc #·Ôîl¼Š&d>ôu¥¢ÕlÂ•kNë§w¤•ÛµZ-¹§¿_¼ñÃáCkcÔYj#R˜rÅJG¥GCNı‘–hG”2{$ğÀÃ©Í¼?zH2®ÅW*·œæN‰
-^Bqşç8Şô~Mmkr´>YcŠ¡ù‚tB÷yzÄè>[oL´Ÿ®ËãE÷IŸÍ§#|Téı³ÑCĞÏ*A#O¨|ÚÁµ›6[ªm©½¥ß0¡É¥ßc¨<ıá„Æs=õˆÑx:wc¤ğşš<^TŞë×‘¡ôşHQjOBö‰ç¥ò6÷b¯7º_À3ymim[m´çw­i)ÀšÂŒh¡ĞõÙãdS£“{£¹î†Ëi¬f„ßæ¢üO‡¸¥<ávG·Ã‘/˜×y+  vÆRï¹QV5Òü÷?ıñ!²s	AÛ¡á3XÄ‡*Ÿˆí)GhÙ|¼Õ€fVbHH‚aå„Œ÷Ì0Â¬‰Rˆ	yòa‘“ÿˆ%'.jW©ÆM_Zıô¸ÉŞ‘V2\¹l)×AyiHã’Š´cJãñÿ'fŒökd`úc7³¸ä?“hÊ
-r	ÂêFX§3B`sw	şIlôK
-Ş|1z2z<Åğ,Á¢Sÿ±RÁHiŒ›¦,Í‘f`ëô¸xoøúİÓ)¡ BøPŞTs¡à
-0>ÉÜÿÚ}ø¢X„ÿdx #ó;û½7`A]aø
-¿ß‡[ÿª ø?°¯wIêtg[FÍ€Ä@‚Îñ±œãÄ7¦)øÕ”9!N%êÙ+WZŞ9¾(IÈ°æé†3$×·»WX7œ$º™ppIç¯= +Z:©™Ë`†¶Şİ°.8FœOµèú	i^ib"Aÿº5àšWüî\7¯²£˜@{d­V›çá÷Ôv_c‚K@gúl|uÁBAèé¾`@š!a‹æùïy%I¢²hLú)¿"¹nVÛ¶È}Ûè[‹Fß&Åy»FWsN‘àÌöF©‹­‘úüòç ŠøÆŞ3ÊA:Çˆf gŠ›^àÅ¡«‚·O¬\.œRàKË£øôcC)˜˜îcG-ßß{E1X§À1¢Ÿ9ÓÁM;\w!@$şq£Ö·Š¥Ÿ©åÑ‰ÏÔcC%\?øûB#
-´]Ğ	Uné60²b„¯ãêLœãŠø1|CÒ6íaz¹—D}AJÕ1y›BŠşÔ"ÇèòšøÉ(éaÉÍhÛ=DäÃ"Û³Ñ“wOßş':dò(U´y<¤ù1ÏÓZh>zÌ×ÌxÒC1à 6äir¤&–¼Ô2	ÌV›%0±Rä¤˜Yö“¢){`3âñíìU§”÷%Õl
-"©åÑO@……nín–HÌD[„)Q sg
-È‹Í…p¯8…ìù­gûÃ7d×€ë²wbRÜG[ÚğYœı0›Îˆã+w”0aæÿÌ…ÏY5‹Gk‰ÆUæ§@.8ş:‹”ÔuBlHˆ5ËVí¾E­úÁ÷LIu!«¹Ò,uDïş¨.ÅÆ¤•lÔš}Ô#!—‘Ünß¥Z¹(ÓJ÷SüÅŠ$ 2Ç£`‹ö«?‰îÊlÿ Ùğg]‹T¢x>Ú¥ù,¢%¡
-#ÊBk¨´x”4ÁÇ~C«T¬SJƒÊ#Ê/amªTİN)uñzÙ\„«ü-ÏĞ®âû˜ÕÏÜ	dÆHİÊ:BRÄ/³At‘©õ2nš(äÃÏ¾.#àugªr„«°dU+Ë’9Vb‰I
-ÎRŞÔ-,©×\èÖªÖÅt ±…Ç‰–A™ÏU…QëÆXõ„×Ä³z?cƒpe­Ë¤#éik8]Î\İ2`¶Ò¶”{¤N7Z:SLÛPô¯.º2N“•AuÖ¤â§iµ§ö†3ñ¯ğ³¬ø×yª`•“ÈbbÃtšî'69sB¨\F‚wDÚĞm‚Ã÷Î9×vo56³ÂÔ²×kì¼](>QüÒMmİÔ¬Ö¥Í¸ <·ÕÓ»\EA¼ÇR”	xù–Æñ¼¤@6q"©&áGú<#~LôJÔj5±8N…¢Qá£WP…Ìhí£ádğ
-(QOhtTze’Â‡,ÃXuH•¢ØßîcEYUÛš¥€à‹uCo(›÷tØ	å¢–.êäç*rQ¤%º…üégğj<$Ü†¥¸uô¾Dnmá…(.âCœ½NÅşÜ„~_ò™üë-#ş·†ÑéÁ†1ĞR/Xup‘ï²â/sûAZ›up»È!¸³Š™RéÎÏş  ÿÿ H˜*
+                {activeTab === 'prodReturns' && (
+                    <ProductionReturnTab
+                        dateFrom={dateFrom}
+                        dateTo={dateTo}
+                        currentUser={currentUser}
+                        settings={settings}
+                        getEffectiveApiUrl={getEffectiveApiUrl}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
