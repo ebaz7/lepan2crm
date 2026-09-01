@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCw, X, Sparkles, ArrowUpCircle } from 'lucide-react';
+import { RefreshCw, X, ArrowUpCircle, DownloadCloud } from 'lucide-react';
 import { AppVersionInfo, applyApplicationUpdate } from '../services/updateService';
 
 interface UpdateBannerProps {
@@ -45,7 +45,7 @@ export const UpdateBanner: React.FC<UpdateBannerProps> = ({
         <div className="flex items-center gap-3 min-w-0">
           <div className="relative shrink-0 flex items-center justify-center">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
-              <Sparkles size={20} className="text-white" />
+              <ArrowUpCircle size={20} className="text-white" />
             </div>
             {/* Animated accent dot */}
             <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">

@@ -64,6 +64,12 @@ const PurchaseModule: React.FC<{ currentUser: User, settings?: SystemSettings, i
 
     useEffect(() => {
         if (viewRequest || editingPart || selectedPartKardex || showCreateModal || showPartModal) {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+            }
+
             const handleBack = () => {
                 if (viewRequest) setViewRequest(null);
                 if (editingPart) setEditingPart(null);

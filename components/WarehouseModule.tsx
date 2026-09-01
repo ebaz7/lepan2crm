@@ -364,6 +364,12 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
     
     useEffect(() => {
         if (viewBijak || editingBijak || editingReceipt) {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+            }
+
             const handleBack = () => {
                 if (viewBijak) setViewBijak(null);
                 if (editingBijak) setEditingBijak(null);

@@ -23,12 +23,13 @@ interface DashboardProps {
   onGoToTaskGroup?: (groupId: string, taskId?: string) => void;
   onNavigate?: (tab: string) => void;
   financialYear?: string;
+  activeTab?: string;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 const MONTHS = [ 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند' ];
 
-const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, currentUser, onViewArchive, onFilterByStatus, onGoToPaymentApprovals, onGoToExitApprovals, onGoToBijakApprovals, onGoToPurchaseApprovals, onGoToTaskGroup, onNavigate, financialYear }) => {
+const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, currentUser, onViewArchive, onFilterByStatus, onGoToPaymentApprovals, onGoToExitApprovals, onGoToBijakApprovals, onGoToPurchaseApprovals, onGoToTaskGroup, onNavigate, financialYear, activeTab }) => {
   const orders = useMemo(() => {
         if (!financialYear || financialYear === 'all') return rawOrders;
         return rawOrders.filter(o => isInFinancialYear(o.date, financialYear) || isInFinancialYear(o.payDate, financialYear));
@@ -376,7 +377,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
 
     useEffect(() => {
         loadTasksData();
-    }, [currentUser]);
+    }, [currentUser, activeTab]);
 
     const handleCreateAnnouncement = async () => {
         if (!announceText.trim()) return;
@@ -405,7 +406,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                 setAnnouncements(anns ? anns.sort((a,b)=>b.createdAt - a.createdAt) : []);
             }).catch(console.error);
         });
-    }, []);
+    }, [activeTab]);
 
     const handleToggleAnnouncementCompletion = async (ann: SystemAnnouncement) => {
         const updatedAnn = { 
@@ -457,7 +458,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
           }
       };
       fetchData();
-  }, [hasExitAccess, hasWarehouseAccess, hasPurchaseAccess, financialYear]);
+  }, [hasExitAccess, hasWarehouseAccess, hasPurchaseAccess, financialYear, activeTab]);
 
   // --- CALC PENDING COUNTS FOR ACTION CARDS ---
   

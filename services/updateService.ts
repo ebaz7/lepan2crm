@@ -30,10 +30,17 @@ export async function checkServerUpdate(): Promise<{ hasUpdate: boolean; serverI
       return { hasUpdate: false, serverInfo: null };
     }
 
-    const currentBuild = CURRENT_CLIENT_BUILD.buildNumber;
-    const currentVer = CURRENT_CLIENT_BUILD.version;
+    const lastApplied = typeof window !== 'undefined' ? localStorage.getItem('last_applied_build') : null;
     const serverBuild = data.buildNumber || data.version;
     const serverVer = data.version || data.buildNumber;
+
+    // If the last applied build in localStorage matches the server build, no update is needed!
+    if (lastApplied && lastApplied === serverBuild) {
+      return { hasUpdate: false, serverInfo: data };
+    }
+
+    const currentBuild = CURRENT_CLIENT_BUILD.buildNumber;
+    const currentVer = CURRENT_CLIENT_BUILD.version;
 
     // Check if server version or build is different from current client bundle
     const hasVersionDiff = (serverBuild && serverBuild !== currentBuild) || (serverVer && serverVer !== currentVer);

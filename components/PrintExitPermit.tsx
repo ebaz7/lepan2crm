@@ -36,6 +36,16 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
      apiCall<any[]>('/bot-subscribers').then(setBotSubscribers).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!embed) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      const mainScroll = document.getElementById('main-scroll-container');
+      if (mainScroll) {
+        mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+      }
+    }
+  }, [embed, permit]);
+
   // Scaling State
   const [scaleMode, setScaleMode] = useState<'fit' | 'width' | 'custom'>(embed ? 'width' : 'fit');
   const [customZoom, setCustomZoom] = useState(1);

@@ -123,6 +123,12 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
 
     useEffect(() => {
         if (viewPermit || editPermit || warehouseFinalize || securityFinalize) {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+            }
+
             const handleBack = () => {
                 if (viewPermit) setViewPermit(null);
                 if (editPermit) setEditPermit(null);

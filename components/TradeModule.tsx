@@ -241,6 +241,12 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
         const needsCustomBack = hasActiveModal || viewMode !== 'dashboard' || navLevel !== 'ROOT';
 
         if (needsCustomBack) {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+            }
+
             const handleBack = () => {
                 if (showTransferModal) {
                     setShowTransferModal(false);

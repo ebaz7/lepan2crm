@@ -464,6 +464,12 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
 
     useEffect(() => {
         if (showModal || showPrintModal || showShiftModal || viewCartableItem) {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'instant' });
+            }
+
             const handleBack = () => {
                 if (showModal) setShowModal(false);
                 if (showPrintModal) setShowPrintModal(false);

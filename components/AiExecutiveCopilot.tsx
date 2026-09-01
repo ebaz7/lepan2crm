@@ -300,18 +300,18 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     // Floating Button when Closed
     if (!isOpen) {
         return (
-            <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-6 z-40 transition-all duration-300`} dir="rtl">
+            <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-6 z-50 transition-all duration-300`} dir="rtl">
                 <button
                     type="button"
                     onClick={() => setIsOpen(true)}
-                    className="relative group p-3.5 bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 hover:from-indigo-800 hover:to-violet-600 text-white rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2.5 border border-indigo-300/40"
+                    className="relative group p-1.5 px-3 bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 hover:from-indigo-800 hover:to-violet-600 text-white rounded-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-1.5 border border-indigo-300/40"
                     title="ایجنت هوش مصنوعی و فرمان صوتی"
                 >
                     <div className="relative">
-                        <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-indigo-900 animate-ping" />
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                        <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full ring-1 ring-indigo-900 animate-ping" />
                     </div>
-                    <span className="text-xs font-black tracking-tight hidden sm:inline">
+                    <span className="text-[10px] font-black tracking-tight hidden sm:inline">
                         دستیار هوشمند و صوتی AI
                     </span>
                 </button>
@@ -320,22 +320,22 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     }
 
     return (
-        <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-80 h-14' : 'w-[94vw] sm:w-[460px] h-[620px] max-h-[85vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
+        <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-72 h-12' : 'w-[94vw] sm:w-[380px] h-[480px] max-h-[80vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
             
             {/* Copilot Header */}
-            <div className="p-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/40">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
-                        <Sparkles className="w-4 h-4 animate-pulse" />
+            <div className="p-2.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/40">
+                <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-1.5">
-                            <h4 className="font-extrabold text-xs text-white">دستیار صوتی و هوشمند ERP</h4>
-                            <span className="px-1.5 py-0.2 text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full font-mono">
-                                Live AI
+                        <div className="flex items-center gap-1">
+                            <h4 className="font-extrabold text-[11px] text-white">دستیار صوتی و هوشمند ERP</h4>
+                            <span className="px-1 py-0.2 text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full font-mono">
+                                Live
                             </span>
                         </div>
-                        <p className="text-[10px] text-slate-300">پاسخ به وویس، تراز انبار، فروش و تحلیل</p>
+                        <p className="text-[9px] text-slate-300">پاسخ صوتی، انبار و فروش</p>
                     </div>
                 </div>
 

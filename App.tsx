@@ -1340,7 +1340,8 @@ function App() {
         {!currentUser ? (
             <Login onLogin={handleLogin} />
         ) : (
-            <Layout 
+            <>
+                <Layout 
             onBack={goBack}
             activeTab={activeTab} 
             setActiveTab={(t) => { setActiveTab(t); if(t!=='warehouse') setWarehouseInitialTab('dashboard'); if(t!=='manage-exit') setExitPermitStatusFilter(null); if(t!=='manage') setDashboardStatusFilter(null); if(t!=='purchase') setPurchaseInitialTab('REQUESTS'); }} 
@@ -1409,6 +1410,7 @@ function App() {
                         onGoToPurchaseApprovals={handleGoToPurchaseApprovals} 
                         onNavigate={(tab) => setActiveTab(tab)}
                         financialYear={financialYear} 
+                        activeTab={activeTab}
                         onGoToTaskGroup={(groupId, taskId) => {
                             setDirectChatTarget({ type: 'task_group', id: groupId, taskId });
                             setActiveTab('chat');
@@ -1463,6 +1465,8 @@ function App() {
                 onToggleDarkMode={handleToggleDarkMode}
             />
 
+            </Layout>
+
             {/* AI Voice Assistant & Executive Copilot Widget */}
             {currentUser && (
                 <>
@@ -1478,7 +1482,7 @@ function App() {
                     />
                 </>
             )}
-            </Layout>
+            </>
         )}
     </>
   );

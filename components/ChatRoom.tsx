@@ -1660,6 +1660,58 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         return true;
     });
 
+    const renderMessageWithMentions = (text: string) => {
+        if (!text) return null;
+        const regex = /@([a-zA-Z0-9_\.\-\u0600-\u06FF]+)/g;
+        const parts = text.split(regex);
+        if (parts.length === 1) {
+            return <span>{text}</span>;
+        }
+        
+        return parts.map((part, i) => {
+            if (i % 2 === 1) {
+                const username = part;
+                const u = users.find(user => user.username.toLowerCase() === username.toLowerCase());
+                if (u) {
+                    const isMentioningMe = currentUser && currentUser.username.toLowerCase() === u.username.toLowerCase();
+                    return (
+                        <span 
+                            key={i} 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowContactInfo(u);
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 mx-1 rounded-full text-[11px] font-black select-none align-middle transition-all duration-200 hover:scale-[1.03] cursor-pointer ${
+                                isMentioningMe 
+                                    ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-xs' 
+                                    : 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900'
+                            }`}
+                        >
+                            <div className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-[8px] text-zinc-600 dark:text-zinc-300 shrink-0 font-black">
+                                {u.avatar ? (
+                                    <img 
+                                        src={resolveImageUrl(u.avatar)} 
+                                        className="w-full h-full object-cover" 
+                                        referrerPolicy="no-referrer"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    u.fullName.charAt(0)
+                                )}
+                            </div>
+                            <span>@{u.fullName}</span>
+                        </span>
+                    );
+                } else {
+                    return <span key={i} className="text-blue-500 font-bold">@{username}</span>;
+                }
+            }
+            return <span key={i}>{part}</span>;
+        });
+    };
+
     return (
         <div className="absolute inset-0 bg-white dark:bg-[#1c1c1e] md:bg-gray-100/30 text-gray-800 dark:text-gray-200 md:p-2 lg:p-4 font-sans no-print overflow-hidden">
             <div className="flex-1 flex flex-row bg-white dark:bg-[#1c1c1e] md:rounded-2xl overflow-hidden md:shadow-xl md:border border-gray-200/50 dark:border-white/5 relative w-full h-full min-h-0">
@@ -2214,7 +2266,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                     onClick={(e) => { e.stopPropagation(); handleCopyMessage(msg); }}
                                                     title="برای کپی کلیک کنید"
                                                 >
-                                                    {msg.message}
+                                                    {renderMessageWithMentions(msg.message)}
                                                 </div>
                                             )}
 
