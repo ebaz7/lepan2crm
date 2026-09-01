@@ -360,6 +360,30 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <div className="w-24 h-2 rounded-full bg-white blur-[1px] shadow-[0_0_15px_#fff]" />
                 )}
               </div>
+
+              {/* Realistic Spotlight Cone: Mathematically aligned directly under the w-52 (208px) shade rim */}
+              <motion.div 
+                animate={{
+                  opacity: isLampOn ? 1 : 0,
+                  scaleY: isLampOn ? 1 : 0.6
+                }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="absolute top-full left-1/2 -translate-x-1/2 w-[320px] h-[360px] pointer-events-none z-10 origin-top flex flex-col items-center -mt-1"
+              >
+                {/* Golden Volumetric Cone radiating strictly below the shade */}
+                <div 
+                  className="w-full h-full"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.45) 0%, rgba(245, 158, 11, 0.16) 40%, rgba(217, 119, 6, 0.02) 80%, transparent 100%)',
+                    clipPath: 'polygon(17.5% 0%, 82.5% 0%, 100% 100%, 0% 100%)',
+                    filter: 'blur(3px)'
+                  }}
+                />
+                {/* Floor/Base illumination oval right underneath */}
+                {isLampOn && (
+                  <div className="w-[260px] h-[28px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/35 to-transparent blur-md -mt-6" />
+                )}
+              </motion.div>
             </div>
 
             {/* Interactive Pull String / Switch */}
@@ -390,30 +414,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 >
                   کلیک یا لمس برای تغییر نور
                 </motion.div>
-              )}
-            </motion.div>
-
-            {/* Realistic Spotlight Cone: Starts EXACTLY from the bottom rim of the lampshade */}
-            <motion.div 
-              animate={{
-                opacity: isLampOn ? 1 : 0,
-                scaleY: isLampOn ? 1 : 0.6
-              }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="absolute top-[140px] left-1/2 -translate-x-1/2 w-[340px] sm:w-[380px] h-[360px] pointer-events-none z-10 origin-top flex flex-col items-center"
-            >
-              {/* Golden Volumetric Cone radiating strictly below the shade */}
-              <div 
-                className="w-full h-full"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.45) 0%, rgba(245, 158, 11, 0.18) 35%, rgba(217, 119, 6, 0.02) 75%, transparent 100%)',
-                  clipPath: 'polygon(22% 0%, 78% 0%, 94% 100%, 6% 100%)',
-                  filter: 'blur(6px)'
-                }}
-              />
-              {/* Floor/Base illumination oval right underneath */}
-              {isLampOn && (
-                <div className="w-[300px] h-[30px] rounded-[100%] bg-gradient-to-r from-transparent via-amber-400/25 to-transparent blur-md -mt-6" />
               )}
             </motion.div>
 

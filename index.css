@@ -2053,6 +2053,229 @@ html.dark.theme-maximalism .text-gray-500 {
 }
 
 /* ==========================================================================
+   6. Luxe Gold & Noir Theme (شیشه دودی عمیق و طلایی - دقیقاً هماهنگ با لاگین)
+   ========================================================================== */
+html.theme-gold-noir,
+html.theme-gold-noir body,
+html.dark.theme-gold-noir,
+html.dark.theme-gold-noir body {
+  background-color: #06090e !important;
+  background-image: radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.09) 0%, transparent 70%), radial-gradient(circle at 10% 90%, rgba(217, 119, 6, 0.05) 0%, transparent 60%) !important;
+  color: #ffffff !important;
+}
+
+html.theme-gold-noir #root,
+html.dark.theme-gold-noir #root,
+html.theme-gold-noir #main-scroll-container,
+html.dark.theme-gold-noir #main-scroll-container,
+html.theme-gold-noir main,
+html.dark.theme-gold-noir main {
+  background-color: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Glass Panels, Cards & Containers */
+html.theme-gold-noir .glass-panel,
+html.theme-gold-noir aside,
+html.theme-gold-noir header,
+html.theme-gold-noir .apple-glass,
+html.theme-gold-noir .bg-white,
+html.theme-gold-noir .bg-gray-50,
+html.theme-gold-noir .bg-gray-100,
+html.theme-gold-noir .bg-gray-200,
+html.theme-gold-noir .bg-slate-50,
+html.theme-gold-noir .bg-slate-100,
+html.theme-gold-noir .bg-slate-200,
+html.theme-gold-noir .bg-slate-300,
+html.theme-gold-noir .bg-slate-800,
+html.theme-gold-noir .bg-slate-900,
+html.theme-gold-noir .bg-zinc-50,
+html.theme-gold-noir .bg-zinc-100,
+html.theme-gold-noir .bg-zinc-200,
+html.theme-gold-noir .bg-zinc-800,
+html.theme-gold-noir .bg-zinc-900,
+html.theme-gold-noir .bg-zinc-950,
+html.theme-gold-noir .bg-red-50,
+html.theme-gold-noir .bg-blue-50,
+html.theme-gold-noir .bg-amber-50,
+html.dark.theme-gold-noir .glass-panel,
+html.dark.theme-gold-noir aside,
+html.dark.theme-gold-noir header,
+html.dark.theme-gold-noir .apple-glass,
+html.dark.theme-gold-noir .bg-white,
+html.dark.theme-gold-noir .bg-gray-50,
+html.dark.theme-gold-noir .bg-gray-100,
+html.dark.theme-gold-noir .bg-slate-50,
+html.dark.theme-gold-noir .bg-slate-100,
+html.dark.theme-gold-noir .bg-slate-800,
+html.dark.theme-gold-noir .bg-slate-900,
+html.dark.theme-gold-noir .bg-zinc-800,
+html.dark.theme-gold-noir .bg-zinc-900,
+html.dark.theme-gold-noir .bg-zinc-950 {
+  background: rgba(12, 17, 28, 0.92) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(251, 191, 36, 0.32) !important;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.88), 0 0 22px rgba(251, 191, 36, 0.12), inset 0 1px 1px rgba(254, 240, 138, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Card Hover States */
+html.theme-gold-noir .glass-panel:hover,
+html.theme-gold-noir .apple-glass-hover:hover,
+html.dark.theme-gold-noir .glass-panel:hover,
+html.dark.theme-gold-noir .apple-glass-hover:hover {
+  background: rgba(18, 25, 40, 0.96) !important;
+  border-color: rgba(251, 191, 36, 0.65) !important;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.95), 0 0 32px rgba(251, 191, 36, 0.28) !important;
+}
+
+/* Header & Sticky Navigation Bars */
+html.theme-gold-noir header,
+html.theme-gold-noir .glass-header,
+html.dark.theme-gold-noir header,
+html.dark.theme-gold-noir .glass-header {
+  background: rgba(8, 12, 20, 0.95) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.35) !important;
+}
+
+/* Sidebar Navigation Drawer */
+html.theme-gold-noir aside,
+html.dark.theme-gold-noir aside {
+  background: rgba(8, 12, 20, 0.94) !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(251, 191, 36, 0.15) !important;
+}
+
+/* Inputs, Selects & Textareas */
+html.theme-gold-noir input,
+html.theme-gold-noir select,
+html.theme-gold-noir textarea,
+html.dark.theme-gold-noir input,
+html.dark.theme-gold-noir select,
+html.dark.theme-gold-noir textarea {
+  background-color: rgba(6, 9, 15, 0.92) !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+html.theme-gold-noir input::placeholder,
+html.theme-gold-noir select::placeholder,
+html.theme-gold-noir textarea::placeholder,
+html.dark.theme-gold-noir input::placeholder,
+html.dark.theme-gold-noir select::placeholder,
+html.dark.theme-gold-noir textarea::placeholder {
+  color: rgba(251, 191, 36, 0.5) !important;
+}
+
+html.theme-gold-noir input:focus,
+html.theme-gold-noir select:focus,
+html.theme-gold-noir textarea:focus,
+html.dark.theme-gold-noir input:focus,
+html.dark.theme-gold-noir select:focus,
+html.dark.theme-gold-noir textarea:focus {
+  background-color: rgba(10, 15, 25, 0.98) !important;
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35) !important;
+}
+
+/* Typography & Text Overrides */
+html.theme-gold-noir .text-zinc-900,
+html.theme-gold-noir .text-slate-900,
+html.theme-gold-noir .text-gray-900,
+html.theme-gold-noir .text-black,
+html.theme-gold-noir .text-zinc-800,
+html.theme-gold-noir .text-slate-800,
+html.theme-gold-noir .text-gray-800,
+html.theme-gold-noir .text-zinc-700,
+html.theme-gold-noir .text-slate-700,
+html.theme-gold-noir .text-gray-700,
+html.dark.theme-gold-noir .text-zinc-900,
+html.dark.theme-gold-noir .text-slate-900,
+html.dark.theme-gold-noir .text-gray-900,
+html.dark.theme-gold-noir .text-black,
+html.dark.theme-gold-noir .text-zinc-800,
+html.dark.theme-gold-noir .text-slate-800,
+html.dark.theme-gold-noir .text-gray-800,
+html.dark.theme-gold-noir .text-zinc-700,
+html.dark.theme-gold-noir .text-slate-700,
+html.dark.theme-gold-noir .text-gray-700 {
+  color: #ffffff !important;
+}
+
+html.theme-gold-noir .text-zinc-600,
+html.theme-gold-noir .text-slate-600,
+html.theme-gold-noir .text-gray-600,
+html.theme-gold-noir .text-zinc-500,
+html.theme-gold-noir .text-slate-500,
+html.theme-gold-noir .text-gray-500,
+html.theme-gold-noir .text-zinc-400,
+html.theme-gold-noir .text-slate-400,
+html.theme-gold-noir .text-gray-400,
+html.dark.theme-gold-noir .text-zinc-600,
+html.dark.theme-gold-noir .text-slate-600,
+html.dark.theme-gold-noir .text-gray-600,
+html.dark.theme-gold-noir .text-zinc-500,
+html.dark.theme-gold-noir .text-slate-500,
+html.dark.theme-gold-noir .text-gray-500,
+html.dark.theme-gold-noir .text-zinc-400,
+html.dark.theme-gold-noir .text-slate-400,
+html.dark.theme-gold-noir .text-gray-400 {
+  color: #fef08a !important;
+}
+
+/* Primary Action Buttons & Accents */
+html.theme-gold-noir .bg-blue-600,
+html.theme-gold-noir .bg-blue-500,
+html.theme-gold-noir .bg-indigo-600,
+html.theme-gold-noir .bg-amber-500,
+html.dark.theme-gold-noir .bg-blue-600,
+html.dark.theme-gold-noir .bg-blue-500,
+html.dark.theme-gold-noir .bg-indigo-600,
+html.dark.theme-gold-noir .bg-amber-500 {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+  color: #06090e !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(254, 240, 138, 0.5) !important;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.35) !important;
+}
+
+/* Table Overrides */
+html.theme-gold-noir th,
+html.dark.theme-gold-noir th {
+  background-color: rgba(15, 21, 34, 0.95) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+html.theme-gold-noir tr:hover,
+html.dark.theme-gold-noir tr:hover {
+  background-color: rgba(251, 191, 36, 0.15) !important;
+}
+
+html.theme-gold-noir td,
+html.dark.theme-gold-noir td {
+  border-color: rgba(251, 191, 36, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* Border Overrides */
+html.theme-gold-noir .border-zinc-200,
+html.theme-gold-noir .border-gray-200,
+html.theme-gold-noir .border-slate-200,
+html.theme-gold-noir .border-zinc-100,
+html.theme-gold-noir .border-gray-100,
+html.theme-gold-noir .border-slate-100,
+html.dark.theme-gold-noir .border-zinc-800,
+html.dark.theme-gold-noir .border-gray-800,
+html.dark.theme-gold-noir .border-slate-800 {
+  border-color: rgba(251, 191, 36, 0.28) !important;
+}
+
+/* ==========================================================================
    Graphics & Scrolling Optimization (Mobile & Desktop)
    ========================================================================== */
 html[data-gpu-active="true"] * {
