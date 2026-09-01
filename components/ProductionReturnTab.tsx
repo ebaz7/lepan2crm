@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import * as jalaali from "jalaali-js";
 
 interface ProductionReturnTabProps {
     dateFrom: string;
@@ -15,6 +16,23 @@ interface ProductionReturnTabProps {
     currentUser?: any;
     settings?: any;
     getEffectiveApiUrl?: (url: string) => string;
+}
+
+function formatDateToJalali(dateStr?: string): string {
+    if (!dateStr) return "-";
+    const clean = String(dateStr).trim();
+    // Check if already in Shamsi 140x/xx/xx format
+    if (/^1[34]\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(clean)) {
+        return clean.replace(/-/g, "/");
+    }
+    try {
+        const d = new Date(clean);
+        if (!isNaN(d.getTime())) {
+            const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+            return `${j.jy}/${String(j.jm).padStart(2, "0")}/${String(j.jd).padStart(2, "0")}`;
+        }
+    } catch {}
+    return clean;
 }
 
 export default function ProductionReturnTab({
@@ -37,13 +55,67 @@ export default function ProductionReturnTab({
         setIsFetchingProdReturns(true);
         try {
             const effectiveUrl = getEffectiveApiUrl('/api/sayan/production-returns');
-            const res = await fetch(`${effectiveUrl}?dateFrom=${encodeURIComponent(dateFrom)}&dateTo=${encodeURIComponent(dateTo)}`);
+            const res = await fetch(`${effectiveUrl}?dateFrom=${encodeURIComponent(dateFrom || '')}&dateTo=${encodeURIComponent(dateTo || '')}`);
             const data = await res.json();
-            if (data.success && Array.isArray(data.data)) {
-                setProdReturnsData(data.data);
-            } else {
-                setProdReturnsData([]);
-            }
+            
+            // Handle multiple response formats gracefully
+            const rawList = Array.isArray(data.items)
+                ? data.items
+                : Array.isArray(data.data)
+                ? data.data
+                : Array.isArray(data.rows)
+                ? data.rows
+                : Array.isArray(data)
+                ? data
+                : [];
+
+            // Normalize and enrich each row
+            const normalized = rawList.map((item: any) => {
+                const docNo = String(
+                    item.DocNumber || 
+                    item.ArchiveCode || 
+                    item.DocId || 
+                    item.ArchiveNo || 
+                    item.SubCode || 
+                    item.DocNo || 
+                    item.HeaderID || 
+                    '-'
+                );
+                const rawDate = item.Date || item.DocDate || item.date || item.HeaderDate || '';
+                const docDate = formatDateToJalali(rawDate);
+                const itemCode = String(item.ItemCode || item.code || item.item_code || '').trim();
+                const itemName = String(item.ItemName || item.name || item.item_name || '').trim();
+                const weight = Number(item.Quantity ?? item.Weight ?? item.Amount ?? item.qty ?? 0);
+                const warehouse = String(
+                    item.WarehouseName || 
+                    (item.WarehouseCode ? `انبار ${item.WarehouseCode}` : '') || 
+                    item.Warehouse || 
+                    '-'
+                );
+                const description = String(
+                    item.LineNotes || 
+                    item.HeaderDescription || 
+                    item.DocDescription || 
+                    item.Description || 
+                    item.notes || 
+                    '-'
+                );
+
+                return {
+                    ...item,
+                    DocNo: docNo,
+                    DocDate: docDate,
+                    ItemCode: itemCode,
+                    ItemName: itemName,
+                    Weight: weight,
+                    Quantity: weight,
+                    WarehouseName: warehouse,
+                    Description: description,
+                    UnitName: item.UnitName || 'کیلوگرم'
+                };
+            });
+
+            setProdReturnsData(normalized);
         } catch (err) {
             console.error("Failed to fetch production returns:", err);
             toast.error("خطا در دریافت اطلاعات برگشت از تولید از سرور سایان");
@@ -75,7 +147,7 @@ export default function ProductionReturnTab({
         if (cleanCode.startsWith("0104")) return "نخ کش (Rubber)";
         if (cleanCode.startsWith("0105")) return "نخ لاکرا (Lycra)";
 
-        return cleanName || `کالای کد ${cleanCode}`;
+        return cleanName || (cleanCode ? `کالای کد ${cleanCode}` : 'کالای نامشخص');
     };
 
     // Helper for category classification
@@ -129,7 +201,7 @@ export default function ProductionReturnTab({
         const docsMap = new Map<string, any>();
 
         filtered.forEach(item => {
-            const weight = Number(item.Weight || item.Quantity || item.Amount || 0);
+            const weight = Number(item.Weight || item.Quantity || 0);
             totalWeight += weight;
 
             const code = (item.ItemCode || "").trim();
@@ -156,7 +228,7 @@ export default function ProductionReturnTab({
             const detEntry = detailedMap.get(detKey);
             detEntry.totalWeight += weight;
             detEntry.count += 1;
-            if (item.WarehouseName) detEntry.warehouses.add(item.WarehouseName);
+            if (item.WarehouseName && item.WarehouseName !== "-") detEntry.warehouses.add(item.WarehouseName);
 
             // Group Aggregation
             const groupCode = code.slice(0, 4) || "سایر";
@@ -174,12 +246,12 @@ export default function ProductionReturnTab({
             grpEntry.totalQty += weight;
 
             // Documents Aggregation
-            const docNo = String(item.DocNo || item.HeaderID || "نامشخص");
+            const docNo = String(item.DocNo || "نامشخص");
             if (!docsMap.has(docNo)) {
                 docsMap.set(docNo, {
                     docNo,
                     docDate: item.DocDate || "-",
-                    warehouse: item.WarehouseName || item.WarehouseCode || "-",
+                    warehouse: item.WarehouseName || "-",
                     desc: item.Description || "-",
                     totalWeight: 0,
                     itemsCount: 0,
@@ -526,26 +598,26 @@ export default function ProductionReturnTab({
                                 <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                                     {analyzedData.detailedList.map((item, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                            <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                            <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{item.code}</td>
-                                            <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.name}</td>
-                                            <td className="p-3 text-center">
-                                                <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-black ${
-                                                    item.category === "production" ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300" :
-                                                    item.category === "raw_material" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300" :
-                                                    "bg-slate-100 text-slate-700"
-                                                }`}>
-                                                    {item.categoryLabel}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
-                                                {Math.round(item.totalWeight).toLocaleString("fa-IR")}
-                                            </td>
-                                            <td className="p-3 text-center">
-                                                <span className="inline-block bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[11px] font-black font-mono px-2 py-0.5 rounded">
-                                                    {analyzedData.totalWeight > 0 ? ((item.totalWeight / analyzedData.totalWeight) * 100).toFixed(1) : 0}%
-                                                </span>
-                                            </td>
+                                             <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
+                                             <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{item.code}</td>
+                                             <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.name}</td>
+                                             <td className="p-3 text-center">
+                                                 <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-black ${
+                                                     item.category === "production" ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300" :
+                                                     item.category === "raw_material" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300" :
+                                                     "bg-slate-100 text-slate-700"
+                                                 }`}>
+                                                     {item.categoryLabel}
+                                                 </span>
+                                             </td>
+                                             <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
+                                                 {Math.round(item.totalWeight).toLocaleString("fa-IR")}
+                                             </td>
+                                             <td className="p-3 text-center">
+                                                 <span className="inline-block bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[11px] font-black font-mono px-2 py-0.5 rounded">
+                                                     {analyzedData.totalWeight > 0 ? ((item.totalWeight / analyzedData.totalWeight) * 100).toFixed(1) : 0}%
+                                                 </span>
+                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -692,7 +764,7 @@ export default function ProductionReturnTab({
                                     <span>انبار: {selectedDocModal.warehouse}</span>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedDocModal(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+                            <button onClick={() => setSelectedDocModal(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>

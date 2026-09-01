@@ -2753,12 +2753,7 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                 { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T14:45:00.000Z`, DocType: '44', LineId: '1', ItemCode: '0108005', ItemName: 'ضایعات نخ نایلون گرید A', Quantity: 310, LineNotes: 'عدل 2' },
                 { DocId: '2719', ArchiveNo: '105', SubCode: '105', Date: `${gregToDate}T16:10:00.000Z`, DocType: '44', LineId: '2', ItemCode: '0103011', ItemName: 'نخ DTY ۷۵/۳۶ اینترمینگل ملانژ', Quantity: 680, LineNotes: 'تعداد کارتن: 34' }
             ];
-            return res.json({
-                success: true,
-                isMock: true,
-                dateFrom,
-                dateTo,
-                items: mockItems.filter(item => {
+            const filteredMock = mockItems.filter(item => {
                     const code = (item.ItemCode || '').trim();
                     const name = (item.ItemName || '').toLowerCase();
                     if (code.startsWith('0104') || code.startsWith('0105') || 
@@ -2767,7 +2762,14 @@ app.get('/api/sayan/production-returns', async (req, res) => {
                         return false;
                     }
                     return true;
-                })
+                });
+            return res.json({
+                success: true,
+                isMock: true,
+                dateFrom,
+                dateTo,
+                items: filteredMock,
+                data: filteredMock
             });
         }
 
@@ -2830,7 +2832,8 @@ app.get('/api/sayan/production-returns', async (req, res) => {
             isMock: false,
             dateFrom,
             dateTo,
-            items: queryRows || []
+            items: queryRows || [],
+            data: queryRows || []
         });
     } catch (e) {
         console.error("Sayan Production Returns Error:", e);

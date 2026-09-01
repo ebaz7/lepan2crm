@@ -91,25 +91,12 @@ class HybridGraphicsEngineClient {
         text-rendering: optimizeLegibility;
       }
 
-      /* Force GPU Compositor Promotion for fast scrolling */
-      .glass-panel,
-      .custom-scrollbar,
-      main,
-      aside,
-      dialog,
-      [role="dialog"] {
-        transform: translateZ(0);
-        backface-visibility: hidden;
-        -webkit-backface-visibility: hidden;
-      }
-
       /* Ultra-Smooth Passive Momentum Touch Scroll */
       .smooth-scroll,
       .custom-scrollbar,
       #main-scroll-container {
-        -webkit-overflow-scrolling: touch !important;
+        -webkit-overflow-scrolling: touch;
         overscroll-behavior-y: contain;
-        scroll-behavior: smooth;
       }
 
       /* Turbo Optimization for High-Density Views */

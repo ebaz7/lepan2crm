@@ -2027,23 +2027,11 @@ html.dark.theme-maximalism .text-gray-500 {
 }
 
 /* ==========================================================================
-   Zero-Lag Ultra Graphics Acceleration (Mobile & Desktop Hardware Pipeline)
+   Graphics & Scrolling Optimization (Mobile & Desktop)
    ========================================================================== */
 html[data-gpu-active="true"] * {
   /* Prevent layout reflow jitter */
   box-sizing: border-box;
-}
-
-/* Hardware layer promotion for responsive interactive components */
-.glass-panel,
-.bg-white,
-.dark .dark\\:bg-zinc-900,
-table,
-.table-container {
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 
 /* Zero-delay tap highlight removal on mobile browsers */
@@ -2051,12 +2039,12 @@ table,
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Momentum scrolling optimization */
+/* Momentum scrolling optimization - ensure mouse wheel and touch scroll freely */
 .overflow-y-auto,
 .overflow-x-auto,
 .custom-scrollbar {
-  -webkit-overflow-scrolling: touch !important;
-  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Fast hardware-accelerated transitions */
