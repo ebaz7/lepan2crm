@@ -27,6 +27,7 @@ import {
   Save,
   Loader2,
   Database,
+  FolderOpen,
   Bell,
   Plus,
   Trash2,
@@ -149,6 +150,7 @@ const Settings: React.FC<SettingsProps> = ({
   const [activeCategory, setActiveCategory] = useState<
     | "system"
     | "fiscal"
+    | "backup"
     | "data"
     | "integrations"
     | "whatsapp"

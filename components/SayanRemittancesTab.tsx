@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   FileText, 
   Search, 
@@ -1056,9 +1057,9 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
       {/* ========================================================================= */}
       {/* 1. LINE ITEMS DETAIL MODAL                                                */}
       {/* ========================================================================= */}
-      {isDetailModalOpen && selectedRemittance && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      {isDetailModalOpen && selectedRemittance && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[999999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-4xl w-full max-h-[90vh] my-auto flex flex-col shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
             <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
@@ -1199,15 +1200,16 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 2. PRINT STANDARD SAYAN REMITTANCE MODAL                                 */}
       {/* ========================================================================= */}
-      {isPrintModalOpen && selectedRemittance && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-4xl w-full max-h-[95vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      {isPrintModalOpen && selectedRemittance && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-4xl w-full max-h-[95vh] my-auto flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Controls Bar */}
             <div className="p-4 bg-slate-800 text-white flex items-center justify-between shrink-0">
@@ -1268,7 +1270,8 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
