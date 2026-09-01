@@ -321,7 +321,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             y: { type: 'spring', stiffness: 500, damping: 14 },
             opacity: { duration: 0.3 }
           }}
-          className="absolute left-[73.2%] top-[33.5%] h-[115px] pointer-events-auto cursor-pointer group flex flex-col items-center"
+          className="absolute left-[75.8%] top-[38.5%] h-[95px] pointer-events-auto cursor-pointer group flex flex-col items-center"
           style={{ 
             transform: 'translateX(-50%)'
           }}
@@ -329,7 +329,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         >
           {/* Beaded Brass Pull Chain */}
           <div 
-            className="w-[2.5px] h-[75px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
+            className="w-[2.5px] h-[55px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
             style={{
               backgroundImage: isLampOn 
                 ? 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)'
@@ -366,7 +366,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               y: isLampOn ? 0 : 5
             }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[140px] lg:translate-y-[60px]"
+            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[140px] lg:translate-y-[180px]"
           >
             <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md ${
               isLampOn
