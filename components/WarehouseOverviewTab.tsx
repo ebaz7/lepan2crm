@@ -1708,7 +1708,7 @@ export const WarehouseOverviewTab: React.FC = () => {
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-6 bg-slate-50 rounded-2xl select-none" dir="rtl">
+        <div className="p-3 sm:p-6 space-y-6 bg-slate-50 rounded-2xl select-text" dir="rtl">
             {/* Sticky Action & Navigation Bar */}
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-md space-y-3 transition-all">
                 {/* Top Row: Title and Primary Actions */}

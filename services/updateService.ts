@@ -88,14 +88,25 @@ export async function applyApplicationUpdate(serverInfo?: AppVersionInfo | null)
       }
     }
 
-    // 3. Mark update timestamp
+    // 3. Send automated backup to bots before applying update
+    try {
+      await fetch('/api/backups/send-to-bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: `پشتیبان خودکار قبل از بروزرسانی به نسخه ${serverInfo?.version || serverInfo?.buildNumber || 'جدید'}` })
+      });
+    } catch (botErr) {
+      console.warn('Backup to bot before update note:', botErr);
+    }
+
+    // 4. Mark update timestamp
     if (serverInfo) {
       localStorage.setItem('last_applied_build', serverInfo.buildNumber || serverInfo.version);
     }
   } catch (e) {
     console.error('Error during applyApplicationUpdate:', e);
   } finally {
-    // 4. Force hard reload with cache-buster parameter
+    // 5. Force hard reload with cache-buster parameter
     const cleanUrl = window.location.origin + window.location.pathname;
     window.location.replace(`${cleanUrl}?_update=${Date.now()}`);
   }

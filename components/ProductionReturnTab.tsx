@@ -44,7 +44,6 @@ export default function ProductionReturnTab({
 }: ProductionReturnTabProps) {
     const [prodReturnsData, setProdReturnsData] = useState<any[]>([]);
     const [isFetchingProdReturns, setIsFetchingProdReturns] = useState(false);
-    const [prodReturnsGrouping, setProdReturnsGrouping] = useState<"archive" | "group" | "detail" | "document">("archive");
     const [selectedDocModal, setSelectedDocModal] = useState<any | null>(null);
     const [prodReturnsSearch, setProdReturnsSearch] = useState("");
     const [selectedProductForReport, setSelectedProductForReport] = useState<string>("all");
@@ -278,6 +277,7 @@ export default function ProductionReturnTab({
             detailedList,
             productionGroupsList,
             materialGroupsList,
+            groupsList,
             documentsList
         };
     }, [prodReturnsData, prodReturnsSearch, selectedProductForReport]);
@@ -299,43 +299,58 @@ export default function ProductionReturnTab({
     const handleSendReturnsBot = async () => {
         setIsSendingBot(true);
         try {
-            const res = await fetch("/api/sayan/production-returns/send-bot", {
+            const textLines = [
+                `🔄 *گزارش برگشت از تولید به انبار (عملیات ۴۴)*`,
+                `📅 بازه: ${dateFrom || "ابتدای دوره"} الی ${dateTo || "امروز"}`,
+                `⚖️ *مجموع کل وزن:* ${Math.round(analyzedData.totalWeight).toLocaleString("fa-IR")} کیلوگرم`,
+                `🧶 *محصولات تولیدی:* ${Math.round(analyzedData.totalProdWeight).toLocaleString("fa-IR")} کیلوگرم`,
+                `🧵 *مواد اولیه و کش:* ${Math.round(analyzedData.totalMatWeight).toLocaleString("fa-IR")} کیلوگرم`,
+                `📄 *تعداد اسناد:* ${analyzedData.documentsList.length.toLocaleString("fa-IR")} سند`,
+                ``,
+                `📊 *خلاصه گروه‌های کالا:*`
+            ];
+
+            analyzedData.groupsList.forEach((grp, idx) => {
+                textLines.push(`${idx + 1}. ${grp.name} (${grp.code}): ${Math.round(grp.totalQty).toLocaleString("fa-IR")} ک‌گ`);
+            });
+
+            const effectiveUrl = getEffectiveApiUrl('/api/telegram/send');
+            const res = await fetch(effectiveUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ dateFrom, dateTo })
+                body: JSON.stringify({ message: textLines.join("\n") })
             });
-            const data = await res.json();
-            if (data.success) {
-                toast.success(data.message || "گزارش با موفقیت به گروه‌های منتخب ارسال شد ✅");
+
+            if (res.ok) {
+                toast.success("گزارش برگشت از تولید با موفقیت به ربات ارسال شد ✅");
             } else {
-                toast.error(data.error || "خطا در ارسال گزارش به بات ❌");
+                toast.error("خطا در ارسال پیام به بات تلگرام");
             }
-        } catch (err) {
-            console.error("Failed to send bot report", err);
-            toast.error("خطای ارتباط با سرور در ارسال به بات ❌");
+        } catch (e) {
+            console.error("Bot send error:", e);
+            toast.error("عدم برقراری ارتباط با سرور بات");
         } finally {
             setIsSendingBot(false);
         }
     };
 
-    // Single Document Print
+    // Print Single Document
     const handlePrintSingleDoc = (doc: any) => {
-        if (!doc) return;
         const printWindow = window.open("", "_blank");
         if (!printWindow) {
-            toast.error("اجازه باز شدن پاپ‌آپ چاپ مسدود است");
+            toast.error("لطفاً اجازه باز شدن پنجره پاپ‌آپ چاپ را بدهید");
             return;
         }
 
-        const rowsHtml = (doc.rows || []).map((r: any, idx: number) => `
-            <tr style="border-bottom: 1px solid #e2e8f0; text-align: right;">
-                <td style="padding: 8px; text-align: center;">${idx + 1}</td>
-                <td style="padding: 8px; font-family: monospace;">${r.ItemCode || "-"}</td>
-                <td style="padding: 8px; font-weight: bold;">${resolveProdItemName(r.ItemCode, r.ItemName)}</td>
-                <td style="padding: 8px; text-align: left; font-family: monospace; font-weight: bold;">${Number(r.Weight || r.Quantity || 0).toLocaleString("fa-IR")}</td>
-                <td style="padding: 8px; text-align: center;">${r.UnitName || "کیلوگرم"}</td>
-                <td style="padding: 8px;">${r.WarehouseName || "-"}</td>
-                <td style="padding: 8px; color: #64748b;">${r.Description || "-"}</td>
+        const rowsHtml = (doc.rows || []).map((row: any, idx: number) => `
+            <tr>
+                <td style="text-align: center;">${idx + 1}</td>
+                <td style="font-family: monospace;">${row.ItemCode || '-'}</td>
+                <td style="font-weight: bold;">${resolveProdItemName(row.ItemCode, row.ItemName)}</td>
+                <td style="text-align: left; font-family: monospace; font-weight: bold;">${Math.round(Number(row.Weight || row.Quantity || 0)).toLocaleString("fa-IR")}</td>
+                <td style="text-align: center;">${row.UnitName || 'کیلوگرم'}</td>
+                <td>${row.WarehouseName || '-'}</td>
+                <td>${row.Description || '-'}</td>
             </tr>
         `).join("");
 
@@ -343,27 +358,32 @@ export default function ProductionReturnTab({
             <!DOCTYPE html>
             <html dir="rtl" lang="fa">
             <head>
-                <meta charset="utf-8" />
-                <title>سند برگشت از تولید شماره ${doc.docNo}</title>
+                <meta charset="UTF-8" />
+                <title>رسید برگشت از تولید - سند شماره ${doc.docNo}</title>
                 <style>
-                    body { font-family: Tahoma, 'Vazirmatn', sans-serif; margin: 20px; color: #1e293b; }
-                    .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px; }
-                    .meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-                    th { background-color: #f1f5f9; padding: 10px 8px; text-align: right; border-bottom: 2px solid #cbd5e1; }
-                    .footer { margin-top: 30px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
+                    body { font-family: Tahoma, 'Segoe UI', sans-serif; direction: rtl; padding: 20px; font-size: 12px; color: #111; }
+                    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+                    .title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+                    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #999; padding: 6px 8px; font-size: 11px; }
+                    th { background: #eee; font-weight: bold; }
+                    .total-box { margin-top: 15px; text-align: left; font-size: 13px; font-weight: bold; }
+                    .footer { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 30px; font-size: 11px; }
+                    @media print {
+                        body { padding: 0; }
+                    }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h2 style="margin: 0 0 6px 0;">رسید سند برگشت از تولید (کد عملیات ۴۴)</h2>
-                    <div style="font-size: 13px; color: #64748b;">سیستم حسابداری و انبارداری سایان ERP</div>
+                    <div class="title">رسید برگشت کالا از تولید به انبار (کد عملیات ۴۴)</div>
+                    <div>نرم‌افزار جامع مدیریت کارخانه و انبار</div>
                 </div>
-                <div class="meta">
-                    <div><strong>شماره سند:</strong> ${doc.docNo}</div>
+                <div class="meta-grid">
+                    <div><strong>شماره سند:</strong> <span style="font-family: monospace;">${doc.docNo}</span></div>
                     <div><strong>تاریخ سند:</strong> ${doc.docDate}</div>
-                    <div><strong>انبار:</strong> ${doc.warehouse}</div>
-                    <div><strong>مجموع وزن:</strong> ${Math.round(doc.totalWeight).toLocaleString("fa-IR")} کیلوگرم</div>
+                    <div><strong>انبار تحویل‌گیرنده:</strong> ${doc.warehouse}</div>
                 </div>
                 <table>
                     <thead>
@@ -381,8 +401,12 @@ export default function ProductionReturnTab({
                         ${rowsHtml}
                     </tbody>
                 </table>
+                <div class="total-box">
+                    <span>مجموع وزن کل سند: </span>
+                    <span style="font-family: monospace; font-size: 14px;">${Math.round(doc.totalWeight).toLocaleString("fa-IR")} کیلوگرم</span>
+                </div>
                 <div class="footer">
-                    <div>امضا تحویل‌دهنده: ....................</div>
+                    <div>امضا تحویل‌دهنده (سالن بافت/تولید): ....................</div>
                     <div>امضا انباردار / تحویل‌گیرنده: ....................</div>
                     <div>تاریخ چاپ: ${new Date().toLocaleDateString("fa-IR")}</div>
                 </div>
@@ -420,16 +444,16 @@ export default function ProductionReturnTab({
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="p-3 sm:p-6 space-y-5">
             {/* Header and Toolbar */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-4">
                 <div>
                     <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-zinc-100 flex items-center gap-2">
                         <Undo2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        <span>گزارش جامع برگشت از تولید به انبار (کد عملیات ۴۴)</span>
+                        <span>رسید برگشت از تولید به انبار (کد عملیات ۴۴)</span>
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                        پایش و تجمیع کلیه اسناد و اقلام برگشتی از سالن‌های بافت/تکمیل به انبارها در بازه زمانی انتخابی
+                        گزارش گروه کالاها، اسناد ثبت‌شده و امکان جستجوی کالای خاص
                     </p>
                 </div>
 
@@ -497,176 +521,139 @@ export default function ProductionReturnTab({
                 </div>
             </div>
 
-            {/* View Filter Mode Selector & Search */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 dark:bg-zinc-950 p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800">
-                {/* Mode Buttons */}
-                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto">
-                    <button
-                        onClick={() => setProdReturnsGrouping("archive")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                            prodReturnsGrouping === "archive" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                        }`}
-                    >
-                        تجمیع براساس محصول
-                    </button>
-                    <button
-                        onClick={() => setProdReturnsGrouping("group")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                            prodReturnsGrouping === "group" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                        }`}
-                    >
-                        دسته‌بندی کلی
-                    </button>
-                    <button
-                        onClick={() => setProdReturnsGrouping("document")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                            prodReturnsGrouping === "document" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                        }`}
-                    >
-                        فهرست اسناد تفکیکی
-                    </button>
-                    <button
-                        onClick={() => setProdReturnsGrouping("detail")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-black transition-all whitespace-nowrap cursor-pointer ${
-                            prodReturnsGrouping === "detail" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                        }`}
-                    >
-                        ردیف‌های خام ثبتی
-                    </button>
-                </div>
-
-                {/* Filters */}
-                <div className="flex items-center gap-2">
-                    {/* Product filter dropdown */}
-                    <select
-                        value={selectedProductForReport}
-                        onChange={(e) => setSelectedProductForReport(e.target.value)}
-                        className="text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 rounded-lg px-2.5 py-1.5 outline-none font-bold cursor-pointer"
-                    >
-                        <option value="all">همه محصولات ({uniqueProducts.length})</option>
-                        {uniqueProducts.map((p, idx) => (
-                            <option key={idx} value={p}>{p}</option>
-                        ))}
-                    </select>
-
-                    {/* Search Box */}
-                    <div className="relative flex-1 sm:w-60">
-                        <Search className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    {/* Search Box for Specific Product / Code / Document */}
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
                             value={prodReturnsSearch}
                             onChange={(e) => setProdReturnsSearch(e.target.value)}
-                            placeholder="جستجو در شرح، کد، سند..."
-                            className="w-full text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 rounded-lg pr-8 pl-3 py-1.5 outline-none focus:border-indigo-500 font-bold"
+                            placeholder="جستجوی نام کالا، کد کالا، شماره سند یا انبار..."
+                            className="w-full text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 rounded-lg pr-9 pl-3 py-2 outline-none focus:border-indigo-500 font-bold placeholder-slate-400"
                         />
                         {prodReturnsSearch && (
-                            <button onClick={() => setProdReturnsSearch("")} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                <X className="w-3 h-3" />
+                            <button onClick={() => setProdReturnsSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                <X className="w-3.5 h-3.5" />
                             </button>
                         )}
                     </div>
+
+                    {/* Specific Product Select Dropdown */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 whitespace-nowrap">فیلتر کالا:</span>
+                        <select
+                            value={selectedProductForReport}
+                            onChange={(e) => setSelectedProductForReport(e.target.value)}
+                            className="text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 rounded-lg px-3 py-2 outline-none font-bold cursor-pointer min-w-[170px]"
+                        >
+                            <option value="all">همه کالاها ({uniqueProducts.length} مورد)</option>
+                            {uniqueProducts.map((p, idx) => (
+                                <option key={idx} value={p}>{p}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
+
+                {(prodReturnsSearch || selectedProductForReport !== "all") && (
+                    <button
+                        onClick={() => { setProdReturnsSearch(""); setSelectedProductForReport("all"); }}
+                        className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center justify-center gap-1 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-900/40"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                        <span>پاک کردن فیلترها</span>
+                    </button>
+                )}
             </div>
 
-            {/* Main Table Content */}
+            {/* Main Content Loading / Empty / Data */}
             {isFetchingProdReturns ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl">
                     <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
                     <span className="text-xs font-bold text-slate-500 mt-3">در حال فراخوانی اطلاعات برگشت از تولید از سرور سایان...</span>
                 </div>
-            ) : analyzedData.detailedList.length === 0 ? (
+            ) : analyzedData.groupsList.length === 0 && analyzedData.documentsList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl text-slate-400">
                     <FolderOpen className="w-10 h-10 stroke-1 mb-2 text-slate-300" />
                     <span className="text-sm font-bold">هیچ ردیف سند برگشت از تولیدی در این بازه زمانی یافت نشد</span>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                    {/* View 1: Detailed Products Aggregated */}
-                    {(prodReturnsGrouping === "archive") && (
-                        <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full border-collapse text-right text-xs">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                        <th className="p-3 w-14 text-center">ردیف</th>
-                                        <th className="p-3 w-32 font-mono">کد کالا</th>
-                                        <th className="p-3">نام و مشخصات کالا</th>
-                                        <th className="p-3 w-36 text-center">دسته‌بندی</th>
-                                        <th className="p-3 text-left w-44">مجموع وزن برگشتی (کیلوگرم)</th>
-                                        <th className="p-3 text-center w-28">سهم از کل</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                    {analyzedData.detailedList.map((item, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                             <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                             <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{item.code}</td>
-                                             <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{item.name}</td>
-                                             <td className="p-3 text-center">
-                                                 <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-black ${
-                                                     item.category === "production" ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300" :
-                                                     item.category === "raw_material" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300" :
-                                                     "bg-slate-100 text-slate-700"
-                                                 }`}>
-                                                     {item.categoryLabel}
-                                                 </span>
-                                             </td>
-                                             <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
-                                                 {Math.round(item.totalWeight).toLocaleString("fa-IR")}
-                                             </td>
-                                             <td className="p-3 text-center">
-                                                 <span className="inline-block bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[11px] font-black font-mono px-2 py-0.5 rounded">
-                                                     {analyzedData.totalWeight > 0 ? ((item.totalWeight / analyzedData.totalWeight) * 100).toFixed(1) : 0}%
-                                                 </span>
-                                             </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                <div className="space-y-6">
+                    {/* 1. TOP SECTION: Product Groups Aggregation */}
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs">
+                        <div className="bg-slate-50 dark:bg-zinc-950 px-4 py-3 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+                            <h3 className="text-sm font-black text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                                <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                <span>گروه کالاها (دسته‌بندی اقلام برگشتی)</span>
+                            </h3>
+                            <span className="text-xs font-bold text-slate-500 font-mono">
+                                {analyzedData.groupsList.length} گروه کالا
+                            </span>
                         </div>
-                    )}
 
-                    {/* View 2: Grouping */}
-                    {prodReturnsGrouping === "group" && (
                         <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full border-collapse text-right text-xs">
                                 <thead>
-                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
+                                    <tr className="bg-slate-50/50 dark:bg-zinc-900/60 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
                                         <th className="p-3 w-14 text-center">ردیف</th>
                                         <th className="p-3 w-28 font-mono">پیشوند گروه</th>
-                                        <th className="p-3">عنوان دسته‌بندی</th>
+                                        <th className="p-3">عنوان گروه کالا</th>
                                         <th className="p-3 text-center w-36">تعداد اقلام ثبت‌شده</th>
                                         <th className="p-3 text-left w-48">مجموع وزن برگشتی (کیلوگرم)</th>
                                         <th className="p-3 text-center w-28">سهم از کل</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                    {[...analyzedData.productionGroupsList, ...analyzedData.materialGroupsList].map((grp, idx) => (
+                                    {analyzedData.groupsList.map((grp, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
                                             <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
                                             <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{grp.code}</td>
-                                            <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{grp.name}</td>
+                                            <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${grp.name.includes("تولیدی") ? "bg-indigo-500" : "bg-emerald-500"}`}></span>
+                                                {grp.name}
+                                            </td>
                                             <td className="p-3 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">{grp.itemsCount}</td>
                                             <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
                                                 {Math.round(grp.totalQty).toLocaleString("fa-IR")}
                                             </td>
                                             <td className="p-3 text-center">
-                                                <span className="inline-block bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[11px] font-black font-mono px-2 py-0.5 rounded">
+                                                <span className="inline-block bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 text-[11px] font-black font-mono px-2.5 py-0.5 rounded-full">
                                                     {analyzedData.totalWeight > 0 ? ((grp.totalQty / analyzedData.totalWeight) * 100).toFixed(1) : 0}%
                                                 </span>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
+                                <tfoot className="bg-slate-50 dark:bg-zinc-950 font-black border-t border-slate-200 dark:border-zinc-800">
+                                    <tr>
+                                        <td colSpan={3} className="p-3 text-slate-800 dark:text-zinc-100">جمع کل گروه‌های کالا</td>
+                                        <td className="p-3 text-center font-mono">{analyzedData.groupsList.reduce((acc, g) => acc + g.itemsCount, 0)}</td>
+                                        <td className="p-3 text-left font-mono text-indigo-700 dark:text-indigo-400 text-sm">{Math.round(analyzedData.totalWeight).toLocaleString("fa-IR")}</td>
+                                        <td className="p-3 text-center font-mono">۱۰۰%</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
-                    )}
+                    </div>
 
-                    {/* View 3: Document list */}
-                    {prodReturnsGrouping === "document" && (
+                    {/* 2. BOTTOM SECTION: Registered Documents List */}
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs">
+                        <div className="bg-slate-50 dark:bg-zinc-950 px-4 py-3 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+                            <h3 className="text-sm font-black text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                <span>بر اساس سندهای ثبت شده (اسناد تفکیکی برگشت از تولید)</span>
+                            </h3>
+                            <span className="text-xs font-bold text-slate-500 font-mono">
+                                {analyzedData.documentsList.length} سند ثبت‌شده
+                            </span>
+                        </div>
+
                         <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full border-collapse text-right text-xs">
                                 <thead>
-                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
+                                    <tr className="bg-slate-50/50 dark:bg-zinc-900/60 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
                                         <th className="p-3 w-14 text-center">ردیف</th>
                                         <th className="p-3 w-32 font-mono">شماره سند</th>
                                         <th className="p-3 w-32">تاریخ سند</th>
@@ -691,15 +678,16 @@ export default function ProductionReturnTab({
                                                 <div className="flex items-center justify-center gap-1">
                                                     <button
                                                         onClick={() => setSelectedDocModal(doc)}
-                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded cursor-pointer transition-colors"
-                                                        title="مشاهده جزئیات سند"
+                                                        className="px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                                        title="مشاهده اقلام سند"
                                                     >
                                                         <Eye className="w-3.5 h-3.5" />
+                                                        <span>مشاهده</span>
                                                     </button>
                                                     <button
                                                         onClick={() => handlePrintSingleDoc(doc)}
-                                                        className="p-1.5 text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded cursor-pointer transition-colors"
-                                                        title="چاپ سند"
+                                                        className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                                                        title="چاپ رسید رسمی این سند"
                                                     >
                                                         <Printer className="w-3.5 h-3.5" />
                                                     </button>
@@ -708,121 +696,103 @@ export default function ProductionReturnTab({
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {/* View 4: Raw rows */}
-                    {prodReturnsGrouping === "detail" && (
-                        <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full border-collapse text-right text-xs">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                        <th className="p-3 w-14 text-center">ردیف</th>
-                                        <th className="p-3 w-28 font-mono">شماره سند</th>
-                                        <th className="p-3 w-28">تاریخ</th>
-                                        <th className="p-3 w-32 font-mono">کد کالا</th>
-                                        <th className="p-3">شرح کالا</th>
-                                        <th className="p-3 text-left w-36">وزن (کیلوگرم)</th>
-                                        <th className="p-3">انبار</th>
+                                <tfoot className="bg-slate-50 dark:bg-zinc-950 font-black border-t border-slate-200 dark:border-zinc-800">
+                                    <tr>
+                                        <td colSpan={4} className="p-3 text-slate-800 dark:text-zinc-100">جمع کل اسناد ثبت‌شده</td>
+                                        <td className="p-3 text-center font-mono">{analyzedData.documentsList.reduce((acc, d) => acc + d.itemsCount, 0)}</td>
+                                        <td className="p-3 text-left font-mono text-indigo-700 dark:text-indigo-400 text-sm">{Math.round(analyzedData.totalWeight).toLocaleString("fa-IR")}</td>
+                                        <td className="p-3 text-center"></td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-                                    {analyzedData.filteredRaw.map((r, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                                            <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                            <td className="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{r.DocNo}</td>
-                                            <td className="p-3 font-mono text-slate-500">{r.DocDate}</td>
-                                            <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{r.ItemCode}</td>
-                                            <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{resolveProdItemName(r.ItemCode, r.ItemName)}</td>
-                                            <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
-                                                {Number(r.Weight || r.Quantity || 0).toLocaleString("fa-IR")}
-                                            </td>
-                                            <td className="p-3 text-slate-600 dark:text-zinc-400">{r.WarehouseName || "-"}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
+                                </tfoot>
                             </table>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
 
-            {/* Document Detail Modal */}
-            {selectedDocModal && typeof document !== "undefined" && createPortal(
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in rtl">
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-                        {/* Header */}
-                        <div className="p-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
+            {/* Document Details Modal */}
+            {selectedDocModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+                    <div className="bg-white dark:bg-zinc-900 w-full max-w-3xl rounded-2xl shadow-xl border border-slate-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
                             <div>
-                                <h3 className="text-base font-black text-slate-800 dark:text-zinc-100 flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-indigo-600" />
-                                    <span>جزئیات سند برگشت از تولید شماره {selectedDocModal.docNo}</span>
+                                <h3 className="font-black text-sm text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-indigo-600" />
+                                    <span>جزئیات و اقلام سند برگشت از تولید {selectedDocModal.docNo}</span>
                                 </h3>
-                                <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1 flex items-center gap-3">
+                                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 mt-1 font-bold">
                                     <span>تاریخ: {selectedDocModal.docDate}</span>
+                                    <span>•</span>
                                     <span>انبار: {selectedDocModal.warehouse}</span>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedDocModal(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+                            <button
+                                onClick={() => setSelectedDocModal(null)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Content */}
-                        <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                        {/* Modal Body */}
+                        <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4">
                             <table className="w-full border-collapse text-right text-xs">
                                 <thead>
-                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black border-b border-slate-100 dark:border-zinc-800">
-                                        <th className="p-3 w-12 text-center">ردیف</th>
-                                        <th className="p-3 w-32 font-mono">کد کالا</th>
-                                        <th className="p-3">شرح کالا</th>
-                                        <th className="p-3 text-left w-36">وزن برگشتی</th>
-                                        <th className="p-3 text-center w-24">واحد</th>
-                                        <th className="p-3">توضیحات</th>
+                                    <tr className="bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-bold border-b border-slate-100 dark:border-zinc-800">
+                                        <th className="p-2.5 w-12 text-center">ردیف</th>
+                                        <th className="p-2.5 w-28 font-mono">کد کالا</th>
+                                        <th className="p-2.5">نام و مشخصات کالا</th>
+                                        <th className="p-2.5 text-left w-36">وزن برگشتی</th>
+                                        <th className="p-2.5 text-center w-24">واحد</th>
+                                        <th className="p-2.5">توضیحات ردیف</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                                     {(selectedDocModal.rows || []).map((r: any, idx: number) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20">
-                                            <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
-                                            <td className="p-3 font-mono font-bold text-slate-600 dark:text-zinc-400">{r.ItemCode}</td>
-                                            <td className="p-3 font-extrabold text-slate-800 dark:text-zinc-200">{resolveProdItemName(r.ItemCode, r.ItemName)}</td>
-                                            <td className="p-3 text-left font-black text-slate-900 dark:text-zinc-100 font-mono text-sm">
-                                                {Number(r.Weight || r.Quantity || 0).toLocaleString("fa-IR")}
+                                            <td className="p-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                                            <td className="p-2.5 font-mono font-bold text-slate-600 dark:text-zinc-400">{r.ItemCode}</td>
+                                            <td className="p-2.5 font-extrabold text-slate-800 dark:text-zinc-200">{resolveProdItemName(r.ItemCode, r.ItemName)}</td>
+                                            <td className="p-2.5 text-left font-black text-slate-900 dark:text-zinc-100 font-mono">
+                                                {Math.round(Number(r.Weight || r.Quantity || 0)).toLocaleString("fa-IR")}
                                             </td>
-                                            <td className="p-3 text-center text-slate-600">{r.UnitName || "کیلوگرم"}</td>
-                                            <td className="p-3 text-slate-500">{r.Description || "-"}</td>
+                                            <td className="p-2.5 text-center text-slate-500">{r.UnitName || "کیلوگرم"}</td>
+                                            <td className="p-2.5 text-slate-500 text-[11px]">{r.Description || "-"}</td>
                                         </tr>
                                     ))}
                                 </tbody>
+                                <tfoot className="bg-slate-50 dark:bg-zinc-950 font-black border-t border-slate-200 dark:border-zinc-800">
+                                    <tr>
+                                        <td colSpan={3} className="p-2.5 text-slate-800 dark:text-zinc-100">جمع کل وزن سند</td>
+                                        <td className="p-2.5 text-left font-mono text-indigo-600 dark:text-indigo-400 text-sm">
+                                            {Math.round(selectedDocModal.totalWeight).toLocaleString("fa-IR")}
+                                        </td>
+                                        <td colSpan={2} className="p-2.5 text-slate-500 text-xs">کیلوگرم</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
 
-                        {/* Footer */}
-                        <div className="p-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center justify-between">
-                            <div className="text-xs font-black text-slate-700 dark:text-zinc-300">
-                                مجموع وزن سند: <span className="font-mono text-sm text-indigo-600">{Math.round(selectedDocModal.totalWeight).toLocaleString("fa-IR")}</span> کیلوگرم
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handlePrintSingleDoc(selectedDocModal)}
-                                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-indigo-600/20"
-                                >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    <span>چاپ سند</span>
-                                </button>
-                                <button
-                                    onClick={() => setSelectedDocModal(null)}
-                                    className="px-3.5 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                                >
-                                    بستن
-                                </button>
-                            </div>
+                        {/* Modal Footer */}
+                        <div className="px-5 py-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
+                            <button
+                                onClick={() => handlePrintSingleDoc(selectedDocModal)}
+                                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>چاپ رسید رسمی</span>
+                            </button>
+
+                            <button
+                                onClick={() => setSelectedDocModal(null)}
+                                className="px-4 py-2 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg text-xs font-bold hover:bg-slate-300 transition-colors"
+                            >
+                                بستن
+                            </button>
                         </div>
                     </div>
-                </div>,
-                document.body
+                </div>
             )}
         </div>
     );

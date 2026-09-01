@@ -207,53 +207,71 @@ app.post('/api/share-target', upload.single('files'), (req, res) => {
 // --- AUTOMATIC BACKUP LOGIC ---
 let activeBackupJob = null;
 
-const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودکار سیستم") => {
+const sendBackupToBots = async (filePath, filename, reason = "بکاپ خودکار سیستم", force = false) => {
     const db = getDb();
     const settings = db.settings || {};
     
-    if (!settings.backupBotSendEnabled) {
+    if (!force && !settings.backupBotSendEnabled) {
         console.log("Bot Backup send is not enabled in settings.");
-        return;
+        return { success: false, message: "ارسال بکاپ به بات در تنظیمات غیرفعال است." };
     }
+
+    let tgSent = false;
+    let baleSent = false;
+    const errors = [];
 
     try {
         if (!fs.existsSync(filePath)) {
             console.error("Backup file not found to send to bots:", filePath);
-            return;
+            return { success: false, message: "فایل بکاپ یافت نشد" };
         }
 
         const buffer = fs.readFileSync(filePath);
         const caption = `📁 نسخه پشتیبان (${reason})\n⏰ تاریخ: ${new Date().toLocaleString('fa-IR')}\n💾 نام فایل: ${filename}`;
 
-        // Send to Telegram
-        if (settings.telegramBotToken && settings.backupAdminTelegramChatId) {
+        // Detect Telegram Chat ID from various config fields
+        const tgChatId = settings.backupAdminTelegramChatId || settings.telegramChatId || settings.telegramAdminId || settings.telegramChannelId || settings.telegram_chat_id;
+        if (settings.telegramBotToken && tgChatId) {
             try {
-                console.log(`Sending backup to Telegram admin chat: ${settings.backupAdminTelegramChatId}`);
+                console.log(`Sending backup to Telegram admin chat: ${tgChatId}`);
                 const tg = await safeImport('./backend/telegram.js');
                 if (tg && tg.sendBotDocument) {
-                    await tg.sendBotDocument(settings.backupAdminTelegramChatId, buffer, filename, caption);
+                    await tg.sendBotDocument(tgChatId, buffer, filename, caption);
+                    tgSent = true;
                     console.log("Backup sent to Telegram successfully ✅");
                 }
             } catch (tgErr) {
                 console.error("Failed to send backup to Telegram:", tgErr.message);
+                errors.push(`تلگرام: ${tgErr.message}`);
             }
         }
 
-        // Send to Bale
-        if (settings.baleBotToken && settings.backupAdminBaleChatId) {
+        // Detect Bale Chat ID from various config fields
+        const baleChatId = settings.backupAdminBaleChatId || settings.baleChatId || settings.baleAdminId || settings.baleChannelId || settings.bale_chat_id;
+        if (settings.baleBotToken && baleChatId) {
             try {
-                console.log(`Sending backup to Bale admin chat: ${settings.backupAdminBaleChatId}`);
+                console.log(`Sending backup to Bale admin chat: ${baleChatId}`);
                 const bale = await safeImport('./backend/bale.js');
                 if (bale && bale.sendBotDocument) {
-                    await bale.sendBotDocument(settings.backupAdminBaleChatId, buffer, filename, caption);
+                    await bale.sendBotDocument(baleChatId, buffer, filename, caption);
+                    baleSent = true;
                     console.log("Backup sent to Bale successfully ✅");
                 }
             } catch (baleErr) {
                 console.error("Failed to send backup to Bale:", baleErr.message);
+                errors.push(`بله: ${baleErr.message}`);
             }
         }
+
+        return {
+            success: tgSent || baleSent,
+            tgSent,
+            baleSent,
+            errors
+        };
     } catch (e) {
         console.error("Error in sendBackupToBots:", e);
+        return { success: false, error: e.message };
     }
 };
 
@@ -6987,6 +7005,45 @@ app.get('/api/full-backup', (req, res) => {
     } catch (e) {
         console.error("Manual Backup Error:", e);
         res.status(500).send("Backup Generation Failed");
+    }
+});
+
+// SEND LATEST OR NEW BACKUP TO TELEGRAM/BALE BOTS
+app.post('/api/backups/send-to-bot', async (req, res) => {
+    try {
+        const reason = req.body?.reason || "پشتیبان دستی / بروزرسانی سامانه";
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const filename = `Backup_${timestamp}.zip`;
+        const filePath = path.join(BACKUPS_DIR, filename);
+
+        // Create the zip backup file
+        const output = fs.createWriteStream(filePath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', async () => {
+            const sendResult = await sendBackupToBots(filePath, filename, reason, true);
+            res.json({
+                success: true,
+                filename,
+                size: archive.pointer(),
+                botSendResult: sendResult
+            });
+        });
+
+        archive.on('error', (err) => {
+            console.error("Archive error:", err);
+            res.status(500).json({ success: false, error: err.message });
+        });
+
+        archive.pipe(output);
+
+        if (fs.existsSync(DB_FILE)) archive.file(DB_FILE, { name: 'database.json' });
+        if (fs.existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads');
+
+        archive.finalize();
+    } catch (e) {
+        console.error("Failed to send backup to bot:", e);
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

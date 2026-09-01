@@ -12,9 +12,9 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
   const currentUser = props.currentUser || getCurrentUser();
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0 select-text">
+    <div className="flex flex-col w-full min-h-0 select-text">
       {/* Navigation header */}
-      <div className="bg-white/30 dark:bg-zinc-950/20 border-b border-zinc-200/40 dark:border-zinc-800/40 px-3 sm:px-6 flex justify-between items-center h-12 sm:h-14 flex-shrink-0 backdrop-blur-sm">
+      <div className="bg-white/40 dark:bg-zinc-950/30 border-b border-zinc-200/50 dark:border-zinc-800/50 px-3 sm:px-6 flex justify-between items-center h-12 sm:h-14 flex-shrink-0 backdrop-blur-sm rounded-xl mb-3">
         <div className="flex items-center gap-6 h-full">
           <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
             <BarChart2 size={16} />
@@ -28,7 +28,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
       </div>
 
       {/* Tab Content body */}
-      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-transparent pb-24 md:pb-6">
+      <div className="w-full bg-transparent pb-20 md:pb-8">
         <AccountingReports {...props} currentUser={currentUser} />
       </div>
     </div>
@@ -36,3 +36,4 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
 };
 
 export default SayanReports;
+

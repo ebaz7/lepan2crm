@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Database, DownloadCloud, UploadCloud, Clock, Loader2, CheckCircle, ShieldCheck, FileJson, WifiOff, RefreshCw, FolderOpen, FileArchive, Save, Zap } from 'lucide-react';
+import { Database, DownloadCloud, UploadCloud, Clock, Loader2, CheckCircle, ShieldCheck, FileJson, WifiOff, RefreshCw, FolderOpen, FileArchive, Save, Zap, Send } from 'lucide-react';
 import { apiCall, LS_KEYS, getServerHost, resolveImageUrl } from '../../services/apiService';
 import { saveBlobAndOpenFile, downloadAndOpenFile } from '../../services/fileService';
 import { Capacitor } from '@capacitor/core';
@@ -27,11 +27,36 @@ const BackupManager: React.FC = () => {
     const [backupAdminTelegramChatId, setBackupAdminTelegramChatId] = useState('');
     const [backupAdminBaleChatId, setBackupAdminBaleChatId] = useState('');
     const [savingSettings, setSavingSettings] = useState(false);
+    const [sendingToBots, setSendingToBots] = useState(false);
 
     useEffect(() => {
         fetchAutoBackups();
         loadBackupSettings();
     }, []);
+
+    const handleSendToBots = async () => {
+        setSendingToBots(true);
+        try {
+            const host = getServerHost() || '';
+            const baseUrl = host ? `${host}/api` : '/api';
+            const res = await fetch(`${baseUrl}/backups/send-to-bot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'پشتیبان ارسالی دستی توسط کاربر از پنل تنظیمات' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ فایل بکاپ با موفقیت ایجاد و به ربات‌ها ارسال شد!\nنام فایل: ${data.filename}\nوضعیت: ${data.botSendResult?.tgSent ? 'تلگرام ارسال شد ✓ ' : ''}${data.botSendResult?.baleSent ? 'بله ارسال شد ✓' : ''}`);
+                fetchAutoBackups();
+            } else {
+                alert('خطا در ارسال بکاپ به بات: ' + (data.error || data.message || 'نامشخص'));
+            }
+        } catch (e: any) {
+            alert('خطا در ارتباط با سرور: ' + e.message);
+        } finally {
+            setSendingToBots(false);
+        }
+    };
 
     const loadBackupSettings = async () => {
         try {
@@ -472,7 +497,7 @@ const BackupManager: React.FC = () => {
                         type="button" 
                         onClick={handleDownloadBackup} 
                         disabled={downloading}
-                        className="w-full flex items-center justify-between bg-blue-50 hover:bg-blue-100 text-blue-800 px-4 py-4 rounded-xl text-sm font-bold transition-colors border border-blue-200 shadow-sm"
+                        className="w-full flex items-center justify-between bg-blue-50 hover:bg-blue-100 text-blue-800 px-4 py-3.5 rounded-xl text-sm font-bold transition-colors border border-blue-200 shadow-sm cursor-pointer disabled:opacity-50"
                     >
                         <span className="flex items-center gap-2">
                             {downloading ? <Loader2 size={20} className="animate-spin"/> : <DownloadCloud size={20}/>} 
@@ -480,6 +505,21 @@ const BackupManager: React.FC = () => {
                         </span>
                         <span className="text-[10px] glass-panel px-2 py-1 rounded border border-blue-100 text-blue-600 flex items-center gap-1">
                             <FileArchive size={12}/>
+                        </span>
+                    </button>
+
+                    <button 
+                        type="button" 
+                        onClick={handleSendToBots} 
+                        disabled={sendingToBots}
+                        className="w-full flex items-center justify-between bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white px-4 py-3.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-500/20 cursor-pointer disabled:opacity-50"
+                    >
+                        <span className="flex items-center gap-2">
+                            {sendingToBots ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>} 
+                            ارسال فایل کامل بکاپ به ربات‌های تلگرام و بله
+                        </span>
+                        <span className="text-[10px] bg-white/20 px-2 py-1 rounded text-white font-mono">
+                            BOT SEND
                         </span>
                     </button>
                     

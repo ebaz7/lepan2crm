@@ -2124,10 +2124,17 @@ const Settings: React.FC<SettingsProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setActiveCategory("backup")}
+                className={`whitespace-nowrap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeCategory === "backup" ? "bg-sky-600 text-white shadow-md font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800"}`}
+              >
+                <Database size={16} /> پشتیبان‌گیری و دیتابیس
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveCategory("data")}
                 className={`whitespace-nowrap flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-medium transition-all ${activeCategory === "data" ? "bg-indigo-600 text-white shadow-md font-bold" : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800"}`}
               >
-                <Database size={16} /> اطلاعات پایه
+                <FolderOpen size={16} /> اطلاعات پایه
               </button>
               <button
                 type="button"
@@ -3415,9 +3422,14 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             )}
 
+            {activeCategory === "backup" && (
+              <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
+                <BackupManager />
+              </div>
+            )}
+
             {activeCategory === "data" && (
               <div className="space-y-8 animate-fade-in">
-                <BackupManager />
                 <div className="space-y-4">
                   <h3 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
                     <Building size={20} /> مدیریت شرکت‌ها و بانک‌ها

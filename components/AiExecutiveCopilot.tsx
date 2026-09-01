@@ -34,6 +34,7 @@ interface Message {
 
 interface AiExecutiveCopilotProps {
     currentUser?: any;
+    activeTab?: string;
     onOpenScanner?: () => void;
     onOpenWarehouseAdvisor?: () => void;
     onOpenSalesAdvisor?: () => void;
@@ -41,6 +42,7 @@ interface AiExecutiveCopilotProps {
 
 export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     currentUser,
+    activeTab,
     onOpenScanner,
     onOpenWarehouseAdvisor,
     onOpenSalesAdvisor
@@ -297,10 +299,17 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
         }
     };
 
+    // Position calculation to never overlap chat input bar or bottom navigation
+    const bottomPositionClass = isBottomBarVisible 
+        ? 'bottom-24' 
+        : activeTab === 'chat' 
+            ? 'bottom-20 sm:bottom-22' 
+            : 'bottom-6';
+
     // Floating Button when Closed
     if (!isOpen) {
         return (
-            <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-6 z-50 transition-all duration-300`} dir="rtl">
+            <div className={`fixed ${bottomPositionClass} left-4 sm:left-6 z-50 transition-all duration-300`} dir="rtl">
                 <button
                     type="button"
                     onClick={() => setIsOpen(true)}
@@ -320,7 +329,7 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
     }
 
     return (
-        <div className={`fixed ${isBottomBarVisible ? 'bottom-24' : 'bottom-6'} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-72 h-12' : 'w-[94vw] sm:w-[380px] h-[480px] max-h-[80vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
+        <div className={`fixed ${bottomPositionClass} left-3 sm:left-6 z-50 transition-all duration-300 ${isMinimized ? 'w-72 h-12' : 'w-[94vw] sm:w-[380px] h-[480px] max-h-[80vh]'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animation-fade-in`} dir="rtl">
             
             {/* Copilot Header */}
             <div className="p-2.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-indigo-900/40">

@@ -1289,7 +1289,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     </div>
                     
                     {/* Content */}
-                    <div className="flex-1 p-2 md:p-6 overflow-hidden flex flex-col w-full min-h-0 bg-gray-50">
+                    <div className="flex-1 p-2 md:p-6 overflow-y-auto flex flex-col w-full min-h-0 bg-gray-50 custom-scrollbar overscroll-contain">
                         <h2 className="text-xl font-bold mb-4 hidden md:block">
                             {activeReport === 'general' ? 'لیست کلی پرونده‌ها' : 
                             activeReport === 'allocation_queue' ? 'گزارش صف تخصیص' : 
@@ -1299,7 +1299,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             activeReport === 'guarantee' ? 'گزارش جامع چک‌های تضمین' :
                             'گزارش'}
                         </h2>
-                        {renderReportContent}
+                        <div className="w-full flex-1">
+                            {renderReportContent}
+                        </div>
                     </div>
                 </div>
             </div>

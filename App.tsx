@@ -1472,6 +1472,7 @@ function App() {
                 <>
                     <AiExecutiveCopilot
                         currentUser={currentUser}
+                        activeTab={activeTab}
                         onOpenScanner={() => setShowAiScannerModal(true)}
                         onOpenWarehouseAdvisor={() => setActiveTab('sayan')}
                         onOpenSalesAdvisor={() => setActiveTab('sayan')}
