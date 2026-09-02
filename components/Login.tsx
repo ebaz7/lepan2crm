@@ -310,88 +310,99 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {/* --- REALISTIC INTERACTIVE PULL-STRING (سیم کششی خاموش و روشن کردن چراغ) --- */}
       <div className="hidden lg:block absolute inset-0 z-30 pointer-events-none overflow-hidden">
-        <motion.div 
-          onClick={toggleLamp}
-          animate={{ 
-            y: isPulling ? 12 : 0,
-            opacity: isLampOn ? 0.85 : 0.35
-          }}
-          whileHover={{ opacity: isLampOn ? 1 : 0.65 }}
-          transition={{ 
-            y: { type: 'spring', stiffness: 500, damping: 14 },
-            opacity: { duration: 0.3 }
-          }}
-          className="absolute left-[75.8%] top-[38.5%] h-[95px] pointer-events-auto cursor-pointer group flex flex-col items-center"
-          style={{ 
-            transform: 'translateX(-50%)'
-          }}
-          title="برای خاموش/روشن کردن چراغ، کلیک کنید"
+        <div 
+          className="absolute left-[75.8%] top-[38.5%] pointer-events-auto"
+          style={{ transform: 'translateX(-50%)' }}
         >
-          {/* Beaded Brass Pull Chain */}
-          <div 
-            className="w-[2.5px] h-[55px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
-            style={{
-              backgroundImage: isLampOn 
-                ? 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)'
-                : 'radial-gradient(circle, #b45309 30%, #451a03 90%)',
-              backgroundSize: '2.5px 5px'
+          <motion.div 
+            onClick={toggleLamp}
+            animate={{ 
+              y: isPulling ? 12 : 0,
+              opacity: isLampOn ? 0.85 : 0.35
             }}
-          />
-          
-          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز) */}
-          <div 
-            className={`w-2.5 h-6 rounded-b-full rounded-t-sm border shadow-2xl flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all duration-500 ${
-              isLampOn
-                ? 'bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] border-[#fef3c7]/40 shadow-amber-500/20'
-                : 'bg-gradient-to-b from-[#b45309]/50 via-[#78350f]/60 to-[#451a03]/80 border-amber-900/30 shadow-black/80'
-            }`}
+            whileHover={{ opacity: isLampOn ? 1 : 0.65 }}
+            transition={{ 
+              y: { type: 'spring', stiffness: 500, damping: 14 },
+              opacity: { duration: 0.3 }
+            }}
+            className="h-[95px] cursor-pointer group flex flex-col items-center"
+            title="برای خاموش/روشن کردن چراغ، کلیک کنید"
           >
-            <div className={`w-full h-0.5 mb-0.5 transition-all duration-500 ${isLampOn ? 'bg-[#451a03]/50' : 'bg-transparent'}`} />
-            <div className={`w-1 h-1 rounded-full transition-all duration-500 ${isLampOn ? 'bg-amber-200/90' : 'bg-white/10'}`} />
-          </div>
-        </motion.div>
+            {/* Beaded Brass Pull Chain */}
+            <div 
+              className="w-[2.5px] h-[55px] bg-repeat-y group-hover:scale-x-125 transition-transform duration-500"
+              style={{
+                backgroundImage: isLampOn 
+                  ? 'radial-gradient(circle, #fcd34d 40%, #78350f 95%)'
+                  : 'radial-gradient(circle, #b45309 30%, #451a03 90%)',
+                backgroundSize: '2.5px 5px'
+              }}
+            />
+            
+            {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز) */}
+            <div 
+              className={`w-2.5 h-6 rounded-b-full rounded-t-sm border shadow-2xl flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all duration-500 ${
+                isLampOn
+                  ? 'bg-gradient-to-b from-[#fef3c7] via-[#d97706] to-[#78350f] border-[#fef3c7]/40 shadow-amber-500/20'
+                  : 'bg-gradient-to-b from-[#b45309]/50 via-[#78350f]/60 to-[#451a03]/80 border-amber-900/30 shadow-black/80'
+              }`}
+            >
+              <div className={`w-full h-0.5 mb-0.5 transition-all duration-500 ${isLampOn ? 'bg-[#451a03]/50' : 'bg-transparent'}`} />
+              <div className={`w-1 h-1 rounded-full transition-all duration-500 ${isLampOn ? 'bg-amber-200/90' : 'bg-white/10'}`} />
+            </div>
+          </motion.div>
+        </div>
       </div>
 
-      {/* --- DESKTOP BRAND TEXT (دقیقاً داخل هاله نور زیر لامپ در یک راستای عمودی) --- */}
-      <motion.div 
-        animate={{ 
-          opacity: isLampOn ? 1 : 0.08,
-          y: isLampOn ? 0 : 8
+      {/* --- DESKTOP BRAND TEXT (دقیقاً درون هاله نور زیر چراغ هم‌راستا با محور تقارن عمودی) --- */}
+      <div 
+        className="hidden lg:flex absolute z-20 flex-col items-center text-center w-full max-w-[460px] px-4 pointer-events-none select-none"
+        style={{
+          left: '72.8%',
+          top: '64%',
+          transform: 'translate(-50%, -50%)'
         }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="hidden lg:flex absolute left-[72%] top-[64%] -translate-x-1/2 -translate-y-1/2 z-20 flex-col items-center text-center w-full max-w-[420px] px-4 pointer-events-none select-none"
         dir="rtl"
       >
-        {/* Subtle glowing halo backlight for text */}
-        <div 
-          className={`absolute inset-0 -inset-y-6 rounded-full blur-2xl transition-opacity duration-700 pointer-events-none ${
-            isLampOn ? 'bg-amber-500/10 opacity-100' : 'opacity-0'
-          }`} 
-        />
+        <motion.div 
+          animate={{ 
+            opacity: isLampOn ? 1 : 0.08,
+            y: isLampOn ? 0 : 8
+          }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="relative w-full flex flex-col items-center text-center"
+        >
+          {/* Subtle glowing halo backlight for text */}
+          <div 
+            className={`absolute inset-0 -inset-y-6 rounded-full blur-2xl transition-opacity duration-700 pointer-events-none ${
+              isLampOn ? 'bg-amber-500/15 opacity-100' : 'opacity-0'
+            }`} 
+          />
 
-        <div className={`relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md mb-3 ${
-          isLampOn
-            ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
-            : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
-        }`}>
-          <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
-          <span>سامانه یکپارچه مالی و بازرگانی</span>
-        </div>
-        
-        <h2 className={`relative text-2xl xl:text-3xl font-black tracking-tight leading-snug transition-all duration-500 mb-2.5 ${
-          isLampOn 
-            ? 'text-slate-100 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] [text-shadow:_0_0_25px_rgba(251,191,36,0.4)]' 
-            : 'text-slate-500'
-        }`}>
-          مدیریت و کنترل هوشمند سازمانی
-        </h2>
-        
-        <p className={`relative text-xs sm:text-[13px] max-w-sm mx-auto leading-relaxed transition-all duration-500 ${
-          isLampOn ? 'text-slate-200/90 font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.95)]' : 'text-slate-600'
-        }`}>
-          سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار، برگه‌های خروج و اسناد اعتباری
-        </p>
-      </motion.div>
+          <div className={`relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md mb-3 ${
+            isLampOn
+              ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+              : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
+          }`}>
+            <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
+            <span>سامانه یکپارچه مالی و بازرگانی</span>
+          </div>
+          
+          <h2 className={`relative text-2xl xl:text-3xl font-black tracking-tight leading-snug transition-all duration-500 mb-2.5 ${
+            isLampOn 
+              ? 'text-slate-100 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] [text-shadow:_0_0_25px_rgba(251,191,36,0.4)]' 
+              : 'text-slate-500'
+          }`}>
+            مدیریت و کنترل هوشمند سازمانی
+          </h2>
+          
+          <p className={`relative text-xs sm:text-[13px] max-w-sm mx-auto leading-relaxed transition-all duration-500 ${
+            isLampOn ? 'text-slate-200/90 font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.95)]' : 'text-slate-600'
+          }`}>
+            سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار، برگه‌های خروج و اسناد اعتباری
+          </p>
+        </motion.div>
+      </div>
 
       {/* --- DESKTOP / MOBILE STAGE CONTAINER --- */}
       {/* dir="ltr" ensures the first column is on the LEFT (Login card) on all screens */}
