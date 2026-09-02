@@ -70,6 +70,7 @@ import SayanSalesDashboard from './sales/SayanSalesDashboard';
 import SayanRemittancesTab from './SayanRemittancesTab';
 import WarehouseOverviewTab from './WarehouseOverviewTab';
 import { AiSalesAdvisorModal } from './AiSalesAdvisorModal';
+import { AiSayanReportModal } from './AiSayanReportModal';
 import { UserRole } from '../types';
 import { getServerHost } from '../services/apiService';
 
@@ -152,6 +153,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [compareSalesDataB, setCompareSalesDataB] = useState<any[]>([]);
     const [isSendingSalesBot, setIsSendingSalesBot] = useState(false);
     const [isAiSalesAdvisorOpen, setIsAiSalesAdvisorOpen] = useState(false);
+
+    // --- UNIVERSAL SAYAN AI STRATEGIC REPORT MODAL STATE ---
+    const [isUniversalAiModalOpen, setIsUniversalAiModalOpen] = useState(false);
+    const [aiModalSection, setAiModalSection] = useState<string>('traz');
+    const [aiModalTitle, setAiModalTitle] = useState<string>('');
+    const [aiModalPayload, setAiModalPayload] = useState<any>(null);
+    const [aiModalDateRange, setAiModalDateRange] = useState<any>(null);
+
+    const openAiReportModal = (section: string, title: string, payload: any, dates?: any) => {
+        setAiModalSection(section);
+        setAiModalTitle(title);
+        setAiModalPayload(payload);
+        setAiModalDateRange(dates || { from: dateFrom, to: dateTo });
+        setIsUniversalAiModalOpen(true);
+    };
 
     // --- TAB 4: PRODUCTION STATE ---
     const [prodLiveItems, setProdLiveItems] = useState<any[]>([]);
@@ -3899,6 +3915,72 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     >
                         {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'بروزرسانی'}
                     </button>
+
+                    <button 
+                        onClick={() => {
+                            if (activeTab === 'traz') {
+                                openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
+                                    items: filteredTraz,
+                                    category: trazCategory,
+                                    count: filteredTraz.length,
+                                    totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
+                                    totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
+                                    topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
+                                    topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
+                                });
+                            } else if (activeTab === 'sales') {
+                                openAiReportModal('sales', 'تحلیل جامع آمار فروش و برگشت از فروش', {
+                                    items: salesData,
+                                    count: salesData.length,
+                                    viewMode: salesViewMode,
+                                    compareMode,
+                                    compareSalesDataA,
+                                    compareSalesDataB
+                                });
+                            } else if (activeTab === 'production') {
+                                if (prodCompareMode) {
+                                    openAiReportModal('production_comparison', 'تحلیل مقایسه‌ای خطوط و دسته‌های تولیدی کارخانه', {
+                                        itemsA: prodCompareDataA,
+                                        itemsB: prodCompareDataB,
+                                        totalA: prodCompareTotalsA?.grandTotal || 0,
+                                        totalB: prodCompareTotalsB?.grandTotal || 0,
+                                        periodA: { from: dateFrom, to: dateTo },
+                                        periodB: { from: prodCompareDateFromB, to: prodCompareDateToB }
+                                    });
+                                } else {
+                                    openAiReportModal('production', 'تحلیل مهندسی و هوشمند آمار تولید و ضایعات کارخانه', {
+                                        items: prodLiveItems,
+                                        totals: prodLiveTotals,
+                                        waste: prodWaste
+                                    });
+                                }
+                            } else if (activeTab === 'cheques') {
+                                openAiReportModal('cheques', 'تحلیل هوشمند جریان نقدینگی و اسناد دریافتنی (چک‌ها)', {
+                                    cheques: filteredCheques,
+                                    totalCount: filteredCheques.length,
+                                    totalAmount: filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+                                    statusFilter: chequeStatusFilter
+                                });
+                            } else if (activeTab === 'prodReturns') {
+                                openAiReportModal('prodReturns', 'تحلیل هوشمند رسیدهای برگشت از خطوط تولید (کد ۴۴)', {
+                                    dateRange: { from: dateFrom, to: dateTo }
+                                });
+                            } else if (activeTab === 'remittances') {
+                                openAiReportModal('remittances', 'تحلیل هوشمند حواله‌های فروش و رسیدهای انبار', {
+                                    dateRange: { from: dateFrom, to: dateTo }
+                                });
+                            } else if (activeTab === 'warehouseOverview') {
+                                openAiReportModal('warehouseOverview', 'تحلیل جامع موجودی انبارها و تراز وزنی', {
+                                    dateRange: { from: dateFrom, to: dateTo }
+                                });
+                            }
+                        }}
+                        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded text-xs px-3.5 py-1.5 font-extrabold flex items-center gap-1.5 transition-all shadow-md hover:shadow-indigo-500/25 cursor-pointer animate-pulse"
+                        title="تحلیل هوشمند این بخش با هوش مصنوعی Gemini 3.7"
+                    >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>تحلیل هوش مصنوعی (AI)</span>
+                    </button>
                 </div>
             </div>
 
@@ -4027,6 +4109,24 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md border border-emerald-200 text-xs font-semibold transition-colors"
                                 >
                                     <Printer className="w-3.5 h-3.5" /> خروجی بستانکاران
+                                </button>
+
+                                <button 
+                                    type="button"
+                                    onClick={() => openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
+                                        items: filteredTraz,
+                                        category: trazCategory,
+                                        count: filteredTraz.length,
+                                        totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
+                                        totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
+                                        topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
+                                        topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
+                                    })}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-md text-xs font-bold transition-all shadow-md cursor-pointer"
+                                    title="تحلیل هوشمند تراز بدهکاران و بستانکاران با هوش مصنوعی"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی تراز</span>
                                 </button>
                             </div>
                         </div>
@@ -5467,6 +5567,33 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                         : (isSendingBot ? 'در حال ارسال...' : 'ارسال به گروه‌های تلگرام / بله')
                                     }
                                 </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (prodCompareMode) {
+                                            openAiReportModal('production_comparison', 'تحلیل مقایسه‌ای خطوط و دسته‌های تولیدی کارخانه', {
+                                                itemsA: prodCompareDataA,
+                                                itemsB: prodCompareDataB,
+                                                totalA: prodCompareTotalsA?.grandTotal || 0,
+                                                totalB: prodCompareTotalsB?.grandTotal || 0,
+                                                periodA: { from: dateFrom, to: dateTo },
+                                                periodB: { from: prodCompareDateFromB, to: prodCompareDateToB }
+                                            });
+                                        } else {
+                                            openAiReportModal('production', 'تحلیل مهندسی و هوشمند آمار تولید و ضایعات کارخانه', {
+                                                items: prodLiveItems,
+                                                totals: prodLiveTotals,
+                                                waste: prodWaste
+                                            });
+                                        }
+                                    }}
+                                    className="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                                    title="تحلیل هوشمند و مهندسی خطوط تولید و ضایعات با AI"
+                                >
+                                    <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی تولید</span>
+                                </button>
                             </div>
                         </div>
 
@@ -6209,6 +6336,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <Share2 className="h-3.5 w-3.5" />
                                     <span>ارسال به شبکه‌های اجتماعی / بات</span>
                                 </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => openAiReportModal('cheques', 'تحلیل هوشمند جریان نقدینگی و اسناد دریافتنی (چک‌ها)', {
+                                        cheques: filteredCheques,
+                                        totalCount: filteredCheques.length,
+                                        totalAmount: filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+                                        statusFilter: chequeStatusFilter
+                                    })}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                                    title="تحلیل هوشمند وضعیت وصول مطالبات و ریسک چک‌ها با AI"
+                                >
+                                    <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی چک‌ها</span>
+                                </button>
                             </div>
                         </div>
 
@@ -6676,6 +6818,25 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     />
                 )}
             </div>
+
+            {/* Universal Sayan AI Strategic Report Modal */}
+            <AiSayanReportModal
+                isOpen={isUniversalAiModalOpen}
+                onClose={() => setIsUniversalAiModalOpen(false)}
+                reportSection={aiModalSection}
+                sectionTitle={aiModalTitle}
+                reportPayload={aiModalPayload}
+                dateRange={aiModalDateRange}
+                settings={settings}
+            />
+
+            {/* Sales AI Advisor Modal */}
+            <AiSalesAdvisorModal
+                isOpen={isAiSalesAdvisorOpen}
+                onClose={() => setIsAiSalesAdvisorOpen(false)}
+                salesData={salesData}
+                periodLabel={`${dateFrom} تا ${dateTo}`}
+            />
         </div>
     );
 }

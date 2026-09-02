@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ExitPermit, ExitPermitStatus, ExitPermitItem, ExitPermitDestination, UserRole, SalesContact, SystemSettings } from '../types';
-import { editExitPermit, getSettings } from '../services/storageService';
+import { editExitPermit, getSettings, uploadFileChunked } from '../services/storageService';
 import { generateUUID, getShamsiDateFromIso, jalaliToGregorian, getCurrentShamsiDate } from '../constants';
-import { Save, Loader2, Truck, Package, MapPin, Hash, Plus, Trash2, X, AlertTriangle, Paperclip, Database } from 'lucide-react';
+import { Save, Loader2, Truck, Package, MapPin, Hash, Plus, Trash2, X, AlertTriangle, Paperclip, Database, Download, Eye } from 'lucide-react';
 import PrintExitPermit from './PrintExitPermit';
 import { getUsers } from '../services/authService';
 import { apiCall } from '../services/apiService';
 import { searchSayanPersons } from '../services/sayanExitService';
 import html2canvas from 'html2canvas';
+import { FileViewerModal } from './FileViewerModal';
 
 interface EditExitPermitModalProps {
   permit: ExitPermit;
@@ -43,6 +44,8 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
   });
   
   const [attachments, setAttachments] = useState<{ fileName: string; data: string }[]>(permit.attachments || []);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{ url: string; fileName: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingPermits, setExistingPermits] = useState<ExitPermit[]>([]);
 
@@ -155,21 +158,24 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
     setActiveSuggestDestId(null);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    files.forEach(file => {
-      if (file.size > 50 * 1024 * 1024) {
-        alert(`حجم فایل ${file.name} بیشتر از ۵۰ مگابایت است.`);
-        return;
+    if (files.length === 0) return;
+    setUploadingFiles(true);
+    for (const file of files) {
+      if (file.size > 150 * 1024 * 1024) {
+        alert(`حجم فایل ${file.name} بیشتر از ۱۵۰ مگابایت است.`);
+        continue;
       }
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) {
-          setAttachments(prev => [...prev, { fileName: file.name, data: evt.target!.result as string }]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+      try {
+        const res = await uploadFileChunked(file, () => {});
+        setAttachments(prev => [...prev, { fileName: res.fileName, data: res.url }]);
+      } catch (err) {
+        console.error(err);
+        alert(`خطا در آپلود فایل ${file.name}`);
+      }
+    }
+    setUploadingFiles(false);
     e.target.value = '';
   };
 
@@ -734,33 +740,60 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
               <button 
                 type="button" 
                 onClick={() => fileInputRef.current?.click()} 
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                disabled={uploadingFiles}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
-                <Paperclip size={14}/> افزودن فایل
+                {uploadingFiles ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14}/>}
+                <span>{uploadingFiles ? 'در حال آپلود...' : 'افزودن فایل'}</span>
               </button>
             </div>
 
             {attachments.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
                 {attachments.map((att, idx) => {
-                  const isImg = att.data?.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)$/i.test(att.fileName);
+                  const isImg = att.data?.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(att.fileName);
                   return (
-                    <div key={idx} className="flex items-center justify-between bg-white dark:bg-zinc-800 p-2 rounded-xl border border-emerald-200 dark:border-emerald-900/40 text-xs shadow-xs">
-                      <div className="flex items-center gap-2 truncate flex-1">
-                        {isImg ? (
-                          <img src={att.data} alt="" className="w-7 h-7 rounded object-cover border" />
-                        ) : (
-                          <Paperclip size={15} className="text-emerald-600 shrink-0" />
-                        )}
-                        <span className="truncate font-mono text-[11px]" dir="ltr">{att.fileName}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeAttachment(idx)} 
-                        className="text-red-500 hover:text-red-700 p-1 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 rounded-lg shrink-0 mr-1 transition-colors"
+                    <div key={idx} className="flex items-center justify-between bg-white dark:bg-zinc-800 p-2 rounded-xl border border-emerald-200 dark:border-emerald-900/40 text-xs shadow-xs hover:border-emerald-400 transition-colors">
+                      <div 
+                        onClick={() => setPreviewFile({ url: att.data, fileName: att.fileName })}
+                        className="flex items-center gap-2 truncate flex-1 cursor-pointer"
+                        title="کلیک برای پیش‌نمایش"
                       >
-                        <Trash2 size={13} />
-                      </button>
+                        {isImg ? (
+                          <img src={att.data} alt="" className="w-7 h-7 rounded object-cover border border-emerald-100" />
+                        ) : (
+                          <div className="w-7 h-7 rounded bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                            <Paperclip size={15} />
+                          </div>
+                        )}
+                        <div className="flex flex-col truncate">
+                          <span className="truncate font-mono text-[11px]" dir="ltr">{att.fileName}</span>
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
+                            <Eye size={10} /> مشاهده
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mr-1 shrink-0">
+                        <a 
+                          href={att.data} 
+                          download={att.fileName} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-gray-500 hover:text-emerald-700 p-1 bg-gray-50 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="دانلود فایل"
+                        >
+                          <Download size={13} />
+                        </a>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); removeAttachment(idx); }} 
+                          className="text-red-500 hover:text-red-700 p-1 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 rounded-lg transition-colors"
+                          title="حذف فایل"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -790,6 +823,14 @@ const EditExitPermitModal: React.FC<EditExitPermitModalProps> = ({ permit, onClo
           </div>
         </form>
       </div>
+      {previewFile && (
+        <FileViewerModal
+          isOpen={!!previewFile}
+          onClose={() => setPreviewFile(null)}
+          fileUrl={previewFile.url}
+          fileName={previewFile.fileName}
+        />
+      )}
     </div>
   );
 

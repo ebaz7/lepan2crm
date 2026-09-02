@@ -311,14 +311,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* --- REALISTIC INTERACTIVE PULL-STRING (سیم کششی خاموش و روشن کردن چراغ) --- */}
       <div className="hidden lg:block absolute inset-0 z-30 pointer-events-none overflow-hidden">
         <div 
-          className="absolute left-[75.8%] top-[38.5%] pointer-events-auto"
+          className="absolute left-[67.5%] top-[37%] pointer-events-auto"
           style={{ transform: 'translateX(-50%)' }}
         >
           <motion.div 
             onClick={toggleLamp}
             animate={{ 
               y: isPulling ? 12 : 0,
-              opacity: isLampOn ? 0.85 : 0.35
+              opacity: isLampOn ? 0.9 : 0.35
             }}
             whileHover={{ opacity: isLampOn ? 1 : 0.65 }}
             transition={{ 
@@ -356,10 +356,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {/* --- DESKTOP BRAND TEXT (دقیقاً درون هاله نور زیر چراغ هم‌راستا با محور تقارن عمودی) --- */}
       <div 
-        className="hidden lg:flex absolute z-20 flex-col items-center text-center w-full max-w-[460px] px-4 pointer-events-none select-none"
+        className="hidden lg:flex absolute z-20 flex-col items-center text-center w-full max-w-[480px] px-4 pointer-events-none select-none"
         style={{
-          left: '72.8%',
-          top: '64%',
+          left: '64.5%',
+          top: '62%',
           transform: 'translate(-50%, -50%)'
         }}
         dir="rtl"

@@ -15,6 +15,7 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
 import { getServerHost, apiCall } from '../../services/apiService';
+import { AiSayanReportModal } from '../AiSayanReportModal';
 
 // ----------------------------------------------------------------------
 // TYPES & INTERFACES
@@ -338,9 +339,10 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     }
   };
   
-  // Bot Modal State
+  // Bot & AI Modal State
   const [isBotModalOpen, setIsBotModalOpen] = useState<boolean>(false);
   const [isSendingBot, setIsSendingBot] = useState<boolean>(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['telegram', 'bale']);
 
   // Toggle Category Expand
@@ -1589,6 +1591,16 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            <button
+              onClick={() => setIsAiModalOpen(true)}
+              disabled={processedMetrics.categoryList.length === 0}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer disabled:opacity-50"
+              title="تحلیل هوشمند، مهندسی و مدیریتی فروش با هوش مصنوعی"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>تحلیل هوش مصنوعی فروش</span>
+            </button>
+
             <button
               onClick={() => handleSendManualReport('today')}
               disabled={isSendingBot}
@@ -3402,6 +3414,48 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* AI Strategic & Engineering Sales Report Modal */}
+      <AiSayanReportModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        reportSection="sales"
+        sectionTitle="گزارش جامع تحلیلی و مدیریتی فروش سایان"
+        reportPayload={{
+          rangeNetAmt: processedMetrics.rangeNetAmt,
+          rangeNetWgt: processedMetrics.rangeNetWgt,
+          rangeNetFee: processedMetrics.rangeNetFee,
+          rangeRetAmt: processedMetrics.rangeRetAmt,
+          rangeRetWgt: processedMetrics.rangeRetWgt,
+          invoiceCount: processedMetrics.invoiceCount,
+          customerCount: processedMetrics.customerCount,
+          avgInvoiceAmt: processedMetrics.avgInvoiceAmt,
+          topCategory: processedMetrics.insights.topGroup,
+          topProduct: processedMetrics.insights.topProductByAmt,
+          categories: processedMetrics.categoryList.map(c => ({
+            name: c.name,
+            salesWgt: c.salesWgt,
+            retWgt: c.retWgt,
+            netWgt: c.netWgt,
+            salesAmt: c.salesAmt,
+            retAmt: c.retAmt,
+            netAmt: c.netAmt,
+            netFee: c.netFee,
+            sharePct: c.sharePct
+          })),
+          topItems: processedMetrics.itemList.slice(0, 15).map(i => ({
+            code: i.itemCode,
+            name: i.itemName,
+            category: i.majorCategory,
+            netQty: i.netQty,
+            netAmt: i.netAmt,
+            netFee: i.netFee,
+            sharePct: i.sharePct
+          }))
+        }}
+        dateRange={{ from: dateFrom, to: dateTo }}
+        settings={settings}
+      />
 
     </div>
   );

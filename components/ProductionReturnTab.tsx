@@ -9,6 +9,7 @@ import {
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import * as jalaali from "jalaali-js";
+import { AiSayanReportModal } from "./AiSayanReportModal";
 
 interface ProductionReturnTabProps {
     dateFrom: string;
@@ -182,6 +183,7 @@ export default function ProductionReturnTab({
     const [activeViewMode, setActiveViewMode] = useState<"groups" | "items" | "documents">("groups");
     const [expandedGroupCodes, setExpandedGroupCodes] = useState<Set<string>>(new Set());
     const [isSendingBot, setIsSendingBot] = useState(false);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
     // Prevent body scrolling when modal is active
     useEffect(() => {
@@ -702,6 +704,17 @@ export default function ProductionReturnTab({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                    {/* AI Strategic Analysis Button */}
+                    <button
+                        onClick={() => setIsAiModalOpen(true)}
+                        disabled={analyzedData.filteredRaw.length === 0}
+                        className="px-3.5 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg text-xs font-black transition-all shadow-md shadow-purple-500/25 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="تحلیل هوشمند، مهندسی، نموداری و گزارش مدیریتی با هوش مصنوعی"
+                    >
+                        <Sparkles className="w-4 h-4 animate-pulse text-amber-300" />
+                        <span>تحلیل هوش مصنوعی</span>
+                    </button>
+
                     {/* Bot Notification Button */}
                     <button
                         onClick={handleSendReturnsBot}
@@ -1419,6 +1432,39 @@ export default function ProductionReturnTab({
                 </div>,
                 document.body
             )}
+
+            {/* AI Strategic Analysis & Engineering Report Modal */}
+            <AiSayanReportModal
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                reportSection="prodReturns"
+                sectionTitle="گزارش برگشت از تولید به انبار (عملیات ۴۴)"
+                reportPayload={{
+                    totalWeight: analyzedData.totalWeight,
+                    totalProductsWeight: analyzedData.totalProductsWeight,
+                    totalRawMaterialWeight: analyzedData.totalRawMaterialWeight,
+                    totalOtherWeight: analyzedData.totalOtherWeight,
+                    documentsCount: analyzedData.documentsList.length,
+                    itemsCount: analyzedData.itemsList.length,
+                    groups: analyzedData.groupsList.map(g => ({
+                        code: g.code,
+                        title: g.title,
+                        parentCategory: g.parentCategory,
+                        totalWeight: g.totalQty,
+                        itemsCount: g.itemsCount
+                    })),
+                    topItems: analyzedData.itemsList.slice(0, 15).map(item => ({
+                        code: item.code,
+                        name: item.name || item.resolvedName,
+                        group: item.groupTitle,
+                        category: item.parentCategory,
+                        totalWeight: item.totalWeight,
+                        count: item.count
+                    }))
+                }}
+                dateRange={{ from: dateFrom, to: dateTo }}
+                settings={settings}
+            />
         </div>
     );
 }

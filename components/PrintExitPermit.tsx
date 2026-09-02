@@ -9,6 +9,7 @@ import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
 import html2canvas from 'html2canvas';
 import SayanSalesRemittanceDoc from './SayanSalesRemittanceDoc';
+import { FileViewerModal } from './FileViewerModal';
 
 interface Props {
   permit: ExitPermit;
@@ -564,22 +565,26 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-emerald-50/40 p-3 rounded-2xl border-2 border-emerald-200">
                             {permit.attachments.map((att, idx) => {
-                                const isImg = att.data?.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)$/i.test(att.fileName);
+                                const isImg = att.data?.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(att.fileName);
                                 return (
                                     <div key={idx} className="bg-white rounded-xl p-2 border border-emerald-100 shadow-sm flex flex-col items-center justify-between gap-2 group hover:shadow-md transition-all">
-                                        {isImg ? (
-                                            <div className="w-full h-24 rounded-lg overflow-hidden relative cursor-pointer group/img bg-gray-100" onClick={() => setLightboxImg(att)}>
+                                        <div 
+                                            className="w-full h-24 rounded-lg overflow-hidden relative cursor-pointer group/img bg-emerald-50 flex items-center justify-center"
+                                            onClick={() => setLightboxImg(att)}
+                                            title="کلیک برای مشاهده کامل سند"
+                                        >
+                                            {isImg ? (
                                                 <img src={att.data} alt={att.fileName} className="w-full h-full object-cover group-hover/img:scale-105 transition-transform" />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 no-print">
-                                                    <Eye size={16} /> مشاهده
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center text-emerald-700 p-2">
+                                                    <Paperclip size={28} className="mb-1" />
+                                                    <span className="text-[10px] font-bold text-center line-clamp-2" dir="ltr">{att.fileName}</span>
                                                 </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 no-print">
+                                                <Eye size={16} /> مشاهده
                                             </div>
-                                        ) : (
-                                            <div className="w-full h-24 rounded-lg bg-emerald-50 flex flex-col items-center justify-center text-emerald-700 p-2">
-                                                <Paperclip size={28} className="mb-1" />
-                                                <span className="text-[10px] font-bold text-center line-clamp-2" dir="ltr">{att.fileName}</span>
-                                            </div>
-                                        )}
+                                        </div>
                                         <div className="w-full flex items-center justify-between gap-1 pt-1 border-t border-gray-100">
                                             <span className="text-[10px] font-mono text-gray-600 truncate flex-1" dir="ltr" title={att.fileName}>{att.fileName}</span>
                                             <a 
@@ -913,26 +918,13 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
             </div>
         </div>
 
-        {lightboxImg && createPortal(
-            <div className="fixed inset-0 z-[200000] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setLightboxImg(null)}>
-                <div className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-between w-full mb-3 text-white">
-                        <span className="font-mono text-xs truncate max-w-md font-bold" dir="ltr">{lightboxImg.fileName}</span>
-                        <div className="flex items-center gap-2">
-                            <a href={lightboxImg.data} download={lightboxImg.fileName || 'Attachment'} className="bg-emerald-600 text-white px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-700 shadow-md transition-colors">
-                                <FileDown size={14} /> دانلود فایل
-                            </a>
-                            <button onClick={() => setLightboxImg(null)} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-                    </div>
-                    <div className="w-full flex justify-center overflow-auto max-h-[80vh]">
-                        <img src={lightboxImg.data} alt="" className="max-w-full max-h-[78vh] object-contain rounded-2xl shadow-2xl border border-white/10" />
-                    </div>
-                </div>
-            </div>,
-            document.body
+        {lightboxImg && (
+            <FileViewerModal
+                isOpen={!!lightboxImg}
+                onClose={() => setLightboxImg(null)}
+                fileUrl={lightboxImg.data}
+                fileName={lightboxImg.fileName}
+            />
         )}
     </div>
   );

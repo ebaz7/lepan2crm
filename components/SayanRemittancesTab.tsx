@@ -21,7 +21,8 @@ import {
   AlertCircle,
   ExternalLink,
   Layers,
-  Scale
+  Scale,
+  Sparkles
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -31,6 +32,7 @@ import {
   SayanSalesRemittanceItem
 } from '../services/sayanExitService';
 import SayanSalesRemittanceDoc, { SayanRemittanceData } from './SayanSalesRemittanceDoc';
+import { AiSayanReportModal } from './AiSayanReportModal';
 import * as jalaali from 'jalaali-js';
 
 interface SayanRemittancesTabProps {
@@ -180,6 +182,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
   const [selectedRemittance, setSelectedRemittance] = useState<SayanSalesRemittanceResult | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
 
   // Quick Date Selectors
   const setQuickDate = (type: 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all') => {
@@ -743,6 +746,16 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
           </div>
 
           <button
+            onClick={() => setIsAiModalOpen(true)}
+            disabled={filteredRemittances.length === 0}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-white rounded-lg text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-purple-500/20 cursor-pointer"
+            title="تحلیل هوشمند و مدیریتی حواله‌های فروش و خروج انبار"
+          >
+            <Sparkles size={14} className="text-amber-300 animate-pulse" />
+            <span>تحلیل هوش مصنوعی حواله‌ها</span>
+          </button>
+
+          <button
             onClick={handleExportExcel}
             disabled={filteredRemittances.length === 0}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
@@ -1273,6 +1286,34 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
         </div>,
         document.body
       )}
+
+      {/* AI Strategic Analysis & Engineering Report Modal */}
+      <AiSayanReportModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        reportSection="sayanRemittances"
+        sectionTitle="گزارش جامع حواله‌های فروش و خروج سایان"
+        reportPayload={{
+          totalCount: filteredRemittances.length,
+          totalNetWeight: summary?.totalNetWeight || 0,
+          totalGrossWeight: summary?.totalGrossWeight || 0,
+          totalCartons: summary?.totalCartons || 0,
+          totalBobbins: summary?.totalBobbins || 0,
+          uniqueCustomers: summary?.uniqueCustomersCount || 0,
+          topCustomers: (summary?.topCustomers || []).slice(0, 10),
+          topProducts: (summary?.topGoods || []).slice(0, 10),
+          recentRemittances: filteredRemittances.slice(0, 15).map(r => ({
+            number: r.remittanceNumber || r.docNo,
+            date: r.shamsiDate,
+            customer: r.personFullName,
+            netWeight: r.totalNetWeight,
+            cartons: r.totalCartons,
+            bobbins: r.totalBobbins
+          }))
+        }}
+        dateRange={{ from: dateFrom, to: dateTo }}
+        settings={settings}
+      />
 
     </div>
   );

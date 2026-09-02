@@ -3467,5 +3467,229 @@ export const generateAiWarehouseAdvisorReportPDF = async (advisorData = {}) => {
   }
 };
 
+/**
+ * Universal Sayan ERP AI Strategic & Engineering Report PDF Generator
+ */
+export const generateSayanAiReportPDF = async (reportData = {}) => {
+  let page = null;
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+
+    const {
+      reportTitle = 'گزارش تحلیلی جامع هوش مصنوعی سایان ERP',
+      sectionTitle = 'گزارشات سایان ERP',
+      healthScore = 85,
+      healthStatusFa = 'عالی و پایدار',
+      dateRange = 'دوره جاری',
+      executiveSummary = [],
+      kpis = [],
+      engineeringAnalysis = '',
+      managerialInsights = '',
+      riskAlerts = [],
+      actionPlan = [],
+      generatedAt = new Date().toISOString()
+    } = reportData;
+
+    const jalaliDateStr = new Date().toLocaleDateString('fa-IR');
+
+    const scoreColor = healthScore >= 80 ? '#10b981' : (healthScore >= 60 ? '#f59e0b' : '#ef4444');
+    const scoreBg = healthScore >= 80 ? '#ecfdf5' : (healthScore >= 60 ? '#fffbeb' : '#fef2f2');
+
+    const kpisHtml = (kpis || []).map(k => `
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; flex: 1; min-width: 120px;">
+        <div style="font-size: 8.5pt; color: #64748b; font-weight: bold; margin-bottom: 4px;">${k.label || '-'}</div>
+        <div style="font-size: 11.5pt; color: #0f172a; font-weight: 900;">${k.value || '-'}</div>
+        ${k.change ? `<div style="font-size: 8pt; color: ${k.trend === 'UP' ? '#16a34a' : (k.trend === 'DOWN' ? '#dc2626' : '#64748b')}; font-weight: bold; margin-top: 2px;">${k.change}</div>` : ''}
+      </div>
+    `).join('');
+
+    const execHtml = (executiveSummary || []).map((point, idx) => `
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 9.5pt; line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+        <span style="background: #4f46e5; color: #ffffff; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 8pt; flex-shrink: 0;">${idx + 1}</span>
+        <span style="color: #1e293b; font-weight: 500;">${point}</span>
+      </div>
+    `).join('');
+
+    const alertsHtml = (riskAlerts || []).map((alert) => {
+      const isCrit = alert.level === 'CRITICAL';
+      const isWarn = alert.level === 'WARNING';
+      const bg = isCrit ? '#fef2f2' : (isWarn ? '#fffbeb' : '#f0fdf4');
+      const border = isCrit ? '#fca5a5' : (isWarn ? '#fde68a' : '#bbf7d0');
+      const badgeBg = isCrit ? '#ef4444' : (isWarn ? '#f59e0b' : '#10b981');
+      const badgeText = isCrit ? 'ریسک بحرانی' : (isWarn ? 'هشدار ریسک' : 'اطلاعیه');
+
+      return `
+        <div style="background: ${bg}; border: 1px solid ${border}; padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <strong style="font-size: 10pt; color: #1e293b;">⚠️ ${alert.title || 'هشدار شناسایی شده'}</strong>
+            <span style="background: ${badgeBg}; color: white; font-size: 7.5pt; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
+              ${badgeText}
+            </span>
+          </div>
+          <p style="font-size: 9pt; color: #475569; margin: 0 0 4px 0; line-height: 1.4;">${alert.description || ''}</p>
+          ${alert.recommendation ? `<div style="font-size: 8.5pt; color: #0f766e; font-weight: bold; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 4px;">💡 راهکار: ${alert.recommendation}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    const actionPlanHtml = (actionPlan || []).map((item, idx) => {
+      const isHigh = item.priority === 'HIGH';
+      const badgeBg = isHigh ? '#fef2f2' : '#eff6ff';
+      const badgeBorder = isHigh ? '#fca5a5' : '#bfdbfe';
+      const badgeText = isHigh ? '#991b1b' : '#1e40af';
+      const priorityLabel = isHigh ? 'اولویت بالا (فوری)' : (item.priority === 'MEDIUM' ? 'اولویت متوسط' : 'اولویت عادی');
+
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 8px; text-align: center; width: 15%;">
+            <span style="background: ${badgeBg}; border: 1px solid ${badgeBorder}; color: ${badgeText}; font-size: 7.5pt; padding: 2px 6px; border-radius: 4px; font-weight: bold;">
+              ${priorityLabel}
+            </span>
+          </td>
+          <td style="padding: 8px; text-align: right; font-weight: bold; color: #0f172a; font-size: 9pt; width: 40%;">${item.action || '-'}</td>
+          <td style="padding: 8px; text-align: center; color: #334155; font-size: 8.5pt; width: 20%; font-weight: 600;">${item.owner || '-'}</td>
+          <td style="padding: 8px; text-align: right; color: #0f766e; font-size: 8.5pt; width: 25%; font-weight: 500;">${item.expectedImpact || item.timeframe || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="fa">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page { size: A4; margin: 8mm; }
+            body { font-family: 'Tahoma', 'Segoe UI', sans-serif; margin: 0; padding: 8px; color: #1e293b; background-color: #ffffff; direction: rtl; font-size: 9.5pt; }
+            .header-box { border-bottom: 3px solid #3b82f6; padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+            .title { font-size: 13pt; font-weight: 900; color: #0f172a; line-height: 1.3; }
+            .subtitle { font-size: 9pt; color: #2563eb; font-weight: bold; margin-top: 3px; }
+            .badge-ai { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; font-size: 8.5pt; padding: 4px 10px; border-radius: 6px; font-weight: bold; }
+            .section-title { font-size: 10.5pt; font-weight: 800; color: #1e3a8a; border-right: 4px solid #3b82f6; padding-right: 8px; margin: 14px 0 8px 0; }
+            .text-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 9pt; line-height: 1.6; color: #334155; white-space: pre-line; }
+            table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+            th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 8.5pt; text-align: right; color: #1e293b; }
+            td { border: 1px solid #e2e8f0; padding: 6px 8px; font-size: 8.5pt; }
+            .sig-table { width: 100%; margin-top: 20px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+            .footer-note { text-align: center; font-size: 8pt; color: #94a3b8; margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 6px; }
+        </style>
+    </head>
+    <body>
+        <div class="header-box">
+            <div>
+                <div class="title">${reportTitle}</div>
+                <div class="subtitle">بخش: ${sectionTitle} | بازه زمانی: ${typeof dateRange === 'string' ? dateRange : JSON.stringify(dateRange)}</div>
+            </div>
+            <div style="text-align: left;">
+                <div class="badge-ai">🤖 تحلیل هوش مصنوعی سایان</div>
+                <div style="font-size: 8pt; color: #64748b; margin-top: 4px; font-weight: bold;">تاریخ: ${jalaliDateStr}</div>
+            </div>
+        </div>
+
+        <!-- Health Meter & KPIs -->
+        <div style="background: ${scoreBg}; border: 1px solid ${scoreColor}; border-radius: 10px; padding: 10px 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 9pt; color: #475569; font-weight: bold;">شاخص سلامت و کارایی این بخش (Health Score):</div>
+                <div style="font-size: 13pt; font-weight: 900; color: ${scoreColor}; margin-top: 2px;">
+                    ${healthScore} از ۱۰۰ (${healthStatusFa})
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                ${kpisHtml}
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        ${executiveSummary && executiveSummary.length > 0 ? `
+            <div class="section-title">📌 خلاصه مدیریتی و تصمیم‌گیری ارشد</div>
+            <div style="margin-bottom: 10px;">${execHtml}</div>
+        ` : ''}
+
+        <!-- Engineering Analysis -->
+        ${engineeringAnalysis ? `
+            <div class="section-title">⚙️ تحلیل مهندسی، فنی و فرآیندی</div>
+            <div class="text-box">${engineeringAnalysis}</div>
+        ` : ''}
+
+        <!-- Managerial Insights -->
+        ${managerialInsights ? `
+            <div class="section-title">💼 راهبردهای مدیریتی و مالی هیئت مدیره</div>
+            <div class="text-box" style="background: #f0fdf4; border-color: #bbf7d0; color: #166534;">${managerialInsights}</div>
+        ` : ''}
+
+        <!-- Risk Alerts -->
+        ${riskAlerts && riskAlerts.length > 0 ? `
+            <div class="section-title">⚠️ ریسک‌ها، انحرافات و هشدارهای نیازمند رسیدگی</div>
+            <div style="margin-bottom: 10px;">${alertsHtml}</div>
+        ` : ''}
+
+        <!-- Action Plan -->
+        ${actionPlan && actionPlan.length > 0 ? `
+            <div class="section-title">🎯 برنامه اقدام و ماتریس تصمیم‌گیری اجرایی</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 15%; text-align: center;">اولویت</th>
+                        <th style="width: 40%;">اقدام پیشنهادی</th>
+                        <th style="width: 20%; text-align: center;">واحد مسئول</th>
+                        <th style="width: 25%;">اثر عملیاتی / بازه</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${actionPlanHtml}
+                </tbody>
+            </table>
+        ` : ''}
+
+        <!-- Signature block -->
+        <table class="sig-table">
+            <tr>
+                <td style="width: 50%; border: none; text-align: center; vertical-align: top;">
+                    <div style="font-size: 8.5pt; font-weight: bold; color: #64748b; margin-bottom: 25px;">تحلیل‌گر هوش مصنوعی سازمانی سایان ERP</div>
+                    <div style="font-size: 9pt; font-weight: bold; color: #0f172a;">هسته پردازش هوشمند Gemini</div>
+                </td>
+                <td style="width: 50%; border: none; text-align: center; vertical-align: top;">
+                    <div style="font-size: 8.5pt; font-weight: bold; color: #64748b; margin-bottom: 25px;">تایید مدیریت ارشد کارخانه و مالی</div>
+                    <div style="font-size: 9pt; font-weight: bold; color: #0f172a;">جناب آقای مهندس سلیمی</div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="footer-note">
+            گزارش تحلیلی هوش مصنوعی سامانه جامع مالی و صنعتی سایان ERP | لپان بافت | تاریخ صدور: ${jalaliDateStr}
+        </div>
+    </body>
+    </html>
+    `;
+
+    try {
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    } catch (loadErr) {
+      console.warn("[Renderer] setContent domcontentloaded timeout, setting directly:", loadErr.message);
+      await page.setContent(html);
+    }
+    const pdf = await page.pdf({
+      format: 'A4',
+      portrait: true,
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '6mm', right: '6mm', bottom: '6mm', left: '6mm' }
+    });
+    return pdf;
+  } catch (e) {
+    console.error("Generate Sayan AI Report PDF Error:", e);
+    throw e;
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+      } catch (err) {
+        // ignore
+      }
+    }
+  }
+};
+
 
 

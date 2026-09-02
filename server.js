@@ -9477,6 +9477,161 @@ app.post('/api/ai/scan-document', async (req, res) => {
     }
 });
 
+// --- UNIVERSAL SAYAN ERP AI ANALYSIS ENDPOINTS ---
+app.post('/api/ai/sayan-analysis', async (req, res) => {
+    try {
+        const payload = req.body;
+        const aiService = await safeImport('./backend/ai-service.js');
+        if (!aiService) throw new Error("ماژول هوش مصنوعی در دسترس نیست.");
+        const result = await aiService.generateSayanUniversalAnalysis(payload);
+        res.json(result);
+    } catch (e) {
+        console.error("AI Sayan Universal Analysis error:", e);
+        res.status(500).json({ error: e.message || 'خطا در تولید تحلیل هوشمند گزارشات سایان' });
+    }
+});
+
+app.post('/api/ai/sayan-export-pdf', async (req, res) => {
+    try {
+        const reportData = req.body;
+        const Renderer = await safeImport('./backend/renderer.js');
+        if (!Renderer || !Renderer.generateSayanAiReportPDF) {
+            throw new Error("سرویس تولید PDF در دسترس نیست.");
+        }
+        const pdfBuffer = await Renderer.generateSayanAiReportPDF(reportData);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=Sayan_AI_Report_${Date.now()}.pdf`);
+        res.send(pdfBuffer);
+    } catch (e) {
+        console.error("AI Sayan PDF Export error:", e);
+        res.status(500).json({ error: e.message || 'خطا در تولید فایل PDF تحلیل هوش مصنوعی' });
+    }
+});
+
+app.post('/api/ai/sayan-send-bot', async (req, res) => {
+    try {
+        const {
+            analysisData,
+            selectedPlatforms = ['telegram', 'bale'],
+            customGroupTele,
+            customGroupBale,
+            customGroupWa,
+            attachPdf = true
+        } = req.body;
+
+        if (!analysisData) {
+            return res.status(400).json({ error: 'داده‌های تحلیل برای ارسال به بات موجود نیست.' });
+        }
+
+        const db = getDb();
+        const settings = db.settings || {};
+
+        const tgGroup = customGroupTele || settings.botAccountingGroupIdTele || settings.telegramGroupId || settings.dailySalesTelegramGroupId;
+        const bGroup = customGroupBale || settings.botAccountingGroupIdBale || settings.baleGroupId || settings.dailySalesBaleGroupId;
+        const waGroup = customGroupWa || settings.botBijakGroupIdWhatsApp || settings.dailySalesWhatsappGroupId;
+
+        const targets = [];
+        if (selectedPlatforms.includes('telegram') && tgGroup) {
+            String(tgGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(id => targets.push({ platform: 'telegram', id }));
+        }
+        if (selectedPlatforms.includes('bale') && bGroup) {
+            String(bGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(id => targets.push({ platform: 'bale', id }));
+        }
+        if (selectedPlatforms.includes('whatsapp') && waGroup) {
+            String(waGroup).split(/[,،;\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(id => targets.push({ platform: 'whatsapp', id }));
+        }
+
+        if (targets.length === 0) {
+            return res.status(400).json({ error: 'هیچ شناسه گروه یا کانالی برای ارسال مشخص نشده است. لطفاً تنظیمات بات را بررسی نمایید.' });
+        }
+
+        // Generate PDF Buffer if attachPdf is requested
+        let pdfBuffer = null;
+        if (attachPdf) {
+            try {
+                const Renderer = await safeImport('./backend/renderer.js');
+                if (Renderer && Renderer.generateSayanAiReportPDF) {
+                    pdfBuffer = await Renderer.generateSayanAiReportPDF(analysisData);
+                }
+            } catch (pdfErr) {
+                console.warn("Could not generate PDF attachment for AI report:", pdfErr.message);
+            }
+        }
+
+        const {
+            reportTitle = 'گزارش تحلیلی هوش مصنوعی سایان ERP',
+            sectionTitle = 'گزارشات سازمانی سایان',
+            healthScore = 85,
+            healthStatusFa = 'عالی',
+            executiveSummary = [],
+            riskAlerts = []
+        } = analysisData;
+
+        const jalaliDate = new Date().toLocaleDateString('fa-IR');
+        let caption = `🤖 *تحلیل استراتژیک و هوشمند سایان ERP*\n`;
+        caption += `📑 *موضوع:* ${reportTitle || sectionTitle}\n`;
+        caption += `📅 *تاریخ استعلام:* ${jalaliDate}\n`;
+        caption += `⭐ *شاخص سلامت عملکرد:* ${healthScore} از ۱۰۰ (${healthStatusFa})\n`;
+        caption += `➖➖➖➖➖➖➖➖➖➖➖➖\n`;
+
+        if (executiveSummary && executiveSummary.length > 0) {
+            caption += `📌 *خلاصه اجرایی و مدیریتی:*\n`;
+            executiveSummary.forEach((point, idx) => {
+                caption += `  ${(idx + 1).toLocaleString('fa-IR')}. ${point}\n`;
+            });
+            caption += `\n`;
+        }
+
+        if (riskAlerts && riskAlerts.length > 0) {
+            caption += `⚠️ *مهم‌ترین هشدارهای ریسک:*\n`;
+            riskAlerts.slice(0, 3).forEach((r) => {
+                caption += `  • *${r.title}:* ${r.recommendation || r.description}\n`;
+            });
+            caption += `\n`;
+        }
+
+        caption += `📎 جزئیات مهندسی و نمودارهای تحلیلی در فایل PDF پیوست ارسال گردید.`;
+
+        const filename = `Sayan_AI_Analysis_${Date.now()}.pdf`;
+        let sentCount = 0;
+
+        for (const target of targets) {
+            try {
+                if (target.platform === 'telegram' && telegram) {
+                    if (pdfBuffer && attachPdf) {
+                        await telegram.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    } else {
+                        await telegram.sendBotMessage(target.id, caption);
+                    }
+                    sentCount++;
+                } else if (target.platform === 'bale' && bale) {
+                    if (pdfBuffer && attachPdf) {
+                        await bale.sendBotDocument(target.id, pdfBuffer, filename, caption);
+                    } else {
+                        await bale.sendBotMessage(target.id, caption);
+                    }
+                    sentCount++;
+                } else if (target.platform === 'whatsapp' && whatsapp && whatsapp.sendMessage) {
+                    if (pdfBuffer && attachPdf) {
+                        const b64 = pdfBuffer.toString('base64');
+                        await whatsapp.sendMessage(target.id, caption, { data: b64, mimeType: 'application/pdf', filename });
+                    } else {
+                        await whatsapp.sendMessage(target.id, caption);
+                    }
+                    sentCount++;
+                }
+            } catch (dispatchErr) {
+                console.error(`Failed to send Sayan AI analysis to ${target.platform} (${target.id}):`, dispatchErr.message);
+            }
+        }
+
+        res.json({ success: true, sentCount, message: `تحلیل هوش مصنوعی به ${sentCount} مقصد ارسال گردید.` });
+    } catch (e) {
+        console.error("AI Sayan send bot error:", e);
+        res.status(500).json({ error: e.message || 'خطا در ارسال تحلیل هوشمند به بات‌ها' });
+    }
+});
+
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const isExplicitDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
 

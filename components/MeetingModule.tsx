@@ -5,10 +5,11 @@ import PrintMeeting from './print/PrintMeeting';
 import { User, MeetingMinutes, MeetingStatus, MeetingAttendee, MeetingItem, UserRole, SystemSettings, RolePermissions } from '../types';
 import { getMeetings, saveMeeting, updateMeeting, deleteMeeting, getNextMeetingNumber, getSettings, sendMeetingAnnouncement, sendMeetingMinutes, sendMessage, uploadFileChunked } from '../services/storageService';
 import { generateUUID, getCurrentShamsiDate, formatDate } from '../constants';
-import { ClipboardList, Plus, Search, Calendar, Clock, MapPin, Users, CheckCircle, XCircle, Trash2, Edit, Printer, Send, Eye, Loader2, Save, X, PlusCircle, UserCheck, MessageSquare, AlertCircle, CheckSquare, Lock, Paperclip, FileText, Image, RefreshCw } from 'lucide-react';
+import { ClipboardList, Plus, Search, Calendar, Clock, MapPin, Users, CheckCircle, XCircle, Trash2, Edit, Printer, Send, Eye, Loader2, Save, X, PlusCircle, UserCheck, MessageSquare, AlertCircle, CheckSquare, Lock, Paperclip, FileText, Image, RefreshCw, Download } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { downloadAndOpenFile } from '../services/fileService';
+import { FileViewerModal } from './FileViewerModal';
 
 interface Props {
     currentUser: User;
@@ -26,6 +27,7 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
     const [editingMeeting, setEditingMeeting] = useState<MeetingMinutes | null>(null);
     const [viewMeeting, setViewMeeting] = useState<MeetingMinutes | null>(null);
     const [showPrintModal, setShowPrintModal] = useState<MeetingMinutes | null>(null);
+    const [previewAttachment, setPreviewAttachment] = useState<{ isOpen: boolean; url: string; fileName: string } | null>(null);
     const [activeAttendeeIndex, setActiveAttendeeIndex] = useState<number | null>(null);
     const [isSendingAction, setIsSendingAction] = useState(false);
     const [isRefreshingNumber, setIsRefreshingNumber] = useState(false);
@@ -829,26 +831,44 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                             <Eye size={18} />
                                         </button>
                                         {((meeting.imageAttachments?.length || 0) + (meeting.pdfAttachments?.length || 0)) > 0 && (
-                                            <div className="flex gap-1 border-r border-gray-100 dark:border-white/5 mr-1 pr-1">
+                                            <div className="flex items-center gap-1 border-r border-gray-100 dark:border-white/5 mr-1 pr-1">
                                                 {meeting.imageAttachments?.map((att, idx) => (
-                                                    <button 
-                                                        key={`img-${idx}`} 
-                                                        onClick={() => downloadAndOpenFile(att.url, att.fileName)} 
-                                                        className="p-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 text-teal-600 rounded-xl transition-colors" 
-                                                        title={`مشاهده تصویر: ${att.fileName}`}
-                                                    >
-                                                        <Image size={18} />
-                                                    </button>
+                                                    <div key={`img-${idx}`} className="flex items-center bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 rounded-lg p-0.5 border border-teal-200/50">
+                                                        <button 
+                                                            onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })} 
+                                                            className="p-1.5 hover:bg-teal-100 dark:hover:bg-teal-800/40 rounded-md transition-colors flex items-center gap-1 text-[10px] font-bold" 
+                                                            title={`مشاهده تصویر: ${att.fileName}`}
+                                                        >
+                                                            <Image size={15} />
+                                                            <span className="hidden xl:inline max-w-[80px] truncate">{att.fileName}</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }}
+                                                            className="p-1 hover:bg-teal-200/60 dark:hover:bg-teal-700/60 rounded text-teal-800 dark:text-teal-200 transition-colors"
+                                                            title="دانلود مستقیم"
+                                                        >
+                                                            <Download size={13} />
+                                                        </button>
+                                                    </div>
                                                 ))}
                                                 {meeting.pdfAttachments?.map((att, idx) => (
-                                                    <button 
-                                                        key={`pdf-${idx}`} 
-                                                        onClick={() => downloadAndOpenFile(att.url, att.fileName)} 
-                                                        className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-600 rounded-xl transition-colors" 
-                                                        title={`دریافت فایل PDF: ${att.fileName}`}
-                                                    >
-                                                        <FileText size={18} />
-                                                    </button>
+                                                    <div key={`pdf-${idx}`} className="flex items-center bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 rounded-lg p-0.5 border border-rose-200/50">
+                                                        <button 
+                                                            onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })} 
+                                                            className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-800/40 rounded-md transition-colors flex items-center gap-1 text-[10px] font-bold" 
+                                                            title={`مشاهده سند PDF: ${att.fileName}`}
+                                                        >
+                                                            <FileText size={15} />
+                                                            <span className="hidden xl:inline max-w-[80px] truncate">{att.fileName}</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }}
+                                                            className="p-1 hover:bg-rose-200/60 dark:hover:bg-rose-700/60 rounded text-rose-800 dark:text-rose-200 transition-colors"
+                                                            title="دانلود مستقیم"
+                                                        >
+                                                            <Download size={13} />
+                                                        </button>
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
@@ -1631,37 +1651,76 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                         </h3>
                                         <div className="flex flex-wrap gap-3">
                                             {viewMeeting.imageAttachments?.map((att, i) => (
-                                                <button key={`img-${i}`} onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-xl flex items-center gap-3 hover:border-blue-300 dark:hover:border-blue-700 transition-colors shadow-sm">
-                                                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/40 rounded-lg flex items-center justify-center text-blue-600">
+                                                <div key={`img-${i}`} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2.5 rounded-xl flex items-center gap-3 hover:border-teal-300 dark:hover:border-teal-700 transition-colors shadow-sm">
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })}
+                                                        className="w-10 h-10 bg-teal-50 dark:bg-teal-900/40 rounded-lg flex items-center justify-center text-teal-600 cursor-pointer shrink-0"
+                                                    >
                                                         <Image size={20} />
                                                     </div>
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[150px] truncate" dir="ltr">{att.fileName}</span>
-                                                        <span className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">مشاهده تصویر</span>
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })}
+                                                        className="flex flex-col items-start gap-0.5 cursor-pointer min-w-0"
+                                                    >
+                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[140px] truncate" dir="ltr" title={att.fileName}>{att.fileName}</span>
+                                                        <span className="text-[10px] text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-2 py-0.5 rounded font-medium">مشاهده تصویر</span>
                                                     </div>
-                                                </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }}
+                                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-teal-600 rounded-lg transition-colors mr-1"
+                                                        title="دانلود مستقیم تصویر"
+                                                    >
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
                                             ))}
                                             {viewMeeting.pdfAttachments?.map((att, i) => (
-                                                <button key={`pdf-${i}`} onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-xl flex items-center gap-3 hover:border-red-300 dark:hover:border-red-700 transition-colors shadow-sm">
-                                                    <div className="w-10 h-10 bg-red-50 dark:bg-red-900/40 rounded-lg flex items-center justify-center text-red-600">
+                                                <div key={`pdf-${i}`} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2.5 rounded-xl flex items-center gap-3 hover:border-rose-300 dark:hover:border-rose-700 transition-colors shadow-sm">
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })}
+                                                        className="w-10 h-10 bg-rose-50 dark:bg-rose-900/40 rounded-lg flex items-center justify-center text-rose-600 cursor-pointer shrink-0"
+                                                    >
                                                         <FileText size={20} />
                                                     </div>
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[150px] truncate" dir="ltr">{att.fileName}</span>
-                                                        <span className="text-[10px] text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded">دانلود PDF</span>
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url, fileName: att.fileName })}
+                                                        className="flex flex-col items-start gap-0.5 cursor-pointer min-w-0"
+                                                    >
+                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[140px] truncate" dir="ltr" title={att.fileName}>{att.fileName}</span>
+                                                        <span className="text-[10px] text-rose-600 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded font-medium">مشاهده سند PDF</span>
                                                     </div>
-                                                </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }}
+                                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-rose-600 rounded-lg transition-colors mr-1"
+                                                        title="دانلود مستقیم PDF"
+                                                    >
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
                                             ))}
                                             {(viewMeeting as any).attachments?.map((att: any, i: number) => (
-                                                <button key={`leg-${i}`} onClick={() => downloadAndOpenFile(att.url || att.data, att.fileName)} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-xl flex items-center gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition-colors shadow-sm">
-                                                    <div className="w-10 h-10 bg-gray-50 dark:bg-gray-900/40 rounded-lg flex items-center justify-center text-gray-600">
+                                                <div key={`leg-${i}`} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2.5 rounded-xl flex items-center gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition-colors shadow-sm">
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url || att.data, fileName: att.fileName })}
+                                                        className="w-10 h-10 bg-gray-50 dark:bg-gray-900/40 rounded-lg flex items-center justify-center text-gray-600 cursor-pointer shrink-0"
+                                                    >
                                                         <Paperclip size={20} />
                                                     </div>
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[150px] truncate" dir="ltr">{att.fileName}</span>
-                                                        <span className="text-[10px] text-gray-600 bg-gray-50 dark:bg-gray-900/30 px-2 py-0.5 rounded">دریافت فایل (نسخه قدیم)</span>
+                                                    <div 
+                                                        onClick={() => setPreviewAttachment({ isOpen: true, url: att.url || att.data, fileName: att.fileName })}
+                                                        className="flex flex-col items-start gap-0.5 cursor-pointer min-w-0"
+                                                    >
+                                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 max-w-[140px] truncate" dir="ltr" title={att.fileName}>{att.fileName}</span>
+                                                        <span className="text-[10px] text-gray-600 bg-gray-50 dark:bg-gray-900/30 px-2 py-0.5 rounded font-medium">مشاهده / دریافت</span>
                                                     </div>
-                                                </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); downloadAndOpenFile(att.url || att.data, att.fileName); }}
+                                                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 rounded-lg transition-colors mr-1"
+                                                        title="دانلود مستقیم"
+                                                    >
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
@@ -1766,6 +1825,14 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                 document.body
             )}
             {showPrintModal && <PrintMeeting meeting={showPrintModal} onClose={() => setShowPrintModal(null)} />}
+            {previewAttachment?.isOpen && (
+                <FileViewerModal
+                    isOpen={previewAttachment.isOpen}
+                    onClose={() => setPreviewAttachment(null)}
+                    fileUrl={previewAttachment.url}
+                    fileName={previewAttachment.fileName}
+                />
+            )}
         </div>
     );
 };

@@ -27,6 +27,7 @@ export interface ReportDeliveryJob {
   attachPdf: boolean;
   attachExcel: boolean;
   attachImage: boolean;
+  includeAiAnalysis?: boolean;
   enabled: boolean;
   lastRunAt?: string;
   nextRunAt?: string;
@@ -336,6 +337,7 @@ export const ReportDeliveryManager: React.FC = () => {
                   {job.attachPdf && <span className="px-1.5 py-0.2 bg-rose-50 text-rose-700 rounded font-bold border border-rose-200">PDF</span>}
                   {job.attachExcel && <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-bold border border-emerald-200">Excel</span>}
                   {job.attachImage && <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded font-bold border border-blue-200">تصویر</span>}
+                  {job.includeAiAnalysis && <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-300 flex items-center gap-0.5">✨ هوش مصنوعی</span>}
                   
                   {job.lastRunAt && (
                     <span className="mr-auto font-mono text-slate-500">آخرین اجرا: {job.lastRunAt}</span>
@@ -681,6 +683,29 @@ export const ReportDeliveryManager: React.FC = () => {
                     <span>تصویر داشبورد</span>
                   </label>
                 </div>
+              </div>
+
+              {/* AI Strategic Analysis Option */}
+              <div className="p-3.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-2xl border border-indigo-200 space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingJob.includeAiAnalysis ?? true}
+                    onChange={(e) => setEditingJob(prev => ({ ...prev, includeAiAnalysis: e.target.checked }))}
+                    className="w-4 h-4 rounded text-indigo-600 mt-0.5"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                      <span className="font-extrabold text-xs text-indigo-950">
+                        فعال‌سازی تحلیل استراتژیک هوش مصنوعی (AI Analysis & Health Score)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      هوش مصنوعی در زمان ارسال خودکار، گزارش را تحلیل کرده و خلاصه تصمیم‌گیری مدیریتی، امتیاز سلامت و هشدارهای ریسک را به پیام و PDF پیوست می‌افزاید.
+                    </p>
+                  </div>
+                </label>
               </div>
 
             </div>
