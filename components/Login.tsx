@@ -356,10 +356,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {/* --- DESKTOP BRAND TEXT (دقیقاً درون هاله نور زیر چراغ هم‌راستا با محور تقارن عمودی) --- */}
       <div 
-        className="hidden lg:flex absolute z-20 flex-col items-center text-center w-full max-w-[480px] px-4 pointer-events-none select-none"
+        className="hidden lg:flex absolute z-20 flex-col items-center text-center w-full max-w-[500px] px-4 pointer-events-none select-none"
         style={{
-          left: '64.5%',
-          top: '62%',
+          left: '72.8%',
+          top: '63%',
           transform: 'translate(-50%, -50%)'
         }}
         dir="rtl"

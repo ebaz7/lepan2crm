@@ -11,13 +11,14 @@ import {
     Play, Pause, Loader2, Search, MoreVertical, File, Image as ImageIcon,
     Check, CheckCheck, DownloadCloud, StopCircle, Share2, Copy, Forward, Eye, CornerUpLeft, Bell,
     Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw, Smile,
-    FileText, Package, CreditCard
+    FileText, Package, CreditCard, BellRing, Volume2
 } from 'lucide-react';
 import { StickerPicker } from './chat/StickerPicker';
 import { StickerItem } from './chat/stickerData';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem } from '@capacitor/filesystem';
 import { sendNotification, clearAllActiveNotifications } from '../services/notificationService';
+import { playTaskAlarmSound } from '../services/soundService';
 import { downloadAndOpenFile, checkFileExists } from '../services/fileService';
 import { resolveImageUrl, apiCall } from '../services/apiService';
 
@@ -413,6 +414,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const [taskDescription, setTaskDescription] = useState('');
     const [taskAssignedTo, setTaskAssignedTo] = useState<string[]>([]);
     const [taskDueDate, setTaskDueDate] = useState('');
+    const [taskRecurringReminder, setTaskRecurringReminder] = useState(true);
+    const [taskReminderIntervalMinutes, setTaskReminderIntervalMinutes] = useState(10);
     const [activeTaskForDetail, setActiveTaskForDetail] = useState<GroupTask | null>(null);
     const [taskReplyText, setTaskReplyText] = useState('');
     const [userSearchText, setUserSearchText] = useState('');
@@ -1942,6 +1945,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             setTaskDescription('');
                                             setTaskAssignedTo([]);
                                             setTaskDueDate('');
+                                            setTaskRecurringReminder(true);
+                                            setTaskReminderIntervalMinutes(10);
                                             setUserSearchText('');
                                             setShowCreateTaskModal(true);
                                         }}
@@ -1991,7 +1996,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                                 <Check size={14} className="text-white opacity-0 group-hover:opacity-100 group-hover:text-green-500 transition-opacity"/>
                                                             </button>
                                                             <div className="min-w-0 flex-1">
-                                                                <h5 className="font-bold text-gray-800 dark:text-gray-200 text-sm truncate">{task.title}</h5>
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <h5 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{task.title}</h5>
+                                                                    {task.recurringReminder && (
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800/60 shadow-2xs">
+                                                                            <BellRing size={10} className="animate-bounce text-amber-600 dark:text-amber-400" />
+                                                                            <span>یادآور {task.reminderIntervalMinutes || 10} دقیقه‌ای</span>
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 {task.description && (
                                                                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 line-clamp-1">{task.description}</p>
                                                                 )}
@@ -2008,6 +2021,30 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const newReminder = !task.recurringReminder;
+                                                                    const updatedTask = {
+                                                                        ...task,
+                                                                        recurringReminder: newReminder,
+                                                                        reminderIntervalMinutes: task.reminderIntervalMinutes || 10,
+                                                                        lastRemindedAt: newReminder ? Date.now() : task.lastRemindedAt
+                                                                    };
+                                                                    updateTask(updatedTask).then(() => {
+                                                                        setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+                                                                        if (newReminder) playTaskAlarmSound();
+                                                                    });
+                                                                }}
+                                                                title={task.recurringReminder ? 'یادآور صوتی فعال است (کلیک برای خاموش کردن)' : 'فعال‌سازی یادآور صوتی و نوتیف ۱۰ دقیقه'}
+                                                                className={`p-1.5 rounded-lg border transition-all ${
+                                                                    task.recurringReminder
+                                                                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                                                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 hover:text-gray-600'
+                                                                }`}
+                                                            >
+                                                                <BellRing size={15} className={task.recurringReminder ? 'text-amber-600 dark:text-amber-400' : ''} />
+                                                            </button>
                                                             {task.assignedTo && task.assignedTo.length > 0 && (
                                                                 <div className="flex -space-x-1.5 hover:space-x-0.5 transition-all">
                                                                     {task.assignedTo.slice(0, 3).map(un => {
@@ -3050,6 +3087,58 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                     className="w-full p-3 bg-gray-100 dark:bg-gray-950 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-200 text-sm text-gray-800 dark:text-gray-200"
                                 />
                             </div>
+
+                            {/* Recurring 10-Minute Audio & Notification Reminder Switch */}
+                            <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 p-3.5 rounded-xl space-y-2.5">
+                                <div 
+                                    className="flex items-center justify-between cursor-pointer select-none" 
+                                    onClick={() => setTaskRecurringReminder(!taskRecurringReminder)}
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`p-1.5 rounded-lg transition-colors ${taskRecurringReminder ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+                                            <BellRing size={16} className={taskRecurringReminder ? 'animate-bounce' : ''} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block">یادآور صوتی و نوتیفیکیشن هر ۱۰ دقیقه</span>
+                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 block">ارسال هشدار صوتی و نوتیف دوره‌ای برای افراد تگ‌شده تا زمان انجام تسک</span>
+                                        </div>
+                                    </div>
+                                    <div className={`w-10 h-6 flex items-center rounded-full p-1 duration-200 ease-in-out transition-colors ${taskRecurringReminder ? 'bg-amber-500 justify-end' : 'bg-gray-300 dark:bg-gray-700 justify-start'}`}>
+                                        <div className="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform" />
+                                    </div>
+                                </div>
+
+                                {taskRecurringReminder && (
+                                    <div className="flex items-center justify-between pt-2 border-t border-amber-200/70 dark:border-amber-900/40 text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-gray-700 dark:text-gray-300 font-semibold">بازه یادآوری:</span>
+                                            <select
+                                                value={taskReminderIntervalMinutes}
+                                                onChange={(e) => setTaskReminderIntervalMinutes(Number(e.target.value))}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-1 px-2 text-xs bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/80 rounded-lg text-amber-900 dark:text-amber-200 font-bold focus:outline-none"
+                                            >
+                                                <option value={5}>هر ۵ دقیقه</option>
+                                                <option value={10}>هر ۱۰ دقیقه (پیش‌فرض)</option>
+                                                <option value={15}>هر ۱۵ دقیقه</option>
+                                                <option value={30}>هر ۳۰ دقیقه</option>
+                                                <option value={60}>هر ۱ ساعت</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                playTaskAlarmSound();
+                                            }}
+                                            className="text-[11px] text-amber-700 dark:text-amber-300 hover:text-amber-900 flex items-center gap-1 font-bold bg-white/90 dark:bg-gray-800 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800 hover:shadow-sm transition"
+                                        >
+                                            <Volume2 size={13} />
+                                            <span>🔊 تست صدا</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Fixed Footer for register/submit button */}
@@ -3067,7 +3156,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                         status: 'pending',
                                         createdBy: currentUser.username,
                                         createdAt: Date.now(),
-                                        replies: []
+                                        replies: [],
+                                        recurringReminder: taskRecurringReminder,
+                                        reminderIntervalMinutes: taskReminderIntervalMinutes || 10,
+                                        lastRemindedAt: Date.now()
                                     };
                                     createTask(newTask).then(() => {
                                         setTasks(prev => [newTask, ...prev]);
@@ -3133,6 +3225,85 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                                     {activeTaskForDetail.description || 'توضیحات بیشتری برای این تسک ثبت نشده است.'}
                                 </p>
+                            </div>
+
+                            {/* Recurring 10-Minute Audio & Notification Reminder Controls */}
+                            <div className="p-3.5 bg-gradient-to-r from-amber-50/90 to-blue-50/70 dark:from-amber-950/30 dark:to-blue-950/20 rounded-xl border border-amber-200/80 dark:border-amber-900/50 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`p-1.5 rounded-lg transition-colors ${activeTaskForDetail.recurringReminder ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+                                            <BellRing size={16} className={activeTaskForDetail.recurringReminder ? 'animate-bounce' : ''} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block">
+                                                یادآور صوتی و نوتیفیکیشن دوره‌ای ({activeTaskForDetail.reminderIntervalMinutes || 10} دقیقه)
+                                            </span>
+                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 block">
+                                                {activeTaskForDetail.recurringReminder 
+                                                    ? 'فعال: هر ۱۰ دقیقه برای افراد تگ‌شده هشدار صوتی و نوتیفیکیشن ارسال می‌شود.' 
+                                                    : 'غیرفعال: هشدارهای دوره‌ای برای این تسک غیرفعال است.'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const newRecurring = !activeTaskForDetail.recurringReminder;
+                                            const updatedTask = {
+                                                ...activeTaskForDetail,
+                                                recurringReminder: newRecurring,
+                                                reminderIntervalMinutes: activeTaskForDetail.reminderIntervalMinutes || 10,
+                                                lastRemindedAt: newRecurring ? Date.now() : activeTaskForDetail.lastRemindedAt
+                                            };
+                                            updateTask(updatedTask).then(() => {
+                                                setTasks(prev => prev.map(t => t.id === activeTaskForDetail.id ? updatedTask : t));
+                                                setActiveTaskForDetail(updatedTask);
+                                                if (newRecurring) {
+                                                    playTaskAlarmSound();
+                                                }
+                                            });
+                                        }}
+                                        className={`w-10 h-6 flex items-center rounded-full p-1 duration-200 ease-in-out transition-colors ${activeTaskForDetail.recurringReminder ? 'bg-amber-500 justify-end' : 'bg-gray-300 dark:bg-gray-700 justify-start'}`}
+                                    >
+                                        <div className="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform" />
+                                    </button>
+                                </div>
+
+                                {activeTaskForDetail.recurringReminder && (
+                                    <div className="flex flex-wrap items-center justify-between pt-2 border-t border-amber-200/80 dark:border-amber-900/40 gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-gray-700 dark:text-gray-300 font-semibold">بازه هشدار:</span>
+                                            <select
+                                                value={activeTaskForDetail.reminderIntervalMinutes || 10}
+                                                onChange={(e) => {
+                                                    const newInt = Number(e.target.value);
+                                                    const updatedTask = {
+                                                        ...activeTaskForDetail,
+                                                        reminderIntervalMinutes: newInt
+                                                    };
+                                                    updateTask(updatedTask).then(() => {
+                                                        setTasks(prev => prev.map(t => t.id === activeTaskForDetail.id ? updatedTask : t));
+                                                        setActiveTaskForDetail(updatedTask);
+                                                    });
+                                                }}
+                                                className="p-1 px-2 text-xs bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/80 rounded-lg text-amber-900 dark:text-amber-200 font-bold focus:outline-none"
+                                            >
+                                                <option value={5}>هر ۵ دقیقه</option>
+                                                <option value={10}>هر ۱۰ دقیقه (پیش‌فرض)</option>
+                                                <option value={15}>هر ۱۵ دقیقه</option>
+                                                <option value={30}>هر ۳۰ دقیقه</option>
+                                                <option value={60}>هر ۱ ساعت</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => playTaskAlarmSound()}
+                                            className="text-[11px] text-amber-700 dark:text-amber-300 hover:text-amber-900 flex items-center gap-1 font-bold bg-white/90 dark:bg-gray-800 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800 hover:shadow-sm transition"
+                                        >
+                                            <Volume2 size={13} />
+                                            <span>🔊 پخش صدای زنگ یادآور</span>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Assigned users */}

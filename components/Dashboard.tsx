@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PaymentOrder, OrderStatus, SystemSettings, User, ExitPermit, ExitPermitStatus, WarehouseTransaction, UserRole, SystemAnnouncement } from '../types';
 import { formatCurrency, getShamsiDateFromIso } from '../constants';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy, Flame, Sparkles, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, CheckCircle, Check, Activity, XCircle, Banknote, Calendar as CalendarIcon, ShieldCheck, ArrowUpRight, CheckSquare, Truck, Package, ListChecks, PieChart, BarChart, BookOpen, PenTool, Edit3, Plus, Trash2, Send, X, FileText, Users, ChevronLeft, ChevronRight, RotateCw, Copy, Flame, Sparkles, Zap, ChevronDown, ChevronUp, BellRing } from 'lucide-react';
 import { getRolePermissions } from '../services/authService';
 import { getExitPermits, getWarehouseTransactions, getNotes, getPurchaseRequests, getTaskGroups, getTasks, updateTask } from '../services/storageService';
 import { isInFinancialYear } from '../utils/dateUtils';
@@ -1014,7 +1014,15 @@ const Dashboard: React.FC<DashboardProps> = ({ orders: rawOrders, settings, curr
                                                             <Check size={11} className="stroke-[3]" />
                                                         </button>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate" title={task.title}>{task.title}</p>
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate" title={task.title}>{task.title}</p>
+                                                                {task.recurringReminder && (
+                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800" title={`یادآور صوتی هر ${task.reminderIntervalMinutes || 10} دقیقه فعال است`}>
+                                                                        <BellRing size={9} className="animate-bounce" />
+                                                                        <span>{task.reminderIntervalMinutes || 10}دقیقه</span>
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             {task.assignedTo && task.assignedTo.length > 0 && (
                                                                 <span className="text-[9px] text-blue-600 bg-blue-50 dark:bg-blue-950/20 px-1 py-0.5 rounded mt-1 inline-block font-semibold">ارجاع: @{task.assignedTo.join(', @')}</span>
                                                             )}

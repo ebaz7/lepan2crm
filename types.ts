@@ -861,6 +861,9 @@ export interface GroupTask {
     completedBy?: string;
     completedAt?: number;
     replies?: TaskReply[];
+    recurringReminder?: boolean;
+    reminderIntervalMinutes?: number;
+    lastRemindedAt?: number;
 }
 
 export enum TradeStage {

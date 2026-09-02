@@ -7811,6 +7811,67 @@ function setupDailyReports() {
     }
 }
 
+// ----------------------------------------------------
+// TASK RECURRING REMINDER BACKGROUND RUNNER (E.G. EVERY 10 MINS)
+// ----------------------------------------------------
+let taskReminderIntervalTimer = null;
+function setupTaskRecurringReminders() {
+    if (taskReminderIntervalTimer) clearInterval(taskReminderIntervalTimer);
+
+    console.log("⏰ Task Recurring Reminders engine initialized (checking every 30 seconds)...");
+    taskReminderIntervalTimer = setInterval(async () => {
+        try {
+            const db = getDb();
+            if (!db.tasks || !Array.isArray(db.tasks) || db.tasks.length === 0) return;
+
+            const now = Date.now();
+            let hasChanges = false;
+
+            for (const task of db.tasks) {
+                // Check pending tasks with active recurring reminder
+                if (task.recurringReminder && task.status !== 'completed') {
+                    const intervalMin = Number(task.reminderIntervalMinutes) || 10;
+                    const intervalMs = intervalMin * 60 * 1000;
+                    const lastReminded = Number(task.lastRemindedAt) || Number(task.createdAt) || 0;
+
+                    if (now - lastReminded >= intervalMs) {
+                        task.lastRemindedAt = now;
+                        hasChanges = true;
+
+                        const taskGroup = db.taskGroups?.find(tg => tg.id === task.groupId);
+                        const groupName = taskGroup ? taskGroup.name : 'گروه کاری';
+                        let targets = null;
+                        if (task.assignedTo && Array.isArray(task.assignedTo) && task.assignedTo.length > 0) {
+                            targets = [...task.assignedTo];
+                        } else if (task.assignee) {
+                            targets = [task.assignee];
+                        } else if (taskGroup && taskGroup.members) {
+                            targets = [...taskGroup.members];
+                        }
+
+                        if (targets && targets.length > 0) {
+                            broadcastNotification(
+                                `⏰ یادآور تسک (${intervalMin} دقیقه): ${task.title}`,
+                                `تسک "${task.title}" در گروه "${groupName}" در انتظار اقدام یا تکمیل شماست.`,
+                                `/chat?group=${task.groupId}&task=${task.id}`,
+                                null,
+                                targets,
+                                null
+                            ).catch(err => console.error("Task recurring broadcast error:", err));
+                        }
+                    }
+                }
+            }
+
+            if (hasChanges) {
+                saveDb(db);
+            }
+        } catch (err) {
+            console.error("Task recurring reminders error:", err);
+        }
+    }, 30 * 1000);
+}
+
 async function fetchAndDispatchProductionCompareReport(db, customTargets, job, compRanges) {
     const { dateFromA, dateToA, dateFromB, dateToB, labelA, labelB } = compRanges;
     console.log(`🏭 Compiling Production Compare Report: [${labelA}] vs [${labelB}]...`);
@@ -9694,6 +9755,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
         setupAutoBackup();
         setupDailyReports();
         setupLegacyDailyReports();
+        setupTaskRecurringReminders();
     }, 1000);
 });
 

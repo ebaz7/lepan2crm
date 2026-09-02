@@ -29,9 +29,9 @@ import { ChequeReceiptModule } from './components/ChequeReceiptModule';
 import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
 import { AiExecutiveCopilot } from './components/AiExecutiveCopilot';
 import { AiDocumentScannerModal } from './components/AiDocumentScannerModal';
-import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements, getGroups, getTaskGroups } from './services/storageService'; 
+import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements, getGroups, getTaskGroups, getTasks } from './services/storageService'; 
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
-import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup } from './types';
+import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup, GroupTask } from './types';
 import { Loader2, Bell, X, MessageSquare, AlertTriangle, FileWarning, CreditCard, BellRing } from 'lucide-react';
 import { generateUUID, parsePersianDate, formatCurrency } from './constants';
 import { apiCall, getLocalData, LS_KEYS, getServerHost } from './services/apiService'; 
@@ -41,6 +41,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { PushNotifications } from '@capacitor/push-notifications'; 
 import { LocalNotifications } from '@capacitor/local-notifications'; 
 import { sendNotification, hasNotificationBeenShown, markNotificationAsShown, syncNativeShownNotifications, syncServiceWorkerShownNotifications, clearAllActiveNotifications, setupNativePushNotifications, unsubscribeFromPushNotifications, syncServiceWorkerAuth } from './services/notificationService';
+import { playNotificationSound, playTaskAlarmSound } from './services/soundService';
 import { motion, AnimatePresence } from 'motion/react';
 import { initGraphicsEngine } from './services/graphicsEngine';
 
@@ -977,13 +978,15 @@ function App() {
                     }
                     
                     if (!isLookingAtSection) {
-                        if (index === 0) {
+                        if (latest.title?.includes('یادآور') || latest.title?.includes('تسک') || (latest.url && latest.url.includes('task='))) {
+                            playTaskAlarmSound();
+                        } else if (index === 0) {
                             playNotificationSound();
                         }
                         
                         setToast({ show: true, title: latest.title, message: latest.message });
                         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-                        toastTimeoutRef.current = setTimeout(() => setToast(null), 3500);
+                        toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
                         
                         // Fire native/web push notification alert
                         sendNotification(latest.title, latest.message, { id: latest.id, url: latest.url });
@@ -1072,6 +1075,61 @@ function App() {
         window.removeEventListener('online', triggerReload);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
+  }, [currentUser]);
+
+  // --- RECURRING 10-MINUTE TASK REMINDER WATCHDOG FOR TAGGED USERS ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checkTaskAlarms = async () => {
+      try {
+        const taskList = await getTasks().catch(() => []);
+        if (!Array.isArray(taskList) || taskList.length === 0) return;
+
+        const now = Date.now();
+        const myPendingReminderTasks = taskList.filter((t: GroupTask) => {
+          if (t.status === 'completed' || !t.recurringReminder) return false;
+          const isAssigned = (t.assignedTo && Array.isArray(t.assignedTo) && t.assignedTo.includes(currentUser.username)) || t.assignee === currentUser.username;
+          return isAssigned;
+        });
+
+        for (const task of myPendingReminderTasks) {
+          const intervalMin = Number(task.reminderIntervalMinutes) || 10;
+          const intervalMs = intervalMin * 60 * 1000;
+          const storageKey = `task_alarm_sent_${task.id}_${currentUser.username}`;
+          const lastSentStr = localStorage.getItem(storageKey);
+          const lastSent = lastSentStr ? Number(lastSentStr) : (Number(task.createdAt) || 0);
+
+          if (now - lastSent >= intervalMs) {
+            localStorage.setItem(storageKey, String(now));
+            playTaskAlarmSound();
+            setToast({
+              show: true,
+              title: `⏰ یادآور ${intervalMin} دقیقه‌ای تسک`,
+              message: `تسک "${task.title}" منتظر اقدام شماست.`
+            });
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => setToast(null), 4500);
+
+            sendNotification(
+              `⏰ یادآور تسک (${intervalMin} دقیقه): ${task.title}`,
+              `شما در این تسک تگ شده‌اید و تسک همچنان در انتظار انجام است.`,
+              { id: `task_alarm_${task.id}_${now}`, url: `/chat?task=${task.id}` }
+            );
+          }
+        }
+      } catch (e) {
+        console.error("Task alarm watchdog error:", e);
+      }
+    };
+
+    const timer = setInterval(checkTaskAlarms, 20000);
+    const initialTimer = setTimeout(checkTaskAlarms, 6000);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(initialTimer);
+    };
   }, [currentUser]);
 
   useEffect(() => {

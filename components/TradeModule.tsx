@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { User, TradeRecord, TradeStage, TradeItem, SystemSettings, InsuranceEndorsement, CurrencyPurchaseData, TradeTransaction, CurrencyTranche, CurrencyDelivery, TradeStageData, ShippingDocument, ShippingDocType, DocStatus, InvoiceItem, InspectionData, InspectionPayment, InspectionCertificate, ClearanceData, WarehouseReceipt, ClearancePayment, GreenLeafData, GreenLeafCustomsDuty, GreenLeafGuarantee, GreenLeafTax, GreenLeafRoadToll, InternalShippingData, ShippingPayment, AgentData, AgentPayment, PackingItem, UserRole, GuaranteeCheque } from '../types';
 import { getTradeRecords, saveTradeRecord, updateTradeRecord, deleteTradeRecord, getSettings, uploadFile } from '../services/storageService';
+import { getUsers } from '../services/authService';
 import { generateUUID, formatCurrency, formatNumberString, deformatNumberString, parsePersianDate, formatDate, calculateDaysDiff, getStatusLabel } from '../constants';
 import FormattedNumberInput from './FormattedNumberInput';
 import { Container, Plus, Search, CheckCircle2, Save, Trash2, X, Package, ArrowRight, History, Banknote, Coins, Wallet, FileSpreadsheet, Shield, LayoutDashboard, Printer, FileDown, Paperclip, Building2, FolderOpen, Home, Calculator, FileText, Microscope, ListFilter, Warehouse, Calendar as CalendarIcon, PieChart, BarChart, Clock, Leaf, Scale, ShieldCheck, Percent, Truck, CheckSquare, Square, ToggleLeft, ToggleRight, DollarSign, UserCheck, Check, Archive, AlertCircle, RefreshCw, Box, Loader2, Share2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink, CalendarDays, Info, ArrowLeftRight, ArrowRightLeft, Edit2, Edit, Undo2, Eye, EyeOff } from 'lucide-react';
@@ -296,13 +297,30 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             setAvailableCompanies(s.companyNames || []);
             setNewRecordCompany(s.defaultCompany || '');
             
-            // Load contacts for sharing
+            // Load contacts for sharing (Settings + CRM + System Users)
             const c = s.savedContacts || [];
             const sales = s.salesContacts || [];
-            setAllContacts([
-                ...c.map(x => ({ ...x, type: 'Technical' })),
-                ...sales.map(x => ({ id: x.id, name: x.name, number: x.mobile, chatId: x.baleId || x.telegramId, platform: x.baleId ? 'Bale' : 'Telegram', type: 'Customer' }))
-            ]);
+            getUsers().then(usersList => {
+                const userContacts = (usersList || []).filter(u => u.baleChatId || u.telegramChatId || u.phoneNumber).map(u => ({
+                    id: u.id,
+                    name: u.fullName || u.username,
+                    number: u.phoneNumber || '',
+                    chatId: u.baleChatId || u.telegramChatId || '',
+                    platform: u.baleChatId ? 'Bale' : 'Telegram',
+                    type: 'Staff / User'
+                }));
+
+                setAllContacts([
+                    ...userContacts,
+                    ...c.map(x => ({ ...x, type: 'Technical' })),
+                    ...sales.map(x => ({ id: x.id, name: x.name, number: x.mobile, chatId: x.baleId || x.telegramId, platform: x.baleId ? 'Bale' : 'Telegram', type: 'Customer' }))
+                ]);
+            }).catch(() => {
+                setAllContacts([
+                    ...c.map(x => ({ ...x, type: 'Technical' })),
+                    ...sales.map(x => ({ id: x.id, name: x.name, number: x.mobile, chatId: x.baleId || x.telegramId, platform: x.baleId ? 'Bale' : 'Telegram', type: 'Customer' }))
+                ]);
+            });
         });
     }, []);
 

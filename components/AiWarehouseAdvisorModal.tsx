@@ -24,6 +24,8 @@ import {
     Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getUsers } from '../services/authService';
+import { User as SystemUser } from '../types';
 
 interface AiWarehouseAdvisorModalProps {
     isOpen: boolean;
@@ -57,6 +59,8 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
     const [customTelegramIds, setCustomTelegramIds] = useState('');
     const [customBaleIds, setCustomBaleIds] = useState('');
     const [platforms, setPlatforms] = useState<('telegram' | 'bale')[]>(['telegram', 'bale']);
+    const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
+    const [contactSearchQuery, setContactSearchQuery] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -64,6 +68,10 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                 .then(res => res.json())
                 .then(data => setSettings(data))
                 .catch(err => console.error("Error fetching settings:", err));
+
+            getUsers().then(usersList => {
+                setSystemUsers(usersList || []);
+            }).catch(err => console.error("Error fetching users:", err));
         }
     }, [isOpen]);
 
@@ -120,7 +128,8 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
             }
         }
 
-        // 3. Saved Contacts
+        // 3. Saved Contacts & System Users
+        // Check Saved Contacts
         if (settings?.savedContacts && Array.isArray(settings.savedContacts)) {
             settings.savedContacts.forEach((contact: any) => {
                 if (selectedSavedContacts.includes(contact.id || contact.number)) {
@@ -143,6 +152,28 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                             if (platforms.includes(platform) && !targets.some(t => t.platform === platform && t.id === strId)) {
                                 targets.push({ platform: platform as any, id: strId, name: contact.name });
                             }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Check System Users
+        if (systemUsers && systemUsers.length > 0) {
+            systemUsers.forEach(u => {
+                const userId = `user_${u.id}`;
+                if (selectedSavedContacts.includes(userId)) {
+                    const uName = u.fullName || u.username;
+                    if (platforms.includes('telegram') && u.telegramChatId) {
+                        const strId = String(u.telegramChatId).trim();
+                        if (strId && !targets.some(t => t.platform === 'telegram' && t.id === strId)) {
+                            targets.push({ platform: 'telegram', id: strId, name: `${uName} (کاربر)` });
+                        }
+                    }
+                    if (platforms.includes('bale') && u.baleChatId) {
+                        const strId = String(u.baleChatId).trim();
+                        if (strId && !targets.some(t => t.platform === 'bale' && t.id === strId)) {
+                            targets.push({ platform: 'bale', id: strId, name: `${uName} (کاربر)` });
                         }
                     }
                 }
@@ -489,14 +520,77 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                                 </div>
                             </div>
 
-                            {/* Middle Col: Saved Contacts Picker (lg:col-span-4) */}
+                            {/* Middle Col: Saved Contacts & Users Picker (lg:col-span-4) */}
                             <div className="lg:col-span-4 space-y-2">
-                                <span className="font-extrabold text-slate-600 dark:text-zinc-400 block mb-1">انتخاب از مخاطبان و گروه‌های ذخیره شده:</span>
-                                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 max-h-40 overflow-y-auto custom-scrollbar space-y-2">
-                                    {!settings?.savedContacts || settings.savedContacts.length === 0 ? (
-                                        <div className="text-center py-6 text-slate-400 dark:text-zinc-500 font-medium">مخاطب ذخیره شده‌ای یافت نشد.</div>
-                                    ) : (
-                                        settings.savedContacts.map((contact: any) => {
+                                <div className="flex items-center justify-between">
+                                    <span className="font-extrabold text-slate-600 dark:text-zinc-400 block text-xs">مخاطبان و کاربران:</span>
+                                    <span className="text-[10px] text-slate-400">
+                                        ({((settings?.savedContacts?.length || 0) + (systemUsers?.filter(u => u.baleChatId || u.telegramChatId)?.length || 0))} مخاطب)
+                                    </span>
+                                </div>
+
+                                <input
+                                    type="text"
+                                    value={contactSearchQuery}
+                                    onChange={(e) => setContactSearchQuery(e.target.value)}
+                                    placeholder="🔍 جستجوی نام یا آیدی مخاطب/کاربر..."
+                                    className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-right"
+                                />
+
+                                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 max-h-40 overflow-y-auto custom-scrollbar space-y-1.5">
+                                    {/* System Users who have bot IDs */}
+                                    {systemUsers
+                                        .filter(u => u.baleChatId || u.telegramChatId)
+                                        .filter(u => {
+                                            if (!contactSearchQuery) return true;
+                                            const q = contactSearchQuery.toLowerCase();
+                                            return (u.fullName || '').toLowerCase().includes(q) ||
+                                                   (u.username || '').toLowerCase().includes(q) ||
+                                                   (u.baleChatId || '').includes(q) ||
+                                                   (u.telegramChatId || '').includes(q);
+                                        })
+                                        .map(user => {
+                                            const contactId = `user_${user.id}`;
+                                            const isSelected = selectedSavedContacts.includes(contactId);
+                                            return (
+                                                <label key={contactId} className="flex items-center gap-2 py-1 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg px-1.5 cursor-pointer font-medium transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelectedSavedContacts([...selectedSavedContacts, contactId]);
+                                                            else setSelectedSavedContacts(selectedSavedContacts.filter(id => id !== contactId));
+                                                        }}
+                                                        className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-slate-800 dark:text-zinc-200 font-bold text-xs truncate">
+                                                            {user.fullName || user.username}
+                                                        </div>
+                                                        <div className="text-[9px] text-slate-400 truncate">
+                                                            {user.telegramChatId && `تلگرام: ${user.telegramChatId} `}
+                                                            {user.baleChatId && `بله: ${user.baleChatId}`}
+                                                        </div>
+                                                    </div>
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] bg-indigo-50 dark:bg-indigo-950/60 font-bold text-indigo-600 dark:text-indigo-400">
+                                                        کاربر سیستم
+                                                    </span>
+                                                </label>
+                                            );
+                                        })
+                                    }
+
+                                    {/* Saved Contacts from settings */}
+                                    {settings?.savedContacts && settings.savedContacts
+                                        .filter((contact: any) => {
+                                            if (!contactSearchQuery) return true;
+                                            const q = contactSearchQuery.toLowerCase();
+                                            return (contact.name || '').toLowerCase().includes(q) ||
+                                                   (contact.telegramId || '').includes(q) ||
+                                                   (contact.baleId || '').includes(q) ||
+                                                   (contact.number || '').includes(q);
+                                        })
+                                        .map((contact: any) => {
                                             const contactId = contact.id || contact.number;
                                             const isSelected = selectedSavedContacts.includes(contactId);
                                             return (
@@ -511,18 +605,22 @@ export const AiWarehouseAdvisorModal: React.FC<AiWarehouseAdvisorModalProps> = (
                                                         className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600"
                                                     />
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="text-slate-800 dark:text-zinc-200 font-bold truncate">{contact.name}</div>
+                                                        <div className="text-slate-800 dark:text-zinc-200 font-bold text-xs truncate">{contact.name}</div>
                                                         <div className="text-[9px] text-slate-400 truncate">
-                                                            {contact.telegramId && `T: ${contact.telegramId} `}
-                                                            {contact.baleId && `B: ${contact.baleId}`}
+                                                            {contact.telegramId && `تلگرام: ${contact.telegramId} `}
+                                                            {contact.baleId && `بله: ${contact.baleId}`}
                                                         </div>
                                                     </div>
                                                     <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-100 dark:bg-zinc-800 font-bold text-slate-500">
-                                                        {contact.isGroup ? 'گروه' : 'شخص'}
+                                                        {contact.isGroup ? 'گروه' : 'مخاطب'}
                                                     </span>
                                                 </label>
                                             );
                                         })
+                                    }
+
+                                    {(!settings?.savedContacts || settings.savedContacts.length === 0) && systemUsers.filter(u => u.baleChatId || u.telegramChatId).length === 0 && (
+                                        <div className="text-center py-6 text-slate-400 dark:text-zinc-500 font-medium text-xs">مخاطب یا کاربری با شناسه پیام‌رسان یافت نشد.</div>
                                     )}
                                 </div>
                             </div>

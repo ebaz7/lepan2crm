@@ -47,6 +47,7 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import { apiCall } from '../services/apiService';
+import { SmartBotRecipientPicker } from './SmartBotRecipientPicker';
 
 export interface AiSayanReportModalProps {
     isOpen: boolean;
@@ -967,7 +968,7 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
             {/* SEND TO BOTS MODAL */}
             {isBotModalOpen && (
                 <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animation-fade-in" dir="rtl">
-                    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-lg rounded-2xl shadow-2xl p-5 space-y-4">
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
                             <div className="flex items-center gap-2">
                                 <Bot className="w-5 h-5 text-indigo-600" />
@@ -984,61 +985,63 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
                             </button>
                         </div>
 
-                        <div className="space-y-3">
-                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                                انتخاب پیام‌رسان‌های مقصد:
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedPlatforms(prev => 
-                                            prev.includes('telegram') ? prev.filter(p => p !== 'telegram') : [...prev, 'telegram']
-                                        );
-                                    }}
-                                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                                        selectedPlatforms.includes('telegram')
-                                            ? 'bg-blue-50 border-blue-500 text-blue-700'
-                                            : 'border-slate-200 text-slate-600'
-                                    }`}
-                                >
-                                    <Send className="w-3.5 h-3.5" />
-                                    <span>تلگرام (Telegram)</span>
-                                </button>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                                    انتخاب پیام‌رسان‌های مقصد:
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedPlatforms(prev => 
+                                                prev.includes('telegram') ? prev.filter(p => p !== 'telegram') : [...prev, 'telegram']
+                                            );
+                                        }}
+                                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                            selectedPlatforms.includes('telegram')
+                                                ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-700 dark:text-blue-300 shadow-xs'
+                                                : 'border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400'
+                                        }`}
+                                    >
+                                        <Send className="w-3.5 h-3.5" />
+                                        <span>تلگرام (Telegram)</span>
+                                    </button>
 
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedPlatforms(prev => 
-                                            prev.includes('bale') ? prev.filter(p => p !== 'bale') : [...prev, 'bale']
-                                        );
-                                    }}
-                                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                                        selectedPlatforms.includes('bale')
-                                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
-                                            : 'border-slate-200 text-slate-600'
-                                    }`}
-                                >
-                                    <Bot className="w-3.5 h-3.5" />
-                                    <span>بله (Bale)</span>
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedPlatforms(prev => 
+                                                prev.includes('bale') ? prev.filter(p => p !== 'bale') : [...prev, 'bale']
+                                            );
+                                        }}
+                                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                            selectedPlatforms.includes('bale')
+                                                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs'
+                                                : 'border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400'
+                                        }`}
+                                    >
+                                        <Bot className="w-3.5 h-3.5" />
+                                        <span>بله (Bale)</span>
+                                    </button>
 
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedPlatforms(prev => 
-                                            prev.includes('whatsapp') ? prev.filter(p => p !== 'whatsapp') : [...prev, 'whatsapp']
-                                        );
-                                    }}
-                                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                                        selectedPlatforms.includes('whatsapp')
-                                            ? 'bg-green-50 border-green-500 text-green-700'
-                                            : 'border-slate-200 text-slate-600'
-                                    }`}
-                                >
-                                    <MessageSquare className="w-3.5 h-3.5" />
-                                    <span>واتس‌اپ</span>
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedPlatforms(prev => 
+                                                prev.includes('whatsapp') ? prev.filter(p => p !== 'whatsapp') : [...prev, 'whatsapp']
+                                            );
+                                        }}
+                                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                            selectedPlatforms.includes('whatsapp')
+                                                ? 'bg-green-50 dark:bg-green-950/50 border-green-500 text-green-700 dark:text-green-300 shadow-xs'
+                                                : 'border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400'
+                                        }`}
+                                    >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>واتس‌اپ</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Attach PDF Checkbox */}
@@ -1051,33 +1054,23 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
                                 />
                                 <div className="text-xs">
                                     <span className="font-bold text-slate-800 dark:text-slate-200 block">پیوست فایل PDF گزارش مدیریتی</span>
-                                    <span className="text-[11px] text-slate-500">فایل شکیل PDF شامل نمودارها، امتیاز سلامت و امضا نیز ارسال شود.</span>
+                                    <span className="text-[11px] text-slate-500 dark:text-slate-400">فایل شکیل PDF شامل نمودارها، امتیاز سلامت و امضا نیز به همراه پیام ارسال شود.</span>
                                 </div>
                             </label>
 
-                            {/* Optional Custom Groups */}
-                            <div className="space-y-2 pt-2">
-                                <span className="text-[11px] text-slate-500 block">
-                                    شناسه‌های مقصد بر اساس تنظیمات پیش‌فرض بات‌ها فراخوانی می‌شوند. در صورت نیاز به ارسال به گروه دیگر، شناسه را وارد کنید:
-                                </span>
-                                {selectedPlatforms.includes('telegram') && (
-                                    <input
-                                        type="text"
-                                        value={customGroupTele}
-                                        onChange={(e) => setCustomGroupTele(e.target.value)}
-                                        placeholder="شناسه گروه تلگرام دلخواه (مثال: -100123456789)"
-                                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs"
-                                    />
-                                )}
-                                {selectedPlatforms.includes('bale') && (
-                                    <input
-                                        type="text"
-                                        value={customGroupBale}
-                                        onChange={(e) => setCustomGroupBale(e.target.value)}
-                                        placeholder="شناسه گروه بله دلخواه (مثال: -123456789)"
-                                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs"
-                                    />
-                                )}
+                            {/* Intelligent Recipient & Contact Picker */}
+                            <div className="pt-1">
+                                <SmartBotRecipientPicker
+                                    selectedPlatforms={selectedPlatforms}
+                                    valueTele={customGroupTele}
+                                    valueBale={customGroupBale}
+                                    valueWa={customGroupWa}
+                                    onChangeValueTele={setCustomGroupTele}
+                                    onChangeValueBale={setCustomGroupBale}
+                                    onChangeValueWa={setCustomGroupWa}
+                                    settings={settings}
+                                    label="مخاطبان و دریافت‌کنندگان پیام (کاربران سامانه / مشتریان / گروه‌ها):"
+                                />
                             </div>
                         </div>
 
@@ -1085,7 +1078,7 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
                             <button
                                 type="button"
                                 onClick={() => setIsBotModalOpen(false)}
-                                className="px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                                className="px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
                             >
                                 انصراف
                             </button>
@@ -1093,7 +1086,7 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
                                 type="button"
                                 onClick={handleSendBotDispatch}
                                 disabled={isSendingBot}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-600/20"
                             >
                                 <Send className={`w-3.5 h-3.5 ${isSendingBot ? 'animate-spin' : ''}`} />
                                 <span>{isSendingBot ? 'در حال ارسال...' : 'ارسال قطعی'}</span>

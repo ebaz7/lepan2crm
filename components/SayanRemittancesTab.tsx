@@ -1300,8 +1300,8 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
           totalCartons: summary?.totalCartons || 0,
           totalBobbins: summary?.totalBobbins || 0,
           uniqueCustomers: summary?.uniqueCustomersCount || 0,
-          topCustomers: (summary?.topCustomers || []).slice(0, 10),
-          topProducts: (summary?.topGoods || []).slice(0, 10),
+          topCustomers: ((summary as any)?.topCustomers || []).slice(0, 10),
+          topProducts: ((summary as any)?.topGoods || []).slice(0, 10),
           recentRemittances: filteredRemittances.slice(0, 15).map(r => ({
             number: r.remittanceNumber || r.docNo,
             date: r.shamsiDate,
