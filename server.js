@@ -2624,6 +2624,8 @@ export async function fetchProductionDataForDateRange(db, rawFrom, rawTo) {
         if (!itemsMap.has(rawName)) {
             itemsMap.set(rawName, {
                 name: rawName,
+                itemCode: itemCode,
+                groupName: String(r.GroupName || '').trim(),
                 unit: 'کیلوگرم',
                 qty_61: 0,
                 qty_67: 0,
@@ -3673,15 +3675,15 @@ app.post('/api/sayan/production-returns/send-bot', async (req, res) => {
 app.post('/api/sayan/production-report/send-compare-bot', async (req, res) => {
     try {
         const db = getDb();
-        const { dateFromA, dateToA, dateFromB, dateToB, items } = req.body;
+        const { dateFromA, dateToA, dateFromB, dateToB, items, groupByLabel } = req.body;
 
         if (!dateFromA || !items) {
             return res.status(400).json({ error: 'اطلاعات گزارش کامل نیست' });
         }
 
-        const title = `گزارش مقایسه‌ای آمار تولید سایان`;
+        const title = `گزارش مقایسه‌ای آمار تولید سایان${groupByLabel ? ` (${groupByLabel})` : ''}`;
         const Renderer = await import('./backend/renderer.js');
-        const pdfBuffer = await Renderer.generateProductionCompareReportPDF(title, dateFromA, dateToA, dateFromB, dateToB, items);
+        const pdfBuffer = await Renderer.generateProductionCompareReportPDF(title, dateFromA, dateToA, dateFromB, dateToB, items, groupByLabel);
 
         // Build elegant caption
         const sumA = items.reduce((sum, item) => sum + (item.totalA || 0), 0);
@@ -3690,7 +3692,7 @@ app.post('/api/sayan/production-report/send-compare-bot', async (req, res) => {
         const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
 
         let caption = `📊 *گزارش مقایسه‌ای آمار تولید کارخانه*
-
+${groupByLabel ? `🏷️ *نوع تفکیک:* ${groupByLabel}\n` : ''}
 📅 *بازه اول (A):* ${dateFromA} تا ${dateToA}
 📅 *بازه دوم (B):* ${dateFromB} تا ${dateToB}
 

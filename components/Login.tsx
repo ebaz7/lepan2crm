@@ -259,7 +259,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         className="absolute inset-0 z-0 select-none pointer-events-none transition-all duration-700"
         style={{
           backgroundImage: "url('/login-bg.jpg')",
-          backgroundPosition: '72.5% 50%',
+          backgroundPosition: 'center center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat'
         }}
@@ -309,14 +309,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
 
       {/* --- REALISTIC INTERACTIVE PULL-STRING (سیم کششی خاموش و روشن کردن چراغ) --- */}
-      <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden">
+      <div className="hidden lg:block absolute inset-0 z-30 pointer-events-none overflow-hidden">
         <motion.div 
           onClick={toggleLamp}
           animate={{ 
             y: isPulling ? 12 : 0,
-            opacity: isLampOn ? 0.75 : 0.35
+            opacity: isLampOn ? 0.85 : 0.35
           }}
-          whileHover={{ opacity: isLampOn ? 0.95 : 0.65 }}
+          whileHover={{ opacity: isLampOn ? 1 : 0.65 }}
           transition={{ 
             y: { type: 'spring', stiffness: 500, damping: 14 },
             opacity: { duration: 0.3 }
@@ -325,7 +325,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           style={{ 
             transform: 'translateX(-50%)'
           }}
-          title="برای خاموش/روشن کردن، کلیک کنید"
+          title="برای خاموش/روشن کردن چراغ، کلیک کنید"
         >
           {/* Beaded Brass Pull Chain */}
           <div 
@@ -338,7 +338,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             }}
           />
           
-          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز کوچک‌تر) */}
+          {/* Weighted Solid Bronze Bell Tassel (دستگیره آویز) */}
           <div 
             className={`w-2.5 h-6 rounded-b-full rounded-t-sm border shadow-2xl flex flex-col items-center justify-end pb-0.5 group-hover:scale-110 group-active:scale-95 transition-all duration-500 ${
               isLampOn
@@ -352,49 +352,53 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </motion.div>
       </div>
 
-      {/* Main Stage Grid Container */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center px-4">
-        
-        {/* RIGHT COLUMN: Company Identity (Visually on the Right Side under the Hanging Lamp on Desktop, but below Login on Mobile) */}
-        <div className="lg:col-span-6 flex flex-col justify-center items-center order-2 lg:order-1 min-h-[160px] lg:min-h-[450px] relative z-10 pt-6 pb-[24px] pr-0 pl-[30px] text-center">
-          {/* Spacer to push content under the hanging lamp area on desktop */}
-          <div className="hidden lg:block h-80" />
-          
-          <motion.div 
-            animate={{ 
-              opacity: isLampOn ? 1 : 0.08,
-              y: isLampOn ? 0 : 5
-            }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="space-y-4 max-w-lg mx-auto transition-all duration-500 text-center lg:translate-x-[140px] lg:translate-y-[180px]"
-          >
-            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md ${
-              isLampOn
-                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
-                : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
-            }`}>
-              <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
-              <span>سامانه یکپارچه مالی و بازرگانی</span>
-            </div>
-            
-            <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight transition-all duration-500 ${
-              isLampOn 
-                ? 'text-slate-100 drop-shadow-[0_0_15px_rgba(251,191,36,0.15)]' 
-                : 'text-slate-500'
-            }`}>
-              مدیریت و کنترل هوشمند سازمانی
-            </h2>
-            
-            <p className={`text-xs sm:text-sm max-w-md mx-auto leading-relaxed transition-all duration-500 ${
-              isLampOn ? 'text-slate-300 font-medium' : 'text-slate-600'
-            }`}>
-              سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار، برگه‌های خروج و اسناد اعتباری
-            </p>
-          </motion.div>
-        </div>
+      {/* --- DESKTOP BRAND TEXT (دقیقاً داخل هاله نور زیر لامپ در یک راستای عمودی) --- */}
+      <motion.div 
+        animate={{ 
+          opacity: isLampOn ? 1 : 0.08,
+          y: isLampOn ? 0 : 8
+        }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="hidden lg:flex absolute left-[72%] top-[64%] -translate-x-1/2 -translate-y-1/2 z-20 flex-col items-center text-center w-full max-w-[420px] px-4 pointer-events-none select-none"
+        dir="rtl"
+      >
+        {/* Subtle glowing halo backlight for text */}
+        <div 
+          className={`absolute inset-0 -inset-y-6 rounded-full blur-2xl transition-opacity duration-700 pointer-events-none ${
+            isLampOn ? 'bg-amber-500/10 opacity-100' : 'opacity-0'
+          }`} 
+        />
 
-        {/* LEFT COLUMN: Modern Glass Login Panel (Visually on the Left Side on Desktop, and first on Mobile) */}
-        <div className="lg:col-span-6 flex justify-center lg:justify-start order-1 lg:order-2 relative z-20">
+        <div className={`relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md mb-3 ${
+          isLampOn
+            ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+            : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
+        }`}>
+          <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
+          <span>سامانه یکپارچه مالی و بازرگانی</span>
+        </div>
+        
+        <h2 className={`relative text-2xl xl:text-3xl font-black tracking-tight leading-snug transition-all duration-500 mb-2.5 ${
+          isLampOn 
+            ? 'text-slate-100 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] [text-shadow:_0_0_25px_rgba(251,191,36,0.4)]' 
+            : 'text-slate-500'
+        }`}>
+          مدیریت و کنترل هوشمند سازمانی
+        </h2>
+        
+        <p className={`relative text-xs sm:text-[13px] max-w-sm mx-auto leading-relaxed transition-all duration-500 ${
+          isLampOn ? 'text-slate-200/90 font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.95)]' : 'text-slate-600'
+        }`}>
+          سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار، برگه‌های خروج و اسناد اعتباری
+        </p>
+      </motion.div>
+
+      {/* --- DESKTOP / MOBILE STAGE CONTAINER --- */}
+      {/* dir="ltr" ensures the first column is on the LEFT (Login card) on all screens */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-start min-h-[620px] px-6 lg:px-12" dir="ltr">
+        
+        {/* Modern Glass Login Panel (Strictly on the LEFT side on Desktop, Centered on Mobile) */}
+        <div className="w-full max-w-md lg:w-[420px] relative z-20 mx-auto lg:mx-0 lg:ml-4 xl:ml-12" dir="rtl">
           
           <motion.div 
             animate={{
@@ -404,7 +408,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               borderColor: isLampOn ? 'rgba(251, 191, 36, 0.25)' : 'rgba(255, 255, 255, 0.06)'
             }}
             transition={{ duration: 0.5 }}
-            className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl border rounded-[2rem] p-7 sm:p-9 shadow-2xl relative overflow-hidden"
+            className="w-full bg-slate-950/80 backdrop-blur-xl border rounded-[2rem] p-7 sm:p-9 shadow-2xl relative overflow-hidden"
           >
             
             {/* Ambient Top Glow Border inside the Card */}
@@ -619,6 +623,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             )}
 
           </motion.div>
+        </div>
+
+        {/* Mobile-only Brand Text displayed cleanly below card on mobile screens */}
+        <div className="lg:hidden mt-6 text-center space-y-2 max-w-sm px-2 select-none">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 backdrop-blur-md">
+            <Building2 size={12} className="text-amber-400" />
+            <span>سامانه یکپارچه مالی و بازرگانی</span>
+          </div>
+          <h2 className="text-lg font-bold text-slate-200">
+            مدیریت و کنترل هوشمند سازمانی
+          </h2>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            سیستم جامع مدیریت کارتابل دستور پرداخت، بیجک انبار و اسناد اعتباری
+          </p>
         </div>
 
       </div>

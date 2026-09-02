@@ -2665,7 +2665,8 @@ export const generateProductionCompareReportPDF = async (
   dateToA,
   dateFromB,
   dateToB,
-  items = []
+  items = [],
+  groupByLabel = ''
 ) => {
   try {
     const browser = await getBrowser();
@@ -2692,6 +2693,8 @@ export const generateProductionCompareReportPDF = async (
     const sumB = items.reduce((sum, item) => sum + (item.totalB || 0), 0);
     const totalDiff = sumA - sumB;
     const totalDiffPct = sumB ? (totalDiff / sumB) * 100 : 0;
+
+    const columnTitle = groupByLabel || 'نام کالا / گروه کالا';
 
     const html = `
     <!DOCTYPE html>
@@ -2729,7 +2732,7 @@ export const generateProductionCompareReportPDF = async (
         <table class="report-table">
             <thead>
                 <tr>
-                    <th style="text-align: right;">نام کالا / گروه کالا</th>
+                    <th style="text-align: right;">${columnTitle}</th>
                     <th>بازه اول (A) (kg)</th>
                     <th>بازه دوم (B) (kg)</th>
                     <th>تفاضل (A - B) (kg)</th>

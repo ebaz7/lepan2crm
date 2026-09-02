@@ -2166,6 +2166,116 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
+    // Determine official Sayan product group according to chart of accounts (سرفصل کالاها)
+    const getSayanProductGroup = (item: any): string => {
+        const itemCode = String(item?.itemCode || item?.code || item?.ItemCode || '').trim();
+        const rawName = String(item?.name || item?.ItemName || item?.productName || '').trim();
+        const grpName = String(item?.groupName || item?.GroupName || '').trim();
+        const c = itemCode.replace(/[^0-9]/g, '');
+
+        // 1. Group code exact prefixes from Sayan (تعریف سرفصل کالاها)
+        // محصولات (04):
+        if (c.startsWith('0401')) return 'اسپاندکس (کاور)';
+        if (c.startsWith('0402')) return 'کش';
+        if (c.startsWith('0403')) return 'اسپاندکس جوشی ( ساپورت )';
+        if (c.startsWith('0405')) return 'پلی استر شوایتر';
+        if (c.startsWith('0407')) return 'نایلون';
+        if (c.startsWith('0408')) return 'نخ ملت';
+        if (c.startsWith('0409')) return 'الیاف';
+        if (c.startsWith('0410')) return 'FDY';
+
+        // مواد اولیه (01):
+        if (c.startsWith('0101')) return 'چیپس';
+        if (c.startsWith('010202') || (c.startsWith('0102') && rawName.includes('شوایتر'))) return 'پلی استر شوایتر';
+        if (c.startsWith('0102')) return 'POY';
+        if (c.startsWith('0103')) return 'dty یا پلی استر';
+        if (c.startsWith('0104')) return 'لاستیک';
+        if (c.startsWith('0105')) {
+            if (rawName.includes('جوشی') || rawName.includes('ساپورت')) return 'اسپاندکس جوشی ( ساپورت )';
+            if (rawName.includes('لاکرا')) return 'لاکرا';
+            return 'اسپاندکس (کاور)';
+        }
+        if (c.startsWith('0106')) return 'پلی استر اسپان';
+        if (c.startsWith('0107')) return 'مستر بچ';
+        if (c.startsWith('0108')) return 'نایلون';
+
+        // 2. Matching from database groupName
+        if (grpName) {
+            if (grpName.includes('جوشی') || grpName.includes('ساپورت')) return 'اسپاندکس جوشی ( ساپورت )';
+            if (grpName.includes('کاور')) return 'اسپاندکس (کاور)';
+            if (grpName.includes('شوایتر')) return 'پلی استر شوایتر';
+            if (grpName.includes('ملت')) return 'نخ ملت';
+            if (grpName.includes('الیاف')) return 'الیاف';
+            if (/FDY/i.test(grpName)) return 'FDY';
+            if (grpName.includes('کش') || grpName.includes('قیطان')) return 'کش';
+            if (grpName.includes('اسپاندکس')) return 'اسپاندکس (کاور)';
+            if (/POY/i.test(grpName)) return 'POY';
+            if (/DTY/i.test(grpName) || grpName.includes('پلی استر')) return 'dty یا پلی استر';
+            if (grpName.includes('نایلون')) return 'نایلون';
+            if (grpName.includes('چیپس')) return 'چیپس';
+            if (grpName.includes('لاستیک')) return 'لاستیک';
+            if (grpName.includes('لاکرا')) return 'لاکرا';
+            if (grpName.includes('اسپان')) return 'پلی استر اسپان';
+            if (grpName.includes('مستر بچ') || grpName.includes('مستربچ')) return 'مستر بچ';
+        }
+
+        // 3. Matching from item name
+        if (rawName.includes('جوشی') || rawName.includes('ساپورت') || (rawName.includes('اسپاندکس') && rawName.includes('جوش'))) {
+            return 'اسپاندکس جوشی ( ساپورت )';
+        }
+        if (rawName.includes('شوایتر')) {
+            return 'پلی استر شوایتر';
+        }
+        if (rawName.includes('اسپاندکس') || rawName.includes('کاور')) {
+            return 'اسپاندکس (کاور)';
+        }
+        if (rawName.includes('کش') || rawName.includes('قیطان')) {
+            return 'کش';
+        }
+        if (rawName.includes('ملت')) {
+            return 'نخ ملت';
+        }
+        if (rawName.includes('الیاف')) {
+            return 'الیاف';
+        }
+        if (/FDY/i.test(rawName)) {
+            return 'FDY';
+        }
+        if (/POY/i.test(rawName) || rawName.includes('پوی')) {
+            return 'POY';
+        }
+        if (/DTY/i.test(rawName) || rawName.includes('پلی استر')) {
+            return 'dty یا پلی استر';
+        }
+        if (rawName.includes('نایلون')) {
+            return 'نایلون';
+        }
+        if (rawName.includes('چیپس')) {
+            return 'چیپس';
+        }
+        if (rawName.includes('لاستیک')) {
+            return 'لاستیک';
+        }
+        if (rawName.includes('لاکرا')) {
+            return 'لاکرا';
+        }
+        if (rawName.includes('اسپان')) {
+            return 'پلی استر اسپان';
+        }
+        if (rawName.includes('مستر بچ') || rawName.includes('مستربچ')) {
+            return 'مستر بچ';
+        }
+
+        // 4. By operational breakdown
+        if ((item?.qty_schweiter || 0) > 0) return 'پلی استر شوایتر';
+        if ((item?.qty_79 || 0) > 0) return 'کش';
+        if ((item?.qty_73 || 0) > 0) return 'اسپاندکس (کاور)';
+        if ((item?.qty_67 || 0) > 0) return 'dty یا پلی استر';
+        if ((item?.qty_61 || 0) > 0) return 'POY';
+
+        return 'سایر محصولات';
+    };
+
     // Prepare comparative production data
     const getProdComparisonData = () => {
         const groups: { [key: string]: {
@@ -2185,9 +2295,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         };
 
         prodCompareDataA.forEach(row => {
-            const key = row.name || 'نامشخص';
-            initGroup(key, key);
-            const g = groups[key];
+            const label = prodCompareGroupBy === 'group' ? getSayanProductGroup(row) : (row.name || 'نامشخص');
+            initGroup(label, label);
+            const g = groups[label];
             g.qty_61_A += row.qty_61 || 0;
             g.qty_67_A += row.qty_67 || 0;
             g.qty_79_A += row.qty_79 || 0;
@@ -2197,9 +2307,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         });
 
         prodCompareDataB.forEach(row => {
-            const key = row.name || 'نامشخص';
-            initGroup(key, key);
-            const g = groups[key];
+            const label = prodCompareGroupBy === 'group' ? getSayanProductGroup(row) : (row.name || 'نامشخص');
+            initGroup(label, label);
+            const g = groups[label];
             g.qty_61_B += row.qty_61 || 0;
             g.qty_67_B += row.qty_67 || 0;
             g.qty_79_B += row.qty_79 || 0;
@@ -2208,11 +2318,40 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             g.totalB += row.total || 0;
         });
 
-        return Object.values(groups);
+        // Filter out groups/items that have zero production in both periods
+        // Only display groups/items that actually have production
+        const result = Object.values(groups).filter(r => (r.totalA > 0 || r.totalB > 0));
+
+        if (prodCompareGroupBy === 'group') {
+            const canonicalOrder: { [name: string]: number } = {
+                'اسپاندکس (کاور)': 1,
+                'کش': 2,
+                'اسپاندکس جوشی ( ساپورت )': 3,
+                'پلی استر شوایتر': 4,
+                'نایلون': 5,
+                'نخ ملت': 6,
+                'الیاف': 7,
+                'FDY': 8,
+                'چیپس': 9,
+                'POY': 10,
+                'dty یا پلی استر': 11,
+                'لاستیک': 12,
+                'لاکرا': 13,
+                'پلی استر اسپان': 14,
+                'مستر بچ': 15,
+                'سایر محصولات': 99
+            };
+            result.sort((a, b) => (canonicalOrder[a.name] || 50) - (canonicalOrder[b.name] || 50));
+        } else {
+            result.sort((a, b) => (b.totalA + b.totalB) - (a.totalA + a.totalB));
+        }
+
+        return result;
     };
 
     const handlePrintComparativeProduction = () => {
-        const title = `گزارش مقایسه‌ای آمار تولید کارخانه (${dateFrom} تا ${dateTo} در مقایسه با ${prodCompareDateFromB} تا ${prodCompareDateToB})`;
+        const groupLabel = prodCompareGroupBy === 'group' ? 'بر اساس گروه کالا' : 'بر اساس نام دقیق کالا';
+        const title = `گزارش مقایسه‌ای آمار تولید کارخانه - ${groupLabel} (${dateFrom} تا ${dateTo} در مقایسه با ${prodCompareDateFromB} تا ${prodCompareDateToB})`;
         const data = getProdComparisonData();
 
         let sumA = 0, sumB = 0;
@@ -2269,7 +2408,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 <table class="table">
                     <thead>
                         <tr>
-                            <th style="text-align: right;">نام کالا / گروه کالا</th>
+                            <th style="text-align: right;">${prodCompareGroupBy === 'group' ? 'گروه کالا' : 'نام دقیق کالا'}</th>
                             <th>بازه اول (A) (kg)</th>
                             <th>بازه دوم (B) (kg)</th>
                             <th>تفاضل (A - B) (kg)</th>
@@ -2319,6 +2458,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                     dateToA: dateTo,
                     dateFromB: prodCompareDateFromB,
                     dateToB: prodCompareDateToB,
+                    groupBy: prodCompareGroupBy,
+                    groupByLabel: prodCompareGroupBy === 'group' ? 'گروه کالا' : 'نام دقیق کالا',
                     items: data.map(item => ({
                         name: item.name,
                         totalA: item.totalA,
@@ -2537,6 +2678,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         if (!itemsMap.has(rawName)) {
                             itemsMap.set(rawName, {
                                 name: rawName,
+                                itemCode: itemCode,
+                                groupName: String(r.GroupName || '').trim(),
                                 unit: 'کیلوگرم',
                                 qty_61: 0,
                                 qty_67: 0,
@@ -5445,7 +5588,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <table className="w-full text-center text-xs sm:text-sm border-collapse">
                                         <thead>
                                             <tr className="bg-indigo-900 text-white font-extrabold border-b border-indigo-950 text-xs">
-                                                <th className="p-3 border-r border-indigo-950 text-right min-w-[200px]">نام کالا / گروه کالا</th>
+                                                <th className="p-3 border-r border-indigo-950 text-right min-w-[200px]">{prodCompareGroupBy === 'group' ? 'گروه کالا' : 'نام دقیق کالا'}</th>
                                                 <th className="p-3 border-r border-indigo-950 w-44">بازه اول (A) (kg)</th>
                                                 <th className="p-3 border-r border-indigo-950 w-44">بازه دوم (B) (kg)</th>
                                                 <th className="p-3 border-r border-indigo-950 w-44">تفاضل (A - B) (kg)</th>
