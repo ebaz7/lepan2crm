@@ -3,6 +3,7 @@ import { Send, MessageCircle, RefreshCcw, Power, Loader2, CheckCircle2, AlertTri
 import { apiCall } from '../../services/apiService';
 import { ReportDeliveryManager } from './ReportDeliveryManager';
 import { SystemSettings, UnionExitBotUser } from '../../types';
+import { SmartContactSelectorDropdown } from '../SmartBotRecipientPicker';
 
 interface BotManagerProps {
     settings: SystemSettings;
@@ -248,6 +249,20 @@ const BotManager: React.FC<BotManagerProps> = ({ settings, setSettings }) => {
                         </h4>
 
                         <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                                    انتخاب هوشمند از کاربران و مخاطبین:
+                                </label>
+                                <SmartContactSelectorDropdown 
+                                    settings={settings}
+                                    placeholder="کلیک برای انتخاب سریع کاربر/مخاطب..."
+                                    onSelect={(selected) => {
+                                        setNewUserId(selected.chatId);
+                                        setNewUserName(selected.name);
+                                    }}
+                                />
+                            </div>
+
                             <div>
                                 <label className="text-xs font-bold text-gray-600 block mb-1">شناسه عددی (Bale / Telegram Chat ID) <span className="text-red-500">*</span></label>
                                 <input 

@@ -86,7 +86,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const [newItem, setNewItem] = useState<Partial<TradeItem> & { weightStr?: string, grossWeightStr?: string, unitPriceStr?: string }>({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' });
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-    const [insuranceForm, setInsuranceForm] = useState<NonNullable<TradeRecord['insuranceData']>>({ policyNumber: '', company: '', cost: 0, bank: '', endorsements: [], isPaid: false, paymentDate: '' });
+    const [insuranceForm, setInsuranceForm] = useState<NonNullable<TradeRecord['insuranceData']>>({ policyNumber: '', company: '', agencyName: '', agencyCode: '', cost: 0, bank: '', endorsements: [], isPaid: false, paymentDate: '' });
     const [newEndorsement, setNewEndorsement] = useState<Partial<InsuranceEndorsement>>({ amount: 0, description: '', date: '' });
     const [endorsementType, setEndorsementType] = useState<'increase' | 'refund'>('increase');
     
@@ -326,10 +326,12 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
     useEffect(() => {
         if (selectedRecord) {
-            const insData = selectedRecord.insuranceData || { policyNumber: '', company: '', cost: 0, bank: '', endorsements: [], isPaid: false, paymentDate: '' };
+            const insData = selectedRecord.insuranceData || { policyNumber: '', company: '', agencyName: '', agencyCode: '', cost: 0, bank: '', endorsements: [], isPaid: false, paymentDate: '' };
             setInsuranceForm({
                 policyNumber: insData.policyNumber || '',
                 company: insData.company || '',
+                agencyName: insData.agencyName || '',
+                agencyCode: insData.agencyCode || '',
                 cost: insData.cost || 0,
                 bank: insData.bank || '',
                 endorsements: insData.endorsements || [],
@@ -451,38 +453,63 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     };
 
     // --- HANDLERS ---
-    const isDuplicateTradeRecord = (company: string, fileNumber: string, registrationNumber: string, goodsName: string, excludeId?: string) => {
+    const isDuplicateTradeRecord = (company: string, fileNumber: string, registrationNumber: string, goodsName: string, excludeId?: string, proformaNumber?: string) => {
         const safeCompany = (company || '').trim().toLowerCase();
         const safeFileNumber = (fileNumber || '').trim().toLowerCase();
+        const safeProformaNumber = (proformaNumber || '').trim().toLowerCase();
         const safeRegistrationNumber = (registrationNumber || '').trim().toLowerCase();
         const safeGoodsName = (goodsName || '').trim().toLowerCase();
         
         return (records || []).some(r => {
             if (excludeId && r.id === excludeId) return false;
-            return (r.company || '').trim().toLowerCase() === safeCompany &&
-                   (r.fileNumber || '').trim().toLowerCase() === safeFileNumber &&
-                   (r.registrationNumber || '').trim().toLowerCase() === safeRegistrationNumber &&
-                   (r.goodsName || '').trim().toLowerCase() === safeGoodsName;
+            if ((r.company || '').trim().toLowerCase() !== safeCompany) return false;
+            if ((r.goodsName || '').trim().toLowerCase() !== safeGoodsName) return false;
+
+            const rFile = (r.fileNumber || '').trim().toLowerCase();
+            const rProf = (r.proformaNumber || '').trim().toLowerCase();
+            const rReg = (r.registrationNumber || '').trim().toLowerCase();
+
+            // Match if either fileNumber (when both present), proformaNumber (when both present), or registrationNumber (when both present) match
+            const fileMatches = !!(safeFileNumber && rFile && safeFileNumber === rFile);
+            const profMatches = !!(safeProformaNumber && rProf && safeProformaNumber === rProf);
+            const regMatches = !!(safeRegistrationNumber && rReg && safeRegistrationNumber === rReg);
+
+            return fileMatches || profMatches || regMatches;
         });
     };
 
     const handleCreateRecord = async () => { 
-        const proformaNo = (newProformaNumber || newFileNumber || '').trim();
-        if (!proformaNo || !newGoodsName || !newRecordCompany) return; 
+        const proformaNo = (newProformaNumber || '').trim();
+        const fileNo = (newFileNumberDirect || newFileNumber || '').trim();
+        const regNo = (newRegistrationNumber || '').trim();
+        const orderNo = (newOrderNumber || '').trim();
+
+        if (!newGoodsName || !newRecordCompany) {
+            alert('لطفاً نام کالا و شرکت را وارد نمایید.');
+            return;
+        }
+
+        if (!proformaNo && !fileNo) {
+            alert('لطفاً شماره پروفرم یا شماره پرونده را وارد نمایید.');
+            return;
+        }
         
-        if (isDuplicateTradeRecord(newRecordCompany, proformaNo, newRegistrationNumber, newGoodsName)) {
-            alert('خطا: پرونده دیگری با همین مشخصات (نام شرکت، شماره پروفرما و نام کالا) قبلاً ثبت شده است.');
+        // Ensure fileNumber and proformaNumber are decoupled
+        const finalFileNumber = fileNo || (regNo ? regNo : (proformaNo ? `${proformaNo}-F` : generateUUID().slice(0, 8)));
+        
+        if (isDuplicateTradeRecord(newRecordCompany, finalFileNumber, regNo, newGoodsName, undefined, proformaNo)) {
+            alert('خطا: پرونده دیگری با همین مشخصات (نام شرکت، شماره پرونده یا پروفرما و نام کالا) قبلاً ثبت شده است.');
             return;
         }
 
         const newRecord: TradeRecord = { 
             id: generateUUID(), 
             company: newRecordCompany, 
-            fileNumber: (newFileNumberDirect || newRegistrationNumber || proformaNo).trim(), 
+            fileNumber: finalFileNumber, 
             proformaNumber: proformaNo,
-            orderNumber: (newOrderNumber || proformaNo).trim(), 
+            orderNumber: orderNo, 
             goodsName: newGoodsName, 
-            registrationNumber: newRegistrationNumber.trim(), 
+            registrationNumber: regNo, 
             sellerName: newSellerName, 
             commodityGroup: newCommodityGroup, 
             mainCurrency: newMainCurrency, 
@@ -542,14 +569,15 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const handleUpdateProforma = async (field: keyof TradeRecord, value: string | number) => { 
         if (!selectedRecord) return; 
         
-        if (['company', 'fileNumber', 'goodsName', 'registrationNumber'].includes(field as string)) {
+        if (['company', 'fileNumber', 'proformaNumber', 'goodsName', 'registrationNumber'].includes(field as string)) {
             const companyName = (field === 'company' ? value : (selectedRecord.company || '')) as string;
             const fileNo = (field === 'fileNumber' ? value : (selectedRecord.fileNumber || '')) as string;
+            const profNo = (field === 'proformaNumber' ? value : (selectedRecord.proformaNumber || '')) as string;
             const regNo = (field === 'registrationNumber' ? value : (selectedRecord.registrationNumber || '')) as string;
             const gName = (field === 'goodsName' ? value : (selectedRecord.goodsName || '')) as string;
             
-            if (isDuplicateTradeRecord(companyName, fileNo, regNo, gName, selectedRecord.id)) {
-                alert("خطا: امکان ذخیره وجود ندارد. پرونده دیگری با همین مشخصات (نام شرکت، شماره پرووفرما، شماره ثبت سفارش و نام کالا) قبلاً ثبت شده است.");
+            if (isDuplicateTradeRecord(companyName, fileNo, regNo, gName, selectedRecord.id, profNo)) {
+                alert("خطا: امکان ذخیره وجود ندارد. پرونده دیگری با همین مشخصات (نام شرکت، شماره پرونده یا پروفرما و نام کالا) قبلاً ثبت شده است.");
                 return;
             }
         }
@@ -611,9 +639,49 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const handleRemoveItem = async (id: string) => { if (!selectedRecord) return; const updatedItems = selectedRecord.items.filter(i => i.id !== id); const updatedRecord = { ...selectedRecord, items: updatedItems }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
     const handleAddLicenseTx = async () => { if (!selectedRecord || !newLicenseTx.amount) return; const tx: TradeTransaction = { id: generateUUID(), date: newLicenseTx.date || '', amount: Number(newLicenseTx.amount), bank: newLicenseTx.bank || '', description: newLicenseTx.description || '' }; const currentLicenseData = selectedRecord.licenseData || { transactions: [] }; const updatedTransactions = [...(currentLicenseData.transactions || []), tx]; const updatedRecord = { ...selectedRecord, licenseData: { ...currentLicenseData, transactions: updatedTransactions } }; const totalCost = updatedTransactions.reduce((acc, t) => acc + t.amount, 0); if (!updatedRecord.stages[TradeStage.LICENSES]) updatedRecord.stages[TradeStage.LICENSES] = getStageData(updatedRecord, TradeStage.LICENSES); updatedRecord.stages[TradeStage.LICENSES].costRial = totalCost; updatedRecord.stages[TradeStage.LICENSES].isCompleted = totalCost > 0; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); setNewLicenseTx({ amount: 0, bank: '', date: '', description: 'هزینه ثبت سفارش' }); };
     const handleRemoveLicenseTx = async (id: string) => { if (!selectedRecord) return; const currentLicenseData = selectedRecord.licenseData || { transactions: [] }; const updatedTransactions = (currentLicenseData.transactions || []).filter(t => t.id !== id); const updatedRecord = { ...selectedRecord, licenseData: { ...currentLicenseData, transactions: updatedTransactions } }; const totalCost = updatedTransactions.reduce((acc, t) => acc + t.amount, 0); if (!updatedRecord.stages[TradeStage.LICENSES]) updatedRecord.stages[TradeStage.LICENSES] = getStageData(updatedRecord, TradeStage.LICENSES); updatedRecord.stages[TradeStage.LICENSES].costRial = totalCost; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
-    const handleSaveInsurance = async () => { if (!selectedRecord) return; const updatedRecord = { ...selectedRecord, insuranceData: insuranceForm }; const totalCost = (Number(insuranceForm.cost) || 0) + (insuranceForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!insuranceForm.policyNumber; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); alert("اطلاعات بیمه ذخیره شد."); };
-    const handleAddEndorsement = async () => { if (!selectedRecord || !newEndorsement.amount) return; const amount = endorsementType === 'increase' ? Number(newEndorsement.amount) : -Number(newEndorsement.amount); const endorsement: InsuranceEndorsement = { id: generateUUID(), date: newEndorsement.date || '', amount: amount, description: newEndorsement.description || '' }; const updatedEndorsements = [...(insuranceForm.endorsements || []), endorsement]; const updatedForm = { ...insuranceForm, endorsements: updatedEndorsements }; setInsuranceForm(updatedForm); setNewEndorsement({ amount: 0, description: '', date: '' }); const updatedRecord = { ...selectedRecord, insuranceData: updatedForm }; const totalCost = (Number(updatedForm.cost) || 0) + (updatedForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!updatedForm.policyNumber; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
-    const handleDeleteEndorsement = async (id: string) => { if (!selectedRecord) return; const updatedEndorsements = (insuranceForm.endorsements || []).filter(e => e.id !== id); const updatedForm = { ...insuranceForm, endorsements: updatedEndorsements }; setInsuranceForm(updatedForm); const updatedRecord = { ...selectedRecord, insuranceData: updatedForm }; const totalCost = (Number(updatedForm.cost) || 0) + (updatedForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!updatedForm.policyNumber; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
+    const handleSaveInsurance = async () => { 
+        if (!selectedRecord) return; 
+        const updatedRecord: TradeRecord = { ...selectedRecord, insuranceData: { ...insuranceForm } }; 
+        const totalCost = (Number(insuranceForm.cost) || 0) + (insuranceForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); 
+        if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); 
+        updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; 
+        updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!insuranceForm.policyNumber; 
+        await updateTradeRecord(updatedRecord); 
+        setSelectedRecord(updatedRecord); 
+        setRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+        alert("اطلاعات بیمه و نمایندگی با موفقیت ذخیره شد."); 
+    };
+    const handleAddEndorsement = async () => { 
+        if (!selectedRecord || !newEndorsement.amount) return; 
+        const amount = endorsementType === 'increase' ? Number(newEndorsement.amount) : -Number(newEndorsement.amount); 
+        const endorsement: InsuranceEndorsement = { id: generateUUID(), date: newEndorsement.date || '', amount: amount, description: newEndorsement.description || '' }; 
+        const updatedEndorsements = [...(insuranceForm.endorsements || []), endorsement]; 
+        const updatedForm = { ...insuranceForm, endorsements: updatedEndorsements }; 
+        setInsuranceForm(updatedForm); 
+        setNewEndorsement({ amount: 0, description: '', date: '' }); 
+        const updatedRecord: TradeRecord = { ...selectedRecord, insuranceData: updatedForm }; 
+        const totalCost = (Number(updatedForm.cost) || 0) + (updatedForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); 
+        if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); 
+        updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; 
+        updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!updatedForm.policyNumber; 
+        await updateTradeRecord(updatedRecord); 
+        setSelectedRecord(updatedRecord); 
+        setRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+    };
+    const handleDeleteEndorsement = async (id: string) => { 
+        if (!selectedRecord) return; 
+        const updatedEndorsements = (insuranceForm.endorsements || []).filter(e => e.id !== id); 
+        const updatedForm = { ...insuranceForm, endorsements: updatedEndorsements }; 
+        setInsuranceForm(updatedForm); 
+        const updatedRecord: TradeRecord = { ...selectedRecord, insuranceData: updatedForm }; 
+        const totalCost = (Number(updatedForm.cost) || 0) + (updatedForm.endorsements || []).reduce((acc, e) => acc + e.amount, 0); 
+        if (!updatedRecord.stages[TradeStage.INSURANCE]) updatedRecord.stages[TradeStage.INSURANCE] = getStageData(updatedRecord, TradeStage.INSURANCE); 
+        updatedRecord.stages[TradeStage.INSURANCE].costRial = totalCost; 
+        updatedRecord.stages[TradeStage.INSURANCE].isCompleted = !!updatedForm.policyNumber; 
+        await updateTradeRecord(updatedRecord); 
+        setSelectedRecord(updatedRecord); 
+        setRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+    };
     const handleAddInspectionCertificate = async () => { if (!selectedRecord || !newInspectionCertificate.amount) return; const cert: InspectionCertificate = { id: generateUUID(), part: newInspectionCertificate.part || 'Part', company: newInspectionCertificate.company || '', certificateNumber: newInspectionCertificate.certificateNumber || '', amount: Number(newInspectionCertificate.amount), description: '' }; const updatedCertificates = [...(inspectionForm.certificates || []), cert]; const updatedData = { ...inspectionForm, certificates: updatedCertificates }; setInspectionForm(updatedData); setNewInspectionCertificate({ part: '', company: '', certificateNumber: '', amount: 0 }); const updatedRecord = { ...selectedRecord, inspectionData: updatedData }; if (!updatedRecord.stages[TradeStage.INSPECTION]) updatedRecord.stages[TradeStage.INSPECTION] = getStageData(updatedRecord, TradeStage.INSPECTION); updatedRecord.stages[TradeStage.INSPECTION].isCompleted = updatedCertificates.length > 0; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
     const handleDeleteInspectionCertificate = async (id: string) => { if (!selectedRecord) return; const updatedCertificates = (inspectionForm.certificates || []).filter(c => c.id !== id); const updatedData = { ...inspectionForm, certificates: updatedCertificates }; setInspectionForm(updatedData); const updatedRecord = { ...selectedRecord, inspectionData: updatedData }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
     const handleAddInspectionPayment = async () => { if (!selectedRecord || !newInspectionPayment.amount) return; const payment: InspectionPayment = { id: generateUUID(), part: newInspectionPayment.part || 'Part', amount: Number(newInspectionPayment.amount), date: newInspectionPayment.date || '', bank: newInspectionPayment.bank || '', description: '' }; const updatedPayments = [...(inspectionForm.payments || []), payment]; const updatedData = { ...inspectionForm, payments: updatedPayments }; setInspectionForm(updatedData); setNewInspectionPayment({ part: '', amount: 0, date: '', bank: '' }); const updatedRecord = { ...selectedRecord, inspectionData: updatedData }; if (!updatedRecord.stages[TradeStage.INSPECTION]) updatedRecord.stages[TradeStage.INSPECTION] = getStageData(updatedRecord, TradeStage.INSPECTION); updatedRecord.stages[TradeStage.INSPECTION].costRial = updatedPayments.reduce((acc, p) => acc + p.amount, 0); await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
@@ -1015,7 +1083,68 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const handleAddPackingItem = () => { if (!newPackingItem.description) return; const item: PackingItem = { id: generateUUID(), description: newPackingItem.description, netWeight: Number(newPackingItem.netWeight), grossWeight: Number(newPackingItem.grossWeight), packageCount: Number(newPackingItem.packageCount), part: newPackingItem.part || '' }; setShippingDocForm(prev => ({ ...prev, packingItems: [...(prev.packingItems || []), item] })); setNewPackingItem({ description: '', netWeight: 0, grossWeight: 0, packageCount: 0, part: '' }); };
     const handleRemovePackingItem = (id: string) => { setShippingDocForm(prev => ({ ...prev, packingItems: (prev.packingItems || []).filter(i => i.id !== id) })); };
     const handleDocFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploadingDocFile(true); const reader = new FileReader(); reader.onload = async (ev) => { const base64 = ev.target?.result as string; try { const result = await uploadFile(file.name, base64); setShippingDocForm(prev => ({ ...prev, attachments: [...(prev.attachments || []), { fileName: result.fileName, url: result.url }] })); } catch (error) { alert('خطا در آپلود فایل'); } finally { setUploadingDocFile(false); } }; reader.readAsDataURL(file); e.target.value = ''; };
-    const handleSaveShippingDoc = async () => { if (!selectedRecord || !shippingDocForm.documentNumber) return; let totalNet = shippingDocForm.netWeight; let totalGross = shippingDocForm.grossWeight; let totalPackages = shippingDocForm.packagesCount; if (activeShippingSubTab === 'Packing List' && shippingDocForm.packingItems && shippingDocForm.packingItems.length > 0) { totalNet = shippingDocForm.packingItems.reduce((acc, i) => acc + i.netWeight, 0); totalGross = shippingDocForm.packingItems.reduce((acc, i) => acc + i.grossWeight, 0); totalPackages = shippingDocForm.packingItems.reduce((acc, i) => acc + i.packageCount, 0); } const newDoc: ShippingDocument = { id: generateUUID(), type: activeShippingSubTab, status: shippingDocForm.status || 'Draft', documentNumber: shippingDocForm.documentNumber, documentDate: shippingDocForm.documentDate || '', createdAt: Date.now(), createdBy: currentUser.fullName, attachments: shippingDocForm.attachments || [], invoiceItems: activeShippingSubTab === 'Commercial Invoice' ? shippingDocForm.invoiceItems : undefined, packingItems: activeShippingSubTab === 'Packing List' ? shippingDocForm.packingItems : undefined, freightCost: activeShippingSubTab === 'Commercial Invoice' ? Number(shippingDocForm.freightCost) : undefined, currency: shippingDocForm.currency, netWeight: totalNet, grossWeight: totalGross, packagesCount: totalPackages, vesselName: shippingDocForm.vesselName, portOfLoading: shippingDocForm.portOfLoading, portOfDischarge: shippingDocForm.portOfDischarge, description: shippingDocForm.description }; const updatedDocs = [...(selectedRecord.shippingDocuments || []), newDoc]; const updatedRecord = { ...selectedRecord, shippingDocuments: updatedDocs }; if (!updatedRecord.stages[TradeStage.SHIPPING_DOCS]) updatedRecord.stages[TradeStage.SHIPPING_DOCS] = getStageData(updatedRecord, TradeStage.SHIPPING_DOCS); if (activeShippingSubTab === 'Commercial Invoice') { updatedRecord.stages[TradeStage.SHIPPING_DOCS].costCurrency = updatedDocs.filter(d => d.type === 'Commercial Invoice').reduce((acc, d) => acc + (d.invoiceItems?.reduce((sum, i) => sum + i.totalPrice, 0) || 0) + (d.freightCost || 0), 0); } await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); setShippingDocForm({ status: 'Draft', documentNumber: '', documentDate: '', attachments: [], invoiceItems: [], packingItems: [], freightCost: 0 }); };
+    const handleSaveShippingDoc = async () => {
+        if (!selectedRecord || !shippingDocForm.documentNumber) return;
+        let totalNet = shippingDocForm.netWeight;
+        let totalGross = shippingDocForm.grossWeight;
+        let totalPackages = shippingDocForm.packagesCount;
+
+        if (activeShippingSubTab === 'Commercial Invoice' && shippingDocForm.invoiceItems && shippingDocForm.invoiceItems.length > 0) {
+            totalNet = shippingDocForm.invoiceItems.reduce((acc, i) => acc + (i.weight || 0), 0);
+            totalGross = shippingDocForm.invoiceItems.reduce((acc, i) => acc + (i.grossWeight || i.weight || 0), 0);
+        } else if (activeShippingSubTab === 'Packing List' && shippingDocForm.packingItems && shippingDocForm.packingItems.length > 0) {
+            totalNet = shippingDocForm.packingItems.reduce((acc, i) => acc + i.netWeight, 0);
+            totalGross = shippingDocForm.packingItems.reduce((acc, i) => acc + i.grossWeight, 0);
+            totalPackages = shippingDocForm.packingItems.reduce((acc, i) => acc + i.packageCount, 0);
+        }
+
+        const newDoc: ShippingDocument = {
+            id: generateUUID(),
+            type: activeShippingSubTab,
+            status: shippingDocForm.status || 'Draft',
+            documentNumber: shippingDocForm.documentNumber,
+            documentDate: shippingDocForm.documentDate || '',
+            createdAt: Date.now(),
+            createdBy: currentUser.fullName,
+            attachments: shippingDocForm.attachments || [],
+            invoiceItems: activeShippingSubTab === 'Commercial Invoice' ? shippingDocForm.invoiceItems : undefined,
+            packingItems: activeShippingSubTab === 'Packing List' ? shippingDocForm.packingItems : undefined,
+            freightCost: activeShippingSubTab === 'Commercial Invoice' ? Number(shippingDocForm.freightCost) : undefined,
+            currency: shippingDocForm.currency,
+            netWeight: totalNet,
+            grossWeight: totalGross,
+            packagesCount: totalPackages,
+            vesselName: shippingDocForm.vesselName,
+            portOfLoading: shippingDocForm.portOfLoading,
+            portOfDischarge: shippingDocForm.portOfDischarge,
+            description: shippingDocForm.description
+        };
+
+        const updatedDocs = [...(selectedRecord.shippingDocuments || []), newDoc];
+        const updatedRecord = { ...selectedRecord, shippingDocuments: updatedDocs };
+
+        if (!updatedRecord.stages[TradeStage.SHIPPING_DOCS]) {
+            updatedRecord.stages[TradeStage.SHIPPING_DOCS] = getStageData(updatedRecord, TradeStage.SHIPPING_DOCS);
+        }
+
+        if (activeShippingSubTab === 'Commercial Invoice') {
+            updatedRecord.stages[TradeStage.SHIPPING_DOCS].costCurrency = updatedDocs
+                .filter(d => d.type === 'Commercial Invoice')
+                .reduce((acc, d) => acc + (d.invoiceItems?.reduce((sum, i) => sum + i.totalPrice, 0) || 0) + (d.freightCost || 0), 0);
+        }
+
+        await updateTradeRecord(updatedRecord);
+        setSelectedRecord(updatedRecord);
+        setShippingDocForm({
+            status: 'Draft',
+            documentNumber: '',
+            documentDate: '',
+            attachments: [],
+            invoiceItems: [],
+            packingItems: [],
+            freightCost: 0
+        });
+    };
     const handleDeleteShippingDoc = async (id: string) => { if (!selectedRecord) return; const updatedDocs = (selectedRecord.shippingDocuments || []).filter(d => d.id !== id); const updatedRecord = { ...selectedRecord, shippingDocuments: updatedDocs }; await updateTradeRecord(updatedRecord); setSelectedRecord(updatedRecord); };
     const handleSyncInvoiceToProforma = async () => { 
         if (!selectedRecord) return; 
@@ -1164,16 +1293,16 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const openEditMetadata = () => {
         if (!selectedRecord) return;
         setEditMetadataForm({
-            fileNumber: selectedRecord.fileNumber,
-            proformaNumber: selectedRecord.proformaNumber || selectedRecord.fileNumber,
+            fileNumber: selectedRecord.fileNumber || '',
+            proformaNumber: selectedRecord.proformaNumber || '',
             orderNumber: selectedRecord.orderNumber || '',
             goodsName: selectedRecord.goodsName,
             sellerName: selectedRecord.sellerName,
             mainCurrency: selectedRecord.mainCurrency,
             commodityGroup: selectedRecord.commodityGroup,
             company: selectedRecord.company,
-            registrationNumber: selectedRecord.registrationNumber,
-            operatingBank: selectedRecord.operatingBank,
+            registrationNumber: selectedRecord.registrationNumber || '',
+            operatingBank: selectedRecord.operatingBank || '',
             isInTransit: selectedRecord.isInTransit || false,
             isInCustoms: selectedRecord.isInCustoms || false
         });
@@ -1659,9 +1788,12 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     <div className="flex items-center gap-4">
                         <button data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowRight /></button>
                         <div>
-                            <h1 className="text-xl font-bold flex items-center gap-2">
-                                {selectedRecord.goodsName}
-                                <span className="text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">{selectedRecord.fileNumber}</span>
+                            <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
+                                <span>{selectedRecord.goodsName}</span>
+                                <span className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full" title="شماره پرونده">پرونده: {selectedRecord.fileNumber || '---'}</span>
+                                {selectedRecord.proformaNumber && (
+                                    <span className="text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
+                                )}
                                 <button onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
                             </h1>
                             <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
@@ -1733,7 +1865,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700">شماره پروفرم</label>
-                                        <input className="w-full border rounded p-2 text-sm font-mono" value={selectedRecord.proformaNumber || selectedRecord.fileNumber || ''} onChange={e => handleUpdateProforma('proformaNumber', e.target.value)} placeholder="شماره پروفرم..."/>
+                                        <input className="w-full border rounded p-2 text-sm font-mono" value={selectedRecord.proformaNumber || ''} onChange={e => handleUpdateProforma('proformaNumber', e.target.value)} placeholder="شماره پروفرم..."/>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700">شماره سفارش</label>
@@ -1745,7 +1877,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             {selectedRecord.registrationNumber && (
                                                 <button 
                                                     type="button"
-                                                    onClick={() => handleUpdateProforma('fileNumber', selectedRecord.registrationNumber)}
+                                                    onClick={() => handleUpdateProforma('fileNumber', selectedRecord.registrationNumber || '')}
                                                     className="text-[10px] text-blue-600 hover:text-blue-800 font-bold"
                                                 >
                                                     دریافت از ثبت سفارش
@@ -1756,7 +1888,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             className="w-full border rounded p-2 text-sm bg-blue-50/40 font-mono" 
                                             value={selectedRecord.fileNumber || ''} 
                                             onChange={e => handleUpdateProforma('fileNumber', e.target.value)}
-                                            placeholder="تکمیل از شماره ثبت سفارش..."
+                                            placeholder="شماره پرونده..."
                                         />
                                     </div>
                                     <div className="space-y-1">
@@ -1764,13 +1896,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <input 
                                             className="w-full border rounded p-2 text-sm font-mono" 
                                             value={selectedRecord.registrationNumber || ''} 
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                handleUpdateProforma('registrationNumber', val);
-                                                if (!selectedRecord.fileNumber || selectedRecord.fileNumber === selectedRecord.registrationNumber) {
-                                                    handleUpdateProforma('fileNumber', val);
-                                                }
-                                            }}
+                                            onChange={e => handleUpdateProforma('registrationNumber', e.target.value)}
                                             placeholder="شماره ثبت سفارش..."
                                         />
                                     </div>
@@ -2356,6 +2482,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                             <>
                                                                                 <span>اقلام: <strong className="text-gray-700 font-mono">{doc.invoiceItems?.length || 0}</strong> ردیف</span>
                                                                                 <span>وزن خالص: <strong className="text-gray-700 font-mono">{formatNumberString(totalNet)}</strong> KG</span>
+                                                                                <span>وزن ناخالص: <strong className="text-gray-700 font-mono">{formatNumberString(totalGross)}</strong> KG</span>
                                                                                 <span>مبلغ کل: <strong className="text-blue-700 font-mono">{formatNumberString(grandTotal)}</strong> {doc.currency || selectedRecord.mainCurrency}</span>
                                                                             </>
                                                                         )}
@@ -3238,6 +3365,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             const matchSearch = searchTerm.trim() === '' || 
                                 r.goodsName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                 r.fileNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (r.proformaNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (r.sellerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (r.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (r.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -3264,7 +3392,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <span className={`text-[10px] px-2 py-1 rounded-lg ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>{record.status === 'Completed' ? 'تکمیل شده' : 'جاری'}</span>
                                 </div>
                                 <div className="space-y-1.5 text-xs text-gray-500">
-                                    <div className="flex items-center gap-1"><FolderOpen size={12} /> پروفرم: <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.proformaNumber || record.fileNumber}</span></div>
+                                    <div className="flex items-center gap-1"><span className="text-[11px] text-gray-400">شماره پرونده:</span> <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.fileNumber || '---'}</span></div>
+                                    {record.proformaNumber && <div className="flex items-center gap-1"><FolderOpen size={12} /> پروفرم: <span className="font-mono text-gray-700 dark:text-gray-200 font-bold">{record.proformaNumber}</span></div>}
                                     {record.orderNumber && <div className="flex items-center gap-1"><span className="text-[11px] text-gray-400">سفارش:</span> <span className="font-mono text-gray-700 dark:text-gray-300 font-semibold">{record.orderNumber}</span></div>}
                                     <div className="flex items-center gap-1"><Building2 size={12} /> فروشنده: <span className="text-gray-700 dark:text-gray-300">{record.sellerName}</span></div>
                                     <div className="flex items-center gap-1"><History size={12} /> شروع: <span>{new Date(record.startDate).toLocaleDateString('fa-IR')}</span></div>
@@ -3300,8 +3429,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <div className="space-y-4 text-gray-800 dark:text-gray-200">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پروفرم *</label>
-                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newProformaNumber} onChange={e => { setNewProformaNumber(e.target.value); setNewFileNumber(e.target.value); }} placeholder="مثال: PI-1403-01 یا 2024-99..." />
+                                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پروفرم</label>
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newProformaNumber} onChange={e => setNewProformaNumber(e.target.value)} placeholder="مثال: PI-1403-01 یا 2024-99..." />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره سفارش</label>
@@ -3311,11 +3440,11 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره پرونده</label>
-                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newFileNumberDirect} onChange={e => setNewFileNumberDirect(e.target.value)} placeholder="تکمیل از ثبت سفارش یا دستی..." />
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newFileNumberDirect} onChange={e => setNewFileNumberDirect(e.target.value)} placeholder="شماره پرونده (مستقل از پروفرما)..." />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">شماره ثبت سفارش</label>
-                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newRegistrationNumber} onChange={e => { setNewRegistrationNumber(e.target.value); if (!newFileNumberDirect) setNewFileNumberDirect(e.target.value); }} placeholder="شماره ۸ رقمی ثبت سفارش..." />
+                                    <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-left dir-ltr text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none" value={newRegistrationNumber} onChange={e => setNewRegistrationNumber(e.target.value)} placeholder="شماره ۸ رقمی ثبت سفارش..." />
                                 </div>
                             </div>
                             <div className="space-y-1.5">

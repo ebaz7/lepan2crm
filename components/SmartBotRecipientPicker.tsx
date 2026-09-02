@@ -302,6 +302,38 @@ export const SmartBotRecipientPicker: React.FC<SmartBotRecipientPickerProps> = (
       }
     });
 
+    // 2.5 SAVED SYSTEM CONTACTS
+    const savedContacts = (settings?.savedContacts || []) as any[];
+    savedContacts.forEach((sc, idx) => {
+      const contactTitle = sc.isGroup ? 'گروه مخاطبین' : 'مخاطب ذخیره‌شده';
+
+      if (sc.baleId && String(sc.baleId).trim()) {
+        list.push({
+          id: `saved_${sc.id || idx}_bale`,
+          name: sc.name || 'مخاطب بدون نام',
+          detail: `${sc.number || ''} (${contactTitle})`,
+          roleTitle: contactTitle,
+          platform: 'bale',
+          chatId: String(sc.baleId).trim(),
+          sourceType: sc.isGroup ? 'group' : 'contact',
+          phoneNumber: sc.number
+        });
+      }
+
+      if (sc.telegramId && String(sc.telegramId).trim()) {
+        list.push({
+          id: `saved_${sc.id || idx}_tele`,
+          name: sc.name || 'مخاطب بدون نام',
+          detail: `${sc.number || ''} (${contactTitle})`,
+          roleTitle: contactTitle,
+          platform: 'telegram',
+          chatId: String(sc.telegramId).trim(),
+          sourceType: sc.isGroup ? 'group' : 'contact',
+          phoneNumber: sc.number
+        });
+      }
+    });
+
     // 3. SYSTEM DEFAULT BOT GROUPS & CHANNELS
     if (settings) {
       const s = settings as any;
@@ -726,6 +758,201 @@ export const SmartBotRecipientPicker: React.FC<SmartBotRecipientPickerProps> = (
           <span>افزودن شناسه</span>
         </button>
       </form>
+    </div>
+  );
+};
+
+interface SmartContactSelectorDropdownProps {
+  onSelect: (recipient: { name: string; chatId: string; platform: 'telegram' | 'bale' | 'whatsapp'; user?: User }) => void;
+  platform?: 'bale' | 'telegram' | 'whatsapp' | 'all';
+  placeholder?: string;
+  className?: string;
+  settings?: SystemSettings;
+  users?: User[];
+}
+
+export const SmartContactSelectorDropdown: React.FC<SmartContactSelectorDropdownProps> = ({
+  onSelect,
+  platform = 'all',
+  placeholder = 'جستجو و انتخاب از کاربران و مخاطبین...',
+  className = '',
+  settings,
+  users: propUsers
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [systemUsers, setSystemUsers] = useState<User[]>(propUsers || []);
+
+  useEffect(() => {
+    if (propUsers && propUsers.length > 0) {
+      setSystemUsers(propUsers);
+    } else {
+      getUsers().then(res => {
+        if (Array.isArray(res)) setSystemUsers(res);
+      }).catch(err => console.warn(err));
+    }
+  }, [propUsers]);
+
+  const allRecipients = useMemo(() => {
+    const list: Array<{ id: string; name: string; detail: string; roleFa: string; platform: 'bale' | 'telegram' | 'whatsapp'; chatId: string; user?: User }> = [];
+
+    systemUsers.forEach(u => {
+      const roleName = typeof u.role === 'string' ? u.role : '';
+      let roleFa = 'کاربر سامانه';
+      if (roleName === 'admin') roleFa = 'مدیر ارشد';
+      else if (roleName === 'ceo') roleFa = 'مدیرعامل';
+      else if (roleName === 'financial') roleFa = 'مدیر مالی';
+      else if (roleName === 'sales_manager') roleFa = 'مدیر فروش';
+      else if (roleName === 'factory_manager') roleFa = 'مدیر کارخانه';
+      else if (roleName === 'warehouse_keeper') roleFa = 'مسئول انبار';
+      else if (roleName === 'commercial') roleFa = 'بازرگانی';
+      else if (roleName === 'security_head' || roleName === 'security_guard') roleFa = 'انتظامات';
+
+      if ((platform === 'all' || platform === 'bale') && (u.baleChatId || (u as any).baleId)) {
+        list.push({
+          id: `u_${u.id}_bale`,
+          name: u.fullName || u.username,
+          detail: `@${u.username} | ${u.phoneNumber || ''}`,
+          roleFa,
+          platform: 'bale',
+          chatId: String(u.baleChatId || (u as any).baleId).trim(),
+          user: u
+        });
+      }
+
+      if ((platform === 'all' || platform === 'telegram') && (u.telegramChatId || (u as any).telegramId)) {
+        list.push({
+          id: `u_${u.id}_tele`,
+          name: u.fullName || u.username,
+          detail: `@${u.username} | ${u.phoneNumber || ''}`,
+          roleFa,
+          platform: 'telegram',
+          chatId: String(u.telegramChatId || (u as any).telegramId).trim(),
+          user: u
+        });
+      }
+    });
+
+    const savedContacts = (settings?.savedContacts || []) as any[];
+    savedContacts.forEach((sc, idx) => {
+      if ((platform === 'all' || platform === 'bale') && sc.baleId) {
+        list.push({
+          id: `sc_${sc.id || idx}_bale`,
+          name: sc.name || 'مخاطب',
+          detail: sc.number || '',
+          roleFa: 'مخاطب دفترچه',
+          platform: 'bale',
+          chatId: String(sc.baleId).trim()
+        });
+      }
+      if ((platform === 'all' || platform === 'telegram') && sc.telegramId) {
+        list.push({
+          id: `sc_${sc.id || idx}_tele`,
+          name: sc.name || 'مخاطب',
+          detail: sc.number || '',
+          roleFa: 'مخاطب دفترچه',
+          platform: 'telegram',
+          chatId: String(sc.telegramId).trim()
+        });
+      }
+    });
+
+    return list;
+  }, [systemUsers, settings, platform]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return allRecipients;
+    const q = search.toLowerCase().trim();
+    return allRecipients.filter(r => 
+      r.name.toLowerCase().includes(q) || 
+      r.detail.toLowerCase().includes(q) || 
+      r.chatId.toLowerCase().includes(q) ||
+      r.roleFa.toLowerCase().includes(q)
+    );
+  }, [allRecipients, search]);
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full text-right flex items-center justify-between gap-2 px-3 py-2 border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold hover:bg-indigo-100/70 transition-all cursor-pointer"
+      >
+        <span className="flex items-center gap-1.5 truncate">
+          <Sparkles size={14} className="text-indigo-600 animate-pulse shrink-0" />
+          <span className="truncate">{placeholder}</span>
+        </span>
+        <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full shrink-0 font-mono">
+          {allRecipients.length} مخاطب با آیدی
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1.5 w-full min-w-[280px] bg-white dark:bg-gray-900 border border-indigo-100 dark:border-gray-800 rounded-2xl shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95">
+          <div className="relative">
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="جستجوی نام، نام کاربری یا شناسه..."
+              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2 px-8 text-xs text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <Search size={14} className="absolute right-2.5 top-2.5 text-gray-400" />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-56 overflow-y-auto space-y-1 divide-y divide-gray-50 dark:divide-gray-800 no-scrollbar">
+            {filtered.map(r => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  onSelect(r);
+                  setIsOpen(false);
+                  setSearch('');
+                }}
+                className="w-full text-right p-2 hover:bg-indigo-50/80 dark:hover:bg-gray-800 rounded-xl transition-all flex items-center justify-between gap-2 group cursor-pointer"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`p-1.5 rounded-lg shrink-0 ${
+                    r.platform === 'bale' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                  }`}>
+                    {r.platform === 'bale' ? <Bot size={13} /> : <Send size={13} />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-gray-800 dark:text-gray-200 truncate group-hover:text-indigo-600">{r.name}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{r.roleFa} • {r.detail}</p>
+                  </div>
+                </div>
+                <div className="text-left shrink-0 font-mono text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md">
+                  {r.chatId}
+                </div>
+              </button>
+            ))}
+
+            {filtered.length === 0 && (
+              <div className="py-4 text-center text-xs text-gray-400">
+                مخاطبی با این مشخصات یافت نشد
+              </div>
+            )}
+          </div>
+
+          <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-[10px] text-gray-500 hover:text-gray-700 px-2 py-1 font-bold"
+            >
+              بستن
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

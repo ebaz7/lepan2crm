@@ -770,101 +770,145 @@ const CreateRequestModal = ({ onClose, currentUser, onSuccess, parts }: any) => 
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000000] flex items-start justify-center p-2 md:p-6 bg-black/80 backdrop-blur-xl animate-fade-in overflow-y-auto pt-12 md:pt-16 dir-rtl">
-            <div className="bg-white rounded-[2.5rem] w-full max-w-5xl p-6 md:p-8 animate-scale-in relative shadow-2xl border-4 border-indigo-500/20 mb-10 text-right">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                            <ShoppingCart size={28} />
+        <div className="fixed inset-0 z-[100000000] flex items-stretch sm:items-start justify-center p-0 sm:p-4 md:p-6 bg-black/80 backdrop-blur-xl animate-fade-in overflow-y-auto pt-0 sm:pt-10 md:pt-16 pb-0 sm:pb-10 dir-rtl">
+            <div className="bg-white dark:bg-gray-900 rounded-none sm:rounded-[2.5rem] w-full max-w-5xl min-h-screen sm:min-h-0 p-3.5 sm:p-6 md:p-8 animate-scale-in relative shadow-2xl border-0 sm:border-4 border-indigo-500/20 text-right flex flex-col justify-between">
+                <div>
+                    <div className="flex justify-between items-center mb-4 sm:mb-6 border-b border-gray-100 dark:border-gray-800 pb-3 sm:pb-4 sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md z-10 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 pt-2 sm:pt-0">
+                        <div className="flex items-center gap-2.5 sm:gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none shrink-0">
+                                <ShoppingCart size={22} className="sm:hidden" />
+                                <ShoppingCart size={28} className="hidden sm:block" />
+                            </div>
+                            <div>
+                                <h2 className="text-base sm:text-xl md:text-2xl font-black text-gray-800 dark:text-gray-100">ثبت فرم مهندسی درخواست خرید</h2>
+                                <p className="text-[10px] sm:text-xs text-gray-400 font-bold">ماژول خریدهای صنعتی، قطعات یدکی و ماشین‌آلات کارخانه</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-xl md:text-2xl font-black text-gray-800">ثبت فرم مهندسی درخواست خرید (ERP BPMN)</h2>
-                            <p className="text-xs text-gray-400 font-bold">ماژول خریدهای صنعتی، قطعات یدکی و ماشین‌آلات کارخانه</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all bg-gray-100"><X size={24}/></button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">واحد درخواست‌کننده</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-bold bg-white" value={requestingUnit} onChange={e => setRequestingUnit(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">درجه فوریت تامین</label>
-                            <select className="w-full border rounded-xl p-2.5 text-xs font-black bg-white" value={urgency} onChange={e => setUrgency(e.target.value as any)}>
-                                <option value="عادی">🟢 عادی (روتین)</option>
-                                <option value="فوری">🟡 فوری (تامین سریع)</option>
-                                <option value="اضطراری">🔴 اضطراری (توقف خط)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">دستگاه / ماشین‌آلات مربوطه</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-bold bg-white" value={machinery} onChange={e => setMachinery(e.target.value)} placeholder="مثلاً: پرس اکستروژن ۳۰۰۰ تن" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">محل نصب / مصرف</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-bold bg-white" value={installationLocation} onChange={e => setInstallationLocation(e.target.value)} placeholder="مثلاً: خط انودایز / کارگاه ۲" />
-                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-xl sm:rounded-2xl transition-all bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300"><X size={20} className="sm:hidden"/><X size={24} className="hidden sm:block"/></button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">شماره درخواست تعمیر (تولید خودکار)</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-mono font-bold bg-gray-100 cursor-not-allowed text-gray-500" value={repairRequestNumber} readOnly />
+                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4 bg-indigo-50/60 dark:bg-indigo-950/30 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">واحد درخواست‌کننده</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={requestingUnit} onChange={e => setRequestingUnit(e.target.value)} required />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">درجه فوریت تامین</label>
+                                <select className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-black bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={urgency} onChange={e => setUrgency(e.target.value as any)}>
+                                    <option value="عادی">🟢 عادی (روتین)</option>
+                                    <option value="فوری">🟡 فوری (تامین سریع)</option>
+                                    <option value="اضطراری">🔴 اضطراری (توقف خط)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">دستگاه / ماشین‌آلات مربوطه</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={machinery} onChange={e => setMachinery(e.target.value)} placeholder="مثلاً: پرس اکستروژن ۳۰۰۰ تن" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">محل نصب / مصرف</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={installationLocation} onChange={e => setInstallationLocation(e.target.value)} placeholder="مثلاً: خط انودایز / کارگاه ۲" />
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">شرح خرابی / علت نیاز</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-bold bg-white" value={breakdownDescription} onChange={e => setBreakdownDescription(e.target.value)} placeholder="مثلاً: شکستگی بلبرینگ شفت اصلی" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-700 block mb-1">توجیه لزوم خرید</label>
-                            <input className="w-full border rounded-xl p-2.5 text-xs font-bold bg-white" value={purchaseReason} onChange={e => setPurchaseReason(e.target.value)} placeholder="عدم وجود در انبار و خطر توقف تولید" />
-                        </div>
-                    </div>
 
-                    <div className="border border-gray-200 rounded-3xl overflow-hidden shadow-sm bg-white">
-                        <div className="bg-gradient-to-r from-gray-800 to-indigo-900 text-white p-3 px-4 flex justify-between items-center">
-                            <span className="text-xs font-black flex items-center gap-2"><Package size={16}/> جدول اقلام درخواستی (تعدد اقلام)</span>
-                            <button type="button" onClick={handleAddItemRow} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 transition-all">
-                                <Plus size={14}/> افزودن ردیف کالا
-                            </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">شماره درخواست تعمیر (تولید خودکار)</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-mono font-bold bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400" value={repairRequestNumber} readOnly />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">شرح خرابی / علت نیاز</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={breakdownDescription} onChange={e => setBreakdownDescription(e.target.value)} placeholder="مثلاً: شکستگی بلبرینگ شفت اصلی" />
+                            </div>
+                            <div className="sm:col-span-2 md:col-span-1">
+                                <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">توجیه لزوم خرید</label>
+                                <input className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={purchaseReason} onChange={e => setPurchaseReason(e.target.value)} placeholder="عدم وجود در انبار و خطر توقف تولید" />
+                            </div>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs text-right dir-rtl">
-                                <thead className="bg-gray-100 border-b text-gray-600 font-bold">
-                                    <tr>
-                                        <th className="p-2.5 w-10 text-center">#</th>
-                                        <th className="p-2.5 min-w-[180px]">انتخاب از انبار یا نام کالا</th>
-                                        <th className="p-2.5 w-28">کد فنی کالا</th>
-                                        <th className="p-2.5 w-28">برند / سازنده پیشنهاد</th>
-                                        <th className="p-2.5 w-20 text-center">تعداد</th>
-                                        <th className="p-2.5 w-24">واحد</th>
-                                        <th className="p-2.5">مشخصات فنی و نقشه</th>
-                                        <th className="p-2.5 w-10"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {items.map((it, index) => (
-                                        <tr key={it.id} className="hover:bg-gray-50/80">
-                                            <td className="p-2 text-center font-mono font-bold text-gray-400">{index + 1}</td>
-                                            <td className="p-2">
-                                                <div className="space-y-1">
-                                                    {parts && parts.length > 0 && (
-                                                        <select className="w-full border rounded-lg p-1.5 text-[10px] text-gray-500 bg-gray-50" onChange={e => handleSelectPart(it.id, e.target.value)}>
-                                                            <option value="">-- انتخاب از کاتالوگ انبار (اختیاری) --</option>
-                                                            {parts.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
-                                                        </select>
-                                                    )}
-                                                    <input className="w-full border rounded-lg p-2 text-xs font-black text-gray-800" value={it.itemName} onChange={e => handleItemChange(it.id, 'itemName', e.target.value)} placeholder="نام دقیق کالا / قطعه" required />
+
+                        {/* Requested Items Section */}
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm bg-white dark:bg-gray-850">
+                            <div className="bg-gradient-to-r from-gray-800 to-indigo-900 text-white p-3 px-3.5 sm:px-4 flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <Package size={16} className="text-indigo-300"/>
+                                    <span className="text-xs font-black">اقلام درخواستی ({items.length} قلم کالا)</span>
+                                </div>
+                                <button type="button" onClick={handleAddItemRow} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 transition-all">
+                                    <Plus size={14}/> افزودن ردیف کالا
+                                </button>
+                            </div>
+
+                            {/* Mobile View: Vertical Card-Based Layout (Zero horizontal scrolling) */}
+                            <div className="block md:hidden divide-y divide-gray-100 dark:divide-gray-800 p-2.5 sm:p-3 space-y-3">
+                                {items.map((it, index) => (
+                                    <div key={it.id} className="pt-3 first:pt-0 space-y-2.5 bg-gray-50/70 dark:bg-gray-800/60 p-3 rounded-2xl border border-gray-200/80 dark:border-gray-700">
+                                        <div className="flex items-center justify-between pb-1 border-b border-gray-200/60 dark:border-gray-700/60">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-mono font-black text-xs flex items-center justify-center shadow-sm">
+                                                    {index + 1}
+                                                </span>
+                                                <span className="text-xs font-black text-gray-800 dark:text-gray-200">
+                                                    قلم شماره {index + 1}
+                                                </span>
+                                            </div>
+                                            {items.length > 1 && (
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveItemRow(it.id)} 
+                                                    className="text-red-500 hover:text-red-700 p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-xs font-bold flex items-center gap-1 border border-red-200 dark:border-red-900/50"
+                                                >
+                                                    <Trash2 size={13}/>
+                                                    <span>حذف این قلم</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Part Name & Catalog */}
+                                        <div className="space-y-1.5">
+                                            {parts && parts.length > 0 && (
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 block mb-0.5">انتخاب از کاتالوگ انبار (اختیاری):</label>
+                                                    <select 
+                                                        className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-[11px] text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                        onChange={e => handleSelectPart(it.id, e.target.value)}
+                                                    >
+                                                        <option value="">-- انتخاب از کاتالوگ انبار (اختیاری) --</option>
+                                                        {parts.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
+                                                    </select>
                                                 </div>
-                                            </td>
-                                            <td className="p-2"><input className="w-full border rounded-lg p-2 text-xs font-mono" value={it.itemCode || ''} onChange={e => handleItemChange(it.id, 'itemCode', e.target.value)} placeholder="PN-1002" /></td>
-                                            <td className="p-2"><input className="w-full border rounded-lg p-2 text-xs" value={it.suggestedBrand || ''} onChange={e => handleItemChange(it.id, 'suggestedBrand', e.target.value)} placeholder="مثلاً: SKF, Siemens" /></td>
-                                            <td className="p-2"><input type="number" min="1" className="w-full border rounded-lg p-2 text-xs text-center font-black text-indigo-700" value={it.quantity} onChange={e => handleItemChange(it.id, 'quantity', +e.target.value)} required /></td>
-                                            <td className="p-2">
-                                                <select className="w-full border rounded-lg p-2 text-xs font-bold" value={it.unit} onChange={e => handleItemChange(it.id, 'unit', e.target.value)}>
+                                            )}
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">نام دقیق کالا / قطعه *</label>
+                                                <input 
+                                                    className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs font-black text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                    value={it.itemName} 
+                                                    onChange={e => handleItemChange(it.id, 'itemName', e.target.value)} 
+                                                    placeholder="مثلاً: بلبرینگ ۶۲۰۴ دور بالا" 
+                                                    required 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Qty and Unit */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">تعداد درخواستی *</label>
+                                                <input 
+                                                    type="number" 
+                                                    min="1" 
+                                                    className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-xs text-center font-black text-indigo-700 dark:text-indigo-400 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                    value={it.quantity} 
+                                                    onChange={e => handleItemChange(it.id, 'quantity', +e.target.value)} 
+                                                    required 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">واحد سنجش</label>
+                                                <select 
+                                                    className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-xs font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                    value={it.unit} 
+                                                    onChange={e => handleItemChange(it.id, 'unit', e.target.value)}
+                                                >
                                                     <option value="عدد">عدد</option>
                                                     <option value="کیلوگرم">کیلوگرم</option>
                                                     <option value="متر">متر</option>
@@ -872,52 +916,154 @@ const CreateRequestModal = ({ onClose, currentUser, onSuccess, parts }: any) => 
                                                     <option value="پک/بسته">پک/بسته</option>
                                                     <option value="لیتر">لیتر</option>
                                                     <option value="شاخه">شاخه</option>
+                                                    <option value="جفت">جفت</option>
+                                                    <option value="طاقه">طاقه</option>
+                                                    <option value="ست">ست</option>
                                                 </select>
-                                            </td>
-                                            <td className="p-2"><input className="w-full border rounded-lg p-2 text-xs" value={it.specifications || ''} onChange={e => handleItemChange(it.id, 'specifications', e.target.value)} placeholder="ابعاد، ولتاژ، استاندارد و..." /></td>
-                                            <td className="p-2 text-center">
-                                                {items.length > 1 && (
-                                                    <button type="button" onClick={() => handleRemoveItemRow(it.id)} className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50"><Trash2 size={16}/></button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-gray-800 flex items-center gap-2"><Paperclip size={16}/> پیوست مدارک فنی، نقشه، کاتالوگ یا عکس خرابی (PDF/Word/Excel/عکس)</span>
-                            <label className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1.5">
-                                <UploadCloud size={16}/> آپلود فایل
-                                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
-                            </label>
-                        </div>
-                        {attachments.length > 0 && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2">
-                                {attachments.map(att => (
-                                    <div key={att.id} className="p-2 bg-white rounded-xl border border-gray-200 flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <FileText size={16} className="text-indigo-500 shrink-0" />
-                                            <span className="font-bold text-gray-700 truncate">{att.fileName}</span>
+                                            </div>
                                         </div>
-                                        <button type="button" onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-red-500 hover:bg-red-50 p-1 rounded-lg"><X size={14}/></button>
+
+                                        {/* Part code & Suggested Brand */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">کد فنی کالا</label>
+                                                <input 
+                                                    className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-xs font-mono text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                    value={it.itemCode || ''} 
+                                                    onChange={e => handleItemChange(it.id, 'itemCode', e.target.value)} 
+                                                    placeholder="مثلاً: PN-1002" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">برند / سازنده پیشنهادی</label>
+                                                <input 
+                                                    className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                    value={it.suggestedBrand || ''} 
+                                                    onChange={e => handleItemChange(it.id, 'suggestedBrand', e.target.value)} 
+                                                    placeholder="مثلاً: SKF, Siemens" 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Specifications */}
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block mb-0.5">مشخصات فنی، ابعاد و نقشه</label>
+                                            <input 
+                                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-2 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                                value={it.specifications || ''} 
+                                                onChange={e => handleItemChange(it.id, 'specifications', e.target.value)} 
+                                                placeholder="ابعاد، ولتاژ، توان، استاندارد یا نقشه ساخت..." 
+                                            />
+                                        </div>
                                     </div>
                                 ))}
-                            </div>
-                        )}
-                    </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                        <button type="button" onClick={onClose} className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl text-xs transition-all">انصراف</button>
-                        <button type="submit" disabled={loading || uploading} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl text-xs shadow-xl shadow-indigo-100 transition-all flex items-center gap-2">
-                            {loading ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle size={18}/>}
-                            ثبت و ارسال به کارشناس فنی کارخانه
-                        </button>
-                    </div>
-                </form>
+                                <button 
+                                    type="button" 
+                                    onClick={handleAddItemRow} 
+                                    className="w-full py-3 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-black border-2 border-dashed border-indigo-200 dark:border-indigo-800 flex items-center justify-center gap-2 transition shadow-sm active:scale-[0.98]"
+                                >
+                                    <Plus size={16}/>
+                                    <span>افزودن قلم کالای دیگر به درخواست</span>
+                                </button>
+                            </div>
+
+                            {/* Desktop View: Full Table */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-xs text-right dir-rtl">
+                                    <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-bold">
+                                        <tr>
+                                            <th className="p-2.5 w-10 text-center">#</th>
+                                            <th className="p-2.5 min-w-[200px]">انتخاب از انبار یا نام کالا</th>
+                                            <th className="p-2.5 w-28">کد فنی کالا</th>
+                                            <th className="p-2.5 w-32">برند / سازنده پیشنهاد</th>
+                                            <th className="p-2.5 w-20 text-center">تعداد</th>
+                                            <th className="p-2.5 w-24">واحد</th>
+                                            <th className="p-2.5">مشخصات فنی و نقشه</th>
+                                            <th className="p-2.5 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                        {items.map((it, index) => (
+                                            <tr key={it.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50">
+                                                <td className="p-2 text-center font-mono font-bold text-gray-400">{index + 1}</td>
+                                                <td className="p-2">
+                                                    <div className="space-y-1">
+                                                        {parts && parts.length > 0 && (
+                                                            <select className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-1.5 text-[10px] text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800" onChange={e => handleSelectPart(it.id, e.target.value)}>
+                                                                <option value="">-- انتخاب از کاتالوگ انبار (اختیاری) --</option>
+                                                                {parts.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
+                                                            </select>
+                                                        )}
+                                                        <input className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs font-black text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800" value={it.itemName} onChange={e => handleItemChange(it.id, 'itemName', e.target.value)} placeholder="نام دقیق کالا / قطعه" required />
+                                                    </div>
+                                                </td>
+                                                <td className="p-2"><input className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs font-mono bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" value={it.itemCode || ''} onChange={e => handleItemChange(it.id, 'itemCode', e.target.value)} placeholder="PN-1002" /></td>
+                                                <td className="p-2"><input className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" value={it.suggestedBrand || ''} onChange={e => handleItemChange(it.id, 'suggestedBrand', e.target.value)} placeholder="مثلاً: SKF, Siemens" /></td>
+                                                <td className="p-2"><input type="number" min="1" className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs text-center font-black text-indigo-700 dark:text-indigo-400 bg-white dark:bg-gray-800" value={it.quantity} onChange={e => handleItemChange(it.id, 'quantity', +e.target.value)} required /></td>
+                                                <td className="p-2">
+                                                    <select className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs font-bold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" value={it.unit} onChange={e => handleItemChange(it.id, 'unit', e.target.value)}>
+                                                        <option value="عدد">عدد</option>
+                                                        <option value="کیلوگرم">کیلوگرم</option>
+                                                        <option value="متر">متر</option>
+                                                        <option value="دستگاه">دستگاه</option>
+                                                        <option value="پک/بسته">پک/بسته</option>
+                                                        <option value="لیتر">لیتر</option>
+                                                        <option value="شاخه">شاخه</option>
+                                                        <option value="جفت">جفت</option>
+                                                        <option value="طاقه">طاقه</option>
+                                                        <option value="ست">ست</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-2"><input className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-2 text-xs bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100" value={it.specifications || ''} onChange={e => handleItemChange(it.id, 'specifications', e.target.value)} placeholder="ابعاد، ولتاژ، استاندارد و..." /></td>
+                                                <td className="p-2 text-center">
+                                                    {items.length > 1 && (
+                                                        <button type="button" onClick={() => handleRemoveItemRow(it.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"><Trash2 size={16}/></button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Attachments */}
+                        <div className="bg-slate-50 dark:bg-gray-800/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 space-y-3">
+                            <div className="flex flex-wrap justify-between items-center gap-2">
+                                <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                    <Paperclip size={16} className="text-indigo-500"/> پیوست مدارک، نقشه یا عکس خرابی
+                                </span>
+                                <label className="bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1.5">
+                                    <UploadCloud size={16}/> آپلود فایل
+                                    <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                                </label>
+                            </div>
+                            {attachments.length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2">
+                                    {attachments.map(att => (
+                                        <div key={att.id} className="p-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <FileText size={16} className="text-indigo-500 shrink-0" />
+                                                <span className="font-bold text-gray-700 dark:text-gray-200 truncate">{att.fileName}</span>
+                                            </div>
+                                            <button type="button" onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-1 rounded-lg"><X size={14}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Submit Footer */}
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <button type="button" onClick={onClose} className="w-full sm:w-auto px-6 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl sm:rounded-2xl text-xs transition-all text-center">انصراف</button>
+                            <button type="submit" disabled={loading || uploading} className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl sm:rounded-2xl text-xs shadow-xl shadow-indigo-100 dark:shadow-none transition-all flex items-center justify-center gap-2">
+                                {loading ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle size={18}/>}
+                                ثبت و ارسال به کارشناس فنی کارخانه
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>,
         document.body
@@ -1418,8 +1564,8 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000005] flex items-start justify-center p-2 md:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto pt-16 md:pt-20">
-            <div className="bg-white rounded-[2.5rem] w-full max-w-[94vw] lg:max-w-6xl xl:max-w-7xl overflow-hidden shadow-2xl border border-white/20 animate-in fade-in zoom-in h-auto min-h-[60vh] max-h-[96vh] md:max-h-[94vh] flex flex-col relative mb-10">
+        <div className="fixed inset-0 z-[100000005] flex items-stretch sm:items-start justify-center p-0 sm:p-4 md:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto pt-0 sm:pt-16 md:pt-20">
+            <div className="bg-white dark:bg-gray-900 rounded-none sm:rounded-[2.5rem] w-full max-w-full lg:max-w-6xl xl:max-w-7xl overflow-hidden shadow-2xl border-0 sm:border border-white/20 animate-in fade-in zoom-in h-auto min-h-screen sm:min-h-[60vh] sm:max-h-[94vh] flex flex-col relative mb-0 sm:mb-10">
                 <div className="p-4 md:p-6 border-b flex justify-between items-center bg-gradient-to-r from-indigo-700 via-indigo-800 to-purple-900 text-white shrink-0 z-20 shadow-lg">
                     <div className="flex items-center gap-3">
                         <div className="p-2 md:p-3 bg-white/10 rounded-2xl">
@@ -1462,22 +1608,105 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
                     />
                 )}
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-gray-50/50 dark:bg-gray-950/40 no-scrollbar">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2 space-y-6">
-                            {/* Core Info */}
-                            <div className="glass-panel p-6 rounded-3xl border border-gray-200 bg-white shadow-sm">
-                                <div className="flex justify-between items-start mb-6">
-                                    <h3 className="text-sm font-black text-gray-800 flex items-center gap-2"><Package className="text-indigo-500" size={18}/> اطلاعات کالا</h3>
-                                    <span className="text-[10px] font-mono bg-gray-100 px-3 py-1 rounded-full text-gray-500 font-bold uppercase">{request.requestNumber}</span>
+                            {/* Core Info & Items List */}
+                            <div className="glass-panel p-4 md:p-6 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-sm font-black text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                        <Package className="text-indigo-500" size={18}/> 
+                                        <span>مشخصات و اقلام درخواستی</span>
+                                        {request.items && request.items.length > 0 && (
+                                            <span className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                                                {request.items.length} قلم کالا
+                                            </span>
+                                        )}
+                                    </h3>
+                                    <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full text-gray-500 font-bold uppercase">{request.requestNumber}</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">نام قطعه / کالا:</label><p className="text-sm font-black text-gray-800">{request.itemName}</p></div>
-                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">دسته بندی:</label><p className="text-sm font-bold text-gray-700">{request.category} {request.subCategory && `| ${request.subCategory}`}</p></div>
-                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">تعداد درخواستی:</label><p className="text-lg font-black text-indigo-600">{request.quantity} {request.unit}</p></div>
-                                    <div><label className="text-[10px] font-bold text-gray-400 block mb-1">تاریخ ثبت:</label><p className="text-sm font-bold text-gray-700">{formatDate(request.date)}</p></div>
-                                    <div className="col-span-2"><label className="text-[10px] font-bold text-gray-400 block mb-1">مشخصات فنی و ملاحظات:</label><p className="text-xs text-gray-600 font-medium leading-relaxed bg-gray-50 p-3 rounded-xl border border-dashed border-gray-200">{request.specifications || '---'}</p></div>
+
+                                {/* General Details Header */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-2xl mb-4 text-xs border border-gray-100 dark:border-gray-800">
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block font-bold">متقاضی:</span>
+                                        <span className="font-black text-gray-800 dark:text-gray-200">{request.requester || '---'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block font-bold">تاریخ ثبت:</span>
+                                        <span className="font-bold text-gray-700 dark:text-gray-300">{formatDate(request.date)}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block font-bold">اولویت:</span>
+                                        <span className={`font-black ${((request as any).priority || request.urgency) === 'فوری' ? 'text-red-500' : 'text-blue-600'}`}>
+                                            {(request as any).priority || request.urgency || 'عادی'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block font-bold">دسته بندی کلی:</span>
+                                        <span className="font-bold text-gray-700 dark:text-gray-300 truncate block">{request.category || 'عمومی'}</span>
+                                    </div>
                                 </div>
+
+                                {/* Items: Mobile Card Layout (No horizontal scrolling) */}
+                                {request.items && request.items.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <div className="block md:hidden space-y-2.5">
+                                            {request.items.map((it: any, idx: number) => (
+                                                <div key={it.id || idx} className="p-3 bg-indigo-50/40 dark:bg-gray-800/60 border border-indigo-100 dark:border-gray-700 rounded-2xl space-y-2">
+                                                    <div className="flex justify-between items-center border-b border-indigo-100/60 dark:border-gray-700 pb-1.5">
+                                                        <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                                                            <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-mono">{idx + 1}</span>
+                                                            <span className="text-gray-800 dark:text-gray-200">{it.itemName}</span>
+                                                        </span>
+                                                        <span className="text-xs font-black text-indigo-600 bg-white dark:bg-gray-900 px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-gray-700">
+                                                            {it.quantity} {it.unit}
+                                                        </span>
+                                                    </div>
+                                                    {it.specifications && (
+                                                        <div className="text-[11px] text-gray-600 dark:text-gray-400 bg-white/70 dark:bg-gray-900/60 p-2 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                                            <span className="font-bold text-gray-400 text-[10px] block mb-0.5">مشخصات فنی / ابعاد:</span>
+                                                            <p className="leading-relaxed">{it.specifications}</p>
+                                                        </div>
+                                                    )}
+                                                    {it.itemCode && (
+                                                        <div className="text-[10px] font-mono text-gray-400">کد: {it.itemCode}</div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Desktop Table View */}
+                                        <div className="hidden md:block overflow-hidden border border-gray-200 dark:border-gray-800 rounded-2xl">
+                                            <table className="w-full text-xs text-right">
+                                                <thead className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-black">
+                                                    <tr>
+                                                        <th className="p-3 w-12 text-center">ردیف</th>
+                                                        <th className="p-3">نام قطعه / کالا</th>
+                                                        <th className="p-3 w-28 text-center">تعداد / مقدار</th>
+                                                        <th className="p-3">مشخصات فنی و ابعاد</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                    {request.items.map((it: any, idx: number) => (
+                                                        <tr key={it.id || idx} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors">
+                                                            <td className="p-3 text-center font-mono font-bold text-gray-400">{idx + 1}</td>
+                                                            <td className="p-3 font-black text-gray-800 dark:text-gray-200">{it.itemName}</td>
+                                                            <td className="p-3 text-center font-black text-indigo-600">{it.quantity} {it.unit}</td>
+                                                            <td className="p-3 text-gray-600 dark:text-gray-400">{it.specifications || '---'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div><label className="text-[10px] font-bold text-gray-400 block mb-1">نام قطعه / کالا:</label><p className="text-sm font-black text-gray-800 dark:text-gray-200">{request.itemName}</p></div>
+                                        <div><label className="text-[10px] font-bold text-gray-400 block mb-1">تعداد درخواستی:</label><p className="text-lg font-black text-indigo-600">{request.quantity} {request.unit}</p></div>
+                                        <div className="col-span-full"><label className="text-[10px] font-bold text-gray-400 block mb-1">مشخصات فنی و ملاحظات:</label><p className="text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">{request.specifications || '---'}</p></div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Proformas */}

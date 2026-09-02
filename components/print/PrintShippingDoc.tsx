@@ -250,14 +250,14 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
                     <td className="p-2 border-r border-black text-center font-mono">{item.part || '---'}</td>
                     <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.weight)}</td>
                     <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.grossWeight || item.weight)}</td>
-                    <td className="p-2 border-r border-black text-center font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="p-2 text-center font-mono font-bold">{formatCurrency(item.totalPrice)}</td>
+                    <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(item.unitPrice)}</td>
+                    <td className="p-2 text-center font-mono font-bold">{formatNumberString(item.totalPrice)}</td>
                   </tr>
                 ))}
                 {/* Freight */}
                 <tr className="border-b border-black">
                   <td colSpan={6} className="p-2 border-r border-black text-left pl-4 font-bold">هزینه حمل (Freight Cost):</td>
-                  <td className="p-2 text-center font-mono font-bold">{formatCurrency(freight)} {currencyStr}</td>
+                  <td className="p-2 text-center font-mono font-bold">{formatNumberString(freight)} {currencyStr}</td>
                 </tr>
                 {/* Total */}
                 <tr className="bg-gray-50 font-bold border-t border-black">
@@ -265,7 +265,7 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
                   <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalNetWeight)} kg</td>
                   <td className="p-2 border-r border-black text-center font-mono">{formatNumberString(totalGrossWeight)} kg</td>
                   <td className="p-2 border-r border-black text-center">-</td>
-                  <td className="p-2 text-center font-mono text-sm text-blue-700">{formatCurrency(grandTotal)} {currencyStr}</td>
+                  <td className="p-2 text-center font-mono text-sm text-blue-700">{formatNumberString(grandTotal)} {currencyStr}</td>
                 </tr>
               </tbody>
             </table>

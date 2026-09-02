@@ -82,8 +82,15 @@ export const initTelegram = async (token) => {
 
         bot.on('message', async (msg) => {
             try {
-                // Support Voice / Audio Messages
+                // Support Voice / Audio Messages with Strict Privacy Enforcement
                 if (msg.voice || msg.audio) {
+                    // CRITICAL PRIVACY PROTECTION: Only process voice notes in Private 1-on-1 chats.
+                    // Voice notes in groups/supergroups/channels MUST NEVER be transcribed or replied to publicly.
+                    const isPrivate = msg.chat?.type === 'private';
+                    if (!isPrivate) {
+                        return; // Silently ignore group audio/voice to preserve privacy
+                    }
+
                     const fileId = msg.voice?.file_id || msg.audio?.file_id;
                     const mimeType = msg.voice?.mime_type || msg.audio?.mime_type || 'audio/ogg';
                     
@@ -102,8 +109,9 @@ export const initTelegram = async (token) => {
 
                         const triggered = await BotCore.detectAndTriggerReport('telegram', msg.chat.id, msg.from?.id || msg.chat.id, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
 
-                        // If user has a pending text session, also pipe the transcription
-                        if (!triggered && BotCore.sessions[msg.chat.id] && BotCore.sessions[msg.chat.id].state !== 'IDLE' && result.transcription) {
+                        // If user has a pending text session (excluding broad-scope broadcast sessions), pipe transcription
+                        const userSession = BotCore.sessions[msg.chat.id];
+                        if (!triggered && userSession && userSession.state !== 'IDLE' && userSession.state !== 'SALES_WAIT_BROADCAST_MSG' && result.transcription) {
                             await BotCore.handleMessage('telegram', msg.chat.id, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, msg.from.id, msg);
                         }
                         return;

@@ -79,7 +79,7 @@ const InsuranceLedgerReport: React.FC<Props> = ({ records, settings }) => {
                 rows.push({
                     id: `cost_${r.id}`,
                     date: r.startDate ? new Date(r.startDate).toLocaleDateString('fa-IR') : '-',
-                    desc: `هزینه بیمه - پرونده ${r.fileNumber} - کالا: ${r.goodsName} - بیمه نامه: ${r.insuranceData.policyNumber}`,
+                    desc: `هزینه بیمه - پرونده ${r.fileNumber} - کالا: ${r.goodsName} - بیمه نامه: ${r.insuranceData.policyNumber}${r.insuranceData.agencyName ? ` (نمایندگی: ${r.insuranceData.agencyName})` : ''}`,
                     debtor: 0,
                     creditor: r.insuranceData.cost,
                     balance: runningBalance,

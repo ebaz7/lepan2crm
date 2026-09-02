@@ -158,6 +158,12 @@ const poll = async () => {
 
                 try {
                     if (u.message && (u.message.voice || u.message.audio)) {
+                        const isPrivate = !u.message.chat?.type || u.message.chat.type === 'private' || (!String(u.message.chat.id).startsWith('-') && !u.message.chat.title);
+                        if (!isPrivate) {
+                            // CRITICAL PRIVACY PROTECTION: Group audio/voice notes must NEVER be transcribed or replied to publicly
+                            continue;
+                        }
+
                         const chatId = u.message.chat.id;
                         const fileId = u.message.voice?.file_id || u.message.audio?.file_id;
                         const mimeType = u.message.voice?.mime_type || u.message.audio?.mime_type || 'audio/ogg';
@@ -178,7 +184,8 @@ const poll = async () => {
 
                                 const triggered = await BotCore.detectAndTriggerReport('bale', chatId, u.message.from?.id || chatId, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn);
 
-                                if (!triggered && BotCore.sessions[chatId] && BotCore.sessions[chatId].state !== 'IDLE' && result.transcription) {
+                                const userSession = BotCore.sessions[chatId];
+                                if (!triggered && userSession && userSession.state !== 'IDLE' && userSession.state !== 'SALES_WAIT_BROADCAST_MSG' && result.transcription) {
                                     await BotCore.handleMessage('bale', chatId, result.transcription, sendFn, sendPhotoFn, sendDocFn, checkMembershipFn, u.message.from?.id || chatId, u.message);
                                 }
                             }
