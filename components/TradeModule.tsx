@@ -23,6 +23,7 @@ import CurrencyGuaranteeSection from './trade/CurrencyGuaranteeSection';
 import { GeneralTradeListReport } from './reports/GeneralTradeListReport';
 import { FileViewerModal } from './FileViewerModal';
 import { SendToChatModal } from './SendToChatModal';
+import { TradeDatePicker } from './TradeDatePicker';
 
 interface TradeModuleProps {
     currentUser: User;
@@ -1833,8 +1834,52 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800"><h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">ویرایش مرحله: {editingStage}</h3><button onClick={() => setEditingStage(null)}><X size={20} className="text-gray-400 hover:text-red-500"/></button></div>
                             <div className="space-y-4 text-gray-800 dark:text-gray-200">
                                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={stageFormData.isCompleted} onChange={e => setStageFormData({...stageFormData, isCompleted: e.target.checked})} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"/> <span className="font-bold text-sm">مرحله تکمیل شده است</span></label>
-                                {editingStage === TradeStage.ALLOCATION_QUEUE && (<div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2"><div><label className="text-xs font-bold block mb-1">تاریخ ورود به صف</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.queueDate || ''} onChange={e => setStageFormData({...stageFormData, queueDate: e.target.value})} /></div>{stageFormData.queueDate && <div className="text-xs text-amber-700 dark:text-amber-400 font-bold">مدت انتظار: {calculateDaysDiff(stageFormData.queueDate)} روز</div>}</div>)}
-                                {editingStage === TradeStage.ALLOCATION_APPROVED && (<div className="bg-green-50 dark:bg-green-950/40 p-3 rounded-xl border border-green-200 dark:border-green-800 space-y-2"><div><label className="text-xs font-bold block mb-1">شماره فیش/تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={stageFormData.allocationCode || ''} onChange={e => setStageFormData({...stageFormData, allocationCode: e.target.value})} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2"><div><label className="text-xs font-bold block mb-1">تاریخ تخصیص</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/01/01" value={stageFormData.allocationDate || ''} onChange={e => setStageFormData({...stageFormData, allocationDate: e.target.value})} /></div><div><label className="text-xs font-bold block mb-1">مهلت انقضا</label><input type="text" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" placeholder="1403/02/01" value={stageFormData.allocationExpiry || ''} onChange={e => setStageFormData({...stageFormData, allocationExpiry: e.target.value})} /></div></div></div>)}
+                                 {editingStage === TradeStage.ALLOCATION_QUEUE && (
+                                     <div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
+                                         <div>
+                                             <label className="text-xs font-bold block mb-1">تاریخ ورود به صف</label>
+                                             <TradeDatePicker 
+                                                 value={stageFormData.queueDate || ''} 
+                                                 onChange={val => setStageFormData({...stageFormData, queueDate: val})} 
+                                             />
+                                         </div>
+                                         {stageFormData.queueDate && (
+                                             <div className="text-xs text-amber-700 dark:text-amber-400 font-bold">
+                                                 مدت انتظار: {calculateDaysDiff(stageFormData.queueDate)} روز
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
+                                 {editingStage === TradeStage.ALLOCATION_APPROVED && (
+                                     <div className="bg-green-50 dark:bg-green-950/40 p-3 rounded-xl border border-green-200 dark:border-green-800 space-y-2">
+                                         <div>
+                                             <label className="text-xs font-bold block mb-1">شماره فیش/تخصیص</label>
+                                             <input 
+                                                 type="text" 
+                                                 className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" 
+                                                 value={stageFormData.allocationCode || ''} 
+                                                 onChange={e => setStageFormData({...stageFormData, allocationCode: e.target.value})} 
+                                             />
+                                         </div>
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                             <div>
+                                                 <label className="text-xs font-bold block mb-1">تاریخ تخصیص</label>
+                                                 <TradeDatePicker 
+                                                     value={stageFormData.allocationDate || ''} 
+                                                     onChange={val => setStageFormData({...stageFormData, allocationDate: val})} 
+                                                 />
+                                             </div>
+                                             <div>
+                                                 <label className="text-xs font-bold block mb-1">مهلت انقضا</label>
+                                                 <TradeDatePicker 
+                                                     value={stageFormData.allocationExpiry || ''} 
+                                                     onChange={val => setStageFormData({...stageFormData, allocationExpiry: val})} 
+                                                     placeholder="۱۴۰۳/۰۲/۰۱"
+                                                 />
+                                             </div>
+                                         </div>
+                                     </div>
+                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold block mb-1">هزینه ریالی</label>
@@ -1846,7 +1891,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                                 <div><label className="text-xs font-bold block mb-1">توضیحات</label><textarea className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="دانلود"><FileDown size={14}/></button><button onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`پیوست مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - مرحله ${editingStage}`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="دانلود"><FileDown size={14}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`پیوست مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - مرحله ${editingStage}`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
                                 <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
                             </div>
                         </div>
@@ -1981,8 +2026,21 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">فروشنده</label><input className="w-full border rounded p-2 text-sm" value={selectedRecord.sellerName} onChange={e => handleUpdateProforma('sellerName', e.target.value)}/></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">ارز پایه</label><select className="w-full border rounded p-2 text-sm" value={selectedRecord.mainCurrency} onChange={e => handleUpdateProforma('mainCurrency', e.target.value)}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ ثبت سفارش</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={selectedRecord.registrationDate || ''} onChange={e => handleUpdateProforma('registrationDate', e.target.value)}/></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ انقضا</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/06/01" value={selectedRecord.registrationExpiry || ''} onChange={e => handleUpdateProforma('registrationExpiry', e.target.value)}/></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ ثبت سفارش</label>
+                                        <TradeDatePicker 
+                                            value={selectedRecord.registrationDate || ''} 
+                                            onChange={val => handleUpdateProforma('registrationDate', val)} 
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ انقضا</label>
+                                        <TradeDatePicker 
+                                            value={selectedRecord.registrationExpiry || ''} 
+                                            onChange={val => handleUpdateProforma('registrationExpiry', val)} 
+                                            placeholder="۱۴۰۳/۰۶/۰۱"
+                                        />
+                                    </div>
                                     
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700">منشا ارز</label>
@@ -2236,7 +2294,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                          <label className="text-xs text-gray-500">مبلغ (ریال)</label>
                                          <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newLicenseTx.amount} onChange={val => setNewLicenseTx({...newLicenseTx, amount: val})}/>
                                      </div>
-                                     <div className="w-32 space-y-1"><label className="text-xs text-gray-500">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/xx/xx" value={newLicenseTx.date} onChange={e => setNewLicenseTx({...newLicenseTx, date: e.target.value})}/></div>
+                                     <div className="w-32 space-y-1">
+                                         <label className="text-xs text-gray-500">تاریخ</label>
+                                         <TradeDatePicker 
+                                             value={newLicenseTx.date || ''} 
+                                             onChange={val => setNewLicenseTx({...newLicenseTx, date: val})} 
+                                             placeholder="۱۴۰۳/xx/xx"
+                                         />
+                                     </div>
                                      <button onClick={handleAddLicenseTx} className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 h-[38px]"><Plus size={18}/></button>
                                  </div>
                                  <div className="space-y-1">
@@ -2316,7 +2381,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-gray-700">صرافی</label><input className="w-full border rounded p-2 text-sm" value={newCurrencyTranche.exchangeName} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, exchangeName: e.target.value})} /></div>
                                     <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-gray-700">کارگزار</label><input className="w-full border rounded p-2 text-sm" value={newCurrencyTranche.brokerName} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, brokerName: e.target.value})} /></div>
-                                    <div className="col-span-1 space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ خرید</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newCurrencyTranche.date} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, date: e.target.value})} /></div>
+                                    <div className="col-span-1 space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ خرید</label>
+                                        <TradeDatePicker 
+                                            value={newCurrencyTranche.date || ''} 
+                                            onChange={val => setNewCurrencyTranche({...newCurrencyTranche, date: val})} 
+                                            placeholder="۱۴۰۳/۰۱/۰۱"
+                                        />
+                                    </div>
                                     {/* Added Return Fields */}
                                     <div className="col-span-1 space-y-1">
                                         <label className="text-xs font-bold text-red-700">مبلغ عودت (ریال)</label>
@@ -2328,7 +2400,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             placeholder="اختیاری" 
                                         />
                                     </div>
-                                    <div className="col-span-2 space-y-1"><label className="text-xs font-bold text-red-700">تاریخ عودت</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={newCurrencyTranche.returnDate || ''} onChange={e => setNewCurrencyTranche({...newCurrencyTranche, returnDate: e.target.value})} placeholder="1403/..." /></div>
+                                    <div className="col-span-2 space-y-1">
+                                        <label className="text-xs font-bold text-red-700">تاریخ عودت</label>
+                                        <TradeDatePicker 
+                                            value={newCurrencyTranche.returnDate || ''} 
+                                            onChange={val => setNewCurrencyTranche({...newCurrencyTranche, returnDate: val})} 
+                                            placeholder="۱۴۰۳/..."
+                                        />
+                                    </div>
                                     
                                     <div className="col-span-1 space-y-1">
                                         <label className="text-xs font-bold text-green-700">مقدار تحویلی</label>
@@ -2438,7 +2517,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره سند</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={shippingDocForm.documentNumber} onChange={e => setShippingDocForm({...shippingDocForm, documentNumber: e.target.value})} /></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / دوره</label><input className="w-full border rounded p-2 text-sm" placeholder="مثلا: پارت اول" value={shippingDocForm.description || ''} onChange={e => setShippingDocForm({...shippingDocForm, description: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ سند</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={shippingDocForm.documentDate} onChange={e => setShippingDocForm({...shippingDocForm, documentDate: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ سند</label>
+                                        <TradeDatePicker 
+                                            value={shippingDocForm.documentDate || ''} 
+                                            onChange={val => setShippingDocForm({...shippingDocForm, documentDate: val})} 
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">وضعیت</label><select className="w-full border rounded p-2 text-sm" value={shippingDocForm.status} onChange={e => setShippingDocForm({...shippingDocForm, status: e.target.value as DocStatus})}><option value="Draft">پیش‌نویس</option><option value="Final">نهایی</option></select></div>
                                 </div>
 
@@ -2505,7 +2590,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 )}
                                 
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-gray-500 hover:text-gray-700 p-0.5" title="دانلود"><FileDown size={14}/></button><button onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند حمل ${activeShippingSubTab} مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={() => setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 p-0.5" title="دانلود"><FileDown size={14}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند حمل ${activeShippingSubTab} مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
 
                                 <div className="flex justify-end pt-4 border-t"><button onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
                                 
@@ -2738,21 +2823,21 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                                     {doc.attachments.map((att, i) => (
                                                                                         <div key={i} className="flex items-center justify-between text-xs bg-white p-1.5 rounded border border-gray-100 hover:border-blue-200">
                                                                                             <button 
-                                                                                                onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }}
+                                                                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }}
                                                                                                 className="text-blue-600 hover:text-blue-800 hover:underline text-right truncate max-w-[180px] flex items-center gap-1 font-medium"
                                                                                             >
                                                                                                 <Eye size={12}/> {att.fileName}
                                                                                             </button>
                                                                                             <div className="flex items-center gap-1.5">
                                                                                                 <button 
-                                                                                                    onClick={() => downloadAndOpenFile(att.url, att.fileName)} 
+                                                                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} 
                                                                                                     className="text-gray-500 hover:text-gray-700 p-0.5"
                                                                                                     title="دانلود"
                                                                                                 >
                                                                                                     <FileDown size={14}/>
                                                                                                 </button>
                                                                                                 <button 
-                                                                                                    onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند ثبت شده مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - نوع سند: ${doc.type}`); setSendToChatOpen(true); }}
+                                                                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند ثبت شده مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - نوع سند: ${doc.type}`); setSendToChatOpen(true); }}
                                                                                                     className="text-blue-500 hover:text-blue-700 p-0.5"
                                                                                                     title="ارسال به گفتگو"
                                                                                                 >
@@ -2827,7 +2912,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newInspectionPayment.amount} onChange={val => setNewInspectionPayment({...newInspectionPayment, amount: val})} />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/xx/xx" value={newInspectionPayment.date} onChange={e => setNewInspectionPayment({...newInspectionPayment, date: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ</label>
+                                        <TradeDatePicker 
+                                            value={newInspectionPayment.date || ''} 
+                                            onChange={val => setNewInspectionPayment({...newInspectionPayment, date: val})} 
+                                            placeholder="۱۴۰۳/xx/xx"
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionPayment.part} onChange={e => setNewInspectionPayment({...newInspectionPayment, part: e.target.value})} /><button onClick={handleAddInspectionPayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700"><Plus size={16}/></button></div></div>
                                 </div>
                                 <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3">{p.part}</td><td className="p-3"><button onClick={()=>handleDeleteInspectionPayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
@@ -2853,7 +2945,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-gray-800 flex items-center gap-2"><Warehouse size={20} className="text-indigo-600"/> قبض انبار و ترخیصیه</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end bg-indigo-50 p-4 rounded-lg">
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">شماره قبض انبار</label><input className="w-full border rounded p-2 text-sm" value={newWarehouseReceipt.number} onChange={e => setNewWarehouseReceipt({...newWarehouseReceipt, number: e.target.value})} /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ صدور</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={newWarehouseReceipt.issueDate} onChange={e => setNewWarehouseReceipt({...newWarehouseReceipt, issueDate: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ صدور</label>
+                                        <TradeDatePicker 
+                                            value={newWarehouseReceipt.issueDate || ''} 
+                                            onChange={val => setNewWarehouseReceipt({...newWarehouseReceipt, issueDate: val})} 
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / توضیحات</label><input className="w-full border rounded p-2 text-sm" value={newWarehouseReceipt.part} onChange={e => setNewWarehouseReceipt({...newWarehouseReceipt, part: e.target.value})} /></div>
                                     <button onClick={handleAddWarehouseReceipt} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
@@ -2867,7 +2965,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newClearancePayment.amount} onChange={val => setNewClearancePayment({...newClearancePayment, amount: val})} />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ</label><input className="w-full border rounded p-2 text-sm dir-ltr" value={newClearancePayment.date} onChange={e => setNewClearancePayment({...newClearancePayment, date: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ</label>
+                                        <TradeDatePicker 
+                                            value={newClearancePayment.date || ''} 
+                                            onChange={val => setNewClearancePayment({...newClearancePayment, date: val})} 
+                                        />
+                                    </div>
                                     <button onClick={handleAddClearancePayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
                                 <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">حذف</th></tr></thead><tbody>{clearanceForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3"><button onClick={()=>handleDeleteClearancePayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
@@ -3037,7 +3141,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <label className="text-xs font-bold text-gray-700">مبلغ (ریال)</label>
                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newShippingPayment.amount} onChange={val => setNewShippingPayment({...newShippingPayment, amount: val})} />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newShippingPayment.date} onChange={e => setNewShippingPayment({...newShippingPayment, date: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label>
+                                        <TradeDatePicker 
+                                            value={newShippingPayment.date || ''} 
+                                            onChange={val => setNewShippingPayment({...newShippingPayment, date: val})} 
+                                            placeholder="۱۴۰۳/۰۱/۰۱"
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newShippingPayment.bank} onChange={e => setNewShippingPayment({...newShippingPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-4 space-y-1"><label className="text-xs font-bold text-gray-700">توضیحات تکمیلی</label><input className="w-full border rounded p-2 text-sm" placeholder="توضیحات..." value={newShippingPayment.description} onChange={e => setNewShippingPayment({...newShippingPayment, description: e.target.value})} /></div>
                                     <div className="md:col-span-4 flex justify-end"><button onClick={handleAddShippingPayment} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2"><Plus size={16}/> افزودن پرداخت</button></div>
@@ -3080,7 +3191,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <label className="text-xs font-bold text-gray-700">مبلغ هزینه (ریال)</label>
                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newAgentPayment.amount} onChange={val => setNewAgentPayment({...newAgentPayment, amount: val})} />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label><input className="w-full border rounded p-2 text-sm dir-ltr" placeholder="1403/01/01" value={newAgentPayment.date} onChange={e => setNewAgentPayment({...newAgentPayment, date: e.target.value})} /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700">تاریخ پرداخت</label>
+                                        <TradeDatePicker 
+                                            value={newAgentPayment.date || ''} 
+                                            onChange={val => setNewAgentPayment({...newAgentPayment, date: val})} 
+                                            placeholder="۱۴۰۳/۰۱/۰۱"
+                                        />
+                                    </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newAgentPayment.bank} onChange={e => setNewAgentPayment({...newAgentPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-gray-700">پارت / مرحله</label><input className="w-full border rounded p-2 text-sm" placeholder="مثال: پیش پرداخت" value={newAgentPayment.part} onChange={e => setNewAgentPayment({...newAgentPayment, part: e.target.value})} /></div>
                                     <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-gray-700">توضیحات</label><input className="w-full border rounded p-2 text-sm" placeholder="..." value={newAgentPayment.description} onChange={e => setNewAgentPayment({...newAgentPayment, description: e.target.value})} /></div>
@@ -3199,8 +3317,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
                                 return (
                                     <>
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <div className="glass-panel p-6 rounded-xl shadow-sm border h-fit">
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                            <div className="lg:col-span-1 glass-panel p-6 rounded-xl shadow-sm border h-fit">
                                                 <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Calculator size={20} className="text-rose-600"/> صورت کلی هزینه‌ها</h3>
                                                 <div className="overflow-hidden rounded-lg border">
                                                     <table className="w-full text-sm text-right">
@@ -3243,14 +3361,37 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                         <span className="text-xs font-bold text-gray-500">هزینه حمل ارزی هر کیلو:</span>
                                                         <span className="text-sm font-bold text-gray-700 dir-ltr">{formatNumberString(freightPerKgCurrency)} {selectedRecord.mainCurrency}</span>
                                                     </div>
-                                                    <div className="mt-1 flex justify-between items-center border-t border-gray-200 pt-1">
-                                                        <span className="text-xs text-gray-500">میانگین قیمت هر کیلو (ریال):</span>
-                                                        <span className="text-sm font-bold text-gray-700 dir-ltr">{formatCurrency(costPerKg)}</span>
-                                                    </div>
                                                 </div>
                                             </div>
                                             
-                                            <div className="glass-panel p-6 rounded-xl shadow-sm border h-fit"><h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><ShieldCheck size={20} className="text-blue-600"/> لیست چک‌های ضمانت</h3><div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">نوع</th><th className="p-3">شماره / بانک</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">وضعیت</th><th className="p-3">عملیات</th></tr></thead><tbody>{getAllGuarantees().map((g, i) => (<tr key={i} className="border-b hover:bg-gray-50"><td className="p-3">{g.type}</td><td className="p-3">{g.number}<br/><span className="text-xs text-gray-500">{g.bank}</span></td><td className="p-3 font-mono">{formatCurrency(g.amount)}</td><td className="p-3"><button onClick={g.toggleFunc} className={`text-xs px-2 py-1 rounded font-bold ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{g.isDelivered ? 'عودت شد' : 'نزد سازمان'}</button></td><td className="p-3"></td></tr>))}</tbody></table></div></div>
+                                            <div className="lg:col-span-1 glass-panel p-6 rounded-xl shadow-sm border h-fit"><h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><ShieldCheck size={20} className="text-blue-600"/> لیست چک‌های ضمانت</h3><div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">نوع</th><th className="p-3">شماره / بانک</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">وضعیت</th><th className="p-3">عملیات</th></tr></thead><tbody>{getAllGuarantees().map((g, i) => (<tr key={i} className="border-b hover:bg-gray-50"><td className="p-3">{g.type}</td><td className="p-3">{g.number}<br/><span className="text-xs text-gray-500">{g.bank}</span></td><td className="p-3 font-mono">{formatCurrency(g.amount)}</td><td className="p-3"><button onClick={g.toggleFunc} className={`text-xs px-2 py-1 rounded font-bold ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{g.isDelivered ? 'عودت شد' : 'نزد سازمان'}</button></td><td className="p-3"></td></tr>))}</tbody></table></div></div>
+
+                                            <div className="lg:col-span-1 glass-panel bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-xl shadow-lg border-0 h-fit">
+                                                <h3 className="font-bold text-slate-200 mb-6 flex items-center gap-2"><PieChart size={20} className="text-emerald-400"/> خلاصه نهایی پرونده</h3>
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <span className="text-slate-400 text-sm block mb-1">جمع کل هزینه نهایی:</span>
+                                                        <div className="text-2xl font-black text-white dir-ltr text-left flex items-baseline justify-end gap-1">
+                                                            <span className="text-sm font-normal text-slate-400">ریال</span>
+                                                            {formatCurrency(grandTotalRialProject)} 
+                                                        </div>
+                                                    </div>
+                                                    <div className="border-t border-slate-700 pt-4">
+                                                        <span className="text-slate-400 text-sm block mb-1">وزن نهایی خالص:</span>
+                                                        <div className="text-2xl font-black text-white dir-ltr text-left flex items-baseline justify-end gap-1">
+                                                            <span className="text-sm font-normal text-slate-400">KG</span>
+                                                            {formatNumberString(totalWeight)} 
+                                                        </div>
+                                                    </div>
+                                                    <div className="border-t border-slate-700 pt-4">
+                                                        <span className="text-slate-400 text-sm block mb-1">بهای تمام شده هر کیلو:</span>
+                                                        <div className="text-3xl font-black text-emerald-400 dir-ltr text-left flex items-baseline justify-end gap-1">
+                                                            <span className="text-sm font-normal text-emerald-600">ریال</span>
+                                                            {formatCurrency(costPerKg)} 
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="glass-panel p-6 rounded-xl shadow-sm border mt-6">

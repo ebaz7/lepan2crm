@@ -12,15 +12,76 @@ export interface PdfOptions {
     filename: string;
     format?: PdfFormat;
     orientation?: PdfOrientation;
+    returnBlob?: boolean;
     onComplete?: () => void;
     onError?: (error: any) => void;
 }
+
+export const generatePdfFromHtml = async (htmlString: string, filename: string): Promise<Blob | undefined> => {
+    try {
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.width = '794px';
+        iframe.style.height = '1123px';
+        iframe.style.left = '-9999px';
+        document.body.appendChild(iframe);
+        
+        const doc = iframe.contentWindow?.document;
+        if (!doc) {
+            document.body.removeChild(iframe);
+            return undefined;
+        }
+        
+        doc.open();
+        doc.write(htmlString);
+        doc.close();
+
+        // Wait for rendering
+        await new Promise(r => setTimeout(r, 1000));
+
+        const canvas = await html2canvas(doc.body, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 794,
+            windowHeight: doc.body.scrollHeight > 1123 ? doc.body.scrollHeight : 1123
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 12) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
+        document.body.removeChild(iframe);
+        return pdfBlob;
+    } catch (error) {
+        console.error('Error generating PDF from HTML:', error);
+        return undefined;
+    }
+};
 
 export const generatePdf = async ({
     elementId,
     filename,
     format = 'A4',
     orientation = 'portrait',
+    returnBlob,
     onComplete,
     onError
 }: PdfOptions) => {
@@ -167,27 +228,34 @@ export const generatePdf = async ({
 
         const finalFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
 
+        const pdfBlob = pdf.output('blob');
+
+        // Cleanup
+        document.body.removeChild(container);
+        
+        if (returnBlob) {
+            if (onComplete) onComplete();
+            return pdfBlob;
+        }
+
         if (Capacitor.isNativePlatform()) {
-            const pdfBlob = pdf.output('blob');
             await saveBlobAndOpenFile(pdfBlob, finalFilename);
         } else {
             try {
                 pdf.save(finalFilename);
             } catch (saveErr) {
                 // Fallback for strict browser contexts/iframes
-                const pdfBlob = pdf.output('blob');
                 await saveBlobAndOpenFile(pdfBlob, finalFilename);
             }
         }
 
-        // Cleanup
-        document.body.removeChild(container);
-
         if (onComplete) onComplete();
+        return undefined;
 
     } catch (error: any) {
         console.error('Client-Side PDF Error:', error);
         alert('خطا در تولید PDF: ' + (error?.message || 'نامشخص'));
         if (onError) onError(error);
+        return undefined;
     }
 };

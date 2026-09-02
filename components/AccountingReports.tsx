@@ -66,12 +66,14 @@ import {
     Line
 } from 'recharts';
 import { getRolePermissions } from '../services/authService';
+import { uploadFileChunked } from '../services/storageService';
 import SayanSalesDashboard from './sales/SayanSalesDashboard';
 import SayanRemittancesTab from './SayanRemittancesTab';
 import WarehouseOverviewTab from './WarehouseOverviewTab';
 import { AiSalesAdvisorModal } from './AiSalesAdvisorModal';
 import { AiSayanReportModal } from './AiSayanReportModal';
 import { SendToChatModal } from './SendToChatModal';
+import { generatePdfFromHtml } from '../utils/pdfGenerator';
 import { UserRole } from '../types';
 import { getServerHost } from '../services/apiService';
 
@@ -741,7 +743,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // Print/PDF debtors & creditors separately
-    const handlePrintTrazReport = (type: 'bed' | 'bes') => {
+    const handlePrintTrazReport = (type: 'bed' | 'bes', returnHtml: boolean = false) => {
         const fullList = getFilteredTraz();
         const sortedList = fullList
             .filter(t => type === 'bed' ? t.balance > 0 : t.balance < 0)
@@ -807,6 +809,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </body>
             </html>
         `;
+
+        if (returnHtml) return docHtml;
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -963,7 +967,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
     const filteredStatementData = statementData.filter(row => !statementSearch || (row.Description || '').includes(statementSearch) || String(row.SanadNo).includes(statementSearch));
 
-    const handlePrintStatement = () => {
+    const handlePrintStatement = (returnHtml: boolean = false) => {
         if (filteredStatementData.length === 0) return;
 
         const tafsiliInfo = tafsilis.find(t => t.Code === selectedTafsili);
@@ -1059,6 +1063,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </body>
             </html>
         `;
+
+        if (returnHtml) return docHtml;
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1518,7 +1524,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
-    const handlePrintTodaySales = () => {
+    const handlePrintTodaySales = (returnHtml: boolean = false) => {
         const todayInvs = getTodayInvoices();
         const activeDate = dateTo || formatDateToJalali(new Date().toISOString());
         const title = `گزارش مدیریتی و رسمی فروش روزانه (${activeDate})`;
@@ -1714,6 +1720,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
+        if (returnHtml) return docHtml;
+
         const printWindow = window.open('', '_blank');
         if (printWindow) {
             printWindow.document.write(docHtml);
@@ -1726,7 +1734,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         }
     };
 
-    const handlePrintPeriodSales = () => {
+    const handlePrintPeriodSales = (returnHtml: boolean = false) => {
         const title = `گزارش جامع و مدیریتی فروش دوره‌ای (${dateFrom} تا ${dateTo})`;
 
         // Group salesData by GroupName and ItemName with returns & net calculations
@@ -1919,6 +1927,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </body>
             </html>
         `;
+
+        if (returnHtml) return docHtml;
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2137,6 +2147,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </body>
             </html>
         `;
+
+        if (returnHtml) return docHtml;
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2453,6 +2465,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </body>
             </html>
         `;
+
+        if (returnHtml) return docHtml;
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -3465,7 +3479,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // Print Cheques Official PDF Document
-    const handlePrintChequesPDF = () => {
+    const handlePrintChequesPDF = (returnHtml: boolean = false) => {
         const list = getFilteredCheques();
         if (list.length === 0) {
             toast.error("هیچ چکی برای چاپ گزارش وجود ندارد.");
@@ -3642,6 +3656,8 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
+        if (returnHtml) return docHtml;
+
         const printWindow = window.open('', '_blank');
         if (printWindow) {
             printWindow.document.write(docHtml);
@@ -3812,30 +3828,57 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return Array.from(banks).sort((a, b) => a.localeCompare(b, 'fa'));
     }, [chequesData]);
 
-    const handleShareReportToChat = () => {
+    const handleShareReportToChat = async () => {
         let text = '';
+        let htmlContent = '';
         const dateFromStr = dateFrom || 'ابتدا';
         const dateToStr = dateTo || 'امروز';
+        let pdfFilename = `Report_${Date.now()}.pdf`;
         
         if (activeTab === 'traz') {
+            const isBed = window.confirm('ارسال گزارش بدهکاران؟\n(OK برای بدهکاران، Cancel برای بستانکاران)');
+            htmlContent = handlePrintTrazReport(isBed ? 'bed' : 'bes', true) as string;
+            pdfFilename = `Traz_${isBed ? 'Debtors' : 'Creditors'}_${Date.now()}.pdf`;
             const totalDebtors = filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0);
             const totalCreditors = filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0);
             text = `📊 گزارش تراز معین مالی سایان (${dateFromStr} تا ${dateToStr})\n• تعداد حساب‌ها: ${filteredTraz.length} حساب\n• جمع بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال\n• جمع بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`;
         } else if (activeTab === 'sales') {
+            htmlContent = handlePrintTodaySales(true) as string;
+            pdfFilename = `Sales_${Date.now()}.pdf`;
             const totalSalesWeight = salesData.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
             const totalSalesAmount = salesData.reduce((sum, r) => sum + (Number(r.netPrice) || 0), 0);
             text = `📊 گزارش آمار فروش سایان (${dateFromStr} تا ${dateToStr})\n• وزن کل فروش: ${totalSalesWeight.toLocaleString('fa-IR')} کیلوگرم\n• مبلغ کل خالص فروش: ${totalSalesAmount.toLocaleString('fa-IR')} ریال`;
-        } else if (activeTab === 'production') {
-            text = `📊 گزارش خطوط تولید کارخانه (${dateFromStr} تا ${dateToStr})\nجهت بررسی وضعیت راندمان خطوط تولید و جزئیات دسته‌بندی‌ها به ماژول گزارشات مراجعه کنید.`;
         } else if (activeTab === 'cheques') {
+            htmlContent = handlePrintChequesPDF(true) as string;
+            pdfFilename = `Cheques_${Date.now()}.pdf`;
             const totalChequesAmount = filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
             text = `📊 گزارش وضعیت چک‌های دریافتنی و پرداختنی\n• تعداد چک‌ها: ${filteredCheques.length} فقره\n• جمع کل مبالغ: ${totalChequesAmount.toLocaleString('fa-IR')} ریال\n• چک‌های برگشتی: ${filteredCheques.filter(c => c.statusGroup === 'returned' || String(c.statusDesc || '').includes('برگشت')).length} فقره`;
-        } else if (activeTab === 'remittances') {
-            text = `📊 گزارش حواله‌های انبار کارخانه (${dateFromStr} تا ${dateToStr})\nپایش خروجی محصولات و درخواست‌های خروج کالا از انبار کارخانه.`;
-        } else if (activeTab === 'warehouseOverview') {
-            text = `📊 گزارش کاردکس و موجودی انبارگردانی کالاها\nجهت بررسی تفصیلی وضعیت فیزیکی موجودی‌ها به ماژول گزارشات انبار مراجعه نمایید.`;
         } else {
             text = `📊 گزارش مالی و بازرگانی از سیستم یکپارچه سایان ERP\nبازه: ${dateFromStr} تا ${dateToStr}`;
+        }
+
+        if (htmlContent) {
+            setIsLoading(true);
+            const loadingToast = toast.loading('در حال ایجاد و بارگذاری PDF...');
+            try {
+                const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+                if (blob) {
+                    const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+                    const result = await uploadFileChunked(file, () => {});
+                    setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+                    toast.success('PDF با موفقیت ایجاد شد', { id: loadingToast });
+                } else {
+                    throw new Error('Failed to generate PDF Blob');
+                }
+            } catch (err) {
+                console.error('Share to chat PDF generation error:', err);
+                toast.error('خطا در ایجاد PDF', { id: loadingToast });
+                setSendToChatAttachment(undefined);
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            setSendToChatAttachment(undefined);
         }
 
         setSendToChatDefaultMsg(text);
@@ -5364,7 +5407,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => {
-                                                            const printWindow = window.open('', '_blank');
+                                                            if (returnHtml) return docHtml;
+
+        const printWindow = window.open('', '_blank');
                                                             if (!printWindow) return;
                                                             let html = '<html dir="rtl"><head><title>چاپ مقایسه فروش</title><style>body{font-family:Tahoma,sans-serif;margin:20px;direction:rtl}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:right}th{background:#f1f5f9}.diff{direction:ltr;display:inline-block}.ret{color:#e11d48;font-size:10px}</style></head><body>';
                                                             html += '<h2>گزارش مقایسه ای فروش</h2>';
