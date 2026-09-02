@@ -21,6 +21,8 @@ import GuaranteeReport from './reports/GuaranteeReport';
 import InsuranceTab from './InsuranceTab';
 import CurrencyGuaranteeSection from './trade/CurrencyGuaranteeSection';
 import { GeneralTradeListReport } from './reports/GeneralTradeListReport';
+import { FileViewerModal } from './FileViewerModal';
+import { SendToChatModal } from './SendToChatModal';
 
 interface TradeModuleProps {
     currentUser: User;
@@ -163,6 +165,41 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const [newPackingItem, setNewPackingItem] = useState<Partial<PackingItem>>({ description: '', netWeight: 0, grossWeight: 0, packageCount: 0, part: '' });
     const [uploadingDocFile, setUploadingDocFile] = useState(false);
     const docFileInputRef = useRef<HTMLInputElement>(null);
+
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerUrl, setViewerUrl] = useState('');
+    const [viewerName, setViewerName] = useState('');
+
+    const [sendToChatOpen, setSendToChatOpen] = useState(false);
+    const [sendToChatAttachment, setSendToChatAttachment] = useState<{ fileName: string; url: string } | undefined>(undefined);
+    const [sendToChatDefaultMsg, setSendToChatDefaultMsg] = useState('');
+
+    const calculateRecordCostPerKg = (record: TradeRecord) => {
+        if (!record) return 0;
+        const totalItemsCurrency = record.items?.reduce((a, b) => a + b.totalPrice, 0) || 0;
+        const totalFreightCurrency = record.freightCost || 0;
+        const totalProformaCurrency = totalItemsCurrency + totalFreightCurrency;
+
+        const currencyTranches = record.currencyPurchaseData?.tranches || [];
+        const netCurrencyRialCost = currencyTranches.reduce((acc, t) => {
+            const paid = t.rialAmount || 0;
+            const ret = t.returnAmount || 0;
+            return acc + (paid - ret);
+        }, 0);
+
+        const overheadStages = [
+            TradeStage.LICENSES, TradeStage.INSURANCE, TradeStage.INSPECTION,
+            TradeStage.CLEARANCE_DOCS, TradeStage.GREEN_LEAF,
+            TradeStage.INTERNAL_SHIPPING, TradeStage.AGENT_FEES
+        ];
+        const totalOverheadsRial = overheadStages.reduce((sum, stage) => 
+            sum + (record.stages?.[stage]?.costRial || 0), 0);
+
+        const grandTotalRialProject = netCurrencyRialCost + totalOverheadsRial;
+        const totalWeight = record.items?.reduce((sum, item) => sum + item.weight, 0) || 0;
+
+        return totalWeight > 0 ? grandTotalRialProject / totalWeight : 0;
+    };
 
     const [calcExchangeRate, setCalcExchangeRate] = useState<number>(0);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -1085,17 +1122,51 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
     const handleDocFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploadingDocFile(true); const reader = new FileReader(); reader.onload = async (ev) => { const base64 = ev.target?.result as string; try { const result = await uploadFile(file.name, base64); setShippingDocForm(prev => ({ ...prev, attachments: [...(prev.attachments || []), { fileName: result.fileName, url: result.url }] })); } catch (error) { alert('خطا در آپلود فایل'); } finally { setUploadingDocFile(false); } }; reader.readAsDataURL(file); e.target.value = ''; };
     const handleSaveShippingDoc = async () => {
         if (!selectedRecord || !shippingDocForm.documentNumber) return;
+
+        let currentInvoiceItems = [...(shippingDocForm.invoiceItems || [])];
+        let currentPackingItems = [...(shippingDocForm.packingItems || [])];
+
+        // Auto-add active inputs if user filled them but didn't click "+"
+        if (activeShippingSubTab === 'Commercial Invoice' && newInvoiceItem.name?.trim()) {
+            const weight = Number(newInvoiceItem.weight) || 0;
+            const grossWeight = Number(newInvoiceItem.grossWeight) || weight;
+            const unitPrice = Number(newInvoiceItem.unitPrice) || 0;
+            const totalPrice = Number(newInvoiceItem.totalPrice) || (weight * unitPrice);
+            const newItem: InvoiceItem = { 
+                id: generateUUID(), 
+                name: newInvoiceItem.name.trim(), 
+                weight: weight, 
+                grossWeight: grossWeight, 
+                unitPrice: unitPrice, 
+                totalPrice: totalPrice, 
+                part: newInvoiceItem.part || '' 
+            };
+            currentInvoiceItems.push(newItem);
+            setNewInvoiceItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, part: '' });
+        } else if (activeShippingSubTab === 'Packing List' && newPackingItem.description?.trim()) {
+            const item: PackingItem = { 
+                id: generateUUID(), 
+                description: newPackingItem.description.trim(), 
+                netWeight: Number(newPackingItem.netWeight) || 0, 
+                grossWeight: Number(newPackingItem.grossWeight) || 0, 
+                packageCount: Number(newPackingItem.packageCount) || 0, 
+                part: newPackingItem.part || '' 
+            };
+            currentPackingItems.push(item);
+            setNewPackingItem({ description: '', netWeight: 0, grossWeight: 0, packageCount: 0, part: '' });
+        }
+
         let totalNet = shippingDocForm.netWeight;
         let totalGross = shippingDocForm.grossWeight;
         let totalPackages = shippingDocForm.packagesCount;
 
-        if (activeShippingSubTab === 'Commercial Invoice' && shippingDocForm.invoiceItems && shippingDocForm.invoiceItems.length > 0) {
-            totalNet = shippingDocForm.invoiceItems.reduce((acc, i) => acc + (i.weight || 0), 0);
-            totalGross = shippingDocForm.invoiceItems.reduce((acc, i) => acc + (i.grossWeight || i.weight || 0), 0);
-        } else if (activeShippingSubTab === 'Packing List' && shippingDocForm.packingItems && shippingDocForm.packingItems.length > 0) {
-            totalNet = shippingDocForm.packingItems.reduce((acc, i) => acc + i.netWeight, 0);
-            totalGross = shippingDocForm.packingItems.reduce((acc, i) => acc + i.grossWeight, 0);
-            totalPackages = shippingDocForm.packingItems.reduce((acc, i) => acc + i.packageCount, 0);
+        if (activeShippingSubTab === 'Commercial Invoice' && currentInvoiceItems.length > 0) {
+            totalNet = currentInvoiceItems.reduce((acc, i) => acc + (i.weight || 0), 0);
+            totalGross = currentInvoiceItems.reduce((acc, i) => acc + (i.grossWeight || i.weight || 0), 0);
+        } else if (activeShippingSubTab === 'Packing List' && currentPackingItems.length > 0) {
+            totalNet = currentPackingItems.reduce((acc, i) => acc + i.netWeight, 0);
+            totalGross = currentPackingItems.reduce((acc, i) => acc + i.grossWeight, 0);
+            totalPackages = currentPackingItems.reduce((acc, i) => acc + i.packageCount, 0);
         }
 
         const newDoc: ShippingDocument = {
@@ -1107,8 +1178,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
             createdAt: Date.now(),
             createdBy: currentUser.fullName,
             attachments: shippingDocForm.attachments || [],
-            invoiceItems: activeShippingSubTab === 'Commercial Invoice' ? shippingDocForm.invoiceItems : undefined,
-            packingItems: activeShippingSubTab === 'Packing List' ? shippingDocForm.packingItems : undefined,
+            invoiceItems: activeShippingSubTab === 'Commercial Invoice' ? currentInvoiceItems : undefined,
+            packingItems: activeShippingSubTab === 'Packing List' ? currentPackingItems : undefined,
             freightCost: activeShippingSubTab === 'Commercial Invoice' ? Number(shippingDocForm.freightCost) : undefined,
             currency: shippingDocForm.currency,
             netWeight: totalNet,
@@ -1775,7 +1846,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                                 <div><label className="text-xs font-bold block mb-1">توضیحات</label><textarea className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px]">{att.fileName}</button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div>))}</div></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="دانلود"><FileDown size={14}/></button><button onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`پیوست مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - مرحله ${editingStage}`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={() => setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
                                 <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
                             </div>
                         </div>
@@ -1784,31 +1855,39 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 )}
 
                 {/* Header */}
-                <div className="glass-panel border-b p-4 flex justify-between items-center shadow-sm z-10">
-                    <div className="flex items-center gap-4">
+                <div className="glass-panel border-b p-4 flex justify-between items-center shadow-sm z-10 flex-wrap gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                         <button data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowRight /></button>
-                        <div>
-                            <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
-                                <span>{selectedRecord.goodsName}</span>
-                                <span className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full" title="شماره پرونده">پرونده: {selectedRecord.fileNumber || '---'}</span>
-                                {selectedRecord.proformaNumber && (
-                                    <span className="text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <div>
+                                <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
+                                    <span>{selectedRecord.goodsName}</span>
+                                    <span className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full" title="شماره پرونده">پرونده: {selectedRecord.fileNumber || '---'}</span>
+                                    {selectedRecord.proformaNumber && (
+                                        <span className="text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
+                                    )}
+                                    <button onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
+                                </h1>
+                                <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
+                                {selectedRecord.transferredFrom && (
+                                    <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-xl w-fit font-medium">
+                                        <ArrowRightLeft size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>انتقال یافته از پروفرم {selectedRecord.transferredFrom.fileNumber} ({selectedRecord.transferredFrom.goodsName} - گروه {selectedRecord.transferredFrom.commodityGroup}) به این پروفرم</span>
+                                    </div>
                                 )}
-                                <button onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
-                            </h1>
-                            <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
-                            {selectedRecord.transferredFrom && (
-                                <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-xl w-fit font-medium">
-                                    <ArrowRightLeft size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                                    <span>انتقال یافته از پروفرم {selectedRecord.transferredFrom.fileNumber} ({selectedRecord.transferredFrom.goodsName} - گروه {selectedRecord.transferredFrom.commodityGroup}) به این پروفرم</span>
-                                </div>
-                            )}
-                            {selectedRecord.transferredTo && (
-                                <div className="mt-1 flex items-center gap-1.5 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 rounded-xl w-fit font-medium">
-                                    <ArrowRightLeft size={13} className="shrink-0 text-blue-600 dark:text-blue-400" />
-                                    <span>منتقل شده به پروفرم {selectedRecord.transferredTo.fileNumber} ({selectedRecord.transferredTo.goodsName} - گروه {selectedRecord.transferredTo.commodityGroup})</span>
-                                </div>
-                            )}
+                                {selectedRecord.transferredTo && (
+                                    <div className="mt-1 flex items-center gap-1.5 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 rounded-xl w-fit font-medium">
+                                        <ArrowRightLeft size={13} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                                        <span>منتقل شده به پروفرم {selectedRecord.transferredTo.fileNumber} ({selectedRecord.transferredTo.goodsName} - گروه {selectedRecord.transferredTo.commodityGroup})</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* MINI COST PER KG BOX */}
+                            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl text-right shrink-0">
+                                <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5 leading-none">قیمت تمام‌شده (هر کیلو)</span>
+                                <span className="font-mono font-black text-rose-700 dark:text-rose-300 text-sm leading-none">{formatCurrency(calculateRecordCostPerKg(selectedRecord))} <span className="text-[10px] font-normal">ریال</span></span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2426,7 +2505,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 )}
                                 
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><span className="truncate max-w-[200px]">{att.fileName}</span><button onClick={() => setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div>))}</div></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={() => downloadAndOpenFile(att.url, att.fileName)} className="text-gray-500 hover:text-gray-700 p-0.5" title="دانلود"><FileDown size={14}/></button><button onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند حمل ${activeShippingSubTab} مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={() => setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)})} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
 
                                 <div className="flex justify-end pt-4 border-t"><button onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
                                 
@@ -2657,10 +2736,30 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                                 <span className="text-[11px] font-bold text-gray-600 block mb-1.5 flex items-center gap-1"><Paperclip size={13}/> فایل‌های ضمیمه</span>
                                                                                 <div className="space-y-1">
                                                                                     {doc.attachments.map((att, i) => (
-                                                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" className="flex items-center justify-between text-xs text-blue-600 hover:text-blue-800 bg-white p-1.5 rounded border border-gray-100 hover:border-blue-200">
-                                                                                            <span className="truncate max-w-[220px]">{att.fileName}</span>
-                                                                                            <ExternalLink size={12} className="text-gray-400"/>
-                                                                                        </a>
+                                                                                        <div key={i} className="flex items-center justify-between text-xs bg-white p-1.5 rounded border border-gray-100 hover:border-blue-200">
+                                                                                            <button 
+                                                                                                onClick={() => { setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }}
+                                                                                                className="text-blue-600 hover:text-blue-800 hover:underline text-right truncate max-w-[180px] flex items-center gap-1 font-medium"
+                                                                                            >
+                                                                                                <Eye size={12}/> {att.fileName}
+                                                                                            </button>
+                                                                                            <div className="flex items-center gap-1.5">
+                                                                                                <button 
+                                                                                                    onClick={() => downloadAndOpenFile(att.url, att.fileName)} 
+                                                                                                    className="text-gray-500 hover:text-gray-700 p-0.5"
+                                                                                                    title="دانلود"
+                                                                                                >
+                                                                                                    <FileDown size={14}/>
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    onClick={() => { setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند ثبت شده مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - نوع سند: ${doc.type}`); setSendToChatOpen(true); }}
+                                                                                                    className="text-blue-500 hover:text-blue-700 p-0.5"
+                                                                                                    title="ارسال به گفتگو"
+                                                                                                >
+                                                                                                    <Share2 size={13}/>
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
                                                                                     ))}
                                                                                 </div>
                                                                             </div>
@@ -3039,6 +3138,19 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="flex justify-end gap-2" data-html2canvas-ignore>
                                 <button onClick={handlePrintTrade} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm"><Printer size={16}/> چاپ گزارش</button>
                                 <button onClick={handleDownloadFinalReportPDF} disabled={isGeneratingPdf} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF (صورتحساب)</button>
+                                <button 
+                                    onClick={() => {
+                                        const costPerKg = calculateRecordCostPerKg(selectedRecord);
+                                        const totalWeight = selectedRecord.items?.reduce((sum, item) => sum + item.weight, 0) || 0;
+                                        setSendToChatAttachment(undefined);
+                                        setSendToChatDefaultMsg(`📋 گزارش محاسبه نهایی و قیمت تمام‌شده پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})\n• وزن کل بار: ${formatNumberString(totalWeight)} کیلوگرم\n• قیمت تمام‌شده هر کیلو: ${formatCurrency(costPerKg)} ریال\n• ذینفع/شرکت: ${selectedRecord.company}`);
+                                        setSendToChatOpen(true);
+                                    }} 
+                                    className="glass-panel border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                                >
+                                    <Share2 size={16}/> 
+                                    ارسال به گفتگو
+                                </button>
                             </div>
 
                             {/* --- NEW CALCULATION LOGIC IMPLEMENTATION (WEIGHT BASED + EFFECTIVE RATE) --- */}
@@ -3619,6 +3731,20 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                     <button data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="hidden" />
                 )
             )}
+
+            <FileViewerModal 
+                isOpen={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                fileUrl={viewerUrl}
+                fileName={viewerName}
+            />
+
+            <SendToChatModal
+                isOpen={sendToChatOpen}
+                onClose={() => setSendToChatOpen(false)}
+                attachment={sendToChatAttachment}
+                defaultMessage={sendToChatDefaultMsg}
+            />
         </div>
     );
 };

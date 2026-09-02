@@ -334,18 +334,20 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
       if (!scrollContainer) return;
 
       let target = e.target as HTMLElement | null;
-      let isInsideSubScrollable = false;
+      let scrollTarget: HTMLElement | null = null;
       while (target && target !== document.body) {
         if (target === scrollContainer) break;
         const overflowY = window.getComputedStyle(target).overflowY;
         if ((overflowY === 'auto' || overflowY === 'scroll') && target.scrollHeight > target.clientHeight) {
-          isInsideSubScrollable = true;
+          scrollTarget = target;
           break;
         }
         target = target.parentElement;
       }
 
-      if (!isInsideSubScrollable) {
+      if (scrollTarget) {
+        scrollTarget.scrollTop += e.deltaY;
+      } else {
         scrollContainer.scrollTop += e.deltaY;
       }
     };

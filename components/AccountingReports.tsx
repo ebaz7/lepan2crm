@@ -71,6 +71,7 @@ import SayanRemittancesTab from './SayanRemittancesTab';
 import WarehouseOverviewTab from './WarehouseOverviewTab';
 import { AiSalesAdvisorModal } from './AiSalesAdvisorModal';
 import { AiSayanReportModal } from './AiSayanReportModal';
+import { SendToChatModal } from './SendToChatModal';
 import { UserRole } from '../types';
 import { getServerHost } from '../services/apiService';
 
@@ -116,6 +117,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return 'traz';
     });
     const [isLoading, setIsLoading] = useState(false);
+    
+    const [sendToChatOpen, setSendToChatOpen] = useState(false);
+    const [sendToChatDefaultMsg, setSendToChatDefaultMsg] = useState('');
     
     // Default Date Range (Direct Shamsi format "YYYY/MM/DD")
     const [dateFrom, setDateFrom] = useState('');
@@ -3808,6 +3812,36 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return Array.from(banks).sort((a, b) => a.localeCompare(b, 'fa'));
     }, [chequesData]);
 
+    const handleShareReportToChat = () => {
+        let text = '';
+        const dateFromStr = dateFrom || 'ابتدا';
+        const dateToStr = dateTo || 'امروز';
+        
+        if (activeTab === 'traz') {
+            const totalDebtors = filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0);
+            const totalCreditors = filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0);
+            text = `📊 گزارش تراز معین مالی سایان (${dateFromStr} تا ${dateToStr})\n• تعداد حساب‌ها: ${filteredTraz.length} حساب\n• جمع بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال\n• جمع بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`;
+        } else if (activeTab === 'sales') {
+            const totalSalesWeight = salesData.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
+            const totalSalesAmount = salesData.reduce((sum, r) => sum + (Number(r.netPrice) || 0), 0);
+            text = `📊 گزارش آمار فروش سایان (${dateFromStr} تا ${dateToStr})\n• وزن کل فروش: ${totalSalesWeight.toLocaleString('fa-IR')} کیلوگرم\n• مبلغ کل خالص فروش: ${totalSalesAmount.toLocaleString('fa-IR')} ریال`;
+        } else if (activeTab === 'production') {
+            text = `📊 گزارش خطوط تولید کارخانه (${dateFromStr} تا ${dateToStr})\nجهت بررسی وضعیت راندمان خطوط تولید و جزئیات دسته‌بندی‌ها به ماژول گزارشات مراجعه کنید.`;
+        } else if (activeTab === 'cheques') {
+            const totalChequesAmount = filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+            text = `📊 گزارش وضعیت چک‌های دریافتنی و پرداختنی\n• تعداد چک‌ها: ${filteredCheques.length} فقره\n• جمع کل مبالغ: ${totalChequesAmount.toLocaleString('fa-IR')} ریال\n• چک‌های برگشتی: ${filteredCheques.filter(c => c.statusGroup === 'returned' || String(c.statusDesc || '').includes('برگشت')).length} فقره`;
+        } else if (activeTab === 'remittances') {
+            text = `📊 گزارش حواله‌های انبار کارخانه (${dateFromStr} تا ${dateToStr})\nپایش خروجی محصولات و درخواست‌های خروج کالا از انبار کارخانه.`;
+        } else if (activeTab === 'warehouseOverview') {
+            text = `📊 گزارش کاردکس و موجودی انبارگردانی کالاها\nجهت بررسی تفصیلی وضعیت فیزیکی موجودی‌ها به ماژول گزارشات انبار مراجعه نمایید.`;
+        } else {
+            text = `📊 گزارش مالی و بازرگانی از سیستم یکپارچه سایان ERP\nبازه: ${dateFromStr} تا ${dateToStr}`;
+        }
+
+        setSendToChatDefaultMsg(text);
+        setSendToChatOpen(true);
+    };
+
     return (
         <div className="p-2 sm:p-4 md:p-6 rtl max-w-full mx-auto space-y-4 sm:space-y-6">
             {/* Main Header */}
@@ -3914,6 +3948,15 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         className="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs px-3 py-1.5 font-semibold flex items-center gap-1 transition-colors cursor-pointer mr-auto lg:mr-0 mt-1 sm:mt-0"
                     >
                         {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'بروزرسانی'}
+                    </button>
+
+                    <button 
+                        onClick={handleShareReportToChat}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/10 cursor-pointer mr-1.5 mt-1 sm:mt-0"
+                        title="ارسال سریع خلاصه این گزارش به گفتگوی اعضای تیم"
+                    >
+                        <Share2 size={13} />
+                        <span>ارسال به گفتگو</span>
                     </button>
 
                     <button 
@@ -6836,6 +6879,12 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 onClose={() => setIsAiSalesAdvisorOpen(false)}
                 salesData={salesData}
                 periodLabel={`${dateFrom} تا ${dateTo}`}
+            />
+
+            <SendToChatModal
+                isOpen={sendToChatOpen}
+                onClose={() => setSendToChatOpen(false)}
+                defaultMessage={sendToChatDefaultMsg}
             />
         </div>
     );
