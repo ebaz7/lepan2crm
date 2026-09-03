@@ -51,7 +51,7 @@ function App() {
   const [settings, setSettings] = useState<SystemSettings | undefined>(undefined);
   const [activeTab, setActiveTabState] = useState('dashboard');
   const [tabHistory, setTabHistory] = useState<string[]>(['dashboard']);
-  const [directChatTarget, setDirectChatTarget] = useState<{ type: 'private' | 'group' | 'public' | 'task_group', id: string, taskId?: string } | null>(null);
+  const [directChatTarget, setDirectChatTarget] = useState<{ type: 'private' | 'group' | 'public' | 'task_group' | 'system', id: string, taskId?: string } | null>(null);
   const [showAiScannerModal, setShowAiScannerModal] = useState(false);
 
   const activeTabRef = useRef(activeTab);
@@ -1450,7 +1450,7 @@ function App() {
                 </div>
             )}
 
-            <div className="flex-1 relative flex flex-col min-h-0">
+            <div className="flex-1 relative flex flex-col min-h-0 h-full">
                 {loading && (
                     <div className="fixed top-20 right-4 z-[999] bg-white/80 dark:bg-gray-800/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 shadow-lg flex items-center gap-2 animate-fade-in">
                         <Loader2 size={16} className="animate-spin text-blue-600" />
@@ -1489,7 +1489,7 @@ function App() {
                 {activeTab === 'products' && <div className="page-transition flex flex-col flex-1 min-h-0"><ProductsModule /></div>}
                 {activeTab === 'tickets' && <div className="page-transition flex flex-col flex-1 min-h-0"><Tickets /></div>}
                 {activeTab === 'ccti' && <div className="page-transition flex flex-col flex-1 min-h-0"><CctiConverter financialYear={financialYear} currentUser={currentUser} canManageArchive={currentUser.role === UserRole.ADMIN || (settings && getRolePermissions(currentUser.role, settings, currentUser).canManageCctiArchive === true)} /></div>}
-                {activeTab === 'sayan' && <div className="page-transition flex flex-col flex-1 min-h-0 bg-transparent"><SayanReports currentUser={currentUser} settings={settings} /></div>}
+                {activeTab === 'sayan' && <div className="page-transition flex flex-col flex-1 min-h-0 bg-transparent"><SayanReports currentUser={currentUser} settings={settings} onNavigateToChat={(target) => { setDirectChatTarget(target); setActiveTab('chat'); }} /></div>}
                 {activeTab === 'users' && <div className="page-transition flex flex-col flex-1 min-h-0"><ManageUsers /></div>}
                 {activeTab === 'settings' && <div className="page-transition flex flex-col flex-1 min-h-0"><Settings financialYear={financialYear} settings={settings} onUpdateSettings={setSettings} /></div>}
                 {(activeTab === 'knowledge' || activeTab === 'notes') && <div className="page-transition flex flex-col flex-1 min-h-0"><KnowledgeBaseModule currentUser={currentUser} settings={settings} onUpdateSettings={setSettings} /></div>}
@@ -1499,7 +1499,7 @@ function App() {
                 {activeTab === 'secretariat' && currentUser && <div className="page-transition flex flex-col flex-1 min-h-0"><SecretariatModule currentUser={currentUser} /></div>}
                 {activeTab === 'cheque-receipts' && currentUser && <div className="page-transition flex flex-col flex-1 min-h-0"><ChequeReceiptModule currentUser={currentUser} /></div>}
                 
-                <div className={activeTab === 'chat' ? 'flex-1 flex flex-col w-full min-h-0 page-transition' : 'fixed inset-0 pointer-events-none opacity-0 invisible overflow-hidden h-0'}>
+                <div className={activeTab === 'chat' ? 'flex-1 flex flex-col w-full min-h-0 h-full page-transition' : 'fixed inset-0 pointer-events-none opacity-0 invisible overflow-hidden h-0'}>
                     <ChatRoom 
                         currentUser={currentUser} 
                         preloadedMessages={chatMessages}

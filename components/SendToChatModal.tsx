@@ -23,6 +23,7 @@ interface SendToChatModalProps {
   attachment?: { fileName: string; url: string };
   defaultMessage?: string;
   title?: string;
+  onGoToChat?: (target: { type: 'private' | 'group' | 'task_group' | 'system', id: string }) => void;
 }
 
 export const SendToChatModal: React.FC<SendToChatModalProps> = ({
@@ -30,7 +31,8 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   onClose,
   attachment,
   defaultMessage = '',
-  title = 'ارسال از طریق گفتگو'
+  title = 'ارسال از طریق گفتگو',
+  onGoToChat
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +97,19 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
         isPending: false
       };
 
-      await sendMessage(newMsg);
+      const serverMessages = await sendMessage(newMsg);
+      
+      // Instantly update local cache and broadcast chat update event
+      try {
+        const msgsToSave = Array.isArray(serverMessages) && serverMessages.length > 0 ? serverMessages : (() => {
+          const current = JSON.parse(localStorage.getItem('app_data_chat') || '[]');
+          return [...current, newMsg];
+        })();
+        localStorage.setItem('app_data_chat', JSON.stringify(msgsToSave));
+        window.dispatchEvent(new CustomEvent('chat_updated', { detail: { message: newMsg, allMessages: msgsToSave } }));
+      } catch (e) {
+        console.warn('Failed to update local chat cache:', e);
+      }
       
       setSuccessId(targetId);
       setTimeout(() => {
@@ -234,24 +248,39 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
                       </div>
                     </div>
                     
-                    <button
-                      disabled={isSending}
-                      onClick={() => handleSend({ id: user.id, username: user.username, isGroup: false })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                        isSuccess 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' 
-                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
-                      }`}
-                    >
-                      {isSending ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : isSuccess ? (
-                        <CheckCircle size={13} />
-                      ) : (
-                        <Send size={12} className="rotate-180" />
-                      )}
-                      <span>{isSuccess ? 'ارسال شد' : 'ارسال'}</span>
-                    </button>
+                    {isSuccess ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                          <CheckCircle size={13} />
+                          <span>ارسال شد</span>
+                        </span>
+                        {onGoToChat && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onGoToChat({ type: 'private', id: user.username });
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>مشاهده</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        disabled={isSending}
+                        onClick={() => handleSend({ id: user.id, username: user.username, isGroup: false })}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow disabled:opacity-50"
+                      >
+                        {isSending ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={12} className="rotate-180" />
+                        )}
+                        <span>ارسال</span>
+                      </button>
+                    )}
                   </div>
                 );
               })
@@ -275,24 +304,39 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
                       </div>
                     </div>
                     
-                    <button
-                      disabled={isSending}
-                      onClick={() => handleSend({ id: group.id, isGroup: true })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                        isSuccess 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' 
-                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
-                      }`}
-                    >
-                      {isSending ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : isSuccess ? (
-                        <CheckCircle size={13} />
-                      ) : (
-                        <Send size={12} className="rotate-180" />
-                      )}
-                      <span>{isSuccess ? 'ارسال شد' : 'ارسال'}</span>
-                    </button>
+                    {isSuccess ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                          <CheckCircle size={13} />
+                          <span>ارسال شد</span>
+                        </span>
+                        {onGoToChat && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onGoToChat({ type: 'group', id: group.id });
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>مشاهده</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        disabled={isSending}
+                        onClick={() => handleSend({ id: group.id, isGroup: true })}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow disabled:opacity-50"
+                      >
+                        {isSending ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={12} className="rotate-180" />
+                        )}
+                        <span>ارسال</span>
+                      </button>
+                    )}
                   </div>
                 );
               })

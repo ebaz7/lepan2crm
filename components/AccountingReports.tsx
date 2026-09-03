@@ -87,7 +87,7 @@ const getEffectiveApiUrl = (path: string) => {
     return `${host}${cleanPath}`;
 };
 
-export default function AccountingReports({ currentUser, settings }: { currentUser?: any, settings?: any }) {
+export default function AccountingReports({ currentUser, settings, onNavigateToChat }: { currentUser?: any, settings?: any, onNavigateToChat?: (target: { type: 'private' | 'group' | 'task_group' | 'system', id: string }) => void }) {
     // Determine Sayan permissions
     const perms = currentUser ? getRolePermissions(currentUser.role, settings || null, currentUser) : {
         canViewSayan: true,
@@ -4245,9 +4245,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     return (
-        <div className="w-full px-1 sm:px-4 md:px-6 py-2 rtl space-y-3 sm:space-y-4">
+        <div className="w-full px-0 sm:px-4 md:px-6 py-1 sm:py-3 rtl space-y-2 sm:space-y-4">
             {/* Global Date Filter Bar - Clean, Compact & Header-free with high z-index for mobile calendar popover */}
-            <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-800 p-2.5 sm:p-3 gap-2.5">
+            <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between bg-white dark:bg-zinc-900 rounded-none sm:rounded-xl shadow-sm border-y sm:border border-slate-200 dark:border-zinc-800 p-2 sm:p-3 gap-2.5">
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-bold shrink-0">
                         <Calendar className="w-4 h-4 text-blue-600" />
@@ -4353,7 +4353,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </div>
 
             {/* Premium Tab Bar - Horizontally Scrollable on Mobile */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 p-1.5 rounded-xl">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-y sm:border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 p-1.5 rounded-none sm:rounded-xl">
                 {isTrazAllowed && (
                     <button 
                         onClick={() => setActiveTab('traz')} 
@@ -4420,11 +4420,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </div>
 
             {/* TAB CONTENT PANEL */}
-            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800 overflow-hidden">
+            <div className="bg-white dark:bg-zinc-900 rounded-none sm:rounded-2xl shadow-sm border-y sm:border border-slate-100 dark:border-zinc-800 overflow-hidden w-full">
                 
                 {/* 1. TRAZ TAB */}
                 {activeTab === 'traz' && (
-                    <div className="w-full p-1.5 sm:p-6 space-y-3 sm:space-y-6">
+                    <div className="w-full p-1 sm:p-6 space-y-3 sm:space-y-6">
                         {/* Integrated Section AI Copilot Banner - Traz */}
                         <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 text-white rounded-2xl p-3 sm:p-4 shadow-md border border-purple-700/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
@@ -7475,6 +7475,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 }}
                 attachment={sendToChatAttachment}
                 defaultMessage={sendToChatDefaultMsg}
+                onGoToChat={onNavigateToChat}
             />
 
             <ReportShareToChatModal
@@ -7491,6 +7492,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 dateRange={{ from: dateFrom, to: dateTo }}
                 initialScope={reportShareInitialScope}
                 onGenerateReport={handleGenerateReportForShare}
+                onGoToChat={onNavigateToChat}
             />
 
             {/* Individual Customer Detailed Statement Modal */}

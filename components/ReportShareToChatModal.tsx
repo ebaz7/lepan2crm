@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import { generateUUID } from '../constants';
 import { getUsers, getCurrentUser } from '../services/authService';
 import { getGroups, sendMessage, uploadFileChunked } from '../services/storageService';
+import { getEffectiveApiUrl } from '../services/apiService';
 import { generatePdfFromHtml } from '../utils/pdfGenerator';
 import { ChatGroup, ChatMessage, User } from '../types';
 
@@ -42,6 +43,7 @@ interface ReportShareToChatModalProps {
     prebuiltUrl?: string;
   }>;
   initialScope?: TrazScope;
+  onGoToChat?: (target: { type: 'private' | 'group' | 'task_group' | 'system', id: string }) => void;
 }
 
 export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
@@ -52,7 +54,8 @@ export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
   dateRange,
   dateRangeText,
   onGenerateReport,
-  initialScope = 'both'
+  initialScope = 'both',
+  onGoToChat
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'users' | 'groups'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,19 +154,46 @@ export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
     let finalFileName = reportRes.pdfFilename;
 
     if (!finalUrl) {
-      let pdfBlob = reportRes.blob;
-      if (!pdfBlob && reportRes.htmlContent) {
-        pdfBlob = await generatePdfFromHtml(reportRes.htmlContent, reportRes.pdfFilename) as Blob;
+      // 1. First attempt: High fidelity Server-Side Puppeteer rendering
+      if (reportRes.htmlContent) {
+        try {
+          const res = await fetch(getEffectiveApiUrl('/api/render-html-to-pdf'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              html: reportRes.htmlContent,
+              filename: reportRes.pdfFilename,
+              landscape: false
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.url) {
+              finalUrl = data.url;
+              finalFileName = data.fileName || reportRes.pdfFilename;
+            }
+          }
+        } catch (serverErr) {
+          console.warn('Server PDF rendering error, falling back to client jsPDF:', serverErr);
+        }
       }
 
-      if (!pdfBlob) {
-        throw new Error('تولید فایل PDF ناموفق بود.');
-      }
+      // 2. Client-side fallback if server didn't generate URL
+      if (!finalUrl) {
+        let pdfBlob = reportRes.blob;
+        if (!pdfBlob && reportRes.htmlContent) {
+          pdfBlob = await generatePdfFromHtml(reportRes.htmlContent, reportRes.pdfFilename) as Blob;
+        }
 
-      const file = new File([pdfBlob], reportRes.pdfFilename, { type: 'application/pdf' });
-      const uploadRes = await uploadFileChunked(file, () => {});
-      finalUrl = uploadRes.url;
-      finalFileName = uploadRes.fileName || reportRes.pdfFilename;
+        if (!pdfBlob) {
+          throw new Error('تولید فایل PDF ناموفق بود.');
+        }
+
+        const file = new File([pdfBlob], reportRes.pdfFilename, { type: 'application/pdf' });
+        const uploadRes = await uploadFileChunked(file, () => {});
+        finalUrl = uploadRes.url;
+        finalFileName = uploadRes.fileName || reportRes.pdfFilename;
+      }
     }
 
     const cached = {
@@ -197,14 +227,26 @@ export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
         role: currentUser.role || '',
         message: messageText,
         timestamp: Date.now(),
-        recipient: target.isGroup ? undefined : target.username,
+        recipient: target.isGroup ? undefined : (target.username || target.id),
         groupId: target.isGroup ? target.id : undefined,
         attachment: { fileName: attachment.fileName, url: attachment.url },
         readBy: [currentUser.username],
         isPending: false
       };
 
-      await sendMessage(newMsg);
+      const serverMessages = await sendMessage(newMsg);
+
+      // Instantly update local cache and broadcast chat update event
+      try {
+        const msgsToSave = Array.isArray(serverMessages) && serverMessages.length > 0 ? serverMessages : (() => {
+          const current = JSON.parse(localStorage.getItem('app_data_chat') || '[]');
+          return [...current, newMsg];
+        })();
+        localStorage.setItem('app_data_chat', JSON.stringify(msgsToSave));
+        window.dispatchEvent(new CustomEvent('chat_updated', { detail: { message: newMsg, allMessages: msgsToSave } }));
+      } catch (e) {
+        console.warn('Failed to update local chat cache:', e);
+      }
 
       setSuccessTargetIds(prev => new Set(prev).add(target.id));
       toast.success(`گزارش با موفقیت به ${target.name} ارسال شد`, { id: toastId });
@@ -436,33 +478,47 @@ export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSend({ id: group.id, name: group.name, isGroup: true })}
-                      disabled={isSending}
-                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
-                        isSent 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-black'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-95 disabled:opacity-50'
-                      }`}
-                    >
-                      {isSending ? (
-                        <>
-                          <Loader2 size={13} className="animate-spin" />
-                          <span>ارسال...</span>
-                        </>
-                      ) : isSent ? (
-                        <>
+                    {isSent ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2.5 py-1.5 rounded-xl text-xs font-black bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                           <Check size={13} className="text-emerald-600 stroke-[3]" />
                           <span>ارسال شد</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send size={12} />
-                          <span>ارسال به گروه</span>
-                        </>
-                      )}
-                    </button>
+                        </span>
+                        {onGoToChat && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onGoToChat({ type: 'group', id: group.id });
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                            title="مشاهده این گفتگو"
+                          >
+                            <span>مشاهده</span>
+                            <MessageSquare size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSend({ id: group.id, name: group.name, isGroup: true })}
+                        disabled={isSending}
+                        className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-95 disabled:opacity-50"
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>ارسال...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={12} />
+                            <span>ارسال به گروه</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -491,33 +547,47 @@ export const ReportShareToChatModal: React.FC<ReportShareToChatModalProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSend({ id: user.id, name: user.fullName || user.username, username: user.username, isGroup: false })}
-                      disabled={isSending}
-                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] ${
-                        isSent 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-black'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-95 disabled:opacity-50'
-                      }`}
-                    >
-                      {isSending ? (
-                        <>
-                          <Loader2 size={13} className="animate-spin" />
-                          <span>ارسال...</span>
-                        </>
-                      ) : isSent ? (
-                        <>
+                    {isSent ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2.5 py-1.5 rounded-xl text-xs font-black bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                           <Check size={13} className="text-emerald-600 stroke-[3]" />
                           <span>ارسال شد</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send size={12} />
-                          <span>ارسال</span>
-                        </>
-                      )}
-                    </button>
+                        </span>
+                        {onGoToChat && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onGoToChat({ type: 'private', id: user.username });
+                            }}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                            title="مشاهده این گفتگو"
+                          >
+                            <span>مشاهده</span>
+                            <MessageSquare size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSend({ id: user.id, name: user.fullName || user.username, username: user.username, isGroup: false })}
+                        disabled={isSending}
+                        className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px] bg-blue-600 hover:bg-blue-700 text-white shadow-xs active:scale-95 disabled:opacity-50"
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>ارسال...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={12} />
+                            <span>ارسال</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 );
               })}

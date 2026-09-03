@@ -1244,7 +1244,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                       </select>
                   )}
               </div>
-              <div className={`${activeTab === 'chat' ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-0 sm:p-2 md:p-4 w-full min-h-full'} mx-auto min-w-0`}>
+              <div className={`${(activeTab === 'chat' || activeTab === 'sayan') ? 'p-0 w-full flex-1 flex flex-col min-h-0' : 'p-0 sm:p-2 md:p-4 w-full min-h-full'} mx-auto min-w-0`}>
                   {children}
               </div>
           </div>

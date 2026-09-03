@@ -29,6 +29,13 @@ export const getServerHost = () => {
     return '';
 };
 
+export const getEffectiveApiUrl = (path: string): string => {
+    const host = getServerHost();
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    if (!host) return cleanPath;
+    return `${host}${cleanPath}`;
+};
+
 export const resolveImageUrl = (url: string | null | undefined): string => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {

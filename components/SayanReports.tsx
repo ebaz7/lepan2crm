@@ -6,6 +6,7 @@ import { BarChart2 } from 'lucide-react';
 interface SayanReportsProps {
   settings?: any;
   currentUser?: any;
+  onNavigateToChat?: (target: { type: 'private' | 'group' | 'task_group' | 'system', id: string }) => void;
 }
 
 const SayanReports: React.FC<SayanReportsProps> = (props) => {
@@ -28,7 +29,7 @@ const SayanReports: React.FC<SayanReportsProps> = (props) => {
       </div>
 
       {/* Tab Content body */}
-      <div className="w-full bg-transparent pb-20 md:pb-8">
+      <div className="w-full bg-transparent pb-24 md:pb-8 p-0 m-0">
         <AccountingReports {...props} currentUser={currentUser} />
       </div>
     </div>

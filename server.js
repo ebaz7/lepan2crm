@@ -9617,6 +9617,33 @@ app.post('/api/ai/sayan-export-pdf', async (req, res) => {
     }
 });
 
+app.post('/api/render-html-to-pdf', async (req, res) => {
+    try {
+        const { html, filename = `Report_${Date.now()}.pdf`, landscape = false } = req.body;
+        if (!html) {
+            return res.status(400).json({ error: 'محتوای گزارش برای تولید PDF ارسال نشده است.' });
+        }
+        const Renderer = await safeImport('./backend/renderer.js');
+        if (!Renderer || !Renderer.generatePdfBuffer) {
+            throw new Error("سرویس رندرینگ PDF در سرور در دسترس نیست.");
+        }
+        const pdfBuffer = await Renderer.generatePdfBuffer(html, {
+            landscape: !!landscape,
+            format: 'A4',
+            printBackground: true
+        });
+        const safeName = (filename || `Report_${Date.now()}.pdf`).replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const uniqueName = `${Date.now()}_${safeName}`;
+        const finalPath = path.join(UPLOADS_DIR, uniqueName);
+        fs.writeFileSync(finalPath, pdfBuffer);
+        const url = `/uploads/${uniqueName}`;
+        res.json({ success: true, url, fileName: safeName });
+    } catch (e) {
+        console.error("Render HTML to PDF error:", e);
+        res.status(500).json({ error: e.message || 'خطا در تبدیل گزارش به PDF' });
+    }
+});
+
 app.post('/api/ai/sayan-send-bot', async (req, res) => {
     try {
         const {
