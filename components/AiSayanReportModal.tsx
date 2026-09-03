@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     Sparkles, 
     X, 
@@ -277,8 +278,10 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
     const scoreColor = score >= 80 ? 'text-emerald-500 border-emerald-500' : (score >= 60 ? 'text-amber-500 border-amber-500' : 'text-rose-500 border-rose-500');
     const scoreBg = score >= 80 ? 'bg-emerald-50 text-emerald-800' : (score >= 60 ? 'bg-amber-50 text-amber-800' : 'bg-rose-50 text-rose-800');
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animation-fade-in" dir="rtl">
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animation-fade-in" dir="rtl">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-6xl max-h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                 
                 {/* Header */}
@@ -1095,6 +1098,7 @@ export const AiSayanReportModal: React.FC<AiSayanReportModalProps> = ({
                     </div>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };

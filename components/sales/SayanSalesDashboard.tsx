@@ -1576,7 +1576,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   // RENDER UI
   // ----------------------------------------------------------------------
   return (
-    <div id="executive-sales-dashboard" className="space-y-6 text-right dir-rtl font-sans pb-12 p-2 bg-slate-50/50 rounded-2xl">
+    <div id="executive-sales-dashboard" className="w-full space-y-4 sm:space-y-6 text-right dir-rtl font-sans pb-8 px-0 sm:px-1 bg-transparent">
       
       {/* 1. TOP HEADER & DASHBOARD CONTROLS */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-900 rounded-2xl p-5 text-white shadow-xl border border-blue-800/40 relative overflow-hidden">
