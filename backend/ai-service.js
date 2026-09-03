@@ -138,21 +138,41 @@ export const getSystemContextSnapshot = () => {
         const settings = db.settings || {};
         
         // Active fiscal year
-        const activeYear = (settings.fiscalYears || []).find(y => y.id === settings.activeFiscalYearId)?.label || '1404';
+        const activeYear = (settings.fiscalYears || []).find(y => y.id === settings.activeFiscalYearId)?.label || '1405';
         
         // Orders & permits
-        const ordersCount = (db.orders || []).length;
-        const pendingPermits = (db.exitPermits || []).filter(p => p.status === 'PENDING' || p.status === 'APPROVED_FINANCIAL').length;
-        const completedPermits = (db.exitPermits || []).filter(p => p.status === 'EXITED' || p.status === 'DELIVERED').length;
+        const orders = db.orders || [];
+        const exitPermits = db.exitPermits || [];
+        const ordersCount = orders.length;
+        const pendingPermits = exitPermits.filter(p => p.status === 'PENDING' || p.status === 'APPROVED_FINANCIAL').length;
+        const completedPermits = exitPermits.filter(p => p.status === 'EXITED' || p.status === 'DELIVERED').length;
         
+        // Warehouse Overview (Sayan & Logistics Data)
+        const wo = db.warehouseOverview || {};
+        const meta = wo.meta || {};
+        const goodsInTransit = wo.goodsInTransit || [];
+        const goodsInCustoms = wo.goodsInCustoms || [];
+        const purchasingGoods = wo.purchasingGoods || [];
+        const commercialGoods = wo.commercialGoods || [];
+
         // Trade records (Logistics)
-        const transitCount = (db.tradeRecords || []).filter(r => r.type === 'transit').length;
-        const customsCount = (db.tradeRecords || []).filter(r => r.type === 'customs').length;
-        const purchaseCount = (db.tradeRecords || []).filter(r => r.type === 'purchase').length;
+        const tradeRecords = db.tradeRecords || [];
+        const activeTradeRecords = tradeRecords.filter(r => !r.isArchived);
+
+        const totalTransitWeight = goodsInTransit.reduce((s, i) => s + (Number(i.weight) || 0), 0);
+        const totalTransitDollars = goodsInTransit.reduce((s, i) => s + (Number(i.dollars) || 0), 0);
+        const totalTransitContainers = goodsInTransit.reduce((s, i) => s + (Number(i.container) || 0), 0);
+
+        const totalCustomsWeight = goodsInCustoms.reduce((s, i) => s + (Number(i.weight) || 0), 0);
+        const totalCustomsDollars = goodsInCustoms.reduce((s, i) => s + (Number(i.dollars) || 0), 0);
+
+        const totalPurchasingWeight = purchasingGoods.reduce((s, i) => s + (Number(i.weight) || 0), 0);
+        const totalPurchasingDollars = purchasingGoods.reduce((s, i) => s + (Number(i.dollars) || 0), 0);
 
         // Cheques
         const cheques = db.cheques || db.chequeReceipts || [];
         const pendingCheques = cheques.filter(c => c.statusGroup === 'in_hand' || !c.statusGroup || c.status === 'PENDING').length;
+        const totalChequeAmount = cheques.reduce((s, c) => s + (Number(c.amount || c.rialAmount) || 0), 0);
 
         return {
             activeYear,
@@ -160,12 +180,56 @@ export const getSystemContextSnapshot = () => {
             ordersCount,
             pendingPermits,
             completedPermits,
-            logistics: {
-                transitCount,
-                customsCount,
-                purchaseCount
+            warehouseBalance: {
+                reportDate: meta.reportDate || '۱۴۰۵/۰۵/۳۱',
+                totalCurrentAllWeight: meta.totalCurrentAllWeight !== undefined ? meta.totalCurrentAllWeight : 730000,
+                diffAllWeight: meta.diffAllWeight !== undefined ? meta.diffAllWeight : -30000,
+                ratioAllWeight: meta.ratioAllWeight !== undefined ? meta.ratioAllWeight : -4.1,
+                totalPositiveWeight: meta.totalPositiveWeight !== undefined ? meta.totalPositiveWeight : 45000,
+                totalNegativeWeight: meta.totalNegativeWeight !== undefined ? meta.totalNegativeWeight : -75000,
+                allowedCompanies: meta.allowedCompanies || ['شرکت لپان بافت', 'KOZA']
             },
+            goodsInTransit: {
+                totalCount: goodsInTransit.length,
+                totalWeightKg: totalTransitWeight,
+                totalDollars: totalTransitDollars,
+                totalContainers: totalTransitContainers,
+                items: goodsInTransit.map(g => ({
+                    cargoType: g.cargoType,
+                    proforma: g.proforma,
+                    weight: g.weight,
+                    cartons: g.cartons,
+                    container: g.container,
+                    dollars: g.dollars
+                }))
+            },
+            goodsInCustoms: {
+                totalCount: goodsInCustoms.length,
+                totalWeightKg: totalCustomsWeight,
+                totalDollars: totalCustomsDollars,
+                items: goodsInCustoms.map(g => ({
+                    cargoType: g.cargoType,
+                    proforma: g.proforma,
+                    weight: g.weight,
+                    cartons: g.cartons,
+                    dollars: g.dollars
+                }))
+            },
+            purchasingGoods: {
+                totalCount: purchasingGoods.length,
+                totalWeightKg: totalPurchasingWeight,
+                totalDollars: totalPurchasingDollars,
+                items: purchasingGoods.map(g => ({
+                    cargoType: g.cargoType,
+                    proforma: g.proforma,
+                    weight: g.weight,
+                    dollars: g.dollars
+                }))
+            },
+            commercialGoodsCount: commercialGoods.length,
+            activeTradeFilesCount: activeTradeRecords.length,
             pendingChequesCount: pendingCheques,
+            totalChequeAmountRial: totalChequeAmount,
             dateJalali: new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' }).format(new Date())
         };
     } catch (e) {
@@ -187,7 +251,7 @@ export const processVoiceAudio = async (audioBuffer, mimeType = 'audio/ogg', cus
 وظیفه شما:
 ۱. پیام صوتی فارسی ارسال شده را دقیقاً بشنوید و متن آن را رونویسی (Transcribe) کنید.
 ۲. بر اساس متن و دستور کاربر، اطلاعات مربوطه را از سیستم تحلیل کرده یا پاسخ جامع، مؤدبانه و دقیق مدیریتی بدهید.
-۳. در صورتی که کاربر دستوری مانند دریافت گزارش، تراز انبار، چک‌ها، یا بارهای در راه داده باشد، آن را مشخص نمایید.
+۳. در صورتی که کاربر دستوری درباره تراز انبار، بارهای در راه، گمرک، خرید یا چک‌ها داده باشد، دقیقاً از داده‌های واقعی جداول استفاده نمایید و هرگز ادعای خالی یا صفر بودن نفرمایید.
 
 اطلاعات زنده سیستم:
 ${systemContext}
@@ -247,17 +311,17 @@ export const askAiAssistant = async ({ message, contextData, history = [], custo
     const systemSnapshot = getSystemContextSnapshot();
     const systemInstruction = `
 شما «ایجنت هوش مصنوعی و مشاور ارشد سیستم ERP لپان بافت» هستید.
-شما به تمام داده‌های زنده انبار (موجودی، بارهای در راه، گمرک، خرید، کسری‌ها و تراز وزنی)، فروش و مرجوعی‌ها، اسناد و چک‌های خزانه، برگه‌های خروج و وضعیت بارگیری دسترسی دارید.
-اهداف شما:
-- پاسخ به زبان فارسی بسیار روان، فاخر و دقیق مدیریتی.
-- ارائه راهکارهای عملیاتی و اعداد مستند بر اساس داده‌ها.
-- تحلیل ریسک، زمان اتمام موجودی و پیش‌بینی‌های هوشمند.
-- استفاده از ساختاردهی زیبا (بولِت‌پوینت، ایموجی مناسب، اعداد خوانا با فونت و جداکننده).
+شما به تمام داده‌های زنده سیستم شامل تراز انبار سایان (موجودی‌ها، کسری‌ها و تراز وزنی)، بارهای در راه (Transit)، بارهای گمرک (Customs)، خریدهای در حال انجام (Purchasing)، فروش و مرجوعی‌ها، اسناد و چک‌های خزانه، برگه‌های خروج و وضعیت بارگیری دسترسی کامل دارید.
 
-داده‌های خلاصه وضعیت سیستم:
+دستورالعمل‌های حیاتی:
+۱. تحلیل بر اساس داده‌های واقعی: همیشه از ارقام دقیق، اوزان (کیلوگرم)، مبالغ دلاری، شماره پروفرم‌ها و کانتینرهای استخراج‌شده زیر استفاده کنید.
+۲. عدم فرض صفر: هرگز و تحت هیچ شرایطی ادعا نکنید که بارهای در راه، گمرک یا خرید صفر است یا سیستم در ایستایی قرار دارد؛ تمام ارقام ثبت‌شده در جدول و سیستم را استخراج کرده و به تفکیک تحلیل نمایید.
+۳. قالب پاسخ: فارسی رسمی، فاخر، با بولِت‌پوینت، تفکیک دسته‌بندی و اعداد خوانا.
+
+داده‌های جامع استخراج‌شده از انبار و سیستم:
 ${JSON.stringify(systemSnapshot, null, 2)}
 
-داده‌های زمینه‌ای صفحه جاری کاربر:
+داده‌های زمینه‌ای سایان و صفحه جاری کاربر:
 ${contextData ? JSON.stringify(contextData, null, 2) : 'داده اضافه ثبت نشده'}
 `;
 

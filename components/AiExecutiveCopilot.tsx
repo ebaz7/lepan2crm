@@ -106,8 +106,20 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
             try {
                 const historyPayload = messages.slice(-6).map(m => ({ role: m.role, text: m.text }));
                 
-                // Get live Sayan data context if available
-                const sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || null;
+                // Get live Sayan & warehouse overview data context, or fetch fresh if missing
+                let sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || (window as any).__WAREHOUSE_OVERVIEW_LIVE_DATA__ || null;
+                if (!sayanLiveData) {
+                    try {
+                        const sRes = await fetch('/api/warehouse-overview/data');
+                        if (sRes.ok) {
+                            const sData = await sRes.json();
+                            sayanLiveData = sData;
+                            (window as any).__SAYAN_LIVE_DATA__ = sData;
+                        }
+                    } catch (e) {
+                        console.warn("Could not pre-fetch Sayan data for AI:", e);
+                    }
+                }
 
                 const res = await fetch('/api/ai/chat', {
                     method: 'POST',
@@ -219,8 +231,20 @@ export const AiExecutiveCopilot: React.FC<AiExecutiveCopilotProps> = ({
                 reader.onloadend = async () => {
                     const base64Data = (reader.result as string).split(',')[1];
                     
-                    // Live Sayan data context if available
-                    const sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || null;
+                    // Live Sayan & warehouse overview data context if available, or fetch fresh
+                    let sayanLiveData = (window as any).__SAYAN_LIVE_DATA__ || (window as any).__WAREHOUSE_OVERVIEW_LIVE_DATA__ || null;
+                    if (!sayanLiveData) {
+                        try {
+                            const sRes = await fetch('/api/warehouse-overview/data');
+                            if (sRes.ok) {
+                                const sData = await sRes.json();
+                                sayanLiveData = sData;
+                                (window as any).__SAYAN_LIVE_DATA__ = sData;
+                            }
+                        } catch (e) {
+                            console.warn("Could not pre-fetch Sayan data for Voice AI:", e);
+                        }
+                    }
 
                     const res = await fetch('/api/ai/voice-command', {
                         method: 'POST',

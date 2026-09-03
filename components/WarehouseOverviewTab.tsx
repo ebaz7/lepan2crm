@@ -1292,6 +1292,22 @@ export const WarehouseOverviewTab: React.FC = () => {
         };
     };
 
+    // Synchronize current live data to global window object for AI Copilot
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const dataset = getExportDataset();
+                (window as any).__WAREHOUSE_OVERVIEW_LIVE_DATA__ = dataset;
+                (window as any).__SAYAN_LIVE_DATA__ = {
+                    ...dataset,
+                    lastUpdated: new Date().toISOString()
+                };
+            } catch (e) {
+                console.warn("Could not sync live dataset to window:", e);
+            }
+        }
+    }, [filteredYarns, filteredImported, goodsInTransit, goodsInCustoms, purchasingGoods, commercialGoods, growthItems, negativeItems, reportDate, totalCurrentAllWeight, diffAllWeight]);
+
     // Direct Browser Print function (100% reliable, opens native print/PDF dialog)
     const handlePrintReport = (scope: 'both' | 'overview_only' | 'variance_only' = 'both') => {
         setPdfScopeMenuOpen(false);
@@ -1708,9 +1724,9 @@ export const WarehouseOverviewTab: React.FC = () => {
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-6 bg-slate-50 rounded-2xl select-text" dir="rtl">
+        <div className="p-0 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-transparent sm:bg-slate-50 rounded-none sm:rounded-2xl select-text w-full max-w-full" dir="rtl">
             {/* Sticky Action & Navigation Bar */}
-            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-md space-y-3 transition-all">
+            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-2 sm:p-4 rounded-none sm:rounded-2xl border-b sm:border border-slate-200/90 shadow-sm space-y-2 sm:space-y-3 transition-all">
                 {/* Top Row: Title and Primary Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -2017,7 +2033,7 @@ export const WarehouseOverviewTab: React.FC = () => {
 
             {/* Dynamic Date & Period Settings Control (User Requested) */}
             {showSettings && (
-                <div className="bg-white p-6 rounded-2xl border-2 border-blue-100 shadow-md space-y-6 max-w-4xl mx-auto animation-fade-in">
+                <div className="bg-white p-3 sm:p-6 rounded-none sm:rounded-2xl border-y sm:border-2 border-blue-100 shadow-sm sm:shadow-md space-y-4 sm:space-y-6 w-full max-w-5xl mx-auto animation-fade-in">
                     <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <Settings className="w-5 h-5 text-blue-600" />
                         <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">تنظیمات پویای دوره‌های مالی و تاریخ استعلام سایان</h4>
@@ -2275,7 +2291,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             )}
 
             {/* Letter Header Box */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-4xl mx-auto">
+            <div className="bg-white p-3.5 sm:p-6 rounded-none sm:rounded-2xl border-y sm:border border-slate-200 shadow-sm space-y-3 sm:space-y-4 w-full max-w-5xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                     <div className="text-xs font-bold text-slate-400">گزارش مدیریتی مقایسه‌ای وضعیت انبارها</div>
                     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs">
@@ -2303,7 +2319,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* Sayan Items Filters */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="bg-white p-2.5 sm:p-4 rounded-none sm:rounded-xl border-y sm:border border-slate-200 w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
                 <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
                     <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">تعداد کل اقلام سایان: {(allActiveRawItems.length + allActiveFactoryItems.length).toLocaleString('fa-IR')} قلم</span>
                     <span className="px-2 py-1 bg-green-50 text-green-600 rounded">مواد اولیه: {allActiveRawItems.length.toLocaleString('fa-IR')} قلم</span>
@@ -2321,10 +2337,10 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* Main Grid: Sayan Items - Left (Report 1) vs Right (Report 2) comparison */}
-            <div id="section-sayan-tables" className="grid grid-cols-1 xl:grid-cols-2 gap-6 scroll-mt-28">
+            <div id="section-sayan-tables" className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-6 scroll-mt-28 w-full">
                 
                 {/* 1. REPORT 1 END OF FISCAL INVENTORY TABLE */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+                <div className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm flex flex-col w-full">
                     <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse"></span>
@@ -2334,16 +2350,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full min-w-[600px] text-xs text-center border-collapse">
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <th className="py-3 px-2 text-right">نوع کالا / نخ</th>
-                                    <th className="py-3 px-2">دسته‌بندی</th>
-                                    <th className="py-3 px-2">پروفرم</th>
-                                    <th className="py-3 px-2">کارتن</th>
-                                    <th className="py-3 px-2 font-bold text-slate-900">وزن (kg)</th>
-                                    <th className="py-3 px-2">کانتینر</th>
-                                    <th className="py-3 px-2">ارزش دلاری</th>
+                                    <th className="py-3 px-2 text-right whitespace-nowrap">نوع کالا / نخ</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">دسته‌بندی</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">پروفرم</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کارتن</th>
+                                    <th className="py-3 px-2 font-bold text-slate-900 whitespace-nowrap">وزن (kg)</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری</th>
                                 </tr>
                             </thead>
                             {renderTableBody(true)}
@@ -2369,7 +2385,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 {/* 2. REPORT 2 CURRENT ACTIVE INVENTORY TABLE */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+                <div className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm flex flex-col w-full">
                     <div className="p-4 bg-blue-900 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse"></span>
@@ -2379,16 +2395,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full min-w-[600px] text-xs text-center border-collapse">
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <th className="py-3 px-2 text-right">نوع کالا / نخ</th>
-                                    <th className="py-3 px-2">دسته‌بندی</th>
-                                    <th className="py-3 px-2">پروفرم</th>
-                                    <th className="py-3 px-2">کارتن</th>
-                                    <th className="py-3 px-2 font-bold text-slate-900">وزن (kg)</th>
-                                    <th className="py-3 px-2">کانتینر</th>
-                                    <th className="py-3 px-2">ارزش دلاری</th>
+                                    <th className="py-3 px-2 text-right whitespace-nowrap">نوع کالا / نخ</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">دسته‌بندی</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">پروفرم</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کارتن</th>
+                                    <th className="py-3 px-2 font-bold text-slate-900 whitespace-nowrap">وزن (kg)</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری</th>
                                 </tr>
                             </thead>
                             {renderTableBody(false)}
@@ -2416,7 +2432,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* 3. COMMERCIAL WAREHOUSE GOODS TABLE */}
-            <div id="section-commercial" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
+            <div id="section-commercial" className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm scroll-mt-28 w-full">
                 <div className="p-4 bg-emerald-800 text-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <h4 className="font-extrabold text-sm sm:text-base">کالای انبار تجاری (مخصوص سرمایه در گردش و بازرگانی)</h4>
@@ -2433,16 +2449,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-center border-collapse">
+                    <table className="w-full min-w-[600px] text-xs text-center border-collapse">
                         <thead>
                             <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                <th className="py-3 px-3 text-right">نام کالا</th>
-                                <th className="py-3 px-2">دسته‌بندی</th>
-                                <th className="py-3 px-2">تعداد کارتن</th>
-                                <th className="py-3 px-2">وزن ناخالص/خالص (kg)</th>
-                                <th className="py-3 px-2">کانتینر</th>
-                                <th className="py-3 px-2">ارزش دلاری</th>
-                                {isEditMode && <th className="py-3 px-2">عملیات</th>}
+                                <th className="py-3 px-3 text-right whitespace-nowrap">نام کالا</th>
+                                <th className="py-3 px-2 whitespace-nowrap">دسته‌بندی</th>
+                                <th className="py-3 px-2 whitespace-nowrap">تعداد کارتن</th>
+                                <th className="py-3 px-2 whitespace-nowrap">وزن ناخالص/خالص (kg)</th>
+                                <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری</th>
+                                {isEditMode && <th className="py-3 px-2 whitespace-nowrap">عملیات</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -2544,10 +2560,10 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* THREE INTERACTIVE CARGO TABLES: Transit, Customs, Purchasing */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6 w-full">
                 
                 {/* A. GOODS IN TRANSIT (کالاهای در راه) */}
-                <div id="section-transit" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
+                <div id="section-transit" className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm scroll-mt-28 w-full">
                     <div className="p-4 bg-teal-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">کالاهای در راه (بارهای در مسیر حمل دریایی / زمینی)</h4>
@@ -2564,16 +2580,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full min-w-[620px] text-xs text-center border-collapse">
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <th className="py-3 px-3 text-right">نوع بار</th>
-                                    <th className="py-3 px-2">پروفرم / حواله</th>
-                                    <th className="py-3 px-2">وزن (kg)</th>
-                                    <th className="py-3 px-2">تعداد کارتن</th>
-                                    <th className="py-3 px-2">کانتینر</th>
-                                    <th className="py-3 px-2">ارزش دلاری ($)</th>
-                                    {isEditMode && <th className="py-3 px-2">عملیات</th>}
+                                    <th className="py-3 px-3 text-right whitespace-nowrap">نوع بار</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">پروفرم / حواله</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">وزن (kg)</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">تعداد کارتن</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری ($)</th>
+                                    {isEditMode && <th className="py-3 px-2 whitespace-nowrap">عملیات</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2689,7 +2705,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 {/* B. GOODS IN CUSTOMS (بارهای در گمرک) */}
-                <div id="section-customs" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
+                <div id="section-customs" className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm scroll-mt-28 w-full">
                     <div className="p-4 bg-sky-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">بارهای در گمرک (رسیده به گمرکات کشور و در حال ترخیص)</h4>
@@ -2706,16 +2722,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full min-w-[620px] text-xs text-center border-collapse">
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <th className="py-3 px-3 text-right">نوع بار</th>
-                                    <th className="py-3 px-2">پروفرم / حواله</th>
-                                    <th className="py-3 px-2">وزن (kg)</th>
-                                    <th className="py-3 px-2">تعداد کارتن</th>
-                                    <th className="py-3 px-2">کانتینر</th>
-                                    <th className="py-3 px-2">ارزش دلاری ($)</th>
-                                    {isEditMode && <th className="py-3 px-2">عملیات</th>}
+                                    <th className="py-3 px-3 text-right whitespace-nowrap">نوع بار</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">پروفرم / حواله</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">وزن (kg)</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">تعداد کارتن</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری ($)</th>
+                                    {isEditMode && <th className="py-3 px-2 whitespace-nowrap">عملیات</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2831,7 +2847,7 @@ export const WarehouseOverviewTab: React.FC = () => {
                 </div>
 
                 {/* C. GOODS UNDER PURCHASE / PROCURING (در حال خرید) */}
-                <div id="section-purchasing" className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm scroll-mt-28">
+                <div id="section-purchasing" className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm scroll-mt-28 w-full">
                     <div className="p-4 bg-indigo-800 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <h4 className="font-extrabold text-sm sm:text-base">بارهای در حال خرید (ثبت سفارش شده یا پیش پرداخت انجام شده)</h4>
@@ -2848,16 +2864,16 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full min-w-[620px] text-xs text-center border-collapse">
                             <thead>
                                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                    <th className="py-3 px-3 text-right">نوع بار</th>
-                                    <th className="py-3 px-2">پروفرم / حواله</th>
-                                    <th className="py-3 px-2">وزن (kg)</th>
-                                    <th className="py-3 px-2">تعداد کارتن</th>
-                                    <th className="py-3 px-2">کانتینر</th>
-                                    <th className="py-3 px-2">ارزش دلاری ($)</th>
-                                    {isEditMode && <th className="py-3 px-2">عملیات</th>}
+                                    <th className="py-3 px-3 text-right whitespace-nowrap">نوع بار</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">پروفرم / حواله</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">وزن (kg)</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">تعداد کارتن</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">کانتینر</th>
+                                    <th className="py-3 px-2 whitespace-nowrap">ارزش دلاری ($)</th>
+                                    {isEditMode && <th className="py-3 px-2 whitespace-nowrap">عملیات</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -2975,7 +2991,7 @@ export const WarehouseOverviewTab: React.FC = () => {
             </div>
 
             {/* COMPARATIVE ANALYSIS SUMMARY (تفاضل و مقایسه جامع وزنی، تولید، واردات و آمار سالانه) */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-md space-y-8 max-w-5xl mx-auto">
+            <div className="bg-white p-3 sm:p-8 rounded-none sm:rounded-3xl border-y sm:border border-slate-200 shadow-sm sm:shadow-md space-y-4 sm:space-y-8 w-full max-w-5xl mx-auto">
                 <div className="border-b border-slate-100 pb-4 text-center">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold mb-2">
                         <Scale className="w-3.5 h-3.5" />
@@ -3105,14 +3121,14 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                 {/* 🚨 NEGATIVE ITEMS ALERT CENTER */}
                 {negativeItems.length > 0 ? (
-                    <div id="section-negative-alert" className="p-5 rounded-2xl bg-red-50/90 border-2 border-red-200 space-y-4 shadow-sm scroll-mt-28">
+                    <div id="section-negative-alert" className="p-2.5 sm:p-5 rounded-none sm:rounded-2xl bg-red-50/90 border-y sm:border-2 border-red-200 space-y-3 sm:space-y-4 shadow-sm scroll-mt-28 w-full">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200/80 pb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="p-2 bg-red-600 text-white rounded-xl shadow animate-bounce">
+                                <div className="p-2 bg-red-600 text-white rounded-xl shadow animate-bounce shrink-0">
                                     <BellRing className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h5 className="font-extrabold text-red-900 text-sm sm:text-base flex items-center gap-2">
+                                    <h5 className="font-extrabold text-red-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
                                         <span>هشدار فوری: شناسایی {negativeItems.length.toLocaleString('fa-IR')} قلم کالا با تراز منفی و افت وزنی</span>
                                         <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded-full text-[10px] font-mono font-bold">ALARM ACTIVE</span>
                                     </h5>
@@ -3124,7 +3140,7 @@ export const WarehouseOverviewTab: React.FC = () => {
 
                             <button
                                 onClick={() => setIsBotModalOpen(true)}
-                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2.5 text-xs font-extrabold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg self-stretch sm:self-auto"
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2.5 text-xs font-extrabold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg self-stretch sm:self-auto shrink-0 cursor-pointer"
                             >
                                 <Send className="w-4 h-4" />
                                 <span>ارسال فوری گزارش منفی‌ها به بات</span>
@@ -3132,41 +3148,41 @@ export const WarehouseOverviewTab: React.FC = () => {
                         </div>
 
                         {/* List of Negative Items Mini Table */}
-                        <div className="overflow-x-auto rounded-xl border border-red-200 bg-white">
-                            <table className="w-full text-xs text-center border-collapse">
+                        <div className="overflow-x-auto rounded-none sm:rounded-xl border-y sm:border border-red-200 bg-white w-full">
+                            <table className="w-full min-w-[620px] text-xs text-center border-collapse">
                                 <thead>
                                     <tr className="bg-red-100/70 text-red-900 font-bold border-b border-red-200">
-                                        <th className="py-2.5 px-3 text-right">کد و نام کالا / گروه</th>
-                                        <th className="py-2.5 px-2">دسته‌بندی</th>
-                                        <th className="py-2.5 px-2 font-mono">وزن پارسال ({report1Label})</th>
-                                        <th className="py-2.5 px-2 font-mono">وزن امسال ({report2Label})</th>
-                                        <th className="py-2.5 px-2 font-mono text-red-700 font-extrabold">میزان کسری و افت (Δ kg)</th>
-                                        <th className="py-2.5 px-2 font-mono">درصد افت</th>
+                                        <th className="py-2.5 px-3 text-right whitespace-nowrap">کد و نام کالا / گروه</th>
+                                        <th className="py-2.5 px-2 whitespace-nowrap">دسته‌بندی</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">وزن پارسال ({report1Label})</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">وزن امسال ({report2Label})</th>
+                                        <th className="py-2.5 px-2 font-mono text-red-700 font-extrabold whitespace-nowrap">میزان کسری و افت (Δ kg)</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">درصد افت</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {negativeItems.map((item, idx) => (
                                         <tr key={`neg-${item.code}-${idx}`} className="border-b border-red-100 hover:bg-red-50/50 transition-colors">
-                                            <td className="py-2 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5">
-                                                <span className="font-mono text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">{item.code}</span>
-                                                <span>{item.name}</span>
+                                            <td className="py-2 px-3 text-right font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                                <span className="font-mono text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold shrink-0">{item.code}</span>
+                                                <span className="break-words">{item.name}</span>
                                             </td>
-                                            <td className="py-2 px-2 text-slate-600">
+                                            <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
                                                 <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
                                                     {item.categoryLabel}
                                                 </span>
                                             </td>
-                                            <td className="py-2 px-2 font-mono text-slate-600">
+                                            <td className="py-2 px-2 font-mono text-slate-600 whitespace-nowrap">
                                                 {item.lastYearWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="py-2 px-2 font-mono font-bold text-slate-900">
+                                            <td className="py-2 px-2 font-mono font-bold text-slate-900 whitespace-nowrap">
                                                 {item.currentWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="py-2 px-2 font-mono font-extrabold text-red-600 bg-red-50/50" dir="ltr">
+                                            <td className="py-2 px-2 font-mono font-extrabold text-red-600 bg-red-50/50 whitespace-nowrap" dir="ltr">
                                                 {item.diffWeight.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} kg
                                                 <span className="text-[10px] text-red-500 font-normal mr-1">({(item.diffWeight / 1000).toFixed(2)} تن)</span>
                                             </td>
-                                            <td className="py-2 px-2 font-mono font-bold text-red-600">
+                                            <td className="py-2 px-2 font-mono font-bold text-red-600 whitespace-nowrap">
                                                 {item.ratio.toFixed(1)}%
                                             </td>
                                         </tr>
@@ -3233,17 +3249,17 @@ export const WarehouseOverviewTab: React.FC = () => {
                     </div>
 
                     {showVarianceDetails && (
-                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-                            <table className="w-full text-xs text-center border-collapse">
+                        <div className="overflow-x-auto rounded-none sm:rounded-2xl border-y sm:border border-slate-200 bg-white w-full">
+                            <table className="w-full min-w-[700px] text-xs text-center border-collapse">
                                 <thead>
                                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                                        <th className="py-2.5 px-3 text-right">کد و عنوان کالا / گروه</th>
-                                        <th className="py-2.5 px-2">دسته‌بندی</th>
-                                        <th className="py-2.5 px-2 font-mono">وزن سال قبل ({report1Label})</th>
-                                        <th className="py-2.5 px-2 font-mono">وزن سال جاری ({report2Label})</th>
-                                        <th className="py-2.5 px-2 font-mono font-bold">اختلاف وزنی (Δ kg)</th>
-                                        <th className="py-2.5 px-2 font-mono">درصد تغییر</th>
-                                        <th className="py-2.5 px-2">وضعیت تراز</th>
+                                        <th className="py-2.5 px-3 text-right whitespace-nowrap">کد و عنوان کالا / گروه</th>
+                                        <th className="py-2.5 px-2 whitespace-nowrap">دسته‌بندی</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">وزن سال قبل ({report1Label})</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">وزن سال جاری ({report2Label})</th>
+                                        <th className="py-2.5 px-2 font-mono font-bold whitespace-nowrap">اختلاف وزنی (Δ kg)</th>
+                                        <th className="py-2.5 px-2 font-mono whitespace-nowrap">درصد تغییر</th>
+                                        <th className="py-2.5 px-2 whitespace-nowrap">وضعیت تراز</th>
                                     </tr>
                                 </thead>
                                 <tbody>

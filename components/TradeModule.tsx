@@ -1899,79 +1899,79 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 )}
 
                 {/* Header */}
-                <div className="glass-panel border-b p-4 flex flex-col gap-4 shadow-sm z-10">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <button type="button" data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-gray-100 rounded-full shrink-0"><ArrowRight /></button>
-                            <div>
-                                <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
-                                    <span>{selectedRecord.goodsName}</span>
-                                    <span className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full" title="شماره پرونده">پرونده: {selectedRecord.fileNumber || '---'}</span>
+                <div className="glass-panel border-b p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3.5 shadow-xs z-10">
+                    <div className="flex flex-row items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <button type="button" data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full shrink-0"><ArrowRight size={18} /></button>
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-sm sm:text-xl font-black flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                    <span className="truncate">{selectedRecord.goodsName}</span>
+                                    <span className="text-[10px] sm:text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full" title="شماره پرونده">پرونده: {selectedRecord.fileNumber || '---'}</span>
                                     {selectedRecord.proformaNumber && (
-                                        <span className="text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
+                                        <span className="text-[10px] sm:text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
                                     )}
-                                    <button type="button" onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
+                                    <button type="button" onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-0.5" title="ویرایش مشخصات پرونده"><Edit size={14}/></button>
                                 </h1>
-                                <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
+                                <p className="text-[11px] sm:text-xs text-gray-500 truncate mt-0.5">{selectedRecord.company} | {selectedRecord.sellerName}</p>
                                 {selectedRecord.transferredFrom && (
-                                    <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-xl w-fit font-medium">
-                                        <ArrowRightLeft size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                                        <span>انتقال یافته از پروفرم {selectedRecord.transferredFrom.fileNumber} ({selectedRecord.transferredFrom.goodsName} - گروه {selectedRecord.transferredFrom.commodityGroup}) به این پروفرم</span>
+                                    <div className="mt-1 flex items-center gap-1 text-[10px] sm:text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-lg w-fit font-medium">
+                                        <ArrowRightLeft size={11} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>انتقال یافته از پروفرم {selectedRecord.transferredFrom.fileNumber} ({selectedRecord.transferredFrom.goodsName})</span>
                                     </div>
                                 )}
                                 {selectedRecord.transferredTo && (
-                                    <div className="mt-1 flex items-center gap-1.5 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2.5 py-1 rounded-xl w-fit font-medium">
-                                        <ArrowRightLeft size={13} className="shrink-0 text-blue-600 dark:text-blue-400" />
-                                        <span>منتقل شده به پروفرم {selectedRecord.transferredTo.fileNumber} ({selectedRecord.transferredTo.goodsName} - گروه {selectedRecord.transferredTo.commodityGroup})</span>
+                                    <div className="mt-1 flex items-center gap-1 text-[10px] sm:text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg w-fit font-medium">
+                                        <ArrowRightLeft size={11} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                                        <span>منتقل شده به پروفرم {selectedRecord.transferredTo.fileNumber} ({selectedRecord.transferredTo.goodsName})</span>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* MINI COST PER KG BOX (Left aligned) */}
-                        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl text-right shrink-0">
-                            <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5 leading-none">قیمت تمام‌شده (هر کیلو)</span>
-                            <span className="font-mono font-black text-rose-700 dark:text-rose-300 text-sm leading-none">{formatCurrency(calculateRecordCostPerKg(selectedRecord))} <span className="text-[10px] font-normal">ریال</span></span>
+                        {/* MINI COST PER KG BOX (Compact on mobile) */}
+                        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-right shrink-0">
+                            <span className="text-[8px] sm:text-[9px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5 leading-none">قیمت تمام‌شده (کیلو)</span>
+                            <span className="font-mono font-black text-rose-700 dark:text-rose-300 text-xs sm:text-sm leading-none">{formatCurrency(calculateRecordCostPerKg(selectedRecord))} <span className="text-[9px] font-normal">ریال</span></span>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-                        <button type="button" onClick={() => setActiveTab('timeline')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'timeline' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>تایم‌لاین</button>
-                        <button type="button" onClick={() => setActiveTab('proforma')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'proforma' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>پروفرما</button>
-                        <button type="button" onClick={() => setActiveTab('insurance')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'insurance' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بیمه</button>
-                        <button type="button" onClick={() => setActiveTab('currency_purchase')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'currency_purchase' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>خرید ارز</button>
-                        <button type="button" onClick={() => setActiveTab('shipping_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'shipping_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>اسناد حمل</button>
-                        <button type="button" onClick={() => setActiveTab('inspection')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'inspection' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بازرسی</button>
-                        <button type="button" onClick={() => setActiveTab('clearance_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'clearance_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>ترخیصیه و انبار</button>
-                        <button type="button" onClick={() => setActiveTab('green_leaf')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'green_leaf' ? 'bg-green-100 text-green-700' : 'hover:bg-gray-100'}`}>برگ سبز</button>
-                        <button type="button" onClick={() => setActiveTab('internal_shipping')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'internal_shipping' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'}`}>حمل داخلی</button>
-                        <button type="button" onClick={() => setActiveTab('agent_fees')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'agent_fees' ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100'}`}>هزینه‌های ترخیص</button>
-                        <button type="button" onClick={() => setActiveTab('final_calculation')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'final_calculation' ? 'bg-rose-100 text-rose-700' : 'hover:bg-gray-100'}`}>محاسبه نهایی</button>
+                    <div className="flex gap-1.5 sm:gap-2 overflow-x-auto py-0.5 custom-scrollbar">
+                        <button type="button" onClick={() => setActiveTab('timeline')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'timeline' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>تایم‌لاین</button>
+                        <button type="button" onClick={() => setActiveTab('proforma')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'proforma' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>پروفرما</button>
+                        <button type="button" onClick={() => setActiveTab('insurance')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'insurance' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>بیمه</button>
+                        <button type="button" onClick={() => setActiveTab('currency_purchase')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'currency_purchase' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>خرید ارز</button>
+                        <button type="button" onClick={() => setActiveTab('shipping_docs')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'shipping_docs' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>اسناد حمل</button>
+                        <button type="button" onClick={() => setActiveTab('inspection')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'inspection' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>بازرسی</button>
+                        <button type="button" onClick={() => setActiveTab('clearance_docs')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'clearance_docs' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>ترخیصیه و انبار</button>
+                        <button type="button" onClick={() => setActiveTab('green_leaf')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'green_leaf' ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>برگ سبز</button>
+                        <button type="button" onClick={() => setActiveTab('internal_shipping')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'internal_shipping' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>حمل داخلی</button>
+                        <button type="button" onClick={() => setActiveTab('agent_fees')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'agent_fees' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>هزینه‌های ترخیص</button>
+                        <button type="button" onClick={() => setActiveTab('final_calculation')} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'final_calculation' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>محاسبه نهایی</button>
                     </div>
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-gray-50">
+                <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-zinc-900">
                     
                     {activeTab === 'timeline' && (
-                        <div className="p-6 max-w-4xl mx-auto">
-                            <div className="relative border-r-2 border-gray-200/50 dark:border-white/10 mr-4 space-y-8 pr-8">
+                        <div className="p-2.5 sm:p-6 max-w-4xl mx-auto">
+                            <div className="relative border-r-2 border-gray-200/50 dark:border-white/10 mr-2 sm:mr-4 space-y-3.5 sm:space-y-6 pr-4 sm:pr-8">
                                 {STAGES.map((stage, idx) => {
                                     const data = getStageData(selectedRecord, stage);
                                     return (
                                         <div key={stage} className="relative">
-                                            <div className={`absolute -right-[41px] top-0 w-6 h-6 rounded-full border-4 ${data.isCompleted ? 'bg-green-500 border-green-100' : 'bg-gray-300 border-gray-100'}`}></div>
-                                            <div className="glass-panel p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleStageClick(stage)}>
+                                            <div className={`absolute -right-[22px] sm:-right-[41px] top-2 w-3.5 h-3.5 sm:w-6 sm:h-6 rounded-full border-2 sm:border-4 ${data.isCompleted ? 'bg-green-500 border-green-100' : 'bg-gray-300 border-gray-100'}`}></div>
+                                            <div className="glass-panel p-2.5 sm:p-4 rounded-xl shadow-xs border border-gray-100 dark:border-zinc-800 hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleStageClick(stage)}>
                                                 <div className="flex justify-between items-start">
                                                     <div>
-                                                        <h3 className="font-bold text-gray-800 text-sm">{stage}</h3>
-                                                        <p className="text-xs text-gray-500 mt-1">{data.description || 'بدون توضیحات'}</p>
+                                                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-sm">{stage}</h3>
+                                                        <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5">{data.description || 'بدون توضیحات'}</p>
                                                     </div>
-                                                    {data.isCompleted && <CheckCircle2 size={16} className="text-green-500"/>}
+                                                    {data.isCompleted && <CheckCircle2 size={16} className="text-green-500 shrink-0"/>}
                                                 </div>
-                                                <div className="mt-3 flex gap-2 text-xs">
-                                                    {data.costRial > 0 && <span className="bg-gray-100 px-2 py-1 rounded">هزینه ریالی: {formatCurrency(data.costRial)}</span>}
-                                                    {data.costCurrency > 0 && <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">هزینه ارزی: {formatNumberString(data.costCurrency)} {selectedRecord.mainCurrency}</span>}
+                                                <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+                                                    {data.costRial > 0 && <span className="bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-lg">هزینه ریالی: {formatCurrency(data.costRial)} ریال</span>}
+                                                    {data.costCurrency > 0 && <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-lg font-mono">هزینه ارزی: {formatNumberString(data.costCurrency)} {selectedRecord.mainCurrency}</span>}
                                                 </div>
                                             </div>
                                         </div>
