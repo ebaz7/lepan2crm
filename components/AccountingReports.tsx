@@ -908,7 +908,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1162,7 +1164,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1173,6 +1177,44 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                 printWindow.print();
                 printWindow.close();
             }, 500);
+        }
+    };
+
+    const handleShareStatementToChat = async () => {
+        if (filteredStatementData.length === 0) {
+            toast.error('داده‌ای برای صدور صورتحساب وجود ندارد');
+            return;
+        }
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال ساخت فایل PDF صورتحساب تفصیلی...');
+        try {
+            const tafsiliInfo = tafsilis.find(t => t.Code === (modalTafsiliCode || selectedTafsili));
+            const personName = tafsiliInfo?.Name || modalTafsiliName || selectedTafsili || 'شخص';
+            const personCode = tafsiliInfo?.Code || modalTafsiliCode || selectedTafsili || '';
+            const pdfFilename = `Statement_${personCode}_${Date.now()}.pdf`;
+
+            const htmlContent = handlePrintStatement(true) as unknown as string;
+            if (!htmlContent) throw new Error('خطا در آماده‌سازی قالب صورتحساب');
+
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('تولید PDF صورتحساب ناموفق بود');
+
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            const finalBal = filteredStatementData[filteredStatementData.length - 1]?.balance || 0;
+            const balLabel = finalBal > 0 ? `${formatMoney(finalBal)} ریال (بدهکار)` : (finalBal < 0 ? `${formatMoney(Math.abs(finalBal))} ریال (بستانکار)` : 'بی‌حساب (صفر)');
+            const text = `📄 صورتحساب ریز گردش حساب سایان ERP\n👤 شخص: ${personName} (کد: ${personCode})\n📅 بازه زمانی: ${dateFrom} تا ${dateTo}\n💰 مانده نهایی: ${balLabel}\n🔢 تعداد تراکنش‌ها: ${filteredStatementData.length.toLocaleString('fa-IR')} آرتیکل\n📄 فایل PDF رسمی صورتحساب پیوست گردید.`;
+
+            setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+            setSendToChatDefaultMsg(text);
+            toast.success('فایل PDF صورتحساب با موفقیت ایجاد شد', { id: loadingToast });
+            setSendToChatOpen(true);
+        } catch (err: any) {
+            console.error('Share statement to chat error:', err);
+            toast.error('خطا در ایجاد PDF صورتحساب: ' + (err?.message || ''), { id: loadingToast });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -1817,7 +1859,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2025,7 +2069,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2245,7 +2291,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2563,7 +2611,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -3752,7 +3802,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -4035,7 +4087,9 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        
+        if (returnHtml) {
+            return docHtml;
+        }
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -4530,6 +4584,59 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 )}
                             </div>
                         </div>
+
+                        {/* Dedicated Section Bottom Action Bar - Traz */}
+                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
+                            <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span>عملیات و اشتراک‌گذاری تراز اشخاص:</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => setTrazShareModalOpen(true)}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تولید PDF تراز و ارسال به گفتگوی شخصی یا گروهی"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    <span>ارسال این گزارش به گفتگو (PDF)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
+                                        items: filteredTraz,
+                                        category: trazCategory,
+                                        count: filteredTraz.length,
+                                        totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
+                                        totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
+                                        topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
+                                        topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
+                                    })}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تحلیل هوشمند تراز بدهکاران و بستانکاران با هوش مصنوعی"
+                                >
+                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی تراز (AI)</span>
+                                </button>
+
+                                <button 
+                                    type="button"
+                                    onClick={() => handlePrintTrazReport('bed')} 
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl border border-rose-200 text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بدهکاران
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => handlePrintTrazReport('bes')} 
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl border border-emerald-200 text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بستانکاران
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -4669,59 +4776,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 {isLoading ? 'در حال دریافت ریز حساب سایان...' : 'شخص را انتخاب کرده و دکمه نمایش صورتحساب را بزنید'}
                             </div>
                         )}
-
-                        {/* Dedicated Section Bottom Action Bar - Traz */}
-                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
-                            <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
-                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-                                <span>عملیات و اشتراک‌گذاری تراز اشخاص:</span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                                <button
-                                    type="button"
-                                    onClick={() => setTrazShareModalOpen(true)}
-                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
-                                    title="تولید PDF تراز و ارسال به گفتگوی شخصی یا گروهی"
-                                >
-                                    <Send className="w-4 h-4" />
-                                    <span>ارسال این گزارش به گفتگو (PDF)</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
-                                        items: filteredTraz,
-                                        category: trazCategory,
-                                        count: filteredTraz.length,
-                                        totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
-                                        totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
-                                        topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
-                                        topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
-                                    })}
-                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
-                                    title="تحلیل هوشمند تراز بدهکاران و بستانکاران با هوش مصنوعی"
-                                >
-                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                                    <span>تحلیل هوش مصنوعی تراز (AI)</span>
-                                </button>
-
-                                <button 
-                                    type="button"
-                                    onClick={() => handlePrintTrazReport('bed')} 
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl border border-rose-200 text-xs font-bold transition-colors min-h-[44px]"
-                                >
-                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بدهکاران
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => handlePrintTrazReport('bes')} 
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl border border-emerald-200 text-xs font-bold transition-colors min-h-[44px]"
-                                >
-                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بستانکاران
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 )}
 
@@ -7295,6 +7349,147 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 <span className="font-bold text-sm">هر دو (بدهکاران و بستانکاران)</span>
                                 <Printer size={16} className="opacity-50 group-hover:opacity-100" />
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Individual Customer Detailed Statement Modal */}
+            {isStatementModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-white/20">
+                                    <FileText className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-sm sm:text-base">
+                                        صورتحساب تفصیلی: {modalTafsiliName || (tafsilis.find(t => t.Code === (modalTafsiliCode || selectedTafsili))?.Name) || 'شخص'}
+                                    </h3>
+                                    <p className="text-xs text-blue-100">
+                                        کد تفصیلی: <span className="font-mono">{modalTafsiliCode || selectedTafsili}</span> | بازه زمانی: {dateFrom} تا {dateTo}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleShareStatementToChat}
+                                    className="px-3 py-1.5 bg-white text-blue-700 hover:bg-blue-50 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                                    title="ارسال PDF این صورتحساب به گفتگو"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                    <span>ارسال به گفتگو (PDF)</span>
+                                </button>
+                                <button
+                                    onClick={() => handlePrintStatement()}
+                                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>چاپ / PDF</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsStatementModalOpen(false)}
+                                    className="p-1.5 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                            {/* Statement Summary KPIs */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-rose-50 dark:bg-rose-950/30 p-3 rounded-xl border border-rose-100 dark:border-rose-900/50">
+                                    <span className="text-[10px] text-rose-600 font-bold block">مجموع بدهکار (واریزی‌ها/بدهی)</span>
+                                    <span className="text-sm sm:text-base font-black text-rose-900 dark:text-rose-200 font-mono">
+                                        {formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bed, 0))} <span className="text-[10px] font-normal">ریال</span>
+                                    </span>
+                                </div>
+                                <div className="bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                                    <span className="text-[10px] text-emerald-600 font-bold block">مجموع بستانکار (فروش/طلب)</span>
+                                    <span className="text-sm sm:text-base font-black text-emerald-900 dark:text-emerald-200 font-mono">
+                                        {formatMoney(filteredStatementData.reduce((sum, r) => sum + r.bes, 0))} <span className="text-[10px] font-normal">ریال</span>
+                                    </span>
+                                </div>
+                                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-xl border border-blue-100 dark:border-blue-900/50">
+                                    <span className="text-[10px] text-blue-600 font-bold block">مانده نهایی</span>
+                                    <span className="text-sm sm:text-base font-black text-blue-900 dark:text-blue-200 font-mono">
+                                        {formatMoney(filteredStatementData[filteredStatementData.length - 1]?.balance || 0)} <span className="text-[10px] font-normal">ریال</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            {isLoading ? (
+                                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                                    <span className="text-xs">در حال بارگذاری صورتحساب از سرور سایان...</span>
+                                </div>
+                            ) : filteredStatementData.length === 0 ? (
+                                <div className="py-12 text-center text-slate-400 text-xs">
+                                    هیچ رکوردی برای این شخص در بازه زمانی انتخابی یافت نشد.
+                                </div>
+                            ) : (
+                                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 overflow-hidden overflow-x-auto">
+                                    <table className="w-full text-right text-xs">
+                                        <thead className="bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 font-bold border-b border-slate-200 dark:border-zinc-700">
+                                            <tr>
+                                                <th className="p-2.5 w-10 text-center">#</th>
+                                                <th className="p-2.5">تاریخ</th>
+                                                <th className="p-2.5">سند</th>
+                                                <th className="p-2.5">سرفصل معین</th>
+                                                <th className="p-2.5">شرح تراکنش</th>
+                                                <th className="p-2.5 text-left">بدهکار (ریال)</th>
+                                                <th className="p-2.5 text-left">بستانکار (ریال)</th>
+                                                <th className="p-2.5 text-left">مانده (ریال)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-mono">
+                                            {filteredStatementData.map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/50">
+                                                    <td className="p-2.5 text-center text-slate-400 font-sans">{idx + 1}</td>
+                                                    <td className="p-2.5 whitespace-nowrap text-slate-600 dark:text-slate-300 font-sans">{formatDateToJalali(row.Date)}</td>
+                                                    <td className="p-2.5 text-slate-600 dark:text-slate-300">{row.SanadNo}</td>
+                                                    <td className="p-2.5 text-slate-600 dark:text-slate-300 font-sans">{row.MoeinName || 'سایر'}</td>
+                                                    <td className="p-2.5 text-slate-800 dark:text-slate-100 font-sans max-w-xs truncate">{row.Description || '-'}</td>
+                                                    <td className="p-2.5 text-left text-rose-600">{row.bed > 0 ? formatMoney(row.bed) : '-'}</td>
+                                                    <td className="p-2.5 text-left text-emerald-600">{row.bes > 0 ? formatMoney(row.bes) : '-'}</td>
+                                                    <td className={`p-2.5 text-left font-bold ${row.balance > 0 ? 'text-rose-700' : (row.balance < 0 ? 'text-emerald-700' : 'text-slate-600')}`}>
+                                                        {formatMoney(row.balance)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-3 sm:p-4 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                            <span className="text-xs text-slate-500">
+                                تعداد آرتیکل‌ها: {filteredStatementData.length.toLocaleString('fa-IR')} مورد
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleShareStatementToChat}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                    <span>ارسال این صورتحساب به گفتگو (PDF)</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStatementModalOpen(false)}
+                                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                                >
+                                    بستن
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
