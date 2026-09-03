@@ -26,6 +26,7 @@ import CctiConverter from './components/CctiConverter';
 import SayanReports from './components/SayanReports';
 import SecretariatModule from './components/SecretariatModule';
 import { ChequeReceiptModule } from './components/ChequeReceiptModule';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
 import { AiExecutiveCopilot } from './components/AiExecutiveCopilot';
 import { AiDocumentScannerModal } from './components/AiDocumentScannerModal';
@@ -1479,8 +1480,8 @@ function App() {
                 {activeTab === 'create' && <div className="page-transition flex flex-col flex-1 min-h-0"><CreateOrder onSuccess={handleOrderCreated} currentUser={currentUser} /></div>}
                 {activeTab === 'manage' && <div className="page-transition flex flex-col flex-1 min-h-0"><ManageOrders orders={orders} refreshData={() => loadData(true)} currentUser={currentUser} initialTab={manageOrdersInitialTab} settings={settings} statusFilter={dashboardStatusFilter} financialYear={financialYear} /></div>}
                 {activeTab === 'create-exit' && <div className="page-transition flex flex-col flex-1 min-h-0"><CreateExitPermit onSuccess={() => setActiveTab('manage-exit')} currentUser={currentUser} /></div>}
-                {activeTab === 'manage-invoices' && <div className="page-transition flex flex-col flex-1 min-h-0"><ManageExitPermits currentUser={currentUser} settings={settings} statusFilter={exitPermitStatusFilter} financialYear={financialYear} mode="INVOICE" /></div>}
-                {activeTab === 'manage-exit' && <div className="page-transition flex flex-col flex-1 min-h-0"><ManageExitPermits currentUser={currentUser} settings={settings} statusFilter={exitPermitStatusFilter} financialYear={financialYear} mode="EXIT" /></div>}
+                {activeTab === 'manage-invoices' && <div className="page-transition flex flex-col flex-1 min-h-0"><ErrorBoundary><ManageExitPermits currentUser={currentUser} settings={settings} statusFilter={exitPermitStatusFilter} financialYear={financialYear} mode="INVOICE" /></ErrorBoundary></div>}
+                {activeTab === 'manage-exit' && <div className="page-transition flex flex-col flex-1 min-h-0"><ErrorBoundary><ManageExitPermits currentUser={currentUser} settings={settings} statusFilter={exitPermitStatusFilter} financialYear={financialYear} mode="EXIT" /></ErrorBoundary></div>}
                 {activeTab === 'warehouse' && <div className="page-transition flex flex-col flex-1 min-h-0"><WarehouseModule currentUser={currentUser} settings={settings} initialTab={warehouseInitialTab} financialYear={financialYear} /></div>}
                 {activeTab === 'trade' && <div className="page-transition flex flex-col flex-1 min-h-0"><TradeModule currentUser={currentUser} /></div>}
                 {activeTab === 'balances' && <div className="page-transition flex flex-col flex-1 min-h-0"><CustomerBalanceModule currentUser={currentUser} /></div>}

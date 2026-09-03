@@ -54,7 +54,17 @@ interface SayanSalesDashboardProps {
   onCompareDateRangeChange?: (fromB: string, toB: string) => void;
   onToggleCompareMode?: (enabled: boolean) => void;
   runSayanQuery?: (sql: string) => Promise<any>;
+  onShareToChat?: () => void;
 }
+
+const getEffectiveApiUrl = (path: string) => {
+  const host = getServerHost();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (!host) {
+    return cleanPath;
+  }
+  return `${host}${cleanPath}`;
+};
 
 // ----------------------------------------------------------------------
 // CONSTANTS & HELPERS
@@ -211,7 +221,8 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
   onRefreshData,
   onDateRangeChange,
   onCompareDateRangeChange,
-  onToggleCompareMode
+  onToggleCompareMode,
+  onShareToChat
 }) => {
 
   // State
@@ -1331,7 +1342,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         ? (comparisonMetrics ? comparisonMetrics.compareItemRows : [])
         : (comparisonMetrics ? comparisonMetrics.compareGroupRows : []);
 
-      const response = await fetch('/api/sayan/sales-report/download-compare-pdf', {
+      const response = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/download-compare-pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1382,7 +1393,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
     setIsSendingBot(true);
     try {
       const groupRows = comparisonMetrics ? comparisonMetrics.compareGroupRows : [];
-      const response = await fetch('/api/sayan/sales-report/send-compare', {
+      const response = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-compare'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1445,7 +1456,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
         bodyData.label = `بازه ${dateFrom} تا ${dateTo}`;
       }
 
-      const response = await fetch('/api/sayan/sales-report/send-manual', {
+      const response = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-manual'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData)
@@ -1484,7 +1495,7 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
     setIsSendingBot(true);
     try {
-      const response = await fetch('/api/sayan/sales-report/send-executive', {
+      const response = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-executive'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1592,19 +1603,10 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <button
-              onClick={() => setIsAiModalOpen(true)}
-              disabled={processedMetrics.categoryList.length === 0}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-purple-500/25 transition-all cursor-pointer disabled:opacity-50"
-              title="تحلیل هوشمند، مهندسی و مدیریتی فروش با هوش مصنوعی"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span>تحلیل هوش مصنوعی فروش</span>
-            </button>
-
-            <button
+              type="button"
               onClick={() => handleSendManualReport('today')}
               disabled={isSendingBot}
-              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50 min-h-[40px]"
               title="ارسال دستی خلاصه فروش امروز به پیام‌رسان‌های بله و تلگرام"
             >
               <Send className="w-3.5 h-3.5" />
@@ -1612,9 +1614,10 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => handleSendManualReport('yesterday')}
               disabled={isSendingBot}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50 min-h-[40px]"
               title="ارسال دستی خلاصه فروش دیروز به پیام‌رسان‌های بله و تلگرام"
             >
               <Send className="w-3.5 h-3.5" />
@@ -1622,8 +1625,9 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => setIsBotModalOpen(true)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-lg hover:shadow-emerald-500/20 transition-all cursor-pointer"
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-lg hover:shadow-emerald-500/20 transition-all cursor-pointer min-h-[40px]"
               title="تنظیمات پیشرفته و ارسال سفارشی گزارش به بات‌ها"
             >
               <Send className="w-4 h-4" />
@@ -3310,6 +3314,62 @@ export const SayanSalesDashboard: React.FC<SayanSalesDashboardProps> = ({
 
         </div>
       )}
+
+      {/* ================================================================== */}
+      {/* DEDICATED SECTION BOTTOM ACTIONS (SEND TO CHAT & AI) */}
+      {/* ================================================================== */}
+      <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-4 rounded-2xl shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+          <span>عملیات و اشتراک‌گذاری گزارش فروش:</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {onShareToChat && (
+            <button
+              type="button"
+              onClick={onShareToChat}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+              title="تولید PDF و ارسال این گزارش فروش به گفتگوی شخصی یا گروهی"
+            >
+              <Send className="w-4 h-4" />
+              <span>ارسال این گزارش به گفتگو (PDF)</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsAiModalOpen(true)}
+            disabled={processedMetrics.categoryList.length === 0}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+            title="تحلیل هوشمند و مهندسی فروش با هوش مصنوعی"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <span>تحلیل هوش مصنوعی فروش (AI)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsBotModalOpen(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+            title="ارسال این گزارش به تلگرام و بله"
+          >
+            <Send className="w-4 h-4" />
+            <span>ارسال به بات‌ها (تلگرام / بله)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportImage}
+            disabled={isExportingImage}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-300 dark:border-zinc-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+            title="دانلود تصویر کل داشبورد"
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span>دانلود تصویر داشبورد</span>
+          </button>
+        </div>
+      </div>
 
       {/* ================================================================== */}
       {/* BOT DISPATCH INTERACTIVE MODAL */}

@@ -169,12 +169,13 @@ class ExitPermitQueueService {
 
                     const updatedPermit = updatedPermits.find(p => p.id === task.permitId);
 
-                    // Step 2: Trigger off-screen notifications / bots if permit is found
+                    // Step 2: Trigger sync event with full updated permits
                     if (updatedPermit) {
                         if (typeof window !== 'undefined') {
                             window.dispatchEvent(new CustomEvent('EXIT_PERMIT_BACKGROUND_SYNCED', {
                                 detail: {
                                     permit: updatedPermit,
+                                    allPermits: updatedPermits,
                                     prevStatus: task.prevStatus || task.permitSnapshot?.status,
                                     taskId: task.id
                                 }

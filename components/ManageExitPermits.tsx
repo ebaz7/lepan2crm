@@ -15,7 +15,6 @@ import WarehouseFinalizeModal from './WarehouseFinalizeModal';
 import SecurityFinalizeModal from './SecurityFinalizeModal';
 import EditExitPermitModal from './EditExitPermitModal';
 import useIsMobile from '../hooks/useIsMobile';
-import html2canvas from 'html2canvas';
 
 import { isInFinancialYear } from '../utils/dateUtils';
 
@@ -31,71 +30,27 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
     const [warehouseFinalize, setWarehouseFinalize] = useState<ExitPermit | null>(null);
     const [securityFinalize, setSecurityFinalize] = useState<ExitPermit | null>(null);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const [activeAutoSends, setActiveAutoSends] = useState<ExitPermit[]>([]);
-    const [autoSendQueue, setAutoSendQueue] = useState<{ permit: ExitPermit; prevStatus: ExitPermitStatus }[]>([]);
-    const [queueIsProcessing, setQueueIsProcessing] = useState(false);
-    const [lastProcessedNotification, setLastProcessedNotification] = useState<string | null>(null);
-    const [showQueueToast, setShowQueueToast] = useState(false);
-
-    const queueNotification = (permit: ExitPermit, prevStatus: ExitPermitStatus) => {
-        setAutoSendQueue(prev => [...prev, { permit, prevStatus }]);
-        setShowQueueToast(true);
-    };
-
-    useEffect(() => {
-        const processQueue = async () => {
-            if (autoSendQueue.length === 0 || queueIsProcessing) return;
-            setQueueIsProcessing(true);
-
-            const currentTask = autoSendQueue[0];
-            const { permit, prevStatus } = currentTask;
-
-            try {
-                // Add to activeAutoSends so it renders in the hidden-print-export offscreen div
-                setActiveAutoSends(prev => {
-                    if (prev.some(p => p.id === permit.id)) return prev;
-                    return [...prev, permit];
-                });
-
-                // Wait 250ms to allow React to render the hidden elements in the DOM and paint
-                await new Promise(resolve => setTimeout(resolve, 250));
-
-                // Call actual sendNotification function
-                await sendNotification(permit, prevStatus);
-
-                setLastProcessedNotification(`تصاویر مجوز خروج #${permit.permitNumber} با موفقیت به ربات‌ها ارسال شد.`);
-                setTimeout(() => {
-                    setLastProcessedNotification(null);
-                }, 4000);
-            } catch (error) {
-                console.error("Queue notification processing failed:", error);
-                setLastProcessedNotification(`خطا در ارسال تصاویر مجوز خروج #${permit.permitNumber}`);
-                setTimeout(() => {
-                    setLastProcessedNotification(null);
-                }, 4000);
-            } finally {
-                // Remove from activeAutoSends
-                setActiveAutoSends(prev => prev.filter(p => p.id !== permit.id));
-                // Remove first item from queue
-                setAutoSendQueue(prev => prev.slice(1));
-                setQueueIsProcessing(false);
-            }
-        };
-
-        processQueue();
-    }, [autoSendQueue, queueIsProcessing]);
 
     useEffect(() => { 
         loadData(); 
 
         const handleOptimisticApply = (e: any) => {
-            const { permitId, targetStatus, updates } = e.detail || {};
+            const { permitId, targetStatus, extra, updates } = e.detail || {};
+            const extraData = updates || extra || {};
             if (permitId && targetStatus) {
-                setPermits(prev => prev.map(p => p.id === permitId ? { ...p, status: targetStatus, ...(updates || {}) } : p));
+                setPermits(prev => prev.map(p => p.id === permitId ? { ...p, status: targetStatus, ...extraData } : p));
             }
         };
 
         const handleBackgroundSynced = (e: any) => {
+            if (e.detail?.allPermits && Array.isArray(e.detail.allPermits)) {
+                let safeData = e.detail.allPermits;
+                if (financialYear && financialYear !== 'all') {
+                    safeData = safeData.filter((p: ExitPermit) => isInFinancialYear(p.date, financialYear));
+                }
+                setPermits(safeData.sort((a: ExitPermit, b: ExitPermit) => ((b.createdAt || 0) - (a.createdAt || 0)) || ((b.permitNumber || 0) - (a.permitNumber || 0))));
+                return;
+            }
             // Silently refresh without showing loading spinners
             getExitPermits().then(data => {
                 let safeData = Array.isArray(data) ? data : [];
@@ -276,9 +231,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             return;
         }
 
-        const actionLabel = getActionLabel(p.status);
-        if (!confirm(`آیا از ${actionLabel} اطمینان دارید؟`)) return;
-
         let nextStatus = ExitPermitStatus.PENDING_FACTORY;
         if (p.status === ExitPermitStatus.PENDING_CEO) nextStatus = ExitPermitStatus.PENDING_FACTORY;
         else if (p.status === ExitPermitStatus.PENDING_FACTORY) nextStatus = ExitPermitStatus.PENDING_WAREHOUSE;
@@ -313,9 +265,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
             permitSnapshot: updatedPermit,
             settings: settings
         });
-
-        // 3. Render offscreen images for bot dispatch in background
-        queueNotification(updatedPermit, p.status);
     };
 
     const handleReject = async (p: ExitPermit) => {
@@ -363,181 +312,7 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         }
     };
 
-    const sendCancellationNotification = async (permit: ExitPermit, prevStatus: ExitPermitStatus, reason: string) => {
-        const elementNoPrice = document.getElementById(`print-permit-autosend-noprice-${permit.id}`);
-        const elementWithPrice = document.getElementById(`print-permit-autosend-price-${permit.id}`);
-        
-        let base64NoPrice = '';
-        let base64WithPrice = '';
-        
-        try {
-            const companyConfig = settings?.companyNotifications?.[permit.company || ''];
-            const g1Config = settings?.exitPermitFirstGroupConfig;
-            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
-            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
-            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
-
-            const g2Config = settings?.exitPermitSecondGroupConfig;
-            let g2WA = g2Config?.groupId;
-            let g2Bale = g2Config?.baleId;
-            let g2Tg = g2Config?.telegramId;
-
-            const g3Config = settings?.exitPermitThirdGroupConfig;
-            let g3WA = g3Config?.groupId;
-            let g3Bale = g3Config?.baleId;
-            let g3Tg = g3Config?.telegramId;
-
-            const g1Statuses = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
-            const g2Statuses = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
-            const g3Statuses = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
-
-            const isG1Canceled = g1Statuses.includes('CANCELED');
-            const isG2Canceled = g2Statuses.includes('CANCELED');
-            const isG3Canceled = g3Statuses.includes('CANCELED');
-
-            const hasActiveTargets = 
-                (isG1Canceled && (g1WA || g1Bale || g1Tg)) ||
-                (isG2Canceled && (g2WA || g2Bale || g2Tg)) ||
-                (isG3Canceled && (g3WA || g3Bale || g3Tg));
-
-            const allUsers = await getUsers();
-            const managers = allUsers.filter(u => 
-                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
-                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
-            );
-
-            const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
-            
-            const hasGroupManagers = managers.some(m => {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                return isGroup(String(tgId)) || isGroup(String(blId)) || isGroup(String(m.phoneNumber));
-            });
-
-            const hasIndividualManagers = managers.some(m => {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                return (tgId && !isGroup(String(tgId))) || (blId && !isGroup(String(blId))) || (m.phoneNumber && !isGroup(String(m.phoneNumber)));
-            });
-
-            const needNoPrice = hasActiveTargets || hasGroupManagers;
-            const needWithPrice = hasIndividualManagers;
-
-            if (needNoPrice && elementNoPrice) {
-                // Yield thread first to prevent lag
-                await new Promise(resolve => setTimeout(resolve, 50));
-                const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
-                base64NoPrice = canvasNoPrice.toDataURL('image/png').split(',')[1];
-            }
-            if (needWithPrice && elementWithPrice) {
-                // Yield thread first to prevent lag
-                await new Promise(resolve => setTimeout(resolve, 50));
-                const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
-                base64WithPrice = canvasWithPrice.toDataURL('image/png').split(',')[1];
-            }
-        } catch (e) {
-            console.error("Canvas Gen Failed for Canceled", e);
-        }
-
-        try {
-            const targets = [];
-            const companyConfig = settings?.companyNotifications?.[permit.company || ''];
-            
-            // Group 1 IDs
-            const g1Config = settings?.exitPermitFirstGroupConfig;
-            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
-            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
-            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
-
-            // Group 2 IDs
-            const g2Config = settings?.exitPermitSecondGroupConfig;
-            let g2WA = g2Config?.groupId;
-            let g2Bale = g2Config?.baleId;
-            let g2Tg = g2Config?.telegramId;
-
-            // Group 3 IDs
-            const g3Config = settings?.exitPermitThirdGroupConfig;
-            let g3WA = g3Config?.groupId;
-            let g3Bale = g3Config?.baleId;
-            let g3Tg = g3Config?.telegramId;
-
-            const g1Statuses = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
-            const g2Statuses = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
-            const g3Statuses = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
-
-            if (g1Statuses.includes('CANCELED')) {
-                if (g1WA) targets.push({ group: g1WA });
-                if (g1Bale) targets.push({ platform: 'bale', id: g1Bale });
-                if (g1Tg) targets.push({ platform: 'telegram', id: g1Tg });
-            }
-
-            if (g2Statuses.includes('CANCELED')) {
-                if (g2WA) targets.push({ group: g2WA });
-                if (g2Bale) targets.push({ platform: 'bale', id: g2Bale });
-                if (g2Tg) targets.push({ platform: 'telegram', id: g2Tg });
-            }
-
-            if (g3Statuses.includes('CANCELED')) {
-                if (g3WA) targets.push({ group: g3WA });
-                if (g3Bale) targets.push({ platform: 'bale', id: g3Bale });
-                if (g3Tg) targets.push({ platform: 'telegram', id: g3Tg });
-            }
-
-            let caption = `❌ *برگه خروج کارخانه ابطال/کنسل شد* ❌\n`;
-            caption += `🚨 *بار به هیچ عنوان خارج نشود!* 🚨\n\n`;
-            caption += `🔢 شماره برگه خروج: ${permit.permitNumber}\n`;
-            caption += `👤 گیرنده: ${permit.recipientName}\n`;
-            caption += `📦 کالا: ${permit.goodsName}\n`;
-            if (permit.plateNumber) caption += `🆔 پلاک: ${formatIranianPlate(permit.plateNumber)}\n`;
-            if (permit.driverName) caption += `👨‍✈️ راننده: ${permit.driverName}\n`;
-            if (permit.driverPhone) caption += `📞 تماس راننده: ${permit.driverPhone}\n`;
-            caption += `\n💬 *دلیل کنسلی:* ${reason}\n`;
-            caption += `👤 لغو کننده: ${currentUser.fullName}`;
-
-            const mediaNoPrice = base64NoPrice ? { data: base64NoPrice, mimeType: 'image/png', filename: `Permit_Canceled_${permit.permitNumber}.png` } : undefined;
-            const botMediaNoPrice = base64NoPrice ? { data: base64NoPrice, filename: `Permit_Canceled_${permit.permitNumber}.png` } : undefined;
-
-            for (const t of targets) {
-                if (t.group) {
-                    await apiCall('/send-whatsapp', 'POST', { number: t.group, message: caption, mediaData: mediaNoPrice });
-                }
-                if (t.platform) {
-                    await apiCall('/send-bot-message', 'POST', { platform: t.platform, chatId: t.id, caption: caption, mediaData: botMediaNoPrice });
-                }
-            }
-            
-            // Managers too
-            const allUsers = await getUsers();
-            const managers = allUsers.filter(u => 
-                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
-                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
-            );
-            const priceInfo = `\n💰 مبلغ: ${Number(permit.price || 0).toLocaleString()} ریال`;
-            
-            const mediaWithPrice = base64WithPrice ? { data: base64WithPrice, mimeType: 'image/png', filename: `Permit_Canceled_${permit.permitNumber}.png` } : undefined;
-            const botMediaWithPrice = base64WithPrice ? { data: base64WithPrice, filename: `Permit_Canceled_${permit.permitNumber}.png` } : undefined;
-
-            for (const m of managers) {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
-                
-                const managerCaption = caption + (isGroup(String(tgId || blId || m.phoneNumber)) ? '' : priceInfo);
-                const managerMedia = isGroup(String(tgId || blId || m.phoneNumber)) ? mediaNoPrice : mediaWithPrice;
-                const managerBotMedia = isGroup(String(tgId || blId || m.phoneNumber)) ? botMediaNoPrice : botMediaWithPrice;
-
-                if (m.phoneNumber) {
-                    await apiCall('/send-whatsapp', 'POST', { number: m.phoneNumber, message: managerCaption, mediaData: managerMedia });
-                }
-                if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption: managerCaption, mediaData: managerBotMedia });
-                if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption: managerCaption, mediaData: managerBotMedia });
-            }
-        } catch (e) {
-            console.error("Cancel notif failed", e);
-        }
-    };
-
-    const handleCancel = (p: ExitPermit) => {
+    const handleCancel = async (p: ExitPermit) => {
         const perms = settings ? getRolePermissions(currentUser.role, settings, currentUser) : {};
         const canCancel = currentUser.role === UserRole.ADMIN || perms.canCancelExitPermit === true;
         if (!canCancel) {
@@ -546,35 +321,31 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
         }
 
         const reason = prompt('لطفاً دلیل لغو و کنسلی این برگه خروج را وارد نمایید:');
-        if (!reason) return;
+        if (!reason || !reason.trim()) return;
 
         const nextStatus = ExitPermitStatus.CANCELED;
         const updatedPermit = { 
             ...p, 
             status: nextStatus,
-            rejectionReason: reason,
+            rejectionReason: reason.trim(),
             rejectedBy: currentUser.fullName,
             updatedAt: Date.now()
         };
 
         const prevPermits = [...permits];
-        // 1. Optimistic Update
+        // 1. Instant Optimistic Update
         setPermits(prev => prev.map(item => item.id === p.id ? updatedPermit : item));
+        if (viewPermit?.id === p.id) {
+            setViewPermit(null);
+        }
         
         // 2. Background task
-        updateExitPermitStatus(p.id, nextStatus, currentUser, { rejectionReason: reason })
-            .then(() => {
-                setActiveAutoSends(prev => [...prev, updatedPermit]);
-                setTimeout(() => {
-                    sendCancellationNotification(updatedPermit, p.status, reason);
-                    setActiveAutoSends(prev => prev.filter(x => x.id !== updatedPermit.id));
-                    loadData();
-                }, 1500);
-            })
-            .catch(e => {
-                setPermits(prevPermits);
-                alert('خطا در انجام کنسلی برگه خروج');
-            });
+        try {
+            await updateExitPermitStatus(p.id, nextStatus, currentUser, { rejectionReason: reason.trim() });
+        } catch (e) {
+            setPermits(prevPermits);
+            alert('خطا در انجام کنسلی برگه خروج');
+        }
     };
 
     const handleSecuritySubmit = async (data: { driverName: string; driverPhone: string; plateNumber: string; exitTime: string; attachments: {fileName: string, data: string}[] }) => {
@@ -599,8 +370,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
 
         try {
             await editExitPermit(updatedPermit); 
-            // Queue notification in background safely and guaranteed
-            queueNotification(updatedPermit, ExitPermitStatus.PENDING_SECURITY);
         } catch (e) {
             alert('خطا در ثبت مشخصات انتظامات');
             loadData();
@@ -643,237 +412,10 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
 
         try {
             await editExitPermit(updated); 
-            // Queue notification in background safely and guaranteed
-            queueNotification(updated, ExitPermitStatus.PENDING_WAREHOUSE);
         } catch(e) { 
             alert('خطا در ثبت انبار'); 
             loadData();
         }
-    };
-
-    const sendNotification = async (permit: ExitPermit, prevStatus: ExitPermitStatus, extraInfo?: string) => {
-        const elementNoPrice = document.getElementById(`print-permit-autosend-noprice-${permit.id}`);
-        const elementWithPrice = document.getElementById(`print-permit-autosend-price-${permit.id}`);
-        const elementCustomer = document.getElementById(`print-permit-autosend-customer-${permit.id}`);
-        
-        if (!elementNoPrice || !elementWithPrice || !elementCustomer) return;
-        try {
-            const targets = [];
-            const companyConfig = settings?.companyNotifications?.[permit.company];
-            
-            // Group 1 IDs
-            const g1Config = settings?.exitPermitFirstGroupConfig;
-            let g1WA = companyConfig?.warehouseGroup || settings?.exitPermitNotificationGroup || settings?.defaultWarehouseGroup || g1Config?.groupId;
-            let g1Bale = companyConfig?.baleChannelId || settings?.exitPermitNotificationBaleId || g1Config?.baleId;
-            let g1Tg = companyConfig?.telegramChannelId || settings?.exitPermitNotificationTelegramId || g1Config?.telegramId;
-
-            // Group 2 IDs
-            const g2Config = settings?.exitPermitSecondGroupConfig;
-            let g2WA = g2Config?.groupId;
-            let g2Bale = g2Config?.baleId;
-            let g2Tg = g2Config?.telegramId;
-
-            // Group 3 IDs
-            const g3Config = settings?.exitPermitThirdGroupConfig;
-            let g3WA = g3Config?.groupId;
-            let g3Bale = g3Config?.baleId;
-            let g3Tg = g3Config?.telegramId;
-
-            // Check config arrays directly
-            const nextStatusStr = String(permit.status);
-            const configOptionStr1 = prevStatus + '->' + nextStatusStr;
-            const fallbackOptionStr = prevStatus; // For older formats
-
-            const statusKey = (nextStatusStr === 'خارج شده (بایگانی)' || nextStatusStr === 'خارج شد') ? 'ARCHIVED' :
-                              (nextStatusStr === 'در انتظار تایید مدیرعامل' || nextStatusStr === 'ثبت اولیه' || nextStatusStr === 'ثبت توسط ربات') ? 'CREATE' : nextStatusStr;
-            
-            const g1StatusArray = settings?.exitPermitFirstGroupConfig?.activeStatuses || [];
-            const isG1Active = g1StatusArray.includes(configOptionStr1) || 
-                               g1StatusArray.includes(fallbackOptionStr) || 
-                               g1StatusArray.includes(nextStatusStr) || 
-                               g1StatusArray.includes(statusKey);
-            
-            const g2StatusArray = settings?.exitPermitSecondGroupConfig?.activeStatuses || [];
-            const isG2Active = g2StatusArray.includes(configOptionStr1) || 
-                               g2StatusArray.includes(fallbackOptionStr) || 
-                               g2StatusArray.includes(nextStatusStr) || 
-                               g2StatusArray.includes(statusKey);
-
-            const g3StatusArray = settings?.exitPermitThirdGroupConfig?.activeStatuses || [];
-            const isG3Active = g3StatusArray.includes(configOptionStr1) || 
-                               g3StatusArray.includes(fallbackOptionStr) || 
-                               g3StatusArray.includes(nextStatusStr) || 
-                               g3StatusArray.includes(statusKey);
-            
-            if (isG1Active) {
-                if (g1WA) targets.push({ group: g1WA });
-                if (g1Bale) targets.push({ platform: 'bale', id: g1Bale });
-                if (g1Tg) targets.push({ platform: 'telegram', id: g1Tg });
-            }
-            if (isG2Active) {
-                if (g2WA) targets.push({ group: g2WA });
-                if (g2Bale) targets.push({ platform: 'bale', id: g2Bale });
-                if (g2Tg) targets.push({ platform: 'telegram', id: g2Tg });
-            }
-            if (isG3Active) {
-                if (g3WA) targets.push({ group: g3WA });
-                if (g3Bale) targets.push({ platform: 'bale', id: g3Bale });
-                if (g3Tg) targets.push({ platform: 'telegram', id: g3Tg });
-            }
-
-            let captionTitle = '';
-            if (prevStatus === ExitPermitStatus.PENDING_CEO) {
-                captionTitle = '✅ تایید مدیرعامل - ارجاع به کارخانه';
-                targets.push({ role: UserRole.FACTORY_MANAGER });
-            } else if (prevStatus === ExitPermitStatus.PENDING_FACTORY) {
-                captionTitle = '✅ تایید مدیر کارخانه - ارجاع به انبار';
-                targets.push({ role: UserRole.WAREHOUSE_KEEPER });
-            } else if (prevStatus === ExitPermitStatus.PENDING_WAREHOUSE) {
-                captionTitle = '⚖️ تایید و توزین انبار - ارجاع به انتظامات';
-                targets.push({ role: UserRole.SECURITY_HEAD });
-            } else if (prevStatus === ExitPermitStatus.PENDING_SECURITY) {
-                captionTitle = '🚨 ثبت اطلاعات خودرو - در انتظار تایید نهایی خروج';
-                targets.push({ role: UserRole.FACTORY_MANAGER }); // Factory manager needs to see this
-            } else if (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) {
-                captionTitle = '👋 خروج نهایی بار از کارخانه';
-            }
-
-            const customerPhone = permit.destinations?.[0]?.phone;
-            const needCustomer = (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) && !!customerPhone;
-
-            const allUsers = await getUsers();
-            const managers = allUsers.filter(u => 
-                u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN ||
-                u.roles?.includes(UserRole.CEO) || u.roles?.includes(UserRole.SALES_MANAGER) || u.roles?.includes(UserRole.ADMIN)
-            );
-
-            const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
-
-            const hasGroupManagers = managers.some(m => {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                return isGroup(String(tgId)) || isGroup(String(blId)) || isGroup(String(m.phoneNumber));
-            });
-
-            const hasIndividualManagers = managers.some(m => {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                return (tgId && !isGroup(String(tgId))) || (blId && !isGroup(String(blId))) || (m.phoneNumber && !isGroup(String(m.phoneNumber)));
-            });
-
-            const needNoPrice = (targets.length > 0) || hasGroupManagers;
-            const needWithPrice = hasIndividualManagers;
-
-            let base64NoPrice = '';
-            let base64WithPrice = '';
-            let base64Customer = '';
-
-            if (needNoPrice && elementNoPrice) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-                const canvasNoPrice = await html2canvas(elementNoPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
-                base64NoPrice = canvasNoPrice.toDataURL('image/png').split(',')[1];
-            }
-
-            if (needWithPrice && elementWithPrice) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-                const canvasWithPrice = await html2canvas(elementWithPrice, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
-                base64WithPrice = canvasWithPrice.toDataURL('image/png').split(',')[1];
-            }
-
-            if (needCustomer && elementCustomer) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-                const canvasCustomer = await html2canvas(elementCustomer, { scale: 1.3, backgroundColor: '#ffffff', useCORS: true });
-                base64Customer = canvasCustomer.toDataURL('image/png').split(',')[1];
-            }
-
-            if (prevStatus === ExitPermitStatus.PENDING_FACTORY_FINAL) {
-                // FINAL NOTIFICATION TO CUSTOMER
-                if (customerPhone) {
-                    let customerCaption = `🚚 *حواله نهایی خروج کالا #${permit.permitNumber}*\n\n`;
-                    customerCaption += `👤 گیرنده: ${permit.recipientName}\n`;
-                    customerCaption += `📦 کالا: ${permit.goodsName}\n`;
-                    customerCaption += `⚖️ وزن نهایی: ${permit.weight} KG\n`;
-                    customerCaption += `🔢 تعداد نهایی: ${permit.cartonCount} کارتن\n`;
-                    
-                    if (permit.driverName) customerCaption += `👨‍✈️ راننده: ${permit.driverName}\n`;
-                    if (permit.plateNumber) customerCaption += `🆔 پلاک: ${formatIranianPlate(permit.plateNumber)}\n`;
-                    if (permit.driverPhone) customerCaption += `📞 تماس راننده: ${permit.driverPhone}\n`;
-                    
-                    customerCaption += `🕒 ساعت خروج: ${permit.exitTime}\n`;
-                    customerCaption += `\n✅ بار شما با نهایی‌سازی مقادیر واقعی انبار از کارخانه خارج شد. با آرزوی برکت برای شما.`;
-                    
-                    await apiCall('/send-whatsapp', 'POST', { 
-                        number: customerPhone, 
-                        message: customerCaption, 
-                        mediaData: { data: base64Customer, mimeType: 'image/png', filename: `Invoice_${permit.permitNumber}.png` } 
-                    });
-                    
-                    // Also send via bots if the customer is linked (using phone search)
-                    await apiCall('/bot/send-by-phone', 'POST', { 
-                        phone: customerPhone, 
-                        text: customerCaption, 
-                        photoBase64: base64Customer 
-                    }).catch(e => console.error("Bot Phone Notify failed", e));
-                }
-            }
-
-            let caption = `🚛 *مجوز خروج کارخانه*\n${captionTitle}\n\n`;
-            caption += `🔢 شماره: ${permit.permitNumber}\n`;
-            caption += `👤 گیرنده: ${permit.recipientName}\n`;
-            
-            if (permit.items && permit.items.length > 0) {
-                caption += `📦 *اقلام:* \n`;
-                permit.items.forEach((it, idx) => {
-                    const q = it.deliveredCartonCount ?? it.cartonCount ?? 0;
-                    const w = it.deliveredWeight ?? it.weight ?? 0;
-                    caption += `${idx + 1}. ${it.goodsName} (${q} عدد | ${Number(Number(w).toFixed(3))} kg)\n`;
-                });
-            } else {
-                caption += `📦 کالا: ${permit.goodsName}\n`;
-            }
-            
-            if (permit.plateNumber) {
-                caption += `🆔 پلاک: ${formatIranianPlate(permit.plateNumber)}\n`;
-            }
-            if (permit.driverName) caption += `👨‍✈️ راننده: ${permit.driverName}\n`;
-            if (permit.driverPhone) caption += `📞 تماس: ${permit.driverPhone}\n`;
-            
-            if (permit.exitTime) caption += `🕒 ساعت خروج: ${permit.exitTime}\n`;
-            if (prevStatus === ExitPermitStatus.PENDING_WAREHOUSE) caption += `⚖️ وزن نهایی: ${permit.weight} KG\n`;
-            
-            caption += `\n👤 تایید کننده: ${currentUser.fullName}`;
-
-            for (const t of targets) {
-                if (t.role) {
-                    const u = allUsers.find(x => x.role === t.role);
-                    if (u?.phoneNumber) await apiCall('/send-whatsapp', 'POST', { number: u.phoneNumber, message: caption, mediaData: { data: base64NoPrice, mimeType: 'image/png', filename: `Permit_${permit.permitNumber}.png` } });
-                }
-                if (t.group) {
-                    await apiCall('/send-whatsapp', 'POST', { number: t.group, message: caption, mediaData: { data: base64NoPrice, mimeType: 'image/png', filename: `Permit_${permit.permitNumber}.png` } });
-                }
-                if (t.platform) {
-                    await apiCall('/send-bot-message', 'POST', { platform: t.platform, chatId: t.id, caption: caption, mediaData: { data: base64NoPrice, filename: `Permit_${permit.permitNumber}.png` } });
-                }
-            }
-            
-            // Explicitly send WITH PRICE to CEO, SALES_MANAGER, ADMIN (unless they are groups)
-            const priceInfo = `\n💰 مبلغ: ${Number(permit.price || 0).toLocaleString()} ریال`;
-            
-            for (const m of managers) {
-                const tgId = (m as any).telegramId || (m as any).telegramChatId;
-                const blId = (m as any).baleId || (m as any).baleChatId;
-                const isGroup = (id: string) => id && (id.startsWith('-') || id.includes('@g.us'));
-                
-                const managerCaption = caption + (isGroup(String(tgId || blId || m.phoneNumber)) ? '' : priceInfo);
-                const managerImg = isGroup(String(tgId || blId || m.phoneNumber)) ? base64NoPrice : base64WithPrice;
-
-                if (m.phoneNumber) {
-                    await apiCall('/send-whatsapp', 'POST', { number: m.phoneNumber, message: managerCaption, mediaData: { data: managerImg, mimeType: 'image/png', filename: `Permit_${permit.permitNumber}.png` } });
-                }
-                if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption: managerCaption, mediaData: { data: managerImg, filename: `Permit_${permit.permitNumber}.png` } });
-                if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption: managerCaption, mediaData: { data: managerImg, filename: `Permit_${permit.permitNumber}.png` } });
-            }
-        } catch (e) { console.error("Notif Error", e); }
     };
 
     const handleDelete = async (id: string) => {
@@ -1081,21 +623,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
 
     return (
         <div className="space-y-6 pb-20 animate-fade-in">
-            {/* Hidden Render */}
-             {activeAutoSends.map(p => (
-                <div key={p.id} className="hidden-print-export" style={{ position: 'absolute', top: '-9999px', left: '-9999px', width: '800px', zIndex: -1 }}>
-                    <div id={`print-permit-autosend-noprice-${p.id}`}>
-                        <PrintExitPermit permit={p} onClose={()=>{}} embed showPrice={false} mode="EXIT" />
-                    </div>
-                    <div id={`print-permit-autosend-price-${p.id}`}>
-                        <PrintExitPermit permit={p} onClose={()=>{}} embed showPrice={true} mode="PROFORMA" />
-                    </div>
-                    <div id={`print-permit-autosend-customer-${p.id}`}>
-                        <PrintExitPermit permit={p} onClose={()=>{}} embed showPrice={true} mode="CUSTOMER_INVOICE" />
-                    </div>
-                </div>
-            ))}
-
             {/* Header / Tabs */}
             <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center glass-panel p-4 rounded-2xl shadow-sm border border-gray-200">
@@ -1220,47 +747,6 @@ const ManageExitPermits: React.FC<{ currentUser: User, settings?: SystemSettings
                     onClose={() => setSecurityFinalize(null)}
                     onConfirm={handleSecuritySubmit}
                 />
-            )}
-
-            {/* Queue Background Processing Status Toast */}
-            {showQueueToast && (autoSendQueue.length > 0 || lastProcessedNotification) && (
-                <div id="queue-status-toast" className="fixed bottom-6 right-6 z-[9999] bg-slate-900 text-slate-100 p-4 rounded-xl shadow-2xl border border-slate-700 w-80 animate-slide-in flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            {autoSendQueue.length > 0 ? (
-                                <Loader2 className="animate-spin text-blue-400" size={18} />
-                            ) : (
-                                <CheckCircle className="text-green-400" size={18} />
-                            )}
-                            <span className="text-xs font-black">پروسه پس‌زمینه ربات‌ها</span>
-                        </div>
-                        <button 
-                            onClick={() => setShowQueueToast(false)} 
-                            className="text-slate-400 hover:text-slate-100 p-0.5 rounded-full hover:bg-slate-800 transition-colors"
-                        >
-                            <XCircle size={16} />
-                        </button>
-                    </div>
-                    
-                    {autoSendQueue.length > 0 && (
-                        <div className="space-y-1 mt-1">
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                                ارسال تصاویر به بات‌ها در حال انجام است، کمی صبر کنید...
-                            </p>
-                            <div className="flex items-center justify-between bg-slate-800 px-2 py-1.5 rounded text-[10px] text-slate-400 font-mono">
-                                <span>کارهای باقی‌مانده در صف:</span>
-                                <span className="font-bold bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-xs">{autoSendQueue.length} برگه</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {lastProcessedNotification && (
-                        <div className="mt-1 bg-green-900/40 text-green-400 p-2 rounded text-[10px] leading-tight flex items-start gap-1 border border-green-800/40">
-                            <CheckCircle size={12} className="mt-0.5 flex-shrink-0" />
-                            <span>{lastProcessedNotification}</span>
-                        </div>
-                    )}
-                </div>
             )}
         </div>
     );

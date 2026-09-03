@@ -121,7 +121,21 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     const [isLoading, setIsLoading] = useState(false);
     
     const [sendToChatOpen, setSendToChatOpen] = useState(false);
+    const [sendToChatAttachment, setSendToChatAttachment] = useState<{ fileName: string; url: string } | undefined>(undefined);
     const [sendToChatDefaultMsg, setSendToChatDefaultMsg] = useState('');
+    const [trazShareModalOpen, setTrazShareModalOpen] = useState(false);
+
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = (reader.result as string).split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    };
     
     // Default Date Range (Direct Shamsi format "YYYY/MM/DD")
     const [dateFrom, setDateFrom] = useState('');
@@ -743,13 +757,97 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // Print/PDF debtors & creditors separately
-    const handlePrintTrazReport = (type: 'bed' | 'bes', returnHtml: boolean = false) => {
+    
+    const handleSendTrazBotReport = async () => {
+        const isBed = window.confirm('ارسال گزارش بدهکاران؟\n(OK برای بدهکاران، Cancel برای بستانکاران)');
+        const dateFromStr = dateFrom || 'ابتدا';
+        const dateToStr = dateTo || 'امروز';
+        
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال تولید PDF و ارسال به بات...');
+        try {
+            const htmlContent = handlePrintTrazReport(isBed ? 'bed' : 'bes', true) as unknown as string;
+            const pdfFilename = `Traz_${isBed ? 'Debtors' : 'Creditors'}_${Date.now()}.pdf`;
+            
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('PDF generation failed');
+            
+            const base64Data = await blobToBase64(blob);
+            
+            const res = await fetch(getEffectiveApiUrl('/api/bot/send-document'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    base64Data,
+                    filename: pdfFilename,
+                    caption: `📊 گزارش مانده ${isBed ? 'بدهکاران' : 'بستانکاران'}\n📅 بازه: ${dateFromStr} تا ${dateToStr}`,
+                    platforms: ['telegram', 'bale']
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success('گزارش با موفقیت به ربات ارسال شد.', { id: loadingToast });
+            } else {
+                toast.error(data.error || 'خطا در ارسال.', { id: loadingToast });
+            }
+        } catch (e: any) {
+            toast.error("خطا: " + e.message, { id: loadingToast });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleTrazShareToChat = async (type: 'bed' | 'bes' | 'both') => {
+        setTrazShareModalOpen(false);
+        const dateFromStr = dateFrom || 'ابتدا';
+        const dateToStr = dateTo || 'امروز';
+        let pdfFilename = `Traz_${type === 'both' ? 'All' : (type === 'bed' ? 'Debtors' : 'Creditors')}_${Date.now()}.pdf`;
+        
+        let htmlContent = handlePrintTrazReport(type, true) as unknown as string;
+        
+        let text = '';
+        if (type === 'both') {
+            const totalDebtors = filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0);
+            const totalCreditors = filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0);
+            text = `📊 گزارش تراز معین مالی سایان (${dateFromStr} تا ${dateToStr})\n• تعداد حساب‌ها: ${filteredTraz.length} حساب\n• جمع بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال\n• جمع بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`;
+        } else if (type === 'bed') {
+            const totalDebtors = filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0);
+            text = `📊 گزارش بدهکاران سایان (${dateFromStr} تا ${dateToStr})\n• جمع بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال`;
+        } else {
+            const totalCreditors = filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0);
+            text = `📊 گزارش بستانکاران سایان (${dateFromStr} تا ${dateToStr})\n• جمع بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`;
+        }
+
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال ایجاد و بارگذاری PDF...');
+        try {
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (blob) {
+                const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+                const result = await uploadFileChunked(file, () => {});
+                setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+                toast.success('PDF با موفقیت ایجاد شد', { id: loadingToast });
+                setSendToChatDefaultMsg(text);
+                setSendToChatOpen(true);
+            } else {
+                throw new Error('Failed to generate PDF Blob');
+            }
+        } catch (err) {
+            console.error('Share to chat PDF generation error:', err);
+            toast.error('خطا در ایجاد PDF', { id: loadingToast });
+            setSendToChatAttachment(undefined);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handlePrintTrazReport = (type: 'bed' | 'bes' | 'both', returnHtml: boolean = false) => {
         const fullList = getFilteredTraz();
         const sortedList = fullList
-            .filter(t => type === 'bed' ? t.balance > 0 : t.balance < 0)
+            .filter(t => type === 'both' ? t.balance !== 0 : (type === 'bed' ? t.balance > 0 : t.balance < 0))
             .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
 
-        const title = type === 'bed' ? 'گزارش مانده بدهکاران (صعودی به نزولی)' : 'گزارش مانده بستانکاران (صعودی به نزولی)';
+        const title = type === 'both' ? 'گزارش مانده بدهکاران و بستانکاران' : (type === 'bed' ? 'گزارش مانده بدهکاران (صعودی به نزولی)' : 'گزارش مانده بستانکاران (صعودی به نزولی)');
         const docHtml = `
             <html dir="rtl" lang="fa">
             <head>
@@ -810,7 +908,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1064,7 +1162,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1503,7 +1601,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             body.label = label;
         }
 
-        if (!confirm(`آیا از ارسال گزارش فروش (${label}) به گروه‌های تلگرام / بله اطمینان دارید؟`)) return;
         setIsSendingSalesBot(true);
         try {
             const res = await fetch(getEffectiveApiUrl('/api/sayan/sales-report/send-manual'), {
@@ -1720,7 +1817,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1928,7 +2025,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -1998,7 +2095,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     // Print Comparative Sales PDF
-    const handlePrintComparativeSales = () => {
+    const handlePrintComparativeSales = (returnHtml: boolean = false) => {
         const title = `گزارش تحلیلی و مقایسه‌ای فروش سایان (${dateFrom} تا ${dateTo} در مقایسه با ${salesDateFromB} تا ${salesDateToB})`;
         const data = getComparisonChartData();
 
@@ -2148,7 +2245,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2381,7 +2478,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return result;
     };
 
-    const handlePrintComparativeProduction = () => {
+    const handlePrintComparativeProduction = (returnHtml: boolean = false) => {
         const groupLabel = prodCompareGroupBy === 'group' ? 'بر اساس گروه کالا' : 'بر اساس نام دقیق کالا';
         const title = `گزارش مقایسه‌ای آمار تولید کارخانه - ${groupLabel} (${dateFrom} تا ${dateTo} در مقایسه با ${prodCompareDateFromB} تا ${prodCompareDateToB})`;
         const data = getProdComparisonData();
@@ -2466,7 +2563,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -2895,7 +2992,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
     };
 
     const handleSendBotReport = async () => {
-        if (!confirm(`آیا از ارسال این گزارش تولید و ضایعات به گروه‌های تعریف‌شده در تلگرام/بله اطمینان دارید؟\n(مقادیر ضایعات نیز به‌طور خودکار در بایگانی ذخیره خواهند شد)`)) return;
         setIsSendingBot(true);
         try {
             // First, also perform client-side auto-save request to ensure instant sync
@@ -3656,7 +3752,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
             </html>
         `;
 
-        if (returnHtml) return docHtml;
+        
 
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -3828,157 +3924,312 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
         return Array.from(banks).sort((a, b) => a.localeCompare(b, 'fa'));
     }, [chequesData]);
 
-    const handleShareReportToChat = async () => {
-        let text = '';
-        let htmlContent = '';
-        const dateFromStr = dateFrom || 'ابتدا';
-        const dateToStr = dateTo || 'امروز';
-        let pdfFilename = `Report_${Date.now()}.pdf`;
-        
-        if (activeTab === 'traz') {
-            const isBed = window.confirm('ارسال گزارش بدهکاران؟\n(OK برای بدهکاران، Cancel برای بستانکاران)');
-            htmlContent = handlePrintTrazReport(isBed ? 'bed' : 'bes', true) as string;
-            pdfFilename = `Traz_${isBed ? 'Debtors' : 'Creditors'}_${Date.now()}.pdf`;
-            const totalDebtors = filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0);
-            const totalCreditors = filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0);
-            text = `📊 گزارش تراز معین مالی سایان (${dateFromStr} تا ${dateToStr})\n• تعداد حساب‌ها: ${filteredTraz.length} حساب\n• جمع بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال\n• جمع بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`;
-        } else if (activeTab === 'sales') {
-            htmlContent = handlePrintTodaySales(true) as string;
-            pdfFilename = `Sales_${Date.now()}.pdf`;
-            const totalSalesWeight = salesData.reduce((sum, r) => sum + (Number(r.weight) || 0), 0);
-            const totalSalesAmount = salesData.reduce((sum, r) => sum + (Number(r.netPrice) || 0), 0);
-            text = `📊 گزارش آمار فروش سایان (${dateFromStr} تا ${dateToStr})\n• وزن کل فروش: ${totalSalesWeight.toLocaleString('fa-IR')} کیلوگرم\n• مبلغ کل خالص فروش: ${totalSalesAmount.toLocaleString('fa-IR')} ریال`;
-        } else if (activeTab === 'cheques') {
-            htmlContent = handlePrintChequesPDF(true) as string;
-            pdfFilename = `Cheques_${Date.now()}.pdf`;
-            const totalChequesAmount = filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-            text = `📊 گزارش وضعیت چک‌های دریافتنی و پرداختنی\n• تعداد چک‌ها: ${filteredCheques.length} فقره\n• جمع کل مبالغ: ${totalChequesAmount.toLocaleString('fa-IR')} ریال\n• چک‌های برگشتی: ${filteredCheques.filter(c => c.statusGroup === 'returned' || String(c.statusDesc || '').includes('برگشت')).length} فقره`;
-        } else {
-            text = `📊 گزارش مالی و بازرگانی از سیستم یکپارچه سایان ERP\nبازه: ${dateFromStr} تا ${dateToStr}`;
-        }
-
-        if (htmlContent) {
-            setIsLoading(true);
-            const loadingToast = toast.loading('در حال ایجاد و بارگذاری PDF...');
-            try {
-                const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
-                if (blob) {
-                    const file = new File([blob], pdfFilename, { type: 'application/pdf' });
-                    const result = await uploadFileChunked(file, () => {});
-                    setSendToChatAttachment({ fileName: result.fileName, url: result.url });
-                    toast.success('PDF با موفقیت ایجاد شد', { id: loadingToast });
-                } else {
-                    throw new Error('Failed to generate PDF Blob');
-                }
-            } catch (err) {
-                console.error('Share to chat PDF generation error:', err);
-                toast.error('خطا در ایجاد PDF', { id: loadingToast });
-                setSendToChatAttachment(undefined);
-            } finally {
-                setIsLoading(false);
+    const handleShareSalesToChat = async () => {
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال آماده‌سازی و ساخت فایل PDF فروش...');
+        try {
+            const dateFromStr = dateFrom || 'ابتدا';
+            const dateToStr = dateTo || 'امروز';
+            const pdfFilename = `Sayan_Sales_${dateFromStr.replace(/\//g, '-')}_to_${dateToStr.replace(/\//g, '-')}_${Date.now()}.pdf`;
+            
+            let htmlContent = '';
+            if (compareMode && compareSalesDataB && compareSalesDataB.length > 0) {
+                htmlContent = handlePrintComparativeSales(true) as unknown as string;
+            } else if (salesViewMode === 'today') {
+                htmlContent = handlePrintTodaySales(true) as unknown as string;
+            } else {
+                htmlContent = handlePrintPeriodSales(true) as unknown as string;
             }
-        } else {
-            setSendToChatAttachment(undefined);
-        }
 
-        setSendToChatDefaultMsg(text);
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('تولید PDF گزارش فروش ناموفق بود');
+
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            const totalSalesWeight = salesData.reduce((sum, r) => sum + (Number(r.weight || r.Quantity) || 0), 0);
+            const totalSalesAmount = salesData.reduce((sum, r) => sum + (Number(r.netPrice || r.Amount) || 0), 0);
+            const text = `📊 گزارش تحلیلی آمار فروش سایان ERP (${dateFromStr} تا ${dateToStr})\n• تعداد اقلام فاکتورها: ${salesData.length} ردیف\n• مجموع وزن خالص: ${totalSalesWeight.toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلوگرم\n• مجموع فروش خالص: ${totalSalesAmount.toLocaleString('fa-IR')} ریال\n📄 فایل PDF کامل گزارش پیوست گردید.`;
+
+            setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+            setSendToChatDefaultMsg(text);
+            toast.success('فایل PDF گزارش فروش با موفقیت ایجاد شد', { id: loadingToast });
+            setSendToChatOpen(true);
+        } catch (err: any) {
+            console.error('Sales share to chat error:', err);
+            toast.error('خطا در ایجاد PDF گزارش فروش: ' + (err?.message || ''), { id: loadingToast });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handlePrintLiveProduction = (returnHtml: boolean = false) => {
+        const title = `گزارش آمار تولید و ضایعات کارخانه سایان ERP (${dateFrom} تا ${dateTo})`;
+        const totalProd = prodLiveTotals?.grandTotal || 0;
+        const totalWaste = (prodWaste?.waste_61 || 0) + (prodWaste?.waste_67 || 0) + (prodWaste?.waste_79 || 0) + (prodWaste?.waste_73 || 0) + (prodWaste?.waste_schweiter || 0);
+        const wastePct = totalProd > 0 ? ((totalWaste / totalProd) * 100).toFixed(2) : '0';
+
+        const rowsHtml = prodLiveItems.map((item, idx) => `
+            <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; font-size: 9.5pt;">
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${item.name || item.itemName || '-'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${item.groupName || item.group || '-'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #1e3a8a;">${(item.total || item.totalWeight || 0).toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            </tr>
+        `).join('');
+
+        const docHtml = `
+            <html dir="rtl" lang="fa">
+            <head>
+                <meta charset="UTF-8">
+                <title>${title}</title>
+                <style>
+                    body { font-family: 'Tahoma', sans-serif; margin: 20px; color: #0f172a; direction: rtl; }
+                    .header-box { border: 1px solid #cbd5e1; padding: 14px; border-radius: 8px; background-color: #f8fafc; margin-bottom: 20px; text-align: center; }
+                    .title { font-size: 14pt; font-weight: bold; color: #1e3a8a; margin-bottom: 6px; }
+                    .subtitle { font-size: 10pt; color: #475569; }
+                    .stat-cards { display: flex; justify-content: space-around; margin: 15px 0; gap: 10px; }
+                    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 15px; background: white; text-align: center; flex: 1; }
+                    .card-label { font-size: 9pt; color: #64748b; margin-bottom: 4px; }
+                    .card-val { font-size: 12pt; font-weight: bold; color: #0f172a; }
+                    .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                    .table th { background-color: #1e293b; color: white; padding: 10px; border: 1px solid #334155; font-size: 10pt; }
+                    .table td { border: 1px solid #cbd5e1; padding: 8px; }
+                    .footer { text-align: center; font-size: 9pt; color: #94a3b8; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header-box">
+                    <div class="title">${title}</div>
+                    <div class="subtitle">سیستم جامع پایش خطوط تولید کارخانه نساجی سایان ERP</div>
+                    <div class="stat-cards">
+                        <div class="card">
+                            <div class="card-label">کل تولید خالص (کیلوگرم)</div>
+                            <div class="card-val" style="color: #2563eb;">${totalProd.toLocaleString('fa-IR', { maximumFractionDigits: 1 })}</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">کل ضایعات کارخانه (کیلوگرم)</div>
+                            <div class="card-val" style="color: #dc2626;">${totalWaste.toLocaleString('fa-IR', { maximumFractionDigits: 1 })}</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">درصد ضایعات به کل تولید</div>
+                            <div class="card-val" style="color: #d97706;">${wastePct}%</div>
+                        </div>
+                    </div>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">ردیف</th>
+                            <th>نام کالا / محصول تولیدی</th>
+                            <th>دسته‌بندی</th>
+                            <th>وزن کل تولید (kg)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml || '<tr><td colspan="4" style="text-align:center; padding: 20px;">هیچ رکوردی برای این بازه زمانی یافت نشد.</td></tr>'}
+                    </tbody>
+                </table>
+                <div class="footer">گزارش رسمی سامانه هوشمند سایان ERP - زمان صدور: ${new Date().toLocaleTimeString('fa-IR')}</div>
+            </body>
+            </html>
+        `;
+
+        
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(docHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    };
+
+    const handleShareProductionToChat = async () => {
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال آماده‌سازی و ساخت فایل PDF تولید و ضایعات...');
+        try {
+            const dateFromStr = dateFrom || 'ابتدا';
+            const dateToStr = dateTo || 'امروز';
+            const pdfFilename = `Sayan_Production_${dateFromStr.replace(/\//g, '-')}_to_${dateToStr.replace(/\//g, '-')}_${Date.now()}.pdf`;
+            
+            let htmlContent = '';
+            if (prodCompareMode) {
+                htmlContent = handlePrintComparativeProduction(true) as unknown as string;
+            } else {
+                htmlContent = handlePrintLiveProduction(true) as unknown as string;
+            }
+
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('تولید PDF گزارش تولید ناموفق بود');
+
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            const totalProd = prodLiveTotals?.grandTotal || 0;
+            const totalWaste = (prodWaste?.waste_61 || 0) + (prodWaste?.waste_67 || 0) + (prodWaste?.waste_79 || 0) + (prodWaste?.waste_73 || 0) + (prodWaste?.waste_schweiter || 0);
+            const text = `📊 گزارش تولید و ضایعات کارخانه سایان ERP (${dateFromStr} تا ${dateToStr})\n• کل تولید خالص: ${totalProd.toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلوگرم\n• کل ضایعات ثبت‌شده: ${totalWaste.toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلوگرم\n📄 فایل PDF کامل پیوست گردید.`;
+
+            setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+            setSendToChatDefaultMsg(text);
+            toast.success('فایل PDF گزارش تولید آماده شد', { id: loadingToast });
+            setSendToChatOpen(true);
+        } catch (err: any) {
+            console.error('Production share to chat error:', err);
+            toast.error('خطا در ایجاد PDF گزارش تولید: ' + (err?.message || ''), { id: loadingToast });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleShareChequesToChat = async () => {
+        setIsLoading(true);
+        const loadingToast = toast.loading('در حال ساخت فایل PDF اسناد دریافتنی...');
+        try {
+            const pdfFilename = `Sayan_Cheques_${Date.now()}.pdf`;
+            const htmlContent = handlePrintChequesPDF(true) as unknown as string;
+
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('تولید PDF چک‌ها ناموفق بود');
+
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            const totalChequesAmount = filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+            const text = `📊 گزارش اسناد دریافتنی (چک‌ها) سایان ERP\n• تعداد کل چک‌ها: ${filteredCheques.length} فقره\n• جمع کل مبالغ: ${totalChequesAmount.toLocaleString('fa-IR')} ریال\n• فیلتر وضعیت: ${chequeStatusFilter === 'all' ? 'همه' : chequeStatusFilter}\n📄 فایل PDF چک‌ها پیوست شد.`;
+
+            setSendToChatAttachment({ fileName: result.fileName, url: result.url });
+            setSendToChatDefaultMsg(text);
+            toast.success('فایل PDF چک‌ها آماده شد', { id: loadingToast });
+            setSendToChatOpen(true);
+        } catch (err: any) {
+            console.error('Cheques share to chat error:', err);
+            toast.error('خطا در ایجاد PDF چک‌ها: ' + (err?.message || ''), { id: loadingToast });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleShareReturnsToChat = async () => {
+        setSendToChatAttachment(undefined);
+        setSendToChatDefaultMsg(`📋 گزارش رسیدهای برگشت از تولید (کد ۴۴) سایان ERP\nبازه زمانی: ${dateFrom || 'ابتدا'} تا ${dateTo || 'امروز'}`);
         setSendToChatOpen(true);
     };
 
+    const handleShareReportToChat = async () => {
+        if (activeTab === 'traz') {
+            setTrazShareModalOpen(true);
+        } else if (activeTab === 'sales') {
+            await handleShareSalesToChat();
+        } else if (activeTab === 'production') {
+            await handleShareProductionToChat();
+        } else if (activeTab === 'cheques') {
+            await handleShareChequesToChat();
+        } else if (activeTab === 'prodReturns') {
+            await handleShareReturnsToChat();
+        } else {
+            setSendToChatAttachment(undefined);
+            setSendToChatDefaultMsg(`📊 گزارش مالی و بازرگانی از سیستم یکپارچه سایان ERP\nبازه: ${dateFrom || 'ابتدا'} تا ${dateTo || 'امروز'}`);
+            setSendToChatOpen(true);
+        }
+    };
+
     return (
-        <div className="p-2 sm:p-4 md:p-6 rtl max-w-full mx-auto space-y-4 sm:space-y-6">
-            {/* Main Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-gray-200 pb-5 gap-4">
-                <div>
-                    <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 font-sans tracking-tight">گزارشات هوشمند مالی و فروش سایان ERP</h1>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1">اتصال بلادرنگ و پایش لحظه‌ای اسناد و داده‌های مالی کارخانه</p>
-                </div>
-                
-                {/* Global Date Filter */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 bg-white rounded-lg shadow-sm border border-slate-200 p-2 sm:p-2.5 w-full lg:w-auto">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
-                            <Calendar className="w-4 h-4 text-blue-600" />
-                            <span>بازه زمانی گزارش:</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 shadow-inner">
+        <div className="p-2 sm:p-4 md:p-6 rtl max-w-full mx-auto space-y-3 sm:space-y-4">
+            {/* Global Date Filter Bar - Clean, Compact & Header-free with high z-index for mobile calendar popover */}
+            <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-800 p-2.5 sm:p-3 gap-2.5">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-bold shrink-0">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        <span>بازه زمانی:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                        <div className="relative z-50 flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 shadow-inner flex-1 sm:flex-initial">
                             <DatePicker
                                 calendar={persian}
                                 locale={persian_fa}
                                 format="YYYY/MM/DD"
                                 value={dateFrom}
                                 onChange={(date: any) => setDateFrom(date?.format?.('YYYY/MM/DD') || '')}
-                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center cursor-pointer"
-                                containerClassName="w-full"
+                                editable={false}
+                                calendarPosition="bottom-right"
+                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 dark:text-white font-bold font-mono w-24 text-center cursor-pointer"
+                                containerClassName="w-full relative z-50"
                             />
                         </div>
-                        <span className="text-xs text-slate-400 font-bold">تا</span>
-                        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 shadow-inner">
+                        <span className="text-xs text-slate-400 font-bold shrink-0 px-0.5">تا</span>
+                        <div className="relative z-50 flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 shadow-inner flex-1 sm:flex-initial">
                             <DatePicker
                                 calendar={persian}
                                 locale={persian_fa}
                                 format="YYYY/MM/DD"
                                 value={dateTo}
                                 onChange={(date: any) => setDateTo(date?.format?.('YYYY/MM/DD') || '')}
-                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 font-bold font-mono w-24 text-center cursor-pointer"
-                                containerClassName="w-full"
+                                editable={false}
+                                calendarPosition="bottom-right"
+                                inputClass="text-xs bg-transparent outline-none focus:ring-0 text-slate-800 dark:text-white font-bold font-mono w-24 text-center cursor-pointer"
+                                containerClassName="w-full relative z-50"
                             />
                         </div>
                     </div>
+                </div>
 
-                    {/* Quick Date Buttons */}
-                    <div className="flex flex-wrap items-center gap-1 border-t sm:border-t-0 sm:border-r border-slate-200 pt-2 sm:pt-0 sm:pr-3">
-                        <button
-                            onClick={() => applyQuickDate('today')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
-                            title="تنظیم بازه روی امروز"
-                        >
-                            امروز
-                        </button>
-                        <button
-                            onClick={() => applyQuickDate('yesterday')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
-                            title="تنظیم بازه روی دیروز"
-                        >
-                            دیروز
-                        </button>
-                        <button
-                            onClick={() => applyQuickDate('month')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
-                            title="تنظیم بازه روی کل ماه جاری"
-                        >
-                            ماه جاری
-                        </button>
-                        <button
-                            onClick={() => applyQuickDate('last_month')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
-                            title="تنظیم بازه روی کل ماه قبل"
-                        >
-                            ماه قبل
-                        </button>
-                        <button
-                            onClick={() => applyQuickDate('quarter')}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] sm:text-xs px-2 py-1 font-semibold transition-colors cursor-pointer"
-                            title="تنظیم بازه روی فصل جاری"
-                        >
-                            فصل جاری
-                        </button>
-                        <button
-                            onClick={() => applyQuickDate('default')}
-                            className="bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[10px] sm:text-xs px-2 py-1 font-bold transition-colors cursor-pointer border border-amber-200"
-                            title="بازنشانی بازه به پیش‌فرض"
-                        >
-                            پیش‌فرض
-                        </button>
-                        <button
-                            onClick={saveCurrentAsDefaultDate}
-                            className="bg-blue-50 hover:bg-blue-100 text-blue-800 rounded text-[10px] sm:text-xs px-2 py-1 font-bold transition-colors cursor-pointer border border-blue-200 flex items-center gap-0.5"
-                            title="ذخیره بازه فعلی به عنوان پیش‌فرض"
-                        >
-                            <Save className="w-3 h-3" />
-                            <span>ثبت دیفالت</span>
-                        </button>
-                    </div>
+                {/* Quick Date Buttons & Refresh */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                        onClick={() => applyQuickDate('today')}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-semibold transition-colors cursor-pointer"
+                        title="تنظیم بازه روی امروز"
+                    >
+                        امروز
+                    </button>
+                    <button
+                        onClick={() => applyQuickDate('yesterday')}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-semibold transition-colors cursor-pointer"
+                        title="تنظیم بازه روی دیروز"
+                    >
+                        دیروز
+                    </button>
+                    <button
+                        onClick={() => applyQuickDate('month')}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-semibold transition-colors cursor-pointer"
+                        title="تنظیم بازه روی کل ماه جاری"
+                    >
+                        ماه جاری
+                    </button>
+                    <button
+                        onClick={() => applyQuickDate('last_month')}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-semibold transition-colors cursor-pointer"
+                        title="تنظیم بازه روی کل ماه قبل"
+                    >
+                        ماه قبل
+                    </button>
+                    <button
+                        onClick={() => applyQuickDate('quarter')}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-semibold transition-colors cursor-pointer"
+                        title="تنظیم بازه روی فصل جاری"
+                    >
+                        فصل جاری
+                    </button>
+                    <button
+                        onClick={() => applyQuickDate('default')}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-bold transition-colors cursor-pointer border border-amber-200 dark:border-amber-800/40"
+                        title="بازنشانی بازه به پیش‌فرض"
+                    >
+                        پیش‌فرض
+                    </button>
+                    <button
+                        onClick={saveCurrentAsDefaultDate}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-lg text-[11px] sm:text-xs px-2.5 py-1.5 font-bold transition-colors cursor-pointer border border-blue-200 dark:border-blue-800/40 flex items-center gap-1"
+                        title="ذخیره بازه فعلی به عنوان پیش‌فرض"
+                    >
+                        <Save className="w-3 h-3" />
+                        <span>ثبت دیفالت</span>
+                    </button>
 
                     <button 
                         onClick={() => {
@@ -3986,153 +4237,78 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             if (activeTab === 'sales') fetchSalesData();
                             if (activeTab === 'production') { fetchProduction(); fetchProdArchive(); }
                             if (activeTab === 'cheques') fetchCheques();
-                            
                         }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs px-3 py-1.5 font-semibold flex items-center gap-1 transition-colors cursor-pointer mr-auto lg:mr-0 mt-1 sm:mt-0"
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5 transition-colors cursor-pointer mr-auto lg:mr-0 min-h-[34px]"
                     >
-                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'بروزرسانی'}
-                    </button>
-
-                    <button 
-                        onClick={handleShareReportToChat}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/10 cursor-pointer mr-1.5 mt-1 sm:mt-0"
-                        title="ارسال سریع خلاصه این گزارش به گفتگوی اعضای تیم"
-                    >
-                        <Share2 size={13} />
-                        <span>ارسال به گفتگو</span>
-                    </button>
-
-                    <button 
-                        onClick={() => {
-                            if (activeTab === 'traz') {
-                                openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
-                                    items: filteredTraz,
-                                    category: trazCategory,
-                                    count: filteredTraz.length,
-                                    totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
-                                    totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
-                                    topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
-                                    topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
-                                });
-                            } else if (activeTab === 'sales') {
-                                openAiReportModal('sales', 'تحلیل جامع آمار فروش و برگشت از فروش', {
-                                    items: salesData,
-                                    count: salesData.length,
-                                    viewMode: salesViewMode,
-                                    compareMode,
-                                    compareSalesDataA,
-                                    compareSalesDataB
-                                });
-                            } else if (activeTab === 'production') {
-                                if (prodCompareMode) {
-                                    openAiReportModal('production_comparison', 'تحلیل مقایسه‌ای خطوط و دسته‌های تولیدی کارخانه', {
-                                        itemsA: prodCompareDataA,
-                                        itemsB: prodCompareDataB,
-                                        totalA: prodCompareTotalsA?.grandTotal || 0,
-                                        totalB: prodCompareTotalsB?.grandTotal || 0,
-                                        periodA: { from: dateFrom, to: dateTo },
-                                        periodB: { from: prodCompareDateFromB, to: prodCompareDateToB }
-                                    });
-                                } else {
-                                    openAiReportModal('production', 'تحلیل مهندسی و هوشمند آمار تولید و ضایعات کارخانه', {
-                                        items: prodLiveItems,
-                                        totals: prodLiveTotals,
-                                        waste: prodWaste
-                                    });
-                                }
-                            } else if (activeTab === 'cheques') {
-                                openAiReportModal('cheques', 'تحلیل هوشمند جریان نقدینگی و اسناد دریافتنی (چک‌ها)', {
-                                    cheques: filteredCheques,
-                                    totalCount: filteredCheques.length,
-                                    totalAmount: filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
-                                    statusFilter: chequeStatusFilter
-                                });
-                            } else if (activeTab === 'prodReturns') {
-                                openAiReportModal('prodReturns', 'تحلیل هوشمند رسیدهای برگشت از خطوط تولید (کد ۴۴)', {
-                                    dateRange: { from: dateFrom, to: dateTo }
-                                });
-                            } else if (activeTab === 'remittances') {
-                                openAiReportModal('remittances', 'تحلیل هوشمند حواله‌های فروش و رسیدهای انبار', {
-                                    dateRange: { from: dateFrom, to: dateTo }
-                                });
-                            } else if (activeTab === 'warehouseOverview') {
-                                openAiReportModal('warehouseOverview', 'تحلیل جامع موجودی انبارها و تراز وزنی', {
-                                    dateRange: { from: dateFrom, to: dateTo }
-                                });
-                            }
-                        }}
-                        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded text-xs px-3.5 py-1.5 font-extrabold flex items-center gap-1.5 transition-all shadow-md hover:shadow-indigo-500/25 cursor-pointer animate-pulse"
-                        title="تحلیل هوشمند این بخش با هوش مصنوعی Gemini 3.7"
-                    >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>تحلیل هوش مصنوعی (AI)</span>
+                        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        <span>بروزرسانی</span>
                     </button>
                 </div>
             </div>
 
-            {/* Premium Tab Bar */}
-            <div className="grid grid-cols-2 gap-1.5 sm:flex sm:space-x-reverse sm:space-x-2 border-b border-slate-200 bg-slate-50 p-1.5 rounded-lg">
+            {/* Premium Tab Bar - Horizontally Scrollable on Mobile */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 p-1.5 rounded-xl">
                 {isTrazAllowed && (
                     <button 
                         onClick={() => setActiveTab('traz')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'traz' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'traz' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">تراز معین تفصیلی مشتریان</span>
+                        <span>تراز معین تفصیلی مشتریان</span>
                     </button>
                 )}
                 {isSalesAllowed && (
                     <button 
                         onClick={() => setActiveTab('sales')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'sales' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'sales' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">گزارش فروش و برگشت از فروش</span>
+                        <span>گزارش فروش و برگشت از فروش</span>
                     </button>
                 )}
                 {isProductionAllowed && (
                     <button 
                         onClick={() => setActiveTab('production')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'production' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'production' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">آمار تولید و ضایعات کارخانه</span>
+                        <span>آمار تولید و ضایعات کارخانه</span>
                     </button>
                 )}
                 {isProdReturnsAllowed && (
                     <button 
                         onClick={() => setActiveTab('prodReturns')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'prodReturns' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'prodReturns' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
-                        <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 animate-pulse text-indigo-600 dark:text-indigo-400" />
-                        <span className="truncate">رسید برگشت از تولید (۴۴)</span>
+                        <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                        <span>رسید برگشت از تولید (۴۴)</span>
                     </button>
                 )}
                 {isChequesAllowed && (
                     <button 
                         onClick={() => setActiveTab('cheques')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'cheques' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'cheques' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">اسناد دریافتنی (چک‌ها)</span>
+                        <span>اسناد دریافتنی (چک‌ها)</span>
                     </button>
                 )}
                 {isRemittancesAllowed && (
                     <button 
                         onClick={() => setActiveTab('remittances')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'remittances' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'remittances' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">حواله فروش و خروج کالا</span>
+                        <span>حواله فروش و خروج کالا</span>
                     </button>
                 )}
                 {isWarehouseOverviewAllowed && (
                     <button 
                         onClick={() => setActiveTab('warehouseOverview')} 
-                        className={`flex items-center justify-center gap-1.5 py-2 px-2.5 sm:py-2.5 sm:px-5 rounded-md text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'warehouseOverview' ? 'bg-white shadow text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'warehouseOverview' ? 'bg-white dark:bg-zinc-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-700/50 hover:text-slate-900'}`}
                     >
                         <Archive className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="truncate">تراز وزنی و نمای کلی انبار</span>
+                        <span>تراز وزنی و نمای کلی انبار</span>
                     </button>
                 )}
             </div>
@@ -4195,24 +4371,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md border border-emerald-200 text-xs font-semibold transition-colors"
                                 >
                                     <Printer className="w-3.5 h-3.5" /> خروجی بستانکاران
-                                </button>
-
-                                <button 
-                                    type="button"
-                                    onClick={() => openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
-                                        items: filteredTraz,
-                                        category: trazCategory,
-                                        count: filteredTraz.length,
-                                        totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
-                                        totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
-                                        topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
-                                        topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
-                                    })}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-md text-xs font-bold transition-all shadow-md cursor-pointer"
-                                    title="تحلیل هوشمند تراز بدهکاران و بستانکاران با هوش مصنوعی"
-                                >
-                                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                                    <span>تحلیل هوش مصنوعی تراز</span>
                                 </button>
                             </div>
                         </div>
@@ -4416,7 +4574,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     نمایش صورتحساب
                                 </button>
                                 <button 
-                                    onClick={handlePrintStatement}
+                                    onClick={() => handlePrintStatement()}
                                     disabled={statementData.length === 0}
                                     className="flex-1 md:flex-none px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
                                 >
@@ -4511,6 +4669,59 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 {isLoading ? 'در حال دریافت ریز حساب سایان...' : 'شخص را انتخاب کرده و دکمه نمایش صورتحساب را بزنید'}
                             </div>
                         )}
+
+                        {/* Dedicated Section Bottom Action Bar - Traz */}
+                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
+                            <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span>عملیات و اشتراک‌گذاری تراز اشخاص:</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => setTrazShareModalOpen(true)}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تولید PDF تراز و ارسال به گفتگوی شخصی یا گروهی"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    <span>ارسال این گزارش به گفتگو (PDF)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => openAiReportModal('traz', 'تراز معین و مانده حساب بدهکاران و بستانکاران', {
+                                        items: filteredTraz,
+                                        category: trazCategory,
+                                        count: filteredTraz.length,
+                                        totalDebtors: filteredTraz.filter(t => t.balance > 0).reduce((sum, r) => sum + r.balance, 0),
+                                        totalCreditors: filteredTraz.filter(t => t.balance < 0).reduce((sum, r) => sum + Math.abs(r.balance), 0),
+                                        topDebtors: filteredTraz.filter(t => t.balance > 0).slice(0, 15),
+                                        topCreditors: filteredTraz.filter(t => t.balance < 0).slice(0, 15),
+                                    })}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تحلیل هوشمند تراز بدهکاران و بستانکاران با هوش مصنوعی"
+                                >
+                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی تراز (AI)</span>
+                                </button>
+
+                                <button 
+                                    type="button"
+                                    onClick={() => handlePrintTrazReport('bed')} 
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl border border-rose-200 text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بدهکاران
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => handlePrintTrazReport('bes')} 
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl border border-emerald-200 text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" /> خروجی PDF بستانکاران
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -4538,6 +4749,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             }}
                             onToggleCompareMode={(enabled) => setCompareMode(enabled)}
                             runSayanQuery={runSayanQuery}
+                            onShareToChat={handleShareSalesToChat}
                         />
                     </div>
                 )}
@@ -4551,7 +4763,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             
                             <div className="flex flex-wrap items-center gap-2">
                                 <button 
-                                    onClick={handlePrintTodaySales}
+                                    onClick={() => handlePrintTodaySales()}
                                     className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95"
                                     title="دریافت گزارش تفکیکی فروش امروز با فرمت چاپی رسمی و خروجی PDF"
                                 >
@@ -4559,7 +4771,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                     <span>فرم چاپی فروش روزانه (PDF)</span>
                                 </button>
                                 <button 
-                                    onClick={handlePrintPeriodSales}
+                                    onClick={() => handlePrintPeriodSales()}
                                     className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm hover:shadow active:scale-95"
                                     title="دریافت گزارش جامع فاکتورهای دوره‌ای با فرمت رسمی و خروجی PDF"
                                 >
@@ -4705,7 +4917,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                         </div>
 
                                         <button
-                                            onClick={handlePrintComparativeSales}
+                                            onClick={() => handlePrintComparativeSales()}
                                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                                         >
                                             <Printer className="w-3.5 h-3.5" />
@@ -5407,7 +5619,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => {
-                                                            if (returnHtml) return docHtml;
+                                                            
 
         const printWindow = window.open('', '_blank');
                                                             if (!printWindow) return;
@@ -5627,7 +5839,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 )}
 
                                 <button
-                                    onClick={prodCompareMode ? handlePrintComparativeProduction : () => window.print()}
+                                    onClick={prodCompareMode ? () => handlePrintComparativeProduction() : () => window.print()}
                                     className="bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition-all"
                                 >
                                     <Printer className="h-4 w-4" />
@@ -6369,6 +6581,73 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         </div>
                             </>
                         )}
+
+                        {/* Dedicated Section Bottom Action Bar - Production */}
+                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
+                            <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span>عملیات و اشتراک‌گذاری گزارش تولید و ضایعات:</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={handleShareProductionToChat}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تولید PDF گزارش تولید و ارسال به گفتگوی شخصی یا گروهی"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    <span>ارسال این گزارش به گفتگو (PDF)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (prodCompareMode) {
+                                            openAiReportModal('production_comparison', 'تحلیل مقایسه‌ای خطوط و دسته‌های تولیدی کارخانه', {
+                                                itemsA: prodCompareDataA,
+                                                itemsB: prodCompareDataB,
+                                                totalA: prodCompareTotalsA?.grandTotal || 0,
+                                                totalB: prodCompareTotalsB?.grandTotal || 0,
+                                                periodA: { from: dateFrom, to: dateTo },
+                                                periodB: { from: prodCompareDateFromB, to: prodCompareDateToB }
+                                            });
+                                        } else {
+                                            openAiReportModal('production', 'تحلیل مهندسی و هوشمند آمار تولید و ضایعات کارخانه', {
+                                                items: prodLiveItems,
+                                                totals: prodLiveTotals,
+                                                waste: prodWaste
+                                            });
+                                        }
+                                    }}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تحلیل مهندسی و هوشمند آمار تولید و ضایعات با AI"
+                                >
+                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی تولید (AI)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={prodCompareMode ? () => handlePrintComparativeProduction() : () => handlePrintLiveProduction()}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>چاپ رسمی / PDF</span>
+                                </button>
+
+                                {!prodCompareMode && (
+                                    <button
+                                        type="button"
+                                        onClick={handleExportExcel}
+                                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-colors min-h-[44px]"
+                                    >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>خروجی اکسل</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -6390,7 +6669,7 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                             {/* Action Buttons Toolbar */}
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
-                                    onClick={handlePrintChequesPDF}
+                                    onClick={() => handlePrintChequesPDF()}
                                     className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
                                     title="چاپ رسمی و دریافت فایل PDF چک‌ها"
                                 >
@@ -6423,21 +6702,6 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 >
                                     <Share2 className="h-3.5 w-3.5" />
                                     <span>ارسال به شبکه‌های اجتماعی / بات</span>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => openAiReportModal('cheques', 'تحلیل هوشمند جریان نقدینگی و اسناد دریافتنی (چک‌ها)', {
-                                        cheques: filteredCheques,
-                                        totalCount: filteredCheques.length,
-                                        totalAmount: filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
-                                        statusFilter: chequeStatusFilter
-                                    })}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
-                                    title="تحلیل هوشمند وضعیت وصول مطالبات و ریسک چک‌ها با AI"
-                                >
-                                    <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-                                    <span>تحلیل هوش مصنوعی چک‌ها</span>
                                 </button>
                             </div>
                         </div>
@@ -6876,6 +7140,59 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                                 )}
                             </div>
                         </div>
+
+                        {/* Dedicated Section Bottom Action Bar - Cheques */}
+                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
+                            <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span>عملیات و اشتراک‌گذاری اسناد دریافتنی (چک‌ها):</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={handleShareChequesToChat}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تولید PDF چک‌ها و ارسال به گفتگوی شخصی یا گروهی"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    <span>ارسال این گزارش به گفتگو (PDF)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => openAiReportModal('cheques', 'تحلیل هوشمند جریان نقدینگی و اسناد دریافتنی (چک‌ها)', {
+                                        cheques: filteredCheques,
+                                        totalCount: filteredCheques.length,
+                                        totalAmount: filteredCheques.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+                                        statusFilter: chequeStatusFilter
+                                    })}
+                                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+                                    title="تحلیل هوشمند وضعیت وصول مطالبات و ریسک چک‌ها با AI"
+                                >
+                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                                    <span>تحلیل هوش مصنوعی چک‌ها (AI)</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handlePrintChequesPDF()}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>چاپ رسمی / PDF</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleExportChequesExcel}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-colors min-h-[44px]"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>خروجی اکسل</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -6903,6 +7220,11 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
                         currentUser={currentUser}
                         settings={settings}
                         getEffectiveApiUrl={getEffectiveApiUrl}
+                        onShareToChat={(attachment, defaultMsg) => {
+                            setSendToChatAttachment(attachment);
+                            setSendToChatDefaultMsg(defaultMsg || '');
+                            setSendToChatOpen(true);
+                        }}
                     />
                 )}
             </div>
@@ -6928,9 +7250,55 @@ export default function AccountingReports({ currentUser, settings }: { currentUs
 
             <SendToChatModal
                 isOpen={sendToChatOpen}
-                onClose={() => setSendToChatOpen(false)}
+                onClose={() => {
+                    setSendToChatOpen(false);
+                    setSendToChatAttachment(undefined);
+                }}
+                attachment={sendToChatAttachment}
                 defaultMessage={sendToChatDefaultMsg}
             />
+
+            {trazShareModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900/50">
+                            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                <Share2 size={16} className="text-blue-600" />
+                                ارسال گزارش به گفتگو
+                            </h3>
+                            <button onClick={() => setTrazShareModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-3">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 text-center">
+                                انتخاب کنید که کدام بخش از حساب‌ها در PDF تولیدی قرار گیرد:
+                            </p>
+                            <button 
+                                onClick={() => handleTrazShareToChat('bed')}
+                                className="w-full flex items-center justify-between p-3 rounded-xl border border-rose-100 hover:bg-rose-50 hover:border-rose-200 transition-all text-rose-700 group"
+                            >
+                                <span className="font-bold text-sm">بدهکاران</span>
+                                <Printer size={16} className="opacity-50 group-hover:opacity-100" />
+                            </button>
+                            <button 
+                                onClick={() => handleTrazShareToChat('bes')}
+                                className="w-full flex items-center justify-between p-3 rounded-xl border border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 transition-all text-emerald-700 group"
+                            >
+                                <span className="font-bold text-sm">بستانکاران</span>
+                                <Printer size={16} className="opacity-50 group-hover:opacity-100" />
+                            </button>
+                            <button 
+                                onClick={() => handleTrazShareToChat('both')}
+                                className="w-full flex items-center justify-between p-3 rounded-xl border border-blue-100 hover:bg-blue-50 hover:border-blue-200 transition-all text-blue-700 group"
+                            >
+                                <span className="font-bold text-sm">هر دو (بدهکاران و بستانکاران)</span>
+                                <Printer size={16} className="opacity-50 group-hover:opacity-100" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

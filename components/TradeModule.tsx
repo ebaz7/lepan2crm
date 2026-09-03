@@ -1468,13 +1468,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 
                 {/* --- RESPONSIVE HEADER NAV FOR MOBILE --- */}
                 <div className="md:hidden glass-panel border-b p-3 flex flex-wrap gap-2 justify-center shadow-sm z-20">
-                    <button onClick={() => setViewMode('dashboard')} className="p-2 bg-gray-100 rounded-lg"><ChevronRight size={20}/></button>
-                    <button onClick={() => setActiveReport('general')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'general' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>لیست کلی</button>
-                    <button onClick={() => setActiveReport('allocation_queue')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'allocation_queue' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>صف تخصیص</button>
-                    <button onClick={() => setActiveReport('currency')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'currency' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>خرید ارز</button>
-                    <button onClick={() => setActiveReport('guarantee')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'guarantee' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>تضامین</button>
-                    <button onClick={() => setActiveReport('insurance_ledger')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'insurance_ledger' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>بیمه</button>
-                    <button onClick={() => setActiveReport('company_performance')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'company_performance' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>عملکرد</button>
+                    <button type="button" onClick={() => setViewMode('dashboard')} className="p-2 bg-gray-100 rounded-lg"><ChevronRight size={20}/></button>
+                    <button type="button" onClick={() => setActiveReport('general')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'general' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>لیست کلی</button>
+                    <button type="button" onClick={() => setActiveReport('allocation_queue')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'allocation_queue' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>صف تخصیص</button>
+                    <button type="button" onClick={() => setActiveReport('currency')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'currency' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>خرید ارز</button>
+                    <button type="button" onClick={() => setActiveReport('guarantee')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'guarantee' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>تضامین</button>
+                    <button type="button" onClick={() => setActiveReport('insurance_ledger')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'insurance_ledger' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>بیمه</button>
+                    <button type="button" onClick={() => setActiveReport('company_performance')} className={`px-3 py-1.5 rounded-lg text-xs border ${activeReport === 'company_performance' ? 'bg-blue-600 text-white' : 'glass-panel text-gray-700'}`}>عملکرد</button>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
@@ -1494,16 +1494,16 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
                         <div className="mb-4"><label className="text-xs font-bold text-gray-500 mb-1 block">فیلتر شرکت</label><select className="w-full border rounded p-1 text-sm" value={reportFilterCompany} onChange={e => setReportFilterCompany(e.target.value)}><option value="">همه شرکت‌ها</option>{availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                         <div className="flex flex-col gap-2">
-                            <button onClick={() => setActiveReport('general')} className={`p-2 rounded text-right text-sm ${activeReport === 'general' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📄 لیست کلی پرونده‌ها</button>
-                            <button onClick={() => setActiveReport('allocation_queue')} className={`p-2 rounded text-right text-sm ${activeReport === 'allocation_queue' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>⏳ در صف تخصیص</button>
-                            <button onClick={() => setActiveReport('currency')} className={`p-2 rounded text-right text-sm ${activeReport === 'currency' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>💰 وضعیت خرید ارز</button>
-                            <button onClick={() => setActiveReport('guarantee')} className={`p-2 rounded text-right text-sm ${activeReport === 'guarantee' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>🛡️ گزارش چک‌های تضمین</button>
-                            <button onClick={() => setActiveReport('insurance_ledger')} className={`p-2 rounded text-right text-sm ${activeReport === 'insurance_ledger' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📑 صورتحساب بیمه</button>
-                            <button onClick={() => setActiveReport('company_performance')} className={`p-2 rounded text-right text-sm ${activeReport === 'company_performance' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📊 عملکرد شرکت‌ها</button>
+                            <button type="button" onClick={() => setActiveReport('general')} className={`p-2 rounded text-right text-sm ${activeReport === 'general' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📄 لیست کلی پرونده‌ها</button>
+                            <button type="button" onClick={() => setActiveReport('allocation_queue')} className={`p-2 rounded text-right text-sm ${activeReport === 'allocation_queue' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>⏳ در صف تخصیص</button>
+                            <button type="button" onClick={() => setActiveReport('currency')} className={`p-2 rounded text-right text-sm ${activeReport === 'currency' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>💰 وضعیت خرید ارز</button>
+                            <button type="button" onClick={() => setActiveReport('guarantee')} className={`p-2 rounded text-right text-sm ${activeReport === 'guarantee' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>🛡️ گزارش چک‌های تضمین</button>
+                            <button type="button" onClick={() => setActiveReport('insurance_ledger')} className={`p-2 rounded text-right text-sm ${activeReport === 'insurance_ledger' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📑 صورتحساب بیمه</button>
+                            <button type="button" onClick={() => setActiveReport('company_performance')} className={`p-2 rounded text-right text-sm ${activeReport === 'company_performance' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>📊 عملکرد شرکت‌ها</button>
                         </div>
                         <div className="mt-auto pt-4">
-                            <button onClick={handlePrintReport} className="w-full flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50 text-gray-600"><Printer size={16}/> چاپ گزارش</button>
-                            <button onClick={() => setViewMode('dashboard')} className="w-full mt-2 flex items-center justify-center gap-2 bg-gray-800 text-white p-2 rounded hover:bg-gray-900">بازگشت به داشبورد</button>
+                            <button type="button" onClick={handlePrintReport} className="w-full flex items-center justify-center gap-2 border p-2 rounded hover:bg-gray-50 text-gray-600"><Printer size={16}/> چاپ گزارش</button>
+                            <button type="button" onClick={() => setViewMode('dashboard')} className="w-full mt-2 flex items-center justify-center gap-2 bg-gray-800 text-white p-2 rounded hover:bg-gray-900">بازگشت به داشبورد</button>
                         </div>
                     </div>
                     
@@ -1542,7 +1542,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <Coins size={22} className="text-green-600"/>
                             ثبت و مدیریت تحویل‌های پارت
                         </h3>
-                        <button onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
+                        <button type="button" onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
                     </div>
 
                     {/* Tranche Specs Card */}
@@ -1569,10 +1569,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-600">تاریخ تحویل</label>
-                                <input 
-                                    className="w-full border rounded-lg p-2 text-sm dir-ltr bg-white" 
+                                <TradeDatePicker 
                                     value={newDeliveryForm.date} 
-                                    onChange={e => setNewDeliveryForm({...newDeliveryForm, date: e.target.value})} 
+                                    onChange={val => setNewDeliveryForm({...newDeliveryForm, date: val})} 
                                     placeholder="۱۴۰۳/۰۱/۰۱" 
                                 />
                             </div>
@@ -1595,7 +1594,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 />
                             </div>
                         </div>
-                        <button 
+                        <button type="button" 
                             onClick={handleAddTrancheDelivery} 
                             className="mt-4 w-full bg-green-600 text-white rounded-lg p-2 font-bold hover:bg-green-700 text-sm transition-all flex items-center justify-center gap-1"
                         >
@@ -1627,7 +1626,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             <td className="p-3">{delivery.recipientName || '-'}</td>
                                             <td className="p-3 text-gray-500">{delivery.description || '-'}</td>
                                             <td className="p-3">
-                                                <button 
+                                                <button type="button" 
                                                     onClick={() => handleRemoveTrancheDelivery(tr.id, delivery.id)} 
                                                     className="text-red-500 hover:text-red-700"
                                                 >
@@ -1662,7 +1661,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">انتقال پروفرم به گروه کالایی دیگر</h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">انتقال این پرونده به گروه جدید همراه با مشخصات و پروفرم جدید</p>
                         </div>
-                        <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                        <button type="button" onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
                     </div>
                     <div className="space-y-4 text-gray-800 dark:text-gray-200">
                         <div className="space-y-1.5">
@@ -1683,8 +1682,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <input className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm outline-none" value={transferForm.newSellerName} onChange={e => setTransferForm({...transferForm, newSellerName: e.target.value})} placeholder="نام فروشنده..." />
                         </div>
                         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
-                            <button onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
-                            <button onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
+                            <button type="button" onClick={() => setShowTransferModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
+                            <button type="button" onClick={handleExecuteTransferProforma} disabled={!transferForm.targetCommodityGroup || !transferForm.newFileNumber || !transferForm.newGoodsName} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 disabled:opacity-50 transition-all">تایید و انتقال</button>
                         </div>
                     </div>
                 </div>
@@ -1773,7 +1772,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
                             <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-100 dark:border-gray-800">
                                 <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">ویرایش مشخصات پرونده</h3>
-                                <button onClick={() => setShowEditMetadataModal(false)}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors"/></button>
+                                <button type="button" onClick={() => setShowEditMetadataModal(false)}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors"/></button>
                             </div>
                             <div className="space-y-4 text-gray-800 dark:text-gray-200">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1820,7 +1819,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300">بار در گمرک</span>
                                     </label>
                                 </div>
-                                <button onClick={saveMetadata} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4 transition-all">ذخیره تغییرات</button>
+                                <button type="button" onClick={saveMetadata} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 mt-4 transition-all">ذخیره تغییرات</button>
                             </div>
                         </div>
                     </div>,
@@ -1831,7 +1830,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 {editingStage && createPortal(
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 overflow-y-auto">
                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 border border-gray-200 dark:border-gray-800 text-right max-h-[90vh] overflow-y-auto my-auto animate-scale-in" dir="rtl">
-                            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800"><h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">ویرایش مرحله: {editingStage}</h3><button onClick={() => setEditingStage(null)}><X size={20} className="text-gray-400 hover:text-red-500"/></button></div>
+                            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800"><h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">ویرایش مرحله: {editingStage}</h3><button type="button" onClick={() => setEditingStage(null)}><X size={20} className="text-gray-400 hover:text-red-500"/></button></div>
                             <div className="space-y-4 text-gray-800 dark:text-gray-200">
                                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={stageFormData.isCompleted} onChange={e => setStageFormData({...stageFormData, isCompleted: e.target.checked})} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"/> <span className="font-bold text-sm">مرحله تکمیل شده است</span></label>
                                  {editingStage === TradeStage.ALLOCATION_QUEUE && (
@@ -1891,8 +1890,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                                 <div><label className="text-xs font-bold block mb-1">توضیحات</label><textarea className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 h-24" value={stageFormData.description || ''} onChange={e => setStageFormData({...stageFormData, description: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="دانلود"><FileDown size={14}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`پیوست مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - مرحله ${editingStage}`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
-                                <button onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={fileInputRef} className="hidden" onChange={handleStageFileChange} /><button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingStageFile} className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">{uploadingStageFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{stageFormData.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800/60 p-2 rounded-lg text-xs"><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 dark:text-blue-400 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="دانلود"><FileDown size={14}/></button><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`پیوست مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - مرحله ${editingStage}`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setStageFormData({...stageFormData, attachments: stageFormData.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
+                                <button type="button" onClick={handleSaveStage} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">ذخیره تغییرات</button>
                             </div>
                         </div>
                     </div>,
@@ -1900,10 +1899,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 )}
 
                 {/* Header */}
-                <div className="glass-panel border-b p-4 flex justify-between items-center shadow-sm z-10 flex-wrap gap-4">
-                    <div className="flex items-center gap-4 flex-wrap">
-                        <button data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-gray-100 rounded-full"><ArrowRight /></button>
+                <div className="glass-panel border-b p-4 flex flex-col gap-4 shadow-sm z-10">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="flex items-center gap-4 flex-wrap">
+                            <button type="button" data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-gray-100 rounded-full shrink-0"><ArrowRight /></button>
                             <div>
                                 <h1 className="text-xl font-bold flex items-center gap-2 flex-wrap">
                                     <span>{selectedRecord.goodsName}</span>
@@ -1911,7 +1910,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     {selectedRecord.proformaNumber && (
                                         <span className="text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-2.5 py-0.5 rounded-full" title="شماره پروفرم">پروفرم: {selectedRecord.proformaNumber}</span>
                                     )}
-                                    <button onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
+                                    <button type="button" onClick={openEditMetadata} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="ویرایش مشخصات پرونده"><Edit size={16}/></button>
                                 </h1>
                                 <p className="text-xs text-gray-500">{selectedRecord.company} | {selectedRecord.sellerName}</p>
                                 {selectedRecord.transferredFrom && (
@@ -1927,26 +1926,27 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 )}
                             </div>
+                        </div>
 
-                            {/* MINI COST PER KG BOX */}
-                            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl text-right shrink-0">
-                                <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5 leading-none">قیمت تمام‌شده (هر کیلو)</span>
-                                <span className="font-mono font-black text-rose-700 dark:text-rose-300 text-sm leading-none">{formatCurrency(calculateRecordCostPerKg(selectedRecord))} <span className="text-[10px] font-normal">ریال</span></span>
-                            </div>
+                        {/* MINI COST PER KG BOX (Left aligned) */}
+                        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl text-right shrink-0">
+                            <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 block mb-0.5 leading-none">قیمت تمام‌شده (هر کیلو)</span>
+                            <span className="font-mono font-black text-rose-700 dark:text-rose-300 text-sm leading-none">{formatCurrency(calculateRecordCostPerKg(selectedRecord))} <span className="text-[10px] font-normal">ریال</span></span>
                         </div>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                        <button onClick={() => setActiveTab('timeline')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'timeline' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>تایم‌لاین</button>
-                        <button onClick={() => setActiveTab('proforma')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'proforma' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>پروفرما</button>
-                        <button onClick={() => setActiveTab('insurance')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'insurance' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بیمه</button>
-                        <button onClick={() => setActiveTab('currency_purchase')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'currency_purchase' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>خرید ارز</button>
-                        <button onClick={() => setActiveTab('shipping_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'shipping_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>اسناد حمل</button>
-                        <button onClick={() => setActiveTab('inspection')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'inspection' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بازرسی</button>
-                        <button onClick={() => setActiveTab('clearance_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'clearance_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>ترخیصیه و انبار</button>
-                        <button onClick={() => setActiveTab('green_leaf')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'green_leaf' ? 'bg-green-100 text-green-700' : 'hover:bg-gray-100'}`}>برگ سبز</button>
-                        <button onClick={() => setActiveTab('internal_shipping')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'internal_shipping' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'}`}>حمل داخلی</button>
-                        <button onClick={() => setActiveTab('agent_fees')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'agent_fees' ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100'}`}>هزینه‌های ترخیص</button>
-                        <button onClick={() => setActiveTab('final_calculation')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'final_calculation' ? 'bg-rose-100 text-rose-700' : 'hover:bg-gray-100'}`}>محاسبه نهایی</button>
+
+                    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                        <button type="button" onClick={() => setActiveTab('timeline')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'timeline' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>تایم‌لاین</button>
+                        <button type="button" onClick={() => setActiveTab('proforma')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'proforma' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>پروفرما</button>
+                        <button type="button" onClick={() => setActiveTab('insurance')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'insurance' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بیمه</button>
+                        <button type="button" onClick={() => setActiveTab('currency_purchase')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'currency_purchase' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>خرید ارز</button>
+                        <button type="button" onClick={() => setActiveTab('shipping_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'shipping_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>اسناد حمل</button>
+                        <button type="button" onClick={() => setActiveTab('inspection')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'inspection' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>بازرسی</button>
+                        <button type="button" onClick={() => setActiveTab('clearance_docs')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'clearance_docs' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}>ترخیصیه و انبار</button>
+                        <button type="button" onClick={() => setActiveTab('green_leaf')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'green_leaf' ? 'bg-green-100 text-green-700' : 'hover:bg-gray-100'}`}>برگ سبز</button>
+                        <button type="button" onClick={() => setActiveTab('internal_shipping')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'internal_shipping' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'}`}>حمل داخلی</button>
+                        <button type="button" onClick={() => setActiveTab('agent_fees')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'agent_fees' ? 'bg-teal-100 text-teal-700' : 'hover:bg-gray-100'}`}>هزینه‌های ترخیص</button>
+                        <button type="button" onClick={() => setActiveTab('final_calculation')} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'final_calculation' ? 'bg-rose-100 text-rose-700' : 'hover:bg-gray-100'}`}>محاسبه نهایی</button>
                     </div>
                 </div>
 
@@ -2123,7 +2123,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <div className="flex justify-between items-center mb-4 border-b pb-2">
                                     <div className="flex items-center gap-3">
                                         <h3 className="font-bold text-gray-800">اقلام پروفرما</h3>
-                                        <button 
+                                        <button type="button" 
                                             onClick={() => {
                                                 setTransferForm({
                                                     targetCommodityGroup: commodityGroups.find(g => g !== selectedRecord.commodityGroup) || 'چیپس',
@@ -2141,10 +2141,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         </button>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => setShowProformaPrint(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-black hover:bg-blue-100 transition-all active:scale-95"><Printer size={14}/> مشاهده و چاپ</button>
+                                        <button type="button" onClick={() => setShowProformaPrint(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-black hover:bg-blue-100 transition-all active:scale-95"><Printer size={14}/> مشاهده و چاپ</button>
                                         <div className="flex items-center gap-1">
-                                            <button onClick={() => setSharePlatform('bale')} className="p-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100" title="ارسال به بله"><Share2 size={14}/></button>
-                                            <button onClick={() => setSharePlatform('whatsapp')} className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600" title="ارسال به واتساپ"><Share2 size={14}/></button>
+                                            <button type="button" onClick={() => setSharePlatform('bale')} className="p-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100" title="ارسال به بله"><Share2 size={14}/></button>
+                                            <button type="button" onClick={() => setSharePlatform('whatsapp')} className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600" title="ارسال به واتساپ"><Share2 size={14}/></button>
                                         </div>
                                     </div>
                                 </div>
@@ -2153,7 +2153,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 animate-in fade-in slide-in-from-top-2">
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="text-xs font-black text-gray-700">انتخاب گیرنده ({sharePlatform === 'bale' ? 'بله' : sharePlatform === 'whatsapp' ? 'واتساپ' : 'تلگرام'})</span>
-                                            <button onClick={() => setSharePlatform(null)} className="text-red-500 hover:bg-red-50 p-1 rounded-lg"><X size={16}/></button>
+                                            <button type="button" onClick={() => setSharePlatform(null)} className="text-red-500 hover:bg-red-50 p-1 rounded-lg"><X size={16}/></button>
                                         </div>
                                         <div className="relative mb-3">
                                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
@@ -2161,7 +2161,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         </div>
                                         <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
                                             {allContacts.filter(c => c.name.includes(contactSearch) || c.number.includes(contactSearch)).map(c => (
-                                                <button key={c.id} onClick={() => handleShareProforma(c.chatId || c.number)} className="w-full flex justify-between items-center p-2.5 hover:bg-blue-50/50 rounded-lg text-xs transition-colors group">
+                                                <button type="button" key={c.id} onClick={() => handleShareProforma(c.chatId || c.number)} className="w-full flex justify-between items-center p-2.5 hover:bg-blue-50/50 rounded-lg text-xs transition-colors group">
                                                     <div className="flex flex-col text-right">
                                                         <span className="font-bold text-gray-800">{c.name}</span>
                                                         <span className="text-[10px] text-gray-400 font-mono">{c.number}</span>
@@ -2207,8 +2207,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <div className="w-28 space-y-1"><label className="text-xs text-gray-500">فی محاسبه شده</label><div className="w-full border rounded p-2 text-sm dir-ltr bg-gray-100 font-mono text-center h-[38px] flex items-center justify-center">
                                         {formatNumberString(deformatNumberString(newItem.weightStr || '0') > 0 ? deformatNumberString(newItem.unitPriceStr || '0') / deformatNumberString(newItem.weightStr || '0') : 0)}
                                     </div></div>
-                                    <button onClick={handleAddItem} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 h-[38px] min-w-[40px] flex items-center justify-center">{editingItemId ? <Save size={18}/> : <Plus size={18}/>}</button>
-                                    {editingItemId && <button onClick={() => { setEditingItemId(null); setNewItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' }); }} className="bg-gray-200 text-gray-700 p-2 rounded-lg hover:bg-gray-300 h-[38px]"><X size={18}/></button>}
+                                    <button type="button" onClick={handleAddItem} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 h-[38px] min-w-[40px] flex items-center justify-center">{editingItemId ? <Save size={18}/> : <Plus size={18}/>}</button>
+                                    {editingItemId && <button type="button" onClick={() => { setEditingItemId(null); setNewItem({ name: '', weight: 0, grossWeight: 0, unitPrice: 0, totalPrice: 0, hsCode: '', weightStr: '', grossWeightStr: '', unitPriceStr: '' }); }} className="bg-gray-200 text-gray-700 p-2 rounded-lg hover:bg-gray-300 h-[38px]"><X size={18}/></button>}
                                 </div>
                                 <div className="hidden lg:block overflow-x-auto">
                                     <table className="w-full text-sm text-right">
@@ -2223,8 +2223,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                     <td className="p-3 font-mono">{formatNumberString(item.unitPrice)}</td>
                                                     <td className="p-3 font-mono font-bold">{formatNumberString(item.totalPrice)}</td>
                                                     <td className="p-3 flex gap-2">
-                                                        <button onClick={() => handleEditItem(item)} className="text-amber-500 hover:text-amber-700"><Edit size={16}/></button>
-                                                        <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                                                        <button type="button" onClick={() => handleEditItem(item)} className="text-amber-500 hover:text-amber-700"><Edit size={16}/></button>
+                                                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -2250,8 +2250,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             <div className="flex justify-between items-start mb-2">
                                                 <div className="font-bold text-gray-800">{item.name}</div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => handleEditItem(item)} className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Edit size={16}/></button>
-                                                    <button onClick={() => handleRemoveItem(item.id)} className="p-2 bg-red-50 text-red-600 rounded-lg"><Trash2 size={16}/></button>
+                                                    <button type="button" onClick={() => handleEditItem(item)} className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Edit size={16}/></button>
+                                                    <button type="button" onClick={() => handleRemoveItem(item.id)} className="p-2 bg-red-50 text-red-600 rounded-lg"><Trash2 size={16}/></button>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3 text-xs">
@@ -2302,13 +2302,13 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                              placeholder="۱۴۰۳/xx/xx"
                                          />
                                      </div>
-                                     <button onClick={handleAddLicenseTx} className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 h-[38px]"><Plus size={18}/></button>
+                                     <button type="button" onClick={handleAddLicenseTx} className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700 h-[38px]"><Plus size={18}/></button>
                                  </div>
                                  <div className="space-y-1">
                                      {selectedRecord.licenseData?.transactions.map(tx => (
                                          <div key={tx.id} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm border">
                                              <div className="flex gap-4"><span>{tx.description}</span><span className="text-gray-500">{tx.date}</span></div>
-                                             <div className="flex gap-4 items-center"><span className="font-bold text-purple-700 font-mono">{formatCurrency(tx.amount)}</span><button onClick={() => handleRemoveLicenseTx(tx.id)} className="text-red-500"><X size={14}/></button></div>
+                                             <div className="flex gap-4 items-center"><span className="font-bold text-purple-700 font-mono">{formatCurrency(tx.amount)}</span><button type="button" onClick={() => handleRemoveLicenseTx(tx.id)} className="text-red-500"><X size={14}/></button></div>
                                          </div>
                                      ))}
                                  </div>
@@ -2421,8 +2421,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
 
                                     <div className="col-span-2 flex justify-end mt-2 gap-2">
-                                        {editingTrancheId && <button onClick={handleCancelEditTranche} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-300">انصراف</button>}
-                                        <button onClick={handleAddCurrencyTranche} className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 flex items-center gap-1"><Plus size={16} /> {editingTrancheId ? 'ویرایش و ذخیره' : 'افزودن پارت'}</button>
+                                        {editingTrancheId && <button type="button" onClick={handleCancelEditTranche} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-300">انصراف</button>}
+                                        <button type="button" onClick={handleAddCurrencyTranche} className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 flex items-center gap-1"><Plus size={16} /> {editingTrancheId ? 'ویرایش و ذخیره' : 'افزودن پارت'}</button>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -2453,14 +2453,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                     <td className="p-3 text-xs font-bold text-green-600 font-mono">{(((t.deliveries && t.deliveries.length > 0) ? t.deliveries.reduce((sum: number, d) => sum + d.amount, 0) : recvAmt) ? formatNumberString((t.deliveries && t.deliveries.length > 0) ? t.deliveries.reduce((sum: number, d) => sum + d.amount, 0) : recvAmt) : '-')}{t.deliveries && t.deliveries.length > 0 && <span className="text-[10px] text-gray-500 font-sans block">({t.deliveries.length} تحویل)</span>}</td>
                                                     <td className="p-3 text-xs text-red-600 font-mono">{retAmt ? `${formatNumberString(retAmt)} (${retDate || '-'})` : '-'}</td>
                                                     <td className="p-3 text-center">
-                                                        <button onClick={() => handleToggleTrancheDelivery(t.id)} className={`px-2 py-1 rounded text-xs font-bold ${t.isDelivered ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                        <button type="button" onClick={() => handleToggleTrancheDelivery(t.id)} className={`px-2 py-1 rounded text-xs font-bold ${t.isDelivered ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                                             {t.isDelivered ? 'تکمیل' : 'ناقص'}
                                                         </button>
                                                     </td>
                                                     <td className="p-3 font-mono font-bold text-indigo-700 bg-indigo-50">{effectiveRateDisplay > 0 ? formatCurrency(effectiveRateDisplay) : '-'}</td>
                                                     <td className="p-3 flex gap-1">
-                                                        <button onClick={() => { setSelectedTrancheForDeliveries(t.id); setNewDeliveryForm({ amount: '', date: '', recipientName: '', description: '' }); }} className="text-green-600 hover:text-green-800 p-1 flex items-center" title="مدیریت تحویل‌ها"><Coins size={16} className="ml-1"/></button><button onClick={() => handleEditTranche(t)} className="text-amber-500 hover:text-amber-700 p-1"><Edit2 size={16}/></button>
-                                                        <button onClick={() => handleRemoveTranche(t.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button>
+                                                        <button type="button" onClick={() => { setSelectedTrancheForDeliveries(t.id); setNewDeliveryForm({ amount: '', date: '', recipientName: '', description: '' }); }} className="text-green-600 hover:text-green-800 p-1 flex items-center" title="مدیریت تحویل‌ها"><Coins size={16} className="ml-1"/></button><button type="button" onClick={() => handleEditTranche(t)} className="text-amber-500 hover:text-amber-700 p-1"><Edit2 size={16}/></button>
+                                                        <button type="button" onClick={() => handleRemoveTranche(t.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button>
                                                     </td>
                                                 </tr>
                                             )})}
@@ -2506,10 +2506,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         /* ... Shipping Docs Logic ... */
                         <div className="p-6 max-w-5xl mx-auto flex gap-6">
                             <div className="w-48 flex flex-col gap-2">
-                                <button onClick={() => setActiveShippingSubTab('Commercial Invoice')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Commercial Invoice' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>اینویس</button>
-                                <button onClick={() => setActiveShippingSubTab('Packing List')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Packing List' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>پکینگ لیست</button>
-                                <button onClick={() => setActiveShippingSubTab('Bill of Lading')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Bill of Lading' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>بارنامه</button>
-                                <button onClick={() => setActiveShippingSubTab('Certificate of Origin')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Certificate of Origin' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>گواهی مبدا</button>
+                                <button type="button" onClick={() => setActiveShippingSubTab('Commercial Invoice')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Commercial Invoice' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>اینویس</button>
+                                <button type="button" onClick={() => setActiveShippingSubTab('Packing List')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Packing List' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>پکینگ لیست</button>
+                                <button type="button" onClick={() => setActiveShippingSubTab('Bill of Lading')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Bill of Lading' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>بارنامه</button>
+                                <button type="button" onClick={() => setActiveShippingSubTab('Certificate of Origin')} className={`p-3 rounded-lg text-sm text-right font-bold ${activeShippingSubTab === 'Certificate of Origin' ? 'bg-blue-600 text-white shadow-lg' : 'glass-panel hover:bg-gray-50'}`}>گواهی مبدا</button>
                             </div>
                             <div className="flex-1 glass-panel p-6 rounded-xl shadow-sm border space-y-6">
                                 <h3 className="font-bold text-gray-800 border-b pb-2 mb-4">{activeShippingSubTab === 'Commercial Invoice' ? 'سیاهه تجاری (Invoice)' : activeShippingSubTab === 'Packing List' ? 'لیست عدل‌بندی (Packing List)' : activeShippingSubTab}</h3>
@@ -2533,7 +2533,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             <h4 className="font-bold text-sm text-blue-800">اقلام اینویس</h4>
                                             <div className="flex gap-2 items-center">
                                                 <select className="border rounded p-1 text-xs" value={shippingDocForm.currency} onChange={e => setShippingDocForm({...shippingDocForm, currency: e.target.value})}>{CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select>
-                                                <button onClick={handleSyncInvoiceToProforma} className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 transition-colors" title="جایگزینی اقلام اینویس در پروفرما"><RefreshCw size={14}/> جایگزینی در پروفرما</button>
+                                                <button type="button" onClick={handleSyncInvoiceToProforma} className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 transition-colors" title="جایگزینی اقلام اینویس در پروفرما"><RefreshCw size={14}/> جایگزینی در پروفرما</button>
                                             </div>
                                         </div>
                                         <div className="flex gap-2 items-end flex-wrap">
@@ -2543,9 +2543,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             <input className="w-24 border rounded p-2 text-sm dir-ltr" placeholder="فی (Unit)" value={newInvoiceItem.unitPrice || ''} onChange={e => setNewInvoiceItem({...newInvoiceItem, unitPrice: Number(e.target.value)})} type="number" step="0.0001" />
                                             <input className="w-20 border rounded p-2 text-sm" placeholder="پارت" value={newInvoiceItem.part} onChange={e => setNewInvoiceItem({...newInvoiceItem, part: e.target.value})} />
                                             <input className="w-24 border rounded p-2 text-sm dir-ltr bg-gray-100" placeholder="قیمت کل" value={newInvoiceItem.totalPrice || ((newInvoiceItem.weight || 0) * (newInvoiceItem.unitPrice || 0))} readOnly />
-                                            <button onClick={handleAddInvoiceItem} className="bg-blue-600 text-white p-2 rounded-lg"><Plus size={16}/></button>
+                                            <button type="button" onClick={handleAddInvoiceItem} className="bg-blue-600 text-white p-2 rounded-lg"><Plus size={16}/></button>
                                         </div>
-                                        <div className="space-y-1">{shippingDocForm.invoiceItems?.map(i => (<div key={i.id} className="flex justify-between glass-panel p-2 rounded text-xs border items-center"><span>{i.name}</span><div className="flex gap-2 items-center"><span className="bg-gray-100 px-1 rounded text-gray-500">Part: {i.part}</span><span className="font-mono text-gray-700">خالص: {formatNumberString(i.weight)} kg</span><span className="font-mono text-gray-700">ناخالص: {formatNumberString(i.grossWeight || i.weight)} kg</span><span className="font-mono">@{i.unitPrice}</span><span className="font-mono font-bold text-blue-700">{formatNumberString(i.totalPrice)}</span><button onClick={()=>handleRemoveInvoiceItem(i.id)} className="text-red-500"><X size={14}/></button></div></div>))}</div>
+                                        <div className="space-y-1">{shippingDocForm.invoiceItems?.map(i => (<div key={i.id} className="flex justify-between glass-panel p-2 rounded text-xs border items-center"><span>{i.name}</span><div className="flex gap-2 items-center"><span className="bg-gray-100 px-1 rounded text-gray-500">Part: {i.part}</span><span className="font-mono text-gray-700">خالص: {formatNumberString(i.weight)} kg</span><span className="font-mono text-gray-700">ناخالص: {formatNumberString(i.grossWeight || i.weight)} kg</span><span className="font-mono">@{i.unitPrice}</span><span className="font-mono font-bold text-blue-700">{formatNumberString(i.totalPrice)}</span><button type="button" onClick={()=>handleRemoveInvoiceItem(i.id)} className="text-red-500"><X size={14}/></button></div></div>))}</div>
                                         <div className="flex justify-between items-center pt-2 border-t border-blue-200"><span className="font-bold text-xs">هزینه حمل (Freight)</span><input className="w-32 border rounded p-1 text-sm dir-ltr" value={shippingDocForm.freightCost} onChange={e => setShippingDocForm({...shippingDocForm, freightCost: Number(e.target.value)})} type="number" step="0.01" /></div>
                                     </div>
                                 )}
@@ -2560,7 +2560,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             <div className="space-y-1"><label className="text-xs text-gray-500">وزن ناخالص</label><input className="w-full border rounded p-1.5 text-sm dir-ltr" placeholder="GW" value={newPackingItem.grossWeight || ''} onChange={e => setNewPackingItem({...newPackingItem, grossWeight: Number(e.target.value)})} type="number" /></div>
                                             <div className="flex gap-2">
                                                 <div className="space-y-1 flex-1"><label className="text-[10px] text-gray-500">تعداد بسته</label><input className="w-full border rounded p-1.5 text-sm dir-ltr" placeholder="Count" value={newPackingItem.packageCount || ''} onChange={e => setNewPackingItem({...newPackingItem, packageCount: Number(e.target.value)})} type="number" /></div>
-                                                <button onClick={handleAddPackingItem} className="bg-orange-600 text-white p-1.5 rounded-lg h-[34px] mt-auto w-10 flex items-center justify-center"><Plus size={16}/></button>
+                                                <button type="button" onClick={handleAddPackingItem} className="bg-orange-600 text-white p-1.5 rounded-lg h-[34px] mt-auto w-10 flex items-center justify-center"><Plus size={16}/></button>
                                             </div>
                                         </div>
                                         <div className="overflow-x-auto">
@@ -2574,7 +2574,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                             <td className="p-2 font-mono">{item.netWeight}</td>
                                                             <td className="p-2 font-mono">{item.grossWeight}</td>
                                                             <td className="p-2 font-mono">{item.packageCount}</td>
-                                                            <td className="p-2 text-center"><button onClick={() => handleRemovePackingItem(item.id)} className="text-red-500 hover:text-red-700"><X size={14}/></button></td>
+                                                            <td className="p-2 text-center"><button type="button" onClick={() => handleRemovePackingItem(item.id)} className="text-red-500 hover:text-red-700"><X size={14}/></button></td>
                                                         </tr>
                                                     ))}
                                                     <tr className="bg-orange-50 font-bold border-t-2 border-orange-200">
@@ -2590,9 +2590,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                 )}
                                 
-                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 p-0.5" title="دانلود"><FileDown size={14}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند حمل ${activeShippingSubTab} مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
+                                <div><label className="text-xs font-bold block mb-1">فایل‌های ضمیمه</label><div className="flex items-center gap-2 mb-2"><input type="file" ref={docFileInputRef} className="hidden" onChange={handleDocFileChange} /><button type="button" onClick={() => docFileInputRef.current?.click()} disabled={uploadingDocFile} className="bg-gray-100 border px-3 py-1 rounded text-xs hover:bg-gray-200">{uploadingDocFile ? 'در حال آپلود...' : 'افزودن فایل'}</button></div><div className="space-y-1">{shippingDocForm.attachments?.map((att, i) => (<div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs"><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }} className="text-blue-600 hover:underline text-right truncate max-w-[200px] flex items-center gap-1"><Eye size={12}/> {att.fileName}</button><div className="flex items-center gap-2"><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} className="text-gray-500 hover:text-gray-700 p-0.5" title="دانلود"><FileDown size={14}/></button><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند حمل ${activeShippingSubTab} مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber})`); setSendToChatOpen(true); }} className="text-blue-500 hover:text-blue-700 p-0.5" title="ارسال به گفتگو"><Share2 size={13}/></button><button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShippingDocForm({...shippingDocForm, attachments: shippingDocForm.attachments?.filter((_, idx) => idx !== i)}); }} className="text-red-500"><X size={14}/></button></div></div>))}</div></div>
 
-                                <div className="flex justify-end pt-4 border-t"><button onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
+                                <div className="flex justify-end pt-4 border-t"><button type="button" onClick={handleSaveShippingDoc} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">ثبت سند</button></div>
                                 
                                 <div className="mt-6">
                                     <div className="flex items-center justify-between mb-3">
@@ -2668,7 +2668,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                             </div>
 
                                                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                                                <button 
+                                                                <button type="button" 
                                                                     onClick={() => toggleShippingDocExpand(doc.id)} 
                                                                     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${isExpanded ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
                                                                     title={isExpanded ? 'بستن منو' : 'مشاهده در همین صفحه'}
@@ -2676,7 +2676,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                     <Eye size={14}/>
                                                                     {isExpanded ? 'بستن منو' : 'مشاهده'}
                                                                 </button>
-                                                                <button 
+                                                                <button type="button" 
                                                                     onClick={() => setSelectedShippingDocForPrint(doc)} 
                                                                     className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-bold transition-all active:scale-95"
                                                                     title="چاپ سند استاندارد / PDF"
@@ -2684,7 +2684,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                     <Printer size={14}/>
                                                                     چاپ
                                                                 </button>
-                                                                <button 
+                                                                <button type="button" 
                                                                     onClick={() => handleDeleteShippingDoc(doc.id)} 
                                                                     className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
                                                                     title="حذف سند"
@@ -2822,21 +2822,21 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                                 <div className="space-y-1">
                                                                                     {doc.attachments.map((att, i) => (
                                                                                         <div key={i} className="flex items-center justify-between text-xs bg-white p-1.5 rounded border border-gray-100 hover:border-blue-200">
-                                                                                            <button 
+                                                                                            <button type="button" 
                                                                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewerUrl(att.url); setViewerName(att.fileName); setViewerOpen(true); }}
                                                                                                 className="text-blue-600 hover:text-blue-800 hover:underline text-right truncate max-w-[180px] flex items-center gap-1 font-medium"
                                                                                             >
                                                                                                 <Eye size={12}/> {att.fileName}
                                                                                             </button>
                                                                                             <div className="flex items-center gap-1.5">
-                                                                                                <button 
+                                                                                                <button type="button" 
                                                                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); downloadAndOpenFile(att.url, att.fileName); }} 
                                                                                                     className="text-gray-500 hover:text-gray-700 p-0.5"
                                                                                                     title="دانلود"
                                                                                                 >
                                                                                                     <FileDown size={14}/>
                                                                                                 </button>
-                                                                                                <button 
+                                                                                                <button type="button" 
                                                                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSendToChatAttachment({ fileName: att.fileName, url: att.url }); setSendToChatDefaultMsg(`سند ثبت شده مربوط به پرونده ${selectedRecord.goodsName} (${selectedRecord.fileNumber}) - نوع سند: ${doc.type}`); setSendToChatOpen(true); }}
                                                                                                     className="text-blue-500 hover:text-blue-700 p-0.5"
                                                                                                     title="ارسال به گفتگو"
@@ -2861,7 +2861,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                 {/* Action Buttons inside Expanded View */}
                                                                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 flex-wrap gap-2">
                                                                     <div className="flex items-center gap-2">
-                                                                        <button 
+                                                                        <button type="button" 
                                                                             onClick={() => setSelectedShippingDocForPrint(doc)} 
                                                                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
                                                                         >
@@ -2869,7 +2869,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                                             چاپ رسمی سند (PDF)
                                                                         </button>
                                                                     </div>
-                                                                    <button 
+                                                                    <button type="button" 
                                                                         onClick={() => toggleShippingDocExpand(doc.id)} 
                                                                         className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 transition-all"
                                                                     >
@@ -2900,9 +2900,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         <label className="text-xs font-bold text-gray-700">هزینه بازرسی (ریال)</label>
                                         <FormattedNumberInput className="w-full border rounded p-2 text-sm dir-ltr font-bold text-gray-800" value={newInspectionCertificate.amount} onChange={val => setNewInspectionCertificate({...newInspectionCertificate, amount: val})} />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / توضیحات</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionCertificate.part} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, part: e.target.value})} /><button onClick={handleAddInspectionCertificate} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"><Plus size={16}/></button></div></div>
+                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / توضیحات</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionCertificate.part} onChange={e => setNewInspectionCertificate({...newInspectionCertificate, part: e.target.value})} /><button type="button" onClick={handleAddInspectionCertificate} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"><Plus size={16}/></button></div></div>
                                 </div>
-                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">شرکت</th><th className="p-3">شماره گواهی</th><th className="p-3">هزینه</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.certificates?.map(c => (<tr key={c.id} className="border-b hover:bg-gray-50"><td className="p-3">{c.company}</td><td className="p-3 font-mono">{c.certificateNumber}</td><td className="p-3 font-mono">{formatCurrency(c.amount)}</td><td className="p-3">{c.part}</td><td className="p-3"><button onClick={()=>handleDeleteInspectionCertificate(c.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody><tfoot className="bg-blue-50 font-bold"><tr><td colSpan={2} className="p-3 text-center">جمع کل هزینه‌های بازرسی</td><td className="p-3 font-mono text-blue-700">{formatCurrency(inspectionForm.certificates?.reduce((acc, c) => acc + c.amount, 0) || 0)}</td><td colSpan={2}></td></tr></tfoot></table></div>
+                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">شرکت</th><th className="p-3">شماره گواهی</th><th className="p-3">هزینه</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.certificates?.map(c => (<tr key={c.id} className="border-b hover:bg-gray-50"><td className="p-3">{c.company}</td><td className="p-3 font-mono">{c.certificateNumber}</td><td className="p-3 font-mono">{formatCurrency(c.amount)}</td><td className="p-3">{c.part}</td><td className="p-3"><button type="button" onClick={()=>handleDeleteInspectionCertificate(c.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody><tfoot className="bg-blue-50 font-bold"><tr><td colSpan={2} className="p-3 text-center">جمع کل هزینه‌های بازرسی</td><td className="p-3 font-mono text-blue-700">{formatCurrency(inspectionForm.certificates?.reduce((acc, c) => acc + c.amount, 0) || 0)}</td><td colSpan={2}></td></tr></tfoot></table></div>
                             </div>
                             <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
                                 <h3 className="font-bold text-gray-800">پرداخت‌های بازرسی</h3>
@@ -2920,9 +2920,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             placeholder="۱۴۰۳/xx/xx"
                                         />
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionPayment.part} onChange={e => setNewInspectionPayment({...newInspectionPayment, part: e.target.value})} /><button onClick={handleAddInspectionPayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700"><Plus size={16}/></button></div></div>
+                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><div className="flex gap-1"><input className="w-full border rounded p-2 text-sm" value={newInspectionPayment.part} onChange={e => setNewInspectionPayment({...newInspectionPayment, part: e.target.value})} /><button type="button" onClick={handleAddInspectionPayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700"><Plus size={16}/></button></div></div>
                                 </div>
-                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3">{p.part}</td><td className="p-3"><button onClick={()=>handleDeleteInspectionPayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
+                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">پارت</th><th className="p-3">حذف</th></tr></thead><tbody>{inspectionForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3">{p.part}</td><td className="p-3"><button type="button" onClick={()=>handleDeleteInspectionPayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
                             </div>
                         </div>
                     )}
@@ -2933,7 +2933,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             
                             {/* NEW: Button to open the Clearance Declaration Form */}
                             <div className="flex justify-end">
-                                <button 
+                                <button type="button" 
                                     onClick={() => setShowClearancePrint(true)} 
                                     className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-700 flex items-center gap-2 font-bold"
                                 >
@@ -2953,9 +2953,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         />
                                     </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت / توضیحات</label><input className="w-full border rounded p-2 text-sm" value={newWarehouseReceipt.part} onChange={e => setNewWarehouseReceipt({...newWarehouseReceipt, part: e.target.value})} /></div>
-                                    <button onClick={handleAddWarehouseReceipt} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
+                                    <button type="button" onClick={handleAddWarehouseReceipt} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
-                                <div className="space-y-2">{clearanceForm.receipts?.map(r => (<div key={r.id} className="flex justify-between items-center border p-3 rounded-lg bg-gray-50"><div><span className="font-bold text-sm">شماره: {r.number}</span> <span className="text-xs text-gray-500 mx-2">تاریخ: {r.issueDate}</span> <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{r.part}</span></div><button onClick={()=>handleDeleteWarehouseReceipt(r.id)} className="text-red-500"><Trash2 size={16}/></button></div>))}</div>
+                                <div className="space-y-2">{clearanceForm.receipts?.map(r => (<div key={r.id} className="flex justify-between items-center border p-3 rounded-lg bg-gray-50"><div><span className="font-bold text-sm">شماره: {r.number}</span> <span className="text-xs text-gray-500 mx-2">تاریخ: {r.issueDate}</span> <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{r.part}</span></div><button type="button" onClick={()=>handleDeleteWarehouseReceipt(r.id)} className="text-red-500"><Trash2 size={16}/></button></div>))}</div>
                             </div>
                             <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
                                 <h3 className="font-bold text-gray-800">هزینه‌های ترخیصیه ( کشتیرانی / ایجنت )</h3>
@@ -2972,9 +2972,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                             onChange={val => setNewClearancePayment({...newClearancePayment, date: val})} 
                                         />
                                     </div>
-                                    <button onClick={handleAddClearancePayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
+                                    <button type="button" onClick={handleAddClearancePayment} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
-                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">حذف</th></tr></thead><tbody>{clearanceForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3"><button onClick={()=>handleDeleteClearancePayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
+                                <div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">بانک</th><th className="p-3">مبلغ</th><th className="p-3">تاریخ</th><th className="p-3">حذف</th></tr></thead><tbody>{clearanceForm.payments?.map(p => (<tr key={p.id} className="border-b hover:bg-gray-50"><td className="p-3">{p.bank}</td><td className="p-3 font-mono">{formatCurrency(p.amount)}</td><td className="p-3">{p.date}</td><td className="p-3"><button type="button" onClick={()=>handleDeleteClearancePayment(p.id)} className="text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div>
                             </div>
                         </div>
                     )}
@@ -2992,9 +2992,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">روش پرداخت</label><select className="w-full border rounded p-2 text-sm" value={newCustomsDuty.paymentMethod} onChange={e => setNewCustomsDuty({...newCustomsDuty, paymentMethod: e.target.value as 'Bank' | 'Guarantee'})}><option value="Bank">نقدی (بانک)</option><option value="Guarantee">ضمانت‌نامه</option></select></div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">پارت</label><input className="w-full border rounded p-2 text-sm" value={newCustomsDuty.part} onChange={e => setNewCustomsDuty({...newCustomsDuty, part: e.target.value})} /></div>
-                                    <button onClick={handleAddCustomsDuty} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
+                                    <button type="button" onClick={handleAddCustomsDuty} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 h-[38px]"><Plus size={16} className="mx-auto"/></button>
                                 </div>
-                                <div className="space-y-2">{greenLeafForm.duties?.map(d => (<div key={d.id} className="flex justify-between items-center border p-3 rounded-lg bg-gray-50"><div><span className="font-bold text-sm">کوتاژ: {d.cottageNumber}</span> <span className="text-xs bg-gray-200 px-2 py-0.5 rounded mx-2">{d.paymentMethod === 'Bank' ? 'نقدی' : 'ضمانت‌نامه'}</span> <span className="font-mono font-bold text-green-700">{formatCurrency(d.amount)}</span></div><button onClick={()=>handleDeleteCustomsDuty(d.id)} className="text-red-500"><Trash2 size={16}/></button></div>))}</div>
+                                <div className="space-y-2">{greenLeafForm.duties?.map(d => (<div key={d.id} className="flex justify-between items-center border p-3 rounded-lg bg-gray-50"><div><span className="font-bold text-sm">کوتاژ: {d.cottageNumber}</span> <span className="text-xs bg-gray-200 px-2 py-0.5 rounded mx-2">{d.paymentMethod === 'Bank' ? 'نقدی' : 'ضمانت‌نامه'}</span> <span className="font-mono font-bold text-green-700">{formatCurrency(d.amount)}</span></div><button type="button" onClick={()=>handleDeleteCustomsDuty(d.id)} className="text-red-500"><Trash2 size={16}/></button></div>))}</div>
                             </div>
 
                             <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
@@ -3075,7 +3075,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         );
                                     })()}
 
-                                    <button onClick={handleAddGuarantee} className="w-full bg-orange-600 text-white p-2 rounded-lg font-bold hover:bg-orange-700">ثبت ضمانت‌نامه</button>
+                                    <button type="button" onClick={handleAddGuarantee} className="w-full bg-orange-600 text-white p-2 rounded-lg font-bold hover:bg-orange-700">ثبت ضمانت‌نامه</button>
                                 </div>
                                 <div className="space-y-2">
                                     {greenLeafForm.guarantees?.map(g => (
@@ -3097,10 +3097,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 )}
                                             </div>
                                             <div className="flex gap-2 items-center">
-                                                <button onClick={() => handleToggleGuaranteeDelivery(g.id)} className={`text-xs px-2 py-1 rounded font-bold transition-colors ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                <button type="button" onClick={() => handleToggleGuaranteeDelivery(g.id)} className={`text-xs px-2 py-1 rounded font-bold transition-colors ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                     {g.isDelivered ? 'عودت شد' : 'نزد سازمان'}
                                                 </button>
-                                                <button onClick={()=>handleDeleteGuarantee(g.id)} className="text-red-500 hover:text-red-700">
+                                                <button type="button" onClick={()=>handleDeleteGuarantee(g.id)} className="text-red-500 hover:text-red-700">
                                                     <Trash2 size={16}/>
                                                 </button>
                                             </div>
@@ -3114,17 +3114,17 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <h3 className="font-bold text-gray-800">مالیات بر ارزش افزوده</h3>
                                     <div className="flex gap-2 items-end">
                                         <FormattedNumberInput className="flex-1 border rounded p-2 text-sm dir-ltr font-bold text-gray-800" placeholder="مبلغ (ریال)" value={newTax.amount} onChange={val => setNewTax({...newTax, amount: val})} />
-                                        <button onClick={handleAddTax} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
+                                        <button type="button" onClick={handleAddTax} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
                                     </div>
-                                    <div className="space-y-1">{greenLeafForm.taxes?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button onClick={()=>handleDeleteTax(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
+                                    <div className="space-y-1">{greenLeafForm.taxes?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button type="button" onClick={()=>handleDeleteTax(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
                                 </div>
                                 <div className="glass-panel p-6 rounded-xl shadow-sm border space-y-4">
                                     <h3 className="font-bold text-gray-800">عوارض راهداری / هلال احمر</h3>
                                     <div className="flex gap-2 items-end">
                                         <FormattedNumberInput className="flex-1 border rounded p-2 text-sm dir-ltr font-bold text-gray-800" placeholder="مبلغ (ریال)" value={newRoadToll.amount} onChange={val => setNewRoadToll({...newRoadToll, amount: val})} />
-                                        <button onClick={handleAddRoadToll} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
+                                        <button type="button" onClick={handleAddRoadToll} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 h-[38px] min-w-[38px] flex items-center justify-center"><Plus size={16}/></button>
                                     </div>
-                                    <div className="space-y-1">{greenLeafForm.roadTolls?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button onClick={()=>handleDeleteRoadToll(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
+                                    <div className="space-y-1">{greenLeafForm.roadTolls?.map(t => (<div key={t.id} className="flex justify-between bg-gray-50 p-2 rounded text-sm"><span className="font-mono">{formatCurrency(t.amount)}</span><button type="button" onClick={()=>handleDeleteRoadToll(t.id)} className="text-red-500"><X size={14}/></button></div>))}</div>
                                 </div>
                             </div>
                             <div className="bg-green-100 p-4 rounded-lg flex justify-between items-center font-bold text-green-900 border border-green-200"><span>جمع کل هزینه‌های گمرکی (نقدی + سپرده + مالیات + عوارض)</span><span className="font-mono text-lg">{formatCurrency(calculateGreenLeafTotal(greenLeafForm))}</span></div>
@@ -3151,7 +3151,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newShippingPayment.bank} onChange={e => setNewShippingPayment({...newShippingPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-4 space-y-1"><label className="text-xs font-bold text-gray-700">توضیحات تکمیلی</label><input className="w-full border rounded p-2 text-sm" placeholder="توضیحات..." value={newShippingPayment.description} onChange={e => setNewShippingPayment({...newShippingPayment, description: e.target.value})} /></div>
-                                    <div className="md:col-span-4 flex justify-end"><button onClick={handleAddShippingPayment} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2"><Plus size={16}/> افزودن پرداخت</button></div>
+                                    <div className="md:col-span-4 flex justify-end"><button type="button" onClick={handleAddShippingPayment} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 flex items-center gap-2"><Plus size={16}/> افزودن پرداخت</button></div>
                                 </div>
                                 
                                 <div className="overflow-x-auto">
@@ -3165,7 +3165,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                     <td className="p-3">{p.date}</td>
                                                     <td className="p-3">{p.bank}</td>
                                                     <td className="p-3 text-gray-500 text-xs">{p.description}</td>
-                                                    <td className="p-3"><button onClick={() => handleDeleteShippingPayment(p.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td>
+                                                    <td className="p-3"><button type="button" onClick={() => handleDeleteShippingPayment(p.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td>
                                                 </tr>
                                             ))}
                                             <tr className="bg-indigo-50 font-bold border-t-2 border-indigo-200">
@@ -3202,7 +3202,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <div className="space-y-1"><label className="text-xs font-bold text-gray-700">بانک</label><select className="w-full border rounded p-2 text-sm" value={newAgentPayment.bank} onChange={e => setNewAgentPayment({...newAgentPayment, bank: e.target.value})}><option value="">انتخاب بانک</option>{companySpecificBanks.map(b => <option key={b} value={b}>{b}</option>)}</select></div>
                                     <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-gray-700">پارت / مرحله</label><input className="w-full border rounded p-2 text-sm" placeholder="مثال: پیش پرداخت" value={newAgentPayment.part} onChange={e => setNewAgentPayment({...newAgentPayment, part: e.target.value})} /></div>
                                     <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-gray-700">توضیحات</label><input className="w-full border rounded p-2 text-sm" placeholder="..." value={newAgentPayment.description} onChange={e => setNewAgentPayment({...newAgentPayment, description: e.target.value})} /></div>
-                                    <div className="md:col-span-4 flex justify-end"><button onClick={handleAddAgentPayment} className="bg-teal-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 flex items-center gap-2"><Plus size={16}/> ثبت پرداخت</button></div>
+                                    <div className="md:col-span-4 flex justify-end"><button type="button" onClick={handleAddAgentPayment} className="bg-teal-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 flex items-center gap-2"><Plus size={16}/> ثبت پرداخت</button></div>
                                 </div>
                                 
                                 <div className="overflow-x-auto">
@@ -3217,7 +3217,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                     <td className="p-3">{p.date}</td>
                                                     <td className="p-3">{p.part}</td>
                                                     <td className="p-3 text-gray-500 text-xs">{p.description}</td>
-                                                    <td className="p-3"><button onClick={() => handleDeleteAgentPayment(p.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td>
+                                                    <td className="p-3"><button type="button" onClick={() => handleDeleteAgentPayment(p.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td>
                                                 </tr>
                                             ))}
                                             <tr className="bg-teal-50 font-bold border-t-2 border-teal-200">
@@ -3238,14 +3238,14 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             <div className="glass-panel p-6 rounded-xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div><h3 className="font-bold text-gray-800 text-lg mb-1">وضعیت نهایی پرونده</h3><p className="text-xs text-gray-500">مدیریت تعهدات و بایگانی پرونده</p></div>
                                 <div className="flex gap-2 flex-wrap justify-end">
-                                    <button onClick={toggleCommitment} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border transition-colors ${selectedRecord.isCommitmentFulfilled ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-green-50'}`}>{selectedRecord.isCommitmentFulfilled ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}{selectedRecord.isCommitmentFulfilled ? 'رفع تعهد شده' : 'رفع تعهد نشده'}</button>
+                                    <button type="button" onClick={toggleCommitment} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border transition-colors ${selectedRecord.isCommitmentFulfilled ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-green-50'}`}>{selectedRecord.isCommitmentFulfilled ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}{selectedRecord.isCommitmentFulfilled ? 'رفع تعهد شده' : 'رفع تعهد نشده'}</button>
                                     
                                     {!selectedRecord.isArchived ? (
-                                        <button onClick={handleArchiveRecord} className="px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors bg-blue-600 text-white hover:bg-blue-700 shadow-md">
+                                        <button type="button" onClick={handleArchiveRecord} className="px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors bg-blue-600 text-white hover:bg-blue-700 shadow-md">
                                             <Archive size={18}/> ترخیص شد (بایگانی)
                                         </button>
                                     ) : (
-                                        <button onClick={handleUnarchiveRecord} className="px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors bg-amber-500 text-white hover:bg-amber-600 shadow-md">
+                                        <button type="button" onClick={handleUnarchiveRecord} className="px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors bg-amber-500 text-white hover:bg-amber-600 shadow-md">
                                             <Undo2 size={18}/> بازگشت به جریان
                                         </button>
                                     )}
@@ -3254,9 +3254,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                             
                             {/* ACTIVATED PRINT/PDF BUTTONS */}
                             <div className="flex justify-end gap-2" data-html2canvas-ignore>
-                                <button onClick={handlePrintTrade} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm"><Printer size={16}/> چاپ گزارش</button>
-                                <button onClick={handleDownloadFinalReportPDF} disabled={isGeneratingPdf} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF (صورتحساب)</button>
-                                <button 
+                                <button type="button" onClick={handlePrintTrade} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm"><Printer size={16}/> چاپ گزارش</button>
+                                <button type="button" onClick={handleDownloadFinalReportPDF} disabled={isGeneratingPdf} className="glass-panel border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 text-sm">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF (صورتحساب)</button>
+                                <button type="button" 
                                     onClick={() => {
                                         const costPerKg = calculateRecordCostPerKg(selectedRecord);
                                         const totalWeight = selectedRecord.items?.reduce((sum, item) => sum + item.weight, 0) || 0;
@@ -3364,7 +3364,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                 </div>
                                             </div>
                                             
-                                            <div className="lg:col-span-1 glass-panel p-6 rounded-xl shadow-sm border h-fit"><h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><ShieldCheck size={20} className="text-blue-600"/> لیست چک‌های ضمانت</h3><div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">نوع</th><th className="p-3">شماره / بانک</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">وضعیت</th><th className="p-3">عملیات</th></tr></thead><tbody>{getAllGuarantees().map((g, i) => (<tr key={i} className="border-b hover:bg-gray-50"><td className="p-3">{g.type}</td><td className="p-3">{g.number}<br/><span className="text-xs text-gray-500">{g.bank}</span></td><td className="p-3 font-mono">{formatCurrency(g.amount)}</td><td className="p-3"><button onClick={g.toggleFunc} className={`text-xs px-2 py-1 rounded font-bold ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{g.isDelivered ? 'عودت شد' : 'نزد سازمان'}</button></td><td className="p-3"></td></tr>))}</tbody></table></div></div>
+                                            <div className="lg:col-span-1 glass-panel p-6 rounded-xl shadow-sm border h-fit"><h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><ShieldCheck size={20} className="text-blue-600"/> لیست چک‌های ضمانت</h3><div className="overflow-x-auto"><table className="w-full text-sm text-right"><thead className="bg-gray-100 text-gray-700"><tr><th className="p-3">نوع</th><th className="p-3">شماره / بانک</th><th className="p-3">مبلغ (ریال)</th><th className="p-3">وضعیت</th><th className="p-3">عملیات</th></tr></thead><tbody>{getAllGuarantees().map((g, i) => (<tr key={i} className="border-b hover:bg-gray-50"><td className="p-3">{g.type}</td><td className="p-3">{g.number}<br/><span className="text-xs text-gray-500">{g.bank}</span></td><td className="p-3 font-mono">{formatCurrency(g.amount)}</td><td className="p-3"><button type="button" onClick={g.toggleFunc} className={`text-xs px-2 py-1 rounded font-bold ${g.isDelivered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{g.isDelivered ? 'عودت شد' : 'نزد سازمان'}</button></td><td className="p-3"></td></tr>))}</tbody></table></div></div>
 
                                             <div className="lg:col-span-1 glass-panel bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-xl shadow-lg border-0 h-fit">
                                                 <h3 className="font-bold text-slate-200 mb-6 flex items-center gap-2"><PieChart size={20} className="text-emerald-400"/> خلاصه نهایی پرونده</h3>
@@ -3496,7 +3496,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                 {/* Standard Documents Quick Display Panel */}
                 <div className="bg-slate-50 border-t border-slate-200" data-html2canvas-ignore>
                     <div className="max-w-5xl mx-auto px-6 py-4">
-                        <button 
+                        <button type="button" 
                             onClick={() => setShowQuickDocsPanel(!showQuickDocsPanel)}
                             className="w-full flex items-center justify-between text-slate-800 hover:text-blue-700 transition-colors focus:outline-none"
                         >
@@ -3516,7 +3516,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         {showQuickDocsPanel && (
                             <div className="mt-4 pt-4 border-t border-slate-200/60 flex flex-wrap gap-3 animate-fade-in">
                                 {/* Proforma View */}
-                                <button 
+                                <button type="button" 
                                     onClick={() => setShowProformaPrint(true)}
                                     className="flex items-center gap-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2.5 rounded-xl font-bold border border-blue-200 transition-all active:scale-95"
                                 >
@@ -3525,7 +3525,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 </button>
 
                                 {/* Clearance view */}
-                                <button 
+                                <button type="button" 
                                     onClick={() => setShowClearancePrint(true)}
                                     className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold border border-emerald-200 transition-all active:scale-95"
                                 >
@@ -3536,7 +3536,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 {/* Registered Shipping Documents */}
                                 {selectedRecord.shippingDocuments && selectedRecord.shippingDocuments.length > 0 ? (
                                     selectedRecord.shippingDocuments.map(doc => (
-                                        <button 
+                                        <button type="button" 
                                             key={doc.id}
                                             onClick={() => setSelectedShippingDocForPrint(doc)}
                                             className="flex items-center gap-2 text-xs bg-orange-50 text-orange-700 hover:bg-orange-100 px-4 py-2.5 rounded-xl font-bold border border-orange-200 transition-all active:scale-95"
@@ -3569,8 +3569,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <Container className="text-blue-600" /> پرونده‌های بازرگانی
                     </h1>
                     <div className="text-sm text-gray-500 mt-1 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-2 no-scrollbar scroll-smooth">
-                        <button onClick={goRoot} className="hover:text-blue-600 flex items-center gap-1 shrink-0 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full transition-colors active:scale-95"><Home size={14}/> خانه</button>
-                        {selectedCompany && <><ChevronLeft size={14} className="shrink-0 text-gray-400"/> <button onClick={() => goCompany(selectedCompany)} className="hover:text-blue-600 shrink-0 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full transition-colors active:scale-95">{selectedCompany}</button></>}
+                        <button type="button" onClick={goRoot} className="hover:text-blue-600 flex items-center gap-1 shrink-0 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full transition-colors active:scale-95"><Home size={14}/> خانه</button>
+                        {selectedCompany && <><ChevronLeft size={14} className="shrink-0 text-gray-400"/> <button type="button" onClick={() => goCompany(selectedCompany)} className="hover:text-blue-600 shrink-0 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full transition-colors active:scale-95">{selectedCompany}</button></>}
                         {selectedGroup && <><ChevronLeft size={14} className="shrink-0 text-gray-400"/> <span className="shrink-0 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-full font-bold">{selectedGroup}</span></>}
                     </div>
                 </div>
@@ -3579,7 +3579,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <input className="w-full border rounded-xl pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="جستجو..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                         <Search className="absolute left-2 top-2.5 text-gray-400" size={16} />
                     </div>
-                    <button 
+                    <button type="button" 
                         onClick={() => setShowArchived(!showArchived)} 
                         className={`p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 font-bold transition-colors border ${showArchived ? 'bg-amber-100 text-amber-700 border-amber-200' : 'glass-panel text-gray-600 border-gray-300 hover:bg-gray-50'}`}
                         title={showArchived ? 'نمایش جاری' : 'نمایش بایگانی'}
@@ -3587,10 +3587,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         <Archive size={20} />
                         <span className="hidden sm:inline">{showArchived ? 'نمایش جاری' : 'نمایش بایگانی'}</span>
                     </button>
-                    <button onClick={() => setViewMode('reports')} className="glass-panel border border-gray-300 text-gray-700 p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 hover:bg-gray-50 font-bold transition-colors" title="گزارشات">
+                    <button type="button" onClick={() => setViewMode('reports')} className="glass-panel border border-gray-300 text-gray-700 p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 hover:bg-gray-50 font-bold transition-colors" title="گزارشات">
                         <FileSpreadsheet size={20} /> <span className="hidden sm:inline">گزارشات</span>
                     </button>
-                    <button onClick={() => setShowNewModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 font-bold transition-colors shadow-lg shadow-blue-600/20" title="ثبت پرونده جدید">
+                    <button type="button" onClick={() => setShowNewModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 font-bold transition-colors shadow-lg shadow-blue-600/20" title="ثبت پرونده جدید">
                         <Plus size={20} /> <span className="hidden sm:inline">جدید</span>
                     </button>
                 </div>
@@ -3632,7 +3632,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                         .map(record => (
                             <div key={record.id} onClick={() => { setSelectedRecord(record); setViewMode('details'); setActiveTab('timeline'); }} className="glass-panel p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer group border-l-4 border-l-transparent hover:border-l-blue-500 relative">
                                 {/* DELETE BUTTON ADDED HERE - Moved to Right to avoid status overlap */}
-                                <button 
+                                <button type="button" 
                                     onClick={(e) => handleDeleteRecord(record.id, e)} 
                                     className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
                                     title="حذف پرونده"
@@ -3677,7 +3677,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100">ثبت پرونده جدید</h3>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">مشخصات اولیه پرونده تجاری یا پروفرم را وارد کنید</p>
                             </div>
-                            <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
+                            <button type="button" onClick={() => setShowNewModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"><X size={22} className="text-gray-400 hover:text-red-500" /></button>
                         </div>
                         <div className="space-y-4 text-gray-800 dark:text-gray-200">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3729,8 +3729,8 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                 </select>
                             </div>
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
-                                <button onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
-                                <button onClick={handleCreateRecord} disabled={(!newProformaNumber && !newFileNumber) || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
+                                <button type="button" onClick={() => setShowNewModal(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">انصراف</button>
+                                <button type="button" onClick={handleCreateRecord} disabled={(!newProformaNumber && !newFileNumber) || !newGoodsName || !newRecordCompany} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">ایجاد پرونده</button>
                             </div>
                         </div>
                     </div>
@@ -3754,7 +3754,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     <Coins size={22} className="text-green-600"/>
                                     ثبت و مدیریت تحویل‌های پارت
                                 </h3>
-                                <button onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
+                                <button type="button" onClick={() => setSelectedTrancheForDeliveries(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X size={20} className="text-gray-400 hover:text-red-500" /></button>
                             </div>
 
                             {/* Tranche Specs Card */}
@@ -3780,10 +3780,9 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300">تاریخ تحویل</label>
-                                        <input 
-                                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm dir-ltr bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" 
+                                        <TradeDatePicker 
                                             value={newDeliveryForm.date} 
-                                            onChange={e => setNewDeliveryForm({...newDeliveryForm, date: e.target.value})} 
+                                            onChange={val => setNewDeliveryForm({...newDeliveryForm, date: val})} 
                                             placeholder="۱۴۰۳/۰۱/۰۱" 
                                         />
                                     </div>
@@ -3806,7 +3805,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                         />
                                     </div>
                                 </div>
-                                <button 
+                                <button type="button" 
                                     onClick={handleAddTrancheDelivery} 
                                     className="mt-4 w-full bg-green-600 text-white rounded-lg p-2 font-bold hover:bg-green-700 text-sm transition-all flex items-center justify-center gap-1 shadow-md"
                                 >
@@ -3838,7 +3837,7 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
                                                     <td className="p-3">{delivery.recipientName || '-'}</td>
                                                     <td className="p-3 text-gray-500 dark:text-gray-400">{delivery.description || '-'}</td>
                                                     <td className="p-3">
-                                                        <button 
+                                                        <button type="button" 
                                                             onClick={() => handleRemoveTrancheDelivery(tr.id, delivery.id)} 
                                                             className="text-red-500 hover:text-red-700"
                                                         >
@@ -3866,10 +3865,10 @@ const TradeModule: React.FC<TradeModuleProps> = ({ currentUser }) => {
 
             {/* Subtab Back Trigger */}
             {viewMode === 'details' ? (
-                <button data-subtab-back="true" onClick={() => { setViewMode('dashboard'); setSelectedRecord(null); }} className="hidden" />
+                <button type="button" data-subtab-back="true" onClick={() => { setViewMode('dashboard'); setSelectedRecord(null); }} className="hidden" />
             ) : (
                 viewMode !== 'dashboard' && (
-                    <button data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="hidden" />
+                    <button type="button" data-subtab-back="true" onClick={() => setViewMode('dashboard')} className="hidden" />
                 )
             )}
 

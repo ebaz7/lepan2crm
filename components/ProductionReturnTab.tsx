@@ -10,6 +10,8 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import * as jalaali from "jalaali-js";
 import { AiSayanReportModal } from "./AiSayanReportModal";
+import { uploadFileChunked } from "../services/storageService";
+import { generatePdfFromHtml } from "../utils/pdfGenerator";
 
 interface ProductionReturnTabProps {
     dateFrom: string;
@@ -17,6 +19,7 @@ interface ProductionReturnTabProps {
     currentUser?: any;
     settings?: any;
     getEffectiveApiUrl?: (url: string) => string;
+    onShareToChat?: (attachment?: { fileName: string; url: string }, defaultMsg?: string) => void;
 }
 
 function formatDateToJalali(dateStr?: string): string {
@@ -172,7 +175,8 @@ export default function ProductionReturnTab({
     dateTo,
     currentUser,
     settings,
-    getEffectiveApiUrl = (url: string) => url
+    getEffectiveApiUrl = (url: string) => url,
+    onShareToChat
 }: ProductionReturnTabProps) {
     const [prodReturnsData, setProdReturnsData] = useState<any[]>([]);
     const [isFetchingProdReturns, setIsFetchingProdReturns] = useState(false);
@@ -576,6 +580,153 @@ export default function ProductionReturnTab({
         }
     };
 
+    // Generate comprehensive PDF HTML for Production Returns
+    const generateReturnsPdfHtml = () => {
+        const title = `گزارش جامع رسیدهای برگشت از تولید به انبار (کد ۴۴) سایان ERP`;
+        const dateFromStr = dateFrom || 'ابتدا';
+        const dateToStr = dateTo || 'امروز';
+
+        const groupsHtml = (analyzedData.groupsList || []).map((g, idx) => `
+            <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center; font-family: monospace;">${g.code}</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${g.title}</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center;">${g.parentCategory || '-'}</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #1e3a8a;">${Math.round(g.totalQty).toLocaleString('fa-IR')}</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center;">${analyzedData.totalWeight > 0 ? ((g.totalQty / analyzedData.totalWeight) * 100).toFixed(1) : '0'}٪</td>
+                <td style="padding: 7px; border: 1px solid #cbd5e1; text-align: center;">${g.subItems.length}</td>
+            </tr>
+        `).join('');
+
+        const topItemsHtml = (analyzedData.itemsList || []).slice(0, 30).map((item, idx) => `
+            <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center; font-family: monospace;">${item.code || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${item.name || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.groupTitle || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: #1e3a8a;">${Math.round(item.totalWeight).toLocaleString('fa-IR')}</td>
+                <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${item.docs ? item.docs.size : item.count}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <html dir="rtl" lang="fa">
+            <head>
+                <meta charset="UTF-8">
+                <title>${title}</title>
+                <style>
+                    body { font-family: 'Tahoma', sans-serif; margin: 20px; color: #0f172a; direction: rtl; font-size: 11px; }
+                    .header-box { border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; background-color: #f8fafc; margin-bottom: 16px; text-align: center; }
+                    .title { font-size: 13pt; font-weight: bold; color: #1e3a8a; margin-bottom: 4px; }
+                    .subtitle { font-size: 9.5pt; color: #475569; }
+                    .stat-cards { display: flex; justify-content: space-around; margin: 12px 0 16px 0; gap: 8px; }
+                    .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; background: white; text-align: center; flex: 1; }
+                    .card-label { font-size: 8.5pt; color: #64748b; margin-bottom: 3px; }
+                    .card-value { font-size: 11pt; font-weight: bold; color: #1e293b; }
+                    .section-title { font-size: 10.5pt; font-weight: bold; color: #1e3a8a; margin: 14px 0 6px 0; border-right: 3px solid #3b82f6; padding-right: 6px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 9.5pt; }
+                    th { background-color: #f1f5f9; color: #334155; padding: 7px; border: 1px solid #cbd5e1; font-weight: bold; }
+                    td { border: 1px solid #cbd5e1; }
+                    .footer { text-align: center; font-size: 8.5pt; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+                </style>
+            </head>
+            <body>
+                <div class="header-box">
+                    <div class="title">${title}</div>
+                    <div class="subtitle">بازه زمانی: ${dateFromStr} تا ${dateToStr} | سیستم یکپارچه هوشمند سایان ERP</div>
+                </div>
+                <div class="stat-cards">
+                    <div class="card">
+                        <div class="card-label">تعداد کل اسناد برگشتی</div>
+                        <div class="card-value">${analyzedData.documentsList.length.toLocaleString('fa-IR')} سند</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">مجموع وزن کل برگشتی</div>
+                        <div class="card-value" style="color: #2563eb;">${Math.round(analyzedData.totalWeight).toLocaleString('fa-IR')} کیلوگرم</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">محصولات تولیدی</div>
+                        <div class="card-value" style="color: #059669;">${Math.round(analyzedData.totalProductsWeight).toLocaleString('fa-IR')} کیلوگرم</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">مواد اولیه و کش</div>
+                        <div class="card-value" style="color: #d97706;">${Math.round(analyzedData.totalRawMaterialWeight).toLocaleString('fa-IR')} کیلوگرم</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">تنوع سرفصل‌ها</div>
+                        <div class="card-value">${analyzedData.groupsList.length} سرفصل</div>
+                    </div>
+                </div>
+
+                <div class="section-title">۱. تفکیک سرفصل‌ها و گروه‌های کالا (کد عملیات ۴۴)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 35px;">ردیف</th>
+                            <th style="width: 65px;">کد سرفصل</th>
+                            <th>عنوان سرفصل و گروه کالا</th>
+                            <th style="width: 100px;">دسته‌بندی والد</th>
+                            <th style="width: 90px;">وزن خالص (کیلوگرم)</th>
+                            <th style="width: 65px;">سهم وزنی</th>
+                            <th style="width: 60px;">اقلام زیرمجموعه</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groupsHtml}
+                    </tbody>
+                </table>
+
+                <div class="section-title">۲. اقلام برتر برگشت داده شده از خط تولید</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 35px;">ردیف</th>
+                            <th style="width: 80px;">کد کالا</th>
+                            <th>شرح و مشخصات کالا</th>
+                            <th style="width: 110px;">سرفصل کالا</th>
+                            <th style="width: 90px;">وزن (کیلوگرم)</th>
+                            <th style="width: 60px;">تعداد اسناد</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${topItemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    تاریخ صدور گزارش: ${new Date().toLocaleDateString('fa-IR')} | سیستم جامع گزارشات سایان ERP
+                </div>
+            </body>
+            </html>
+        `;
+    };
+
+    // Share Production Returns Report PDF to Chat
+    const handleShareToChat = async () => {
+        if (!onShareToChat) return;
+        const loadingToast = toast.loading('در حال ساخت فایل PDF برگشت از تولید...');
+        try {
+            const dateFromStr = dateFrom || 'ابتدا';
+            const dateToStr = dateTo || 'امروز';
+            const pdfFilename = `Sayan_Returns_${dateFromStr.replace(/\//g, '-')}_to_${dateToStr.replace(/\//g, '-')}_${Date.now()}.pdf`;
+            
+            const htmlContent = generateReturnsPdfHtml();
+            const blob = await generatePdfFromHtml(htmlContent, pdfFilename);
+            if (!blob) throw new Error('خطا در ایجاد فایل PDF برگشت از تولید');
+
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            const msg = `📋 گزارش رسیدهای برگشت از تولید (کد ۴۴) سایان ERP (${dateFromStr} تا ${dateToStr})\n• تعداد اسناد: ${analyzedData.documentsList.length.toLocaleString('fa-IR')} سند\n• مجموع وزن برگشتی: ${Math.round(analyzedData.totalWeight).toLocaleString('fa-IR')} کیلوگرم\n• محصولات تولیدی: ${Math.round(analyzedData.totalProductsWeight).toLocaleString('fa-IR')} کیلوگرم\n• مواد اولیه و کش: ${Math.round(analyzedData.totalRawMaterialWeight).toLocaleString('fa-IR')} کیلوگرم\n📄 فایل PDF رسمی گزارش پیوست شد.`;
+
+            onShareToChat({ fileName: result.fileName, url: result.url }, msg);
+            toast.success('فایل PDF برگشت از تولید آماده شد', { id: loadingToast });
+        } catch (err: any) {
+            console.error('Error sharing returns report to chat:', err);
+            toast.error('خطا در تولید PDF: ' + (err?.message || ''), { id: loadingToast });
+        }
+    };
+
     // Print Single Document
     const handlePrintSingleDoc = (doc: any) => {
         const printWindow = window.open("", "_blank");
@@ -703,46 +854,15 @@ export default function ProductionReturnTab({
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    {/* AI Strategic Analysis Button */}
-                    <button
-                        onClick={() => setIsAiModalOpen(true)}
-                        disabled={analyzedData.filteredRaw.length === 0}
-                        className="px-3.5 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg text-xs font-black transition-all shadow-md shadow-purple-500/25 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        title="تحلیل هوشمند، مهندسی، نموداری و گزارش مدیریتی با هوش مصنوعی"
-                    >
-                        <Sparkles className="w-4 h-4 animate-pulse text-amber-300" />
-                        <span>تحلیل هوش مصنوعی</span>
-                    </button>
-
-                    {/* Bot Notification Button */}
-                    <button
-                        onClick={handleSendReturnsBot}
-                        disabled={isSendingBot}
-                        className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-black transition-all shadow-sm shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        title="ارسال خلاصه گزارش به کانال/گروه تلگرام"
-                    >
-                        {isSendingBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        <span>ارسال به بات</span>
-                    </button>
-
-                    {/* Export Excel Button */}
-                    <button
-                        onClick={handleExportExcel}
-                        disabled={analyzedData.itemsList.length === 0}
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black transition-all shadow-sm shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                        <FileSpreadsheet className="w-3.5 h-3.5" />
-                        <span>خروجی اکسل</span>
-                    </button>
-
+                <div className="flex items-center gap-2">
                     {/* Refresh Button */}
                     <button
+                        type="button"
                         onClick={fetchProdReturns}
                         disabled={isFetchingProdReturns}
-                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 min-h-[38px]"
                     >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isFetchingProdReturns ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3.5 h-3.5 ${isFetchingProdReturns ? 'animate-spin text-blue-600' : ''}`} />
                         <span>بروزرسانی</span>
                     </button>
                 </div>
@@ -1326,6 +1446,61 @@ export default function ProductionReturnTab({
                     )}
                 </div>
             )}
+
+            {/* Dedicated Section Bottom Action Bar - Production Returns */}
+            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl shadow-xs">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-200">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                    <span>عملیات و تحلیل برگشت از تولید (کد ۴۴):</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                    {onShareToChat && (
+                        <button
+                            type="button"
+                            onClick={handleShareToChat}
+                            disabled={analyzedData.filteredRaw.length === 0}
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+                            title="تولید PDF و ارسال این گزارش به گفتگوی شخصی یا گروهی"
+                        >
+                            <Send className="w-4 h-4" />
+                            <span>ارسال این گزارش به گفتگو (PDF)</span>
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => setIsAiModalOpen(true)}
+                        disabled={analyzedData.filteredRaw.length === 0}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+                        title="تحلیل هوشمند و مهندسی برگشت از تولید با هوش مصنوعی"
+                    >
+                        <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                        <span>تحلیل هوش مصنوعی برگشت از تولید (AI)</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleSendReturnsBot}
+                        disabled={isSendingBot}
+                        className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+                        title="ارسال خلاصه گزارش به بات"
+                    >
+                        {isSendingBot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        <span>ارسال به بات</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        disabled={analyzedData.itemsList.length === 0}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-colors min-h-[44px]"
+                    >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>خروجی اکسل</span>
+                    </button>
+                </div>
+            </div>
 
             {/* ========================================================================= */}
             {/* PORTAL MODAL: DOCUMENT DETAILS (ALWAYS AT THE EXACT CENTER OF THE SCREEN) */}
