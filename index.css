@@ -682,7 +682,6 @@ html.dark.has-preset-bg-cyan-cosmic .text-gray-400 {
 @font-face {
   font-family: 'Vazirmatn';
   src: local('Vazirmatn'), local('Vazirmatn-Regular'),
-       url('/fonts/Vazirmatn-Regular.woff2') format('woff2'),
        url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
   font-display: swap;
 }
