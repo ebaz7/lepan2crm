@@ -4,7 +4,7 @@ import {
     Loader2, RefreshCw, Printer, Download, Search, X, Eye, FileText, 
     ChevronDown, ChevronUp, Layers, Send, CheckCircle2, AlertTriangle, 
     AlertCircle, Sparkles, Building, BarChart2, PackageCheck, Archive, Filter,
-    Undo2, FolderOpen, FileSpreadsheet, ChevronRight, Package, Tag, ArrowUpDown
+    Undo2, FolderOpen, FileSpreadsheet, ChevronRight, Package, Tag, ArrowUpDown, MessageSquare
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -12,6 +12,7 @@ import * as jalaali from "jalaali-js";
 import { AiSayanReportModal } from "./AiSayanReportModal";
 import { uploadFileChunked } from "../services/storageService";
 import { generatePdfFromHtml } from "../utils/pdfGenerator";
+import { openSendToChat } from "../services/chatShareService";
 
 interface ProductionReturnTabProps {
     dateFrom: string;
@@ -703,7 +704,6 @@ export default function ProductionReturnTab({
 
     // Share Production Returns Report PDF to Chat
     const handleShareToChat = async () => {
-        if (!onShareToChat) return;
         const loadingToast = toast.loading('در حال ساخت فایل PDF برگشت از تولید...');
         try {
             const dateFromStr = dateFrom || 'ابتدا';
@@ -719,11 +719,103 @@ export default function ProductionReturnTab({
 
             const msg = `📋 گزارش رسیدهای برگشت از تولید (کد ۴۴) سایان ERP (${dateFromStr} تا ${dateToStr})\n• تعداد اسناد: ${analyzedData.documentsList.length.toLocaleString('fa-IR')} سند\n• مجموع وزن برگشتی: ${Math.round(analyzedData.totalWeight).toLocaleString('fa-IR')} کیلوگرم\n• محصولات تولیدی: ${Math.round(analyzedData.totalProductsWeight).toLocaleString('fa-IR')} کیلوگرم\n• مواد اولیه و کش: ${Math.round(analyzedData.totalRawMaterialWeight).toLocaleString('fa-IR')} کیلوگرم\n📄 فایل PDF رسمی گزارش پیوست شد.`;
 
-            onShareToChat({ fileName: result.fileName, url: result.url }, msg);
+            if (onShareToChat) {
+                onShareToChat({ fileName: result.fileName, url: result.url }, msg);
+            } else {
+                openSendToChat({
+                    attachment: { fileName: result.fileName, url: result.url },
+                    defaultMessage: msg,
+                    title: 'ارسال گزارش برگشت از تولید به گفتگو'
+                });
+            }
             toast.success('فایل PDF برگشت از تولید آماده شد', { id: loadingToast });
         } catch (err: any) {
             console.error('Error sharing returns report to chat:', err);
             toast.error('خطا در تولید PDF: ' + (err?.message || ''), { id: loadingToast });
+        }
+    };
+
+    // Share Single Doc to Chat
+    const handleShareSingleDocToChat = async (doc: any) => {
+        if (!doc) return;
+        const loadingToast = toast.loading(`در حال آماده‌سازی رسید شماره ${doc.docNo} برای گفتگو...`);
+        try {
+            const rowsHtml = (doc.rows || []).map((row: any, idx: number) => `
+                <tr>
+                    <td style="text-align: center; border: 1px solid #999; padding: 6px 8px;">${idx + 1}</td>
+                    <td style="font-family: monospace; border: 1px solid #999; padding: 6px 8px;">${row.ItemCode || '-'}</td>
+                    <td style="font-weight: bold; border: 1px solid #999; padding: 6px 8px;">${row.ResolvedName || resolveProdItemName(row.ItemCode, row.ItemName)}</td>
+                    <td style="text-align: center; border: 1px solid #999; padding: 6px 8px;">${row.GroupTitle || '-'}</td>
+                    <td style="text-align: left; font-family: monospace; font-weight: bold; border: 1px solid #999; padding: 6px 8px;">${Math.round(Number(row.Weight || row.Quantity || 0)).toLocaleString("fa-IR")}</td>
+                    <td style="text-align: center; border: 1px solid #999; padding: 6px 8px;">${row.UnitName || 'کیلوگرم'}</td>
+                    <td style="border: 1px solid #999; padding: 6px 8px;">${row.WarehouseName || '-'}</td>
+                    <td style="border: 1px solid #999; padding: 6px 8px;">${row.Description || '-'}</td>
+                </tr>
+            `).join("");
+
+            const html = `
+                <!DOCTYPE html>
+                <html dir="rtl" lang="fa">
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>رسید برگشت از تولید - سند شماره ${doc.docNo}</title>
+                    <style>
+                        body { font-family: Tahoma, 'Segoe UI', sans-serif; direction: rtl; padding: 20px; font-size: 12px; color: #111; }
+                        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+                        .title { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+                        .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        th { background: #eee; font-weight: bold; border: 1px solid #999; padding: 6px 8px; }
+                        .total-box { margin-top: 15px; text-align: left; font-size: 13px; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="title">رسید برگشت کالا از تولید به انبار (کد عملیات ۴۴)</div>
+                        <div>نرم‌افزار جامع مدیریت کارخانه و انبار</div>
+                    </div>
+                    <div class="meta-grid">
+                        <div><strong>شماره سند:</strong> <span style="font-family: monospace;">${doc.docNo}</span></div>
+                        <div><strong>تاریخ سند:</strong> ${doc.docDate}</div>
+                        <div><strong>انبار:</strong> ${doc.warehouse}</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">ردیف</th>
+                                <th style="width: 110px;">کد کالا</th>
+                                <th>نام و مشخصات کالا</th>
+                                <th style="width: 120px; text-align: center;">گروه کالا</th>
+                                <th style="width: 100px; text-align: left;">وزن برگشتی</th>
+                                <th style="width: 70px; text-align: center;">واحد</th>
+                                <th>انبار</th>
+                                <th>توضیحات</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                    <div class="total-box">
+                        مجموع وزن کل سند: ${Math.round(doc.totalWeight).toLocaleString("fa-IR")} کیلوگرم
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const pdfFilename = `Return_Doc_${doc.docNo}_${Date.now()}.pdf`;
+            const blob = await generatePdfFromHtml(html, pdfFilename);
+            if (!blob) throw new Error('خطا در ایجاد PDF رسید');
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const result = await uploadFileChunked(file, () => {});
+
+            openSendToChat({
+                attachment: { fileName: result.fileName, url: result.url },
+                defaultMessage: `رسید برگشت از تولید - سند شماره ${doc.docNo} مورخ ${doc.docDate} (مجموع وزن: ${Math.round(doc.totalWeight).toLocaleString("fa-IR")} کیلوگرم)`,
+                title: 'ارسال رسید برگشت از تولید به گفتگو'
+            });
+            toast.success('سند آماده ارسال به گفتگو شد', { id: loadingToast });
+        } catch (e: any) {
+            console.error(e);
+            toast.error('خطا در ارسال سند به گفتگو', { id: loadingToast });
         }
     };
 
@@ -1421,6 +1513,13 @@ export default function ProductionReturnTab({
                                                             <span>مشاهده</span>
                                                         </button>
                                                         <button
+                                                            onClick={() => handleShareSingleDocToChat(doc)}
+                                                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
+                                                            title="ارسال رسید به گفتگو"
+                                                        >
+                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
                                                             onClick={() => handlePrintSingleDoc(doc)}
                                                             className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
                                                             title="چاپ رسید رسمی این سند"
@@ -1455,18 +1554,16 @@ export default function ProductionReturnTab({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                    {onShareToChat && (
-                        <button
-                            type="button"
-                            onClick={handleShareToChat}
-                            disabled={analyzedData.filteredRaw.length === 0}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
-                            title="تولید PDF و ارسال این گزارش به گفتگوی شخصی یا گروهی"
-                        >
-                            <Send className="w-4 h-4" />
-                            <span>ارسال این گزارش به گفتگو (PDF)</span>
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={handleShareToChat}
+                        disabled={analyzedData.filteredRaw.length === 0}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
+                        title="تولید PDF و ارسال این گزارش به گفتگوی شخصی یا گروهی"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>ارسال این گزارش به گفتگو (PDF)</span>
+                    </button>
 
                     <button
                         type="button"
@@ -1588,13 +1685,23 @@ export default function ProductionReturnTab({
 
                         {/* Modal Footer */}
                         <div className="px-5 py-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950 shrink-0">
-                            <button
-                                onClick={() => handlePrintSingleDoc(selectedDocModal)}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                            >
-                                <Printer className="w-4 h-4" />
-                                <span>چاپ رسید رسمی سند</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleShareSingleDocToChat(selectedDocModal)}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                                    title="ارسال رسید این سند به گفتگوی سازمانی"
+                                >
+                                    <MessageSquare className="w-4 h-4" />
+                                    <span>ارسال رسید به گفتگو</span>
+                                </button>
+                                <button
+                                    onClick={() => handlePrintSingleDoc(selectedDocModal)}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    <span>چاپ رسید رسمی سند</span>
+                                </button>
+                            </div>
 
                             <button
                                 onClick={() => setSelectedDocModal(null)}

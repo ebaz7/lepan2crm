@@ -22,9 +22,12 @@ import {
   ExternalLink,
   Layers,
   Scale,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { shareElementToChat } from '../services/chatShareService';
 import { 
   fetchSayanSalesRemittances, 
   SayanSalesRemittanceResult, 
@@ -183,6 +186,30 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
+  const [isSharingDoc, setIsSharingDoc] = useState<boolean>(false);
+
+  const handleSendToChat = async () => {
+    if (!selectedRemittance) return;
+    setIsSharingDoc(true);
+    try {
+      const docEl = document.getElementById('sayan-sales-remittance-doc');
+      if (!docEl) throw new Error('المان سند یافت نشد');
+      const docNum = selectedRemittance.remittanceNumber || selectedRemittance.docNo || 'remittance';
+      await shareElementToChat(
+        docEl,
+        `Sayan_Remittance_${docNum}.jpg`,
+        {
+          defaultMessage: `📄 حواله فروش سایان شماره ${docNum} - خریدار: ${selectedRemittance.personFullName} (وزن خالص: ${Number(selectedRemittance.totalNetWeight || 0).toLocaleString()} کیلوگرم)`,
+          title: 'ارسال حواله فروش سایان به گفتگو'
+        }
+      );
+    } catch (err) {
+      console.error(err);
+      alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
+    } finally {
+      setIsSharingDoc(false);
+    }
+  };
 
   // Quick Date Selectors
   const setQuickDate = (type: 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all') => {
@@ -1056,6 +1083,18 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
                           <Printer size={15} />
                         </button>
 
+                        {/* Send to Chat */}
+                        <button
+                          onClick={() => {
+                            setSelectedRemittance(r);
+                            setIsPrintModalOpen(true);
+                          }}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 rounded-lg transition-colors cursor-pointer"
+                          title="ارسال سند حواله سایان به گفتگو"
+                        >
+                          <MessageSquare size={15} />
+                        </button>
+
                       </div>
                     </td>
                   </tr>
@@ -1100,6 +1139,21 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
                 >
                   <Printer size={14} />
                   <span>چاپ سند رسمی</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsDetailModalOpen(false);
+                    setIsPrintModalOpen(true);
+                    setTimeout(() => {
+                      handleSendToChat();
+                    }, 400);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow"
+                  title="ارسال سند به گفتگو"
+                >
+                  <MessageSquare size={14} />
+                  <span>ارسال به گفتگو</span>
                 </button>
                 
                 <button
@@ -1233,6 +1287,16 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={handleSendToChat}
+                  disabled={isSharingDoc}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow"
+                  title="ارسال مستقیم سند رسمی حواله سایان به گفتگو"
+                >
+                  {isSharingDoc ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+                  <span>ارسال به گفتگو</span>
+                </button>
+
+                <button
                   onClick={() => {
                     const printContent = document.getElementById('sayan-sales-remittance-doc');
                     if (!printContent) return;
@@ -1258,7 +1322,7 @@ export const SayanRemittancesTab: React.FC<SayanRemittancesTabProps> = ({
                     `);
                     printWindow.document.close();
                   }}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow"
+                  className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow"
                 >
                   <Printer size={14} />
                   <span>پرینت سند (چاپگر / PDF)</span>

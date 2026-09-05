@@ -19,8 +19,9 @@ import {
     Image as ImageIcon, MoreVertical, Loader2, ArrowRight,
     Ruler, Layers, Tag, Upload, Info, FileUp, UploadCloud, Settings, Printer, FileDown, AlertCircle, X,
     GitFork, Clock, CornerUpLeft, UserCheck, FileCode, AlertTriangle, Check, ExternalLink, Paperclip, Wrench,
-    FileSpreadsheet, Container, ArrowDownCircle, ArrowUpCircle
+    FileSpreadsheet, Container, ArrowDownCircle, ArrowUpCircle, MessageSquare
 } from 'lucide-react';
+import { shareElementToChat, openSendToChat } from '../services/chatShareService';
 import { formatDate, formatCurrency, generateUUID, getCurrentShamsiDate } from '../constants';
 import useIsMobile from '../hooks/useIsMobile';
 import * as XLSX from 'xlsx';
@@ -1474,6 +1475,64 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
     const [printingProforma, setPrintingProforma] = useState<PurchaseProforma | null>(null);
     const [printType, setPrintType] = useState<'REQUEST' | 'PROFORMA' | 'RECEIPT' | 'BARCODE'>('REQUEST');
     const [definingItem, setDefiningItem] = useState<any>(null);
+    const [isSharingDoc, setIsSharingDoc] = useState(false);
+    const [sharingType, setSharingType] = useState<'REQUEST' | 'PROFORMA' | 'RECEIPT' | null>(null);
+    const [sharingProforma, setSharingProforma] = useState<PurchaseProforma | null>(null);
+
+    const handleSharePurchaseDoc = (type: 'REQUEST' | 'PROFORMA' | 'RECEIPT') => {
+        setIsSharingDoc(true);
+        setSharingType(type);
+        setTimeout(async () => {
+            try {
+                const el = document.getElementById('chat-share-purchase-doc-area');
+                if (!el) throw new Error('المان چاپ یافت نشد');
+                const titles = {
+                    REQUEST: `درخواست خرید ${request.requestNumber}`,
+                    PROFORMA: `پیش‌فاکتور منتخب درخواست ${request.requestNumber}`,
+                    RECEIPT: `رسید انبار نهایی درخواست ${request.requestNumber}`
+                };
+                await shareElementToChat(
+                    el,
+                    `Purchase_${type}_${request.requestNumber}.jpg`,
+                    {
+                        defaultMessage: `📋 ${titles[type]} - کالا: ${request.itemName} (تعداد: ${request.quantity} ${request.unit})`,
+                        title: `ارسال ${titles[type]} به گفتگو`
+                    }
+                );
+            } catch (err) {
+                console.error(err);
+                alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
+            } finally {
+                setIsSharingDoc(false);
+                setSharingType(null);
+            }
+        }, 400);
+    };
+
+    const handleShareSpecificProforma = (p: PurchaseProforma) => {
+        setIsSharingDoc(true);
+        setSharingProforma(p);
+        setTimeout(async () => {
+            try {
+                const el = document.getElementById('chat-share-proforma-area');
+                if (!el) throw new Error('المان پیش‌فاکتور یافت نشد');
+                await shareElementToChat(
+                    el,
+                    `Proforma_${p.number || p.id}.jpg`,
+                    {
+                        defaultMessage: `پیش‌فاکتور خرید کالا - تامین‌کننده: ${p.vendorName} (${formatCurrency(p.totalAmount)} ریال) مربوط به درخواست ${request.requestNumber}`,
+                        title: 'ارسال پیش‌فاکتور به گفتگو'
+                    }
+                );
+            } catch (err) {
+                console.error(err);
+                alert('خطا در آماده‌سازی پیش‌فاکتور جهت ارسال به گفتگو');
+            } finally {
+                setIsSharingDoc(false);
+                setSharingProforma(null);
+            }
+        }, 400);
+    };
 
     const handleAction = async (nextStatus: PurchaseRequestStatus, extra: any = {}, actionLabel?: string) => {
         setActionLoading(true);
@@ -1746,6 +1805,13 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
                                                         >
                                                             <Printer size={14}/>
                                                         </button>
+                                                        <button 
+                                                            onClick={() => handleShareSpecificProforma(p)}
+                                                            className="p-2 border border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50" 
+                                                            title="ارسال پیش‌فاکتور به گفتگو"
+                                                        >
+                                                            <MessageSquare size={14}/>
+                                                        </button>
                                                         {(isAdmin || hasPurchasePerm('canSelectProforma')) && !p.isChosen && (
                                                             <button 
                                                                 onClick={() => {
@@ -1955,8 +2021,82 @@ const ViewRequestModal = ({ request, onClose, currentUser, onSuccess, settings, 
                                 )}
                             </div>
                          </div>
+
+                         <div className="relative group">
+                            <button 
+                                disabled={isSharingDoc}
+                                className="flex items-center gap-2 p-3 text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-sm font-black text-xs disabled:opacity-50"
+                                title="ارسال اسناد درخواست به گفتگو"
+                            >
+                                {isSharingDoc ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />} 
+                                ارسال به گفتگو
+                            </button>
+                            <div className="absolute bottom-full mb-2 left-0 w-52 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 hidden group-hover:block animate-in slide-in-from-bottom-2 fade-in z-50">
+                                <button 
+                                    onClick={() => handleSharePurchaseDoc('REQUEST')} 
+                                    className="w-full text-right p-2 hover:bg-emerald-50 text-gray-800 rounded-lg text-[10px] font-bold border-b mb-1 flex items-center justify-between"
+                                >
+                                    <span>ارسال فرم درخواست (A5)</span>
+                                    <MessageSquare size={12} className="text-emerald-600"/>
+                                </button>
+                                {request.proformas.find(p => p.isChosen) && (
+                                    <button 
+                                        onClick={() => handleSharePurchaseDoc('PROFORMA')} 
+                                        className="w-full text-right p-2 hover:bg-emerald-50 text-gray-800 rounded-lg text-[10px] font-bold border-b mb-1 flex items-center justify-between"
+                                    >
+                                        <span>ارسال پیش‌فاکتور منتخب</span>
+                                        <MessageSquare size={12} className="text-emerald-600"/>
+                                    </button>
+                                )}
+                                {request.warehouseReceiptNumber && (
+                                    <button 
+                                        onClick={() => handleSharePurchaseDoc('RECEIPT')} 
+                                        className="w-full text-right p-2 hover:bg-emerald-50 text-gray-800 rounded-lg text-[10px] font-bold flex items-center justify-between"
+                                    >
+                                        <span>ارسال رسید انبار نهایی</span>
+                                        <MessageSquare size={12} className="text-emerald-600"/>
+                                    </button>
+                                )}
+                            </div>
+                         </div>
                     </div>
                 </div>
+
+                {/* Offscreen Area for Capturing Chat Images */}
+                {sharingType && (
+                    <div 
+                        id="chat-share-purchase-doc-area" 
+                        style={{ 
+                            position: 'fixed', 
+                            left: '-9999px', 
+                            top: 0, 
+                            width: '850px', 
+                            backgroundColor: '#ffffff', 
+                            zIndex: -999,
+                            padding: '24px'
+                        }}
+                    >
+                        {sharingType === 'REQUEST' && <PrintPurchaseRequest request={request} />}
+                        {sharingType === 'PROFORMA' && <PrintPurchaseProforma request={request} proforma={request.proformas.find(p => p.isChosen) || request.proformas[0]} />}
+                        {sharingType === 'RECEIPT' && <PrintWarehouseReceipt request={request} />}
+                    </div>
+                )}
+                {sharingProforma && (
+                    <div 
+                        id="chat-share-proforma-area"
+                        style={{ 
+                            position: 'fixed', 
+                            left: '-9999px', 
+                            top: 0, 
+                            width: '850px', 
+                            backgroundColor: '#ffffff', 
+                            zIndex: -999,
+                            padding: '24px'
+                        }}
+                    >
+                        <PrintPurchaseProforma request={request} proforma={sharingProforma} />
+                    </div>
+                )}
 
                 {/* Print Sections */}
                 <div className="print-render-wrapper opacity-0 pointer-events-none absolute -z-50 overflow-hidden h-0 w-0" aria-hidden="true">
@@ -2435,7 +2575,22 @@ const PartsTab = ({ parts, currentUser, onPartUpdate, settings }: any) => {
                                     <div className="flex gap-1">
                                         <button onClick={() => setShowDataSheet(p)} className="p-2 bg-gray-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده شناسنامه فنی"><Info size={16}/></button>
                                         {p.pdfAttachment && (
-                                            <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                            <>
+                                                <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openSendToChat({
+                                                        fileUrl: p.pdfAttachment,
+                                                        fileName: `Catalog_${p.name}.pdf`,
+                                                        title: `ارسال کاتالوگ ${p.name} به گفتگو`,
+                                                        defaultMessage: `📄 کاتالوگ فنی و فایل پیوست کالا: ${p.name} (کد: ${p.id})`
+                                                    })}
+                                                    className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100" 
+                                                    title="ارسال کاتالوگ به گفتگو"
+                                                >
+                                                    <MessageSquare size={16}/>
+                                                </button>
+                                            </>
                                         )}
                                         <button onClick={() => { setEditingPart(p); setShowModal(true); }} className="p-2 bg-gray-50 text-emerald-600 rounded-lg hover:bg-emerald-100" title="ویرایش کالا"><Edit size={16}/></button>
                                         <button onClick={async () => { if(confirm('حذف شود؟')) { await deletePartMasterData(p.id); onPartUpdate(); } }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100" title="حذف کالا"><Trash2 size={16}/></button>
@@ -2496,7 +2651,22 @@ const PartsTab = ({ parts, currentUser, onPartUpdate, settings }: any) => {
                                         <div className="flex gap-1">
                                             <button onClick={() => setShowDataSheet(p)} className="p-2 bg-gray-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده شناسنامه فنی"><Info size={16}/></button>
                                             {p.pdfAttachment && (
-                                                <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                                <>
+                                                    <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => openSendToChat({
+                                                            fileUrl: p.pdfAttachment,
+                                                            fileName: `Catalog_${p.name}.pdf`,
+                                                            title: `ارسال کاتالوگ ${p.name} به گفتگو`,
+                                                            defaultMessage: `📄 کاتالوگ فنی و فایل پیوست کالا: ${p.name} (کد: ${p.id})`
+                                                        })}
+                                                        className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100" 
+                                                        title="ارسال کاتالوگ به گفتگو"
+                                                    >
+                                                        <MessageSquare size={16}/>
+                                                    </button>
+                                                </>
                                             )}
                                             {hasPurchasePerm('canManageWarehouse') && (
                                                 <>
@@ -2538,7 +2708,22 @@ const PartsTab = ({ parts, currentUser, onPartUpdate, settings }: any) => {
                                     <div className="flex gap-1">
                                         <button onClick={() => setShowDataSheet(p)} className="p-2 bg-gray-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده شناسنامه فنی"><Info size={16}/></button>
                                         {p.pdfAttachment && (
-                                            <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                            <>
+                                                <a href={p.pdfAttachment} target="_blank" rel="noopener noreferrer" className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100" title="مشاهده کاتالوگ/PDF"><FileText size={16}/></a>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openSendToChat({
+                                                        fileUrl: p.pdfAttachment,
+                                                        fileName: `Catalog_${p.name}.pdf`,
+                                                        title: `ارسال کاتالوگ ${p.name} به گفتگو`,
+                                                        defaultMessage: `📄 کاتالوگ فنی و فایل پیوست کالا: ${p.name} (کد: ${p.id})`
+                                                    })}
+                                                    className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100" 
+                                                    title="ارسال کاتالوگ به گفتگو"
+                                                >
+                                                    <MessageSquare size={16}/>
+                                                </button>
+                                            </>
                                         )}
                                         {hasPurchasePerm('canManageWarehouse') && (
                                             <>
@@ -2561,6 +2746,28 @@ const PartsTab = ({ parts, currentUser, onPartUpdate, settings }: any) => {
 };
 
 const DataSheetModal = ({ part, onClose }: { part: PartMasterData, onClose: () => void }) => {
+    const [isSharing, setIsSharing] = useState(false);
+    const handleSendToChat = async () => {
+        setIsSharing(true);
+        try {
+            const el = document.getElementById('datasheet-print-area');
+            if (!el) throw new Error('المان چاپ یافت نشد');
+            await shareElementToChat(
+                el,
+                `DataSheet_${part.id}.jpg`,
+                {
+                    defaultMessage: `📋 شناسنامه فنی کالا: ${part.name} - گروه: ${part.category || 'عمومی'}`,
+                    title: 'ارسال شناسنامه کالا به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     return createPortal(
         <div className="fixed inset-0 z-[100000008] flex items-start pt-16 md:pt-24 pb-32 overflow-y-auto overflow-x-hidden justify-center p-4 bg-black/70 backdrop-blur-md">
             <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden shadow-2xl border border-white/20 animate-in fade-in zoom-in h-[90vh] flex flex-col">
@@ -2583,6 +2790,15 @@ const DataSheetModal = ({ part, onClose }: { part: PartMasterData, onClose: () =
 
                 <div className="p-6 border-t flex justify-end gap-3 bg-white">
                     <button onClick={onClose} className="px-6 py-3 border-2 border-gray-200 rounded-2xl font-bold text-gray-500">بستن</button>
+                    <button 
+                        onClick={handleSendToChat} 
+                        disabled={isSharing}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-emerald-100 transition-colors cursor-pointer"
+                        title="ارسال شناسنامه کالا به گفتگو"
+                    >
+                        {isSharing ? <Loader2 size={20} className="animate-spin" /> : <MessageSquare size={20}/>}
+                        ارسال به گفتگو
+                    </button>
                     <button onClick={() => window.print()} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-indigo-100">
                         <Printer size={20}/> چاپ شناسنامه
                     </button>
@@ -2777,6 +2993,29 @@ const KardexTab = ({ parts, selectedPart, setSelectedPart, kardexEntries, loadKa
     const [stocktakeDesc, setStocktakeDesc] = useState('انبارگردانی میان‌دوره');
     const [scanBuffer, setScanBuffer] = useState('');
     const [filterDiscrepancy, setFilterDiscrepancy] = useState(false);
+    const [isSharingKardex, setIsSharingKardex] = useState(false);
+
+    const handleShareKardexToChat = async () => {
+        if (!selectedPart) return;
+        setIsSharingKardex(true);
+        try {
+            const el = document.getElementById('part-kardex-report-area');
+            if (!el) throw new Error('المان گزارش کاردکس یافت نشد');
+            await shareElementToChat(
+                el,
+                `Kardex_${selectedPart.name.replace(/\s+/g, '_')}.jpg`,
+                {
+                    defaultMessage: `📊 گردش کاردکس کالا: ${selectedPart.name} - موجودی فعلی: ${selectedPart.currentStock} ${selectedPart.unit}`,
+                    title: 'ارسال کاردکس کالا به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش جهت ارسال به گفتگو');
+        } finally {
+            setIsSharingKardex(false);
+        }
+    };
 
     // Global barcode listener/quick action state
     const [generalScanInput, setGeneralScanInput] = useState('');
@@ -3202,7 +3441,7 @@ const KardexTab = ({ parts, selectedPart, setSelectedPart, kardexEntries, loadKa
 
             {/* MAIN KARDEX TRANSACTIONS REPORT */}
             {selectedPart ? (
-                <div className="animate-fade-in space-y-4">
+                <div id="part-kardex-report-area" className="animate-fade-in space-y-4 bg-white p-4 rounded-3xl border border-gray-100">
                     {/* Part Details & Visual Barcode Header */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <div className="lg:col-span-2 bg-gradient-to-r from-indigo-500 to-indigo-700 text-white p-6 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -3215,12 +3454,21 @@ const KardexTab = ({ parts, selectedPart, setSelectedPart, kardexEntries, loadKa
                                     <span>مشخصات: {selectedPart.dimensions || 'فاقد ابعاد ثبت شده'}</span>
                                 </p>
                             </div>
-                            <div className="flex gap-4">
+                            <div className="flex flex-wrap gap-2">
                                 <button 
                                     onClick={exportKardexToExcel}
                                     className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl px-4 py-2.5 text-xs font-black transition flex items-center gap-1.5"
                                 >
                                     <FileSpreadsheet size={16}/> خروجی اکسل کاردکس
+                                </button>
+                                <button 
+                                    onClick={handleShareKardexToChat}
+                                    disabled={isSharingKardex}
+                                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 border border-emerald-500 text-white rounded-xl px-4 py-2.5 text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                    title="ارسال گردش کاردکس کالا به گفتگو"
+                                >
+                                    {isSharingKardex ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16}/>}
+                                    ارسال به گفتگو
                                 </button>
                             </div>
                         </div>

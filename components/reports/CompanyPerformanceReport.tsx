@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord } from '../../types';
 import { formatNumberString, deformatNumberString, getCurrentShamsiDate } from '../../constants';
-import { FileSpreadsheet, Printer, FileDown, RefreshCw, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Printer, FileDown, RefreshCw, Loader2, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator'; 
+import { shareElementToChat } from '../../services/chatShareService'; 
 
 interface Props {
     records: TradeRecord[];
@@ -166,6 +167,25 @@ const CompanyPerformanceReport: React.FC<Props> = ({ records }) => {
         });
     };
 
+    const handleSendToChat = async () => {
+        setIsGeneratingPdf(true);
+        try {
+            await shareElementToChat(
+                elementId,
+                `Company_Performance_${selectedYear}.jpg`,
+                {
+                    defaultMessage: `گزارش خلاصه عملکرد شرکت‌ها در سال ${selectedYear} (جمع کل خرید: $${Math.round(summaryByCompany.totalAll).toLocaleString()})`,
+                    title: 'ارسال خلاصه عملکرد شرکت‌ها به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش عملکرد جهت ارسال به گفتگو');
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
     const handleExportExcel = () => {
         const headers = ["نام شرکت", "جمع کل خرید (دلار)", "میانگین هفتگی (دلار)"];
         const rows = [headers.join(",")];
@@ -254,6 +274,7 @@ const CompanyPerformanceReport: React.FC<Props> = ({ records }) => {
                         </button>
                     </div>
                     <div className="flex gap-2">
+                        <button onClick={handleSendToChat} disabled={isGeneratingPdf} className="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 flex items-center gap-1 text-xs cursor-pointer" title="ارسال مستقیم گزارش عملکرد به گفتگوی سازمانی">{isGeneratingPdf ? <Loader2 size={14} className="animate-spin"/> : <MessageSquare size={14}/>} ارسال به گفتگو</button>
                         <button onClick={handleExportExcel} className="bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 flex items-center gap-1 text-xs"><FileSpreadsheet size={14}/> اکسل</button>
                         <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 flex items-center gap-1 text-xs">{isGeneratingPdf ? <Loader2 size={14} className="animate-spin"/> : <FileDown size={14}/>} PDF</button>
                         <button onClick={handlePrint} className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 flex items-center gap-1 text-xs"><Printer size={14}/> چاپ</button>

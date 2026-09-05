@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings } from '../../types';
 import { formatNumberString, formatCurrency } from '../../constants';
-import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface PrintProformaProps {
   record: TradeRecord;
@@ -188,6 +189,25 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
     });
   };
 
+  const handleSendToChat = async () => {
+    setProcessing(true);
+    try {
+      await shareElementToChat(
+        'proforma-content',
+        `Proforma_${proformaNum}.jpg`,
+        {
+          defaultMessage: `پیش‌فاکتور / فاکتور تجاری شماره ${proformaNum} - شرکت: ${record.company || '---'} (مبلغ: ${formatCurrency(totalAmount)} ${currencyStr})`,
+          title: 'ارسال پیش‌فاکتور به گفتگو'
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert('خطا در آماده‌سازی پیش‌فاکتور جهت ارسال به گفتگو');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const content = (
     <div id="proforma-content" className="printable-content glass-panel p-8 text-black text-right dir-rtl shadow-2xl relative" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', margin: '0 auto', backgroundColor: '#ffffff' }}>
       {/* Header */}
@@ -320,6 +340,16 @@ const PrintProforma: React.FC<PrintProformaProps> = ({ record, settings, onClose
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
             <span>دانلود PDF</span>

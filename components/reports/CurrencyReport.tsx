@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, TradeStage } from '../../types';
 import { formatNumberString, deformatNumberString, parsePersianDate, getCurrentShamsiDate, formatCurrency } from '../../constants';
-import { FileSpreadsheet, Printer, FileDown, Filter, RefreshCw, X, Loader2, Eye, LayoutGrid, Smartphone, ChevronLeft, ChevronRight, CheckCircle2, Clock, Info, HelpCircle, Activity, DollarSign, Building2, Coins, ArrowLeftRight } from 'lucide-react';
+import { FileSpreadsheet, Printer, FileDown, Filter, RefreshCw, X, Loader2, Eye, LayoutGrid, Smartphone, ChevronLeft, ChevronRight, CheckCircle2, Clock, Info, HelpCircle, Activity, DollarSign, Building2, Coins, ArrowLeftRight, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { shareElementToChat } from '../../services/chatShareService';
 // from '../../utils/pdfGenerator'; 
 
 interface CurrencyReportProps {
@@ -220,6 +221,25 @@ const CurrencyReport: React.FC<CurrencyReportProps> = ({ records, onSelectTranch
         });
     };
 
+    const handleSendToChat = async () => {
+        setIsGeneratingPdf(true);
+        try {
+            await shareElementToChat(
+                elementId,
+                `Currency_Report_${selectedYear}.jpg`,
+                {
+                    defaultMessage: `گزارش جامع ارزی سال ${selectedYear} (مجموع ارز خریداری شده: ${formatUSD(tableTotals.usd)} دلار - تحویل شده: ${formatUSD(tableTotals.delivered)} دلار)`,
+                    title: 'ارسال گزارش ارزی به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش ارزی جهت ارسال به گفتگو');
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
     const handleExportExcel = () => {
         const headers = ["ردیف", "شرح کالا", "شماره سفارش (پرونده)", "شماره ثبت سفارش", "نام شرکت", "دلار آمریکا (معادل)", "مقدار ارز", "نوع ارز", "تاریخ خرید ارز", "ارز خریداری شده (ریال)", "محل ارسال (صرافی)", "کارگزار", "ارز موجود نزد هر بانک", "مقدار تحویل شده", "وضعیت", "مبلغ عودت", "تاریخ عودت"];
         const rows = [headers.join(",")];
@@ -404,6 +424,15 @@ const CurrencyReport: React.FC<CurrencyReportProps> = ({ records, onSelectTranch
                             className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-heavy px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all shadow-sm"
                         >
                             <FileSpreadsheet size={15}/> خروجی اکسل
+                        </button>
+                        <button 
+                            onClick={handleSendToChat} 
+                            disabled={isGeneratingPdf} 
+                            className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-heavy px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all shadow-sm cursor-pointer"
+                            title="ارسال مستقیم گزارش ارزی به گفتگوی سازمانی"
+                        >
+                            {isGeneratingPdf ? <Loader2 size={15} className="animate-spin"/> : <MessageSquare size={15}/>} 
+                            ارسال به گفتگو
                         </button>
                         <button 
                             onClick={handleDownloadPDF} 

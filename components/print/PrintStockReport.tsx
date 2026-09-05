@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { X, Printer, FileDown, Loader2, ZoomIn, ZoomOut, RotateCcw, Building2, Eye, LayoutGrid, ListFilter } from 'lucide-react';
+import { X, Printer, FileDown, Loader2, ZoomIn, ZoomOut, RotateCcw, Building2, Eye, LayoutGrid, ListFilter, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator'; 
 import { formatNumberString } from '../../constants';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface StockGroup {
   company: string;
@@ -216,6 +217,25 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
       onComplete: () => setProcessing(false),
       onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
     });
+  };
+
+  const handleSendToChat = async () => {
+    setProcessing(true);
+    try {
+      await shareElementToChat(
+        'stock-report-content',
+        `Stock_Report_${new Date().toISOString().slice(0, 10)}.jpg`,
+        {
+          defaultMessage: `گزارش موجودی انبار و کالاها مورخ ${new Date().toLocaleDateString('fa-IR')}`,
+          title: 'ارسال گزارش موجودی انبار به گفتگو'
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert('خطا در آماده‌سازی گزارش موجودی انبار جهت ارسال به گفتگو');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handlePrint = () => {
@@ -642,6 +662,16 @@ const PrintStockReport: React.FC<PrintStockReportProps> = ({ data, onClose }) =>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={15} className="animate-spin"/> : <MessageSquare size={15}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button 
             onClick={handleDownloadPDF} 
             disabled={processing} 

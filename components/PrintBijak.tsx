@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WarehouseTransaction, SystemSettings, Contact } from '../types';
 import { formatCurrency, formatDate } from '../constants';
-import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, Share2, Search, Users, Smartphone, FileDown, CheckCircle, XCircle, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
 import html2canvas from 'html2canvas';
+import { shareElementToChat } from '../services/chatShareService';
 
 interface PrintBijakProps {
   tx: WarehouseTransaction;
@@ -272,6 +273,27 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
       });
   };
 
+  const handleSendToChat = async () => {
+      setProcessing(true);
+      try {
+          const el = document.getElementById(containerId);
+          if (!el) throw new Error('المان چاپ بیجک پیدا نشد');
+          await shareElementToChat(
+              el,
+              `Bijak_${tx.number}.jpg`,
+              {
+                  defaultMessage: `حواله/بیجک خروج انبار شماره ${tx.number} - تحویل گیرنده: ${tx.recipientName || tx.driverName || '---'} (شرکت: ${tx.company || '---'})`,
+                  title: 'ارسال بیجک به گفتگو'
+              }
+          );
+      } catch (e) {
+          console.error(e);
+          alert('خطا در آماده‌سازی بیجک جهت ارسال به گفتگو');
+      } finally {
+          setProcessing(false);
+      }
+  };
+
   const generateAndSend = async (target: string, shouldHidePrice: boolean, captionPrefix: string, platform?: 'whatsapp' | 'telegram' | 'bale') => {
       if (!target) { alert("شماره مخاطب/مدیر برای این شرکت تنظیم نشده است. لطفا در تنظیمات انبار بررسی کنید."); return; }
       setProcessing(true);
@@ -488,6 +510,11 @@ const PrintBijak: React.FC<PrintBijakProps> = ({ tx, onClose, settings, embed, f
               )}
             </div>
           )}
+
+          <button onClick={handleSendToChat} disabled={processing} className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer" title="ارسال مستقیم بیجک به گفتگوی سازمانی">
+            {processing ? <Loader2 size={15} className="animate-spin"/> : <MessageSquare size={15}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
 
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={15} className="animate-spin"/> : <FileDown size={15}/>}

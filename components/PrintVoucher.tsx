@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PaymentOrder, OrderStatus, PaymentMethod, SystemSettings } from '../types';
 import { formatCurrency, formatDate, getStatusLabel, numberToPersianWords, formatNumberString, getShamsiDateFromIso } from '../constants';
-import { X, Printer, FileDown, Loader2, CheckCircle, XCircle, Pencil, Share2, Users, Search, RotateCcw, AlertTriangle, FileText, LayoutTemplate, EyeOff, Eye, Settings2, ChevronLeft, ChevronRight, Calendar, MapPin, Layers } from 'lucide-react';
+import { X, Printer, FileDown, Loader2, CheckCircle, XCircle, Pencil, Share2, Users, Search, RotateCcw, AlertTriangle, FileText, LayoutTemplate, EyeOff, Eye, Settings2, ChevronLeft, ChevronRight, Calendar, MapPin, Layers, MessageSquare } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { generatePdf } from '../utils/pdfGenerator'; 
 import html2canvas from 'html2canvas';
+import { shareElementToChat } from '../services/chatShareService';
 
 interface PrintVoucherProps {
   order: PaymentOrder;
@@ -254,6 +255,27 @@ const PrintVoucher: React.FC<PrintVoucherProps> = ({ order, onClose, settings, o
       await generatePdf(opts);
   };
 
+  const handleSendToChat = async () => {
+      setProcessing(true);
+      try {
+          const el = document.getElementById(printAreaId);
+          if (!el) throw new Error('سند یافت نشد');
+          await shareElementToChat(
+              el,
+              `Voucher_${order.trackingNumber || 'order'}.jpg`,
+              {
+                  defaultMessage: `سند پرداخت شماره ${order.trackingNumber || ''} - در وجه ${order.payee} (${formatCurrency(order.totalAmount)})`,
+                  title: 'ارسال سند پرداخت به گفتگو'
+              }
+          );
+      } catch (e) {
+          console.error(e);
+          alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
+      } finally {
+          setProcessing(false);
+      }
+  };
+
   const handleShare = async (targetId: string) => {
       if (!targetId || !sharePlatform) return;
       setProcessing(true);
@@ -457,6 +479,7 @@ const PrintVoucher: React.FC<PrintVoucherProps> = ({ order, onClose, settings, o
              )}
              
              <div className="flex flex-wrap items-center justify-center gap-2">
+                 <button onClick={handleSendToChat} disabled={processing} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-[10px] font-bold transition-colors shadow-sm cursor-pointer" title="ارسال مستقیم سند به گفتگوی سازمانی"><MessageSquare size={12} /> ارسال به گفتگو</button>
                  <button onClick={handleDownloadPDF} disabled={processing} className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-3 py-1 rounded-lg flex items-center gap-1 text-[10px] font-bold transition-colors">{processing ? <Loader2 size={12} className="animate-spin"/> : <FileDown size={12} />} PDF</button>
                  <button onClick={handlePrint} disabled={processing} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-[10px] font-bold transition-colors shadow-sm">{processing ? <Loader2 size={12} className="animate-spin"/> : <Printer size={12} />} چاپ</button>
                  <div className="h-4 w-[1px] bg-gray-200 mx-1"></div>

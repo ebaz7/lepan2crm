@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings, ShippingDocument } from '../../types';
 import { formatNumberString, formatCurrency } from '../../constants';
-import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface PrintShippingDocProps {
   record: TradeRecord;
@@ -181,6 +182,25 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
       onComplete: () => setProcessing(false),
       onError: () => { alert('خطا در دانلود PDF'); setProcessing(false); }
     });
+  };
+
+  const handleSendToChat = async () => {
+    setProcessing(true);
+    try {
+      await shareElementToChat(
+        'shipping-doc-content',
+        `${doc.type.replace(/\s+/g, '_')}_${doc.documentNumber}.jpg`,
+        {
+          defaultMessage: `سند حمل (${doc.type}) شماره ${doc.documentNumber} - پرونده: ${record.registrationNumber || record.orderNumber || record.fileNumber || '---'}`,
+          title: `ارسال سند حمل (${doc.type}) به گفتگو`
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const currencyStr = doc.currency || record.mainCurrency || 'USD';
@@ -618,6 +638,16 @@ const PrintShippingDoc: React.FC<PrintShippingDocProps> = ({ record, doc, settin
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
             <span>دانلود PDF</span>

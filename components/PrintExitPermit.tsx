@@ -3,13 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ExitPermit, ExitPermitStatus, SystemSettings, UserRole, SalesContact, User } from '../types';
 import { formatDate, formatCurrency, formatIranianPlate } from '../constants';
-import { X, Printer, Clock, MapPin, Package, Truck, CheckCircle, XCircle, Share2, Edit, Loader2, Users, Search, FileDown, Minimize2, Maximize2, ZoomIn, ZoomOut, Paperclip, Eye, Image as ImageIcon } from 'lucide-react';
+import { X, Printer, Clock, MapPin, Package, Truck, CheckCircle, XCircle, Share2, Edit, Loader2, Users, Search, FileDown, Minimize2, Maximize2, ZoomIn, ZoomOut, Paperclip, Eye, Image as ImageIcon, MessageSquare } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator'; 
 import html2canvas from 'html2canvas';
 import SayanSalesRemittanceDoc from './SayanSalesRemittanceDoc';
 import { FileViewerModal } from './FileViewerModal';
+import { shareElementToChat } from '../services/chatShareService';
 
 interface Props {
   permit: ExitPermit;
@@ -234,6 +235,27 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
           onComplete: () => setProcessing(false),
           onError: () => { alert('خطا در ایجاد PDF'); setProcessing(false); }
       });
+  };
+
+  const handleSendToChat = async () => {
+      setProcessing(true);
+      try {
+          const el = document.getElementById(containerId);
+          if (!el) throw new Error('المان چاپ پیدا نشد');
+          await shareElementToChat(
+              el,
+              `Permit_${permit.permitNumber}.jpg`,
+              {
+                  defaultMessage: `مجوز خروج کالا شماره ${permit.permitNumber} - تحویل گیرنده: ${permit.recipientName || (permit.destinations && permit.destinations[0]?.recipientName) || 'مشتری'} (راننده: ${permit.driverName || '---'})`,
+                  title: 'ارسال مجوز خروج به گفتگو'
+              }
+          );
+      } catch (e) {
+          console.error(e);
+          alert('خطا در آماده‌سازی مجوز خروج جهت ارسال به گفتگو');
+      } finally {
+          setProcessing(false);
+      }
   };
 
   const handleShare = async (targetId: string) => {
@@ -787,6 +809,7 @@ export default function PrintExitPermit({ permit, onClose, onApprove, onReject, 
                 )}
                 
                 <div className="flex items-center gap-2">
+                    <button onClick={handleSendToChat} disabled={processing} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[12px] font-black hover:bg-emerald-700 flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-emerald-500/20 cursor-pointer" title="ارسال مستقیم مجوز خروج به گفتگوی سازمانی"><MessageSquare size={14}/><span>ارسال به گفتگو</span></button>
                     <button onClick={handleDownloadPDF} disabled={processing} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-[12px] font-black hover:bg-gray-200 flex items-center gap-2 transition-all active:scale-95">{processing ? <Loader2 size={14} className="animate-spin"/> : <FileDown size={14}/>} دریافت PDF</button>
                     <button onClick={handlePrint} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-[12px] font-black hover:bg-blue-700 flex items-center gap-2 shadow-md shadow-blue-500/20 transition-all active:scale-95"><Printer size={14}/> چاپ</button>
                     {onEdit && <button onClick={onEdit} className="bg-amber-50 text-amber-600 px-4 py-2 rounded-lg text-[12px] font-black hover:bg-amber-100 flex items-center gap-2 border border-amber-200 transition-all active:scale-95"><Edit size={14}/> اصلاح</button>}

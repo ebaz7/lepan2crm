@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings } from '../../types';
 import { formatNumberString } from '../../constants';
-import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface Props {
   record: TradeRecord;
@@ -209,6 +210,25 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
       });
   };
 
+  const handleSendToChat = async () => {
+      setProcessing(true);
+      try {
+          await shareElementToChat(
+              elementId,
+              `Clearance_Declaration_${regNumber}.jpg`,
+              {
+                  defaultMessage: `اظهارنامه ترخیص گمرکی شماره کوتاژ ${regNumber} - کالا: ${record.goodsName || '---'} (شرکت: ${record.company || '---'})`,
+                  title: 'ارسال اظهارنامه ترخیص به گفتگو'
+              }
+          );
+      } catch (e) {
+          console.error(e);
+          alert('خطا در آماده‌سازی اظهارنامه جهت ارسال به گفتگو');
+      } finally {
+          setProcessing(false);
+      }
+  };
+
   const handlePrint = () => {
       window.print();
   };
@@ -392,6 +412,16 @@ const PrintClearanceDeclaration: React.FC<Props> = ({ record, settings, onClose,
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
             <span>دانلود PDF</span>

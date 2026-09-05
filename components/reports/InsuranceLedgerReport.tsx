@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TradeRecord, SystemSettings } from '../../types';
 import { formatCurrency } from '../../constants';
-import { Printer, FileDown, Search, Loader2 } from 'lucide-react';
+import { Printer, FileDown, Search, Loader2, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator'; 
+import { shareElementToChat } from '../../services/chatShareService'; 
 
 interface Props {
     records: TradeRecord[];
@@ -147,6 +148,26 @@ const InsuranceLedgerReport: React.FC<Props> = ({ records, settings }) => {
         });
     };
 
+    const handleSendToChat = async () => {
+        const lastBalance = ledgerData.length > 0 ? (ledgerData[ledgerData.length - 1]?.balance || 0) : 0;
+        setIsGeneratingPdf(true);
+        try {
+            await shareElementToChat(
+                elementId,
+                `Insurance_Ledger_${selectedInsCompany || 'Company'}.jpg`,
+                {
+                    defaultMessage: `صورتحساب شرکت بیمه: ${selectedInsCompany || 'نامشخص'} (مانده قابل پرداخت: ${formatCurrency(Math.abs(lastBalance))} ریال)`,
+                    title: 'ارسال صورتحساب بیمه به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی صورتحساب بیمه جهت ارسال به گفتگو');
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
     const content = (
         <div id={elementId} className="printable-content glass-panel p-8 shadow-2xl relative text-black" 
             style={{ 
@@ -214,6 +235,7 @@ const InsuranceLedgerReport: React.FC<Props> = ({ records, settings }) => {
                     <input className="w-full pl-4 pr-10 py-2 border rounded-lg text-sm" placeholder="جستجو (پرونده...)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
                 </div>
                 <div className="flex gap-2">
+                    <button onClick={handleSendToChat} disabled={isGeneratingPdf} className="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700 flex items-center gap-1 text-xs cursor-pointer" title="ارسال مستقیم صورتحساب به گفتگوی سازمانی">{isGeneratingPdf ? <Loader2 size={14} className="animate-spin"/> : <MessageSquare size={14}/>} ارسال به گفتگو</button>
                     <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 flex items-center gap-1 text-xs">{isGeneratingPdf ? <Loader2 size={14} className="animate-spin"/> : <FileDown size={14}/>} PDF</button>
                     <button onClick={handlePrint} className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 flex items-center gap-1 text-xs"><Printer size={14}/> چاپ</button>
                 </div>

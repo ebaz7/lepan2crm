@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { FileText, Image as ImageIcon, Download, Eye, Trash2, Paperclip } from 'lucide-react';
+import { FileText, Image as ImageIcon, Download, Eye, Trash2, Paperclip, MessageSquare } from 'lucide-react';
 import { resolveImageUrl } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
+import { openSendToChat } from '../services/chatShareService';
 import { FileViewerModal } from './FileViewerModal';
 
 export interface AttachmentItem {
@@ -83,6 +84,21 @@ export const AttachmentBadge: React.FC<AttachmentBadgeProps> = ({
 
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openSendToChat({
+                  fileUrl,
+                  fileName,
+                  title: 'ارسال پیوست به گفتگو',
+                  defaultMessage: `📎 فایل پیوست: ${fileName}`
+                });
+              }}
+              className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl transition-colors cursor-pointer"
+              title="ارسال مستقیم به گفتگو"
+            >
+              <MessageSquare size={16} />
+            </button>
+            <button
               onClick={handleDownload}
               className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-colors"
               title="دانلود فایل"
@@ -112,6 +128,21 @@ export const AttachmentBadge: React.FC<AttachmentBadgeProps> = ({
             {fileName}
           </span>
           <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openSendToChat({
+                fileUrl,
+                fileName,
+                title: 'ارسال پیوست به گفتگو',
+                defaultMessage: `📎 فایل پیوست: ${fileName}`
+              });
+            }}
+            className="p-0.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full transition-colors mr-0.5 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            <MessageSquare size={12} />
+          </button>
+          <button
             onClick={handleDownload}
             className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors mr-0.5"
             title="دانلود فایل"
@@ -140,6 +171,21 @@ export const AttachmentBadge: React.FC<AttachmentBadgeProps> = ({
             {fileName}
           </span>
           <div className="flex items-center gap-0.5 border-r border-blue-200 dark:border-blue-800 pr-1 mr-1" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openSendToChat({
+                  fileUrl,
+                  fileName,
+                  title: 'ارسال پیوست به گفتگو',
+                  defaultMessage: `📎 فایل پیوست: ${fileName}`
+                });
+              }}
+              className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
+              title="ارسال مستقیم به گفتگو"
+            >
+              <MessageSquare size={12} />
+            </button>
             <button
               onClick={handleDownload}
               className="p-1 hover:bg-blue-200/60 dark:hover:bg-blue-800/60 text-blue-700 dark:text-blue-300 rounded-lg transition-colors"

@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { TradeRecord, TradeStage } from '../types';
 import { formatCurrency, formatNumberString, deformatNumberString, parsePersianDate } from '../constants';
-import { FileSpreadsheet, Printer, FileDown, Share2, Loader2, Search, Filter, Settings, X, RefreshCw } from 'lucide-react';
+import { FileSpreadsheet, Printer, FileDown, Share2, Loader2, Search, Filter, Settings, X, RefreshCw, MessageSquare } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import PrintAllocationReport from './print/PrintAllocationReport';
 import html2canvas from 'html2canvas';
+import { shareElementToChat } from '../services/chatShareService';
 
 interface AllocationReportProps {
     records: TradeRecord[];
@@ -327,6 +328,25 @@ const AllocationReport: React.FC<AllocationReportProps> = ({ records, onUpdateRe
         } catch (e: any) { alert(`خطا: ${e.message}`); } finally { setSendingReport(false); }
     };
 
+    const handleSendToChat = async () => {
+        setSendingReport(true);
+        try {
+            await shareElementToChat(
+                'allocation-report-table-print-area',
+                `Allocation_Report_${new Date().toISOString().slice(0, 10)}.jpg`,
+                {
+                    defaultMessage: `📋 گزارش جامع تخصیص و صف ارزی مورخ ${new Date().toLocaleDateString('fa-IR')}\n• تخصیص یافته: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalAllocated)}\n• در صف: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalQueue)}`,
+                    title: 'ارسال گزارش تخصیص ارز به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش تخصیص جهت ارسال به گفتگو');
+        } finally {
+            setSendingReport(false);
+        }
+    };
+
     return (
         <div className="glass-panel p-4 rounded-lg shadow-sm border overflow-x-auto">
             {/* Show Print Component Overlay if requested */}
@@ -363,7 +383,8 @@ const AllocationReport: React.FC<AllocationReportProps> = ({ records, onUpdateRe
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 w-full justify-end">
+                    <div className="flex gap-2 w-full justify-end flex-wrap">
+                        <button onClick={handleSendToChat} disabled={sendingReport} className="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 flex items-center gap-1 text-xs cursor-pointer" title="ارسال مستقیم گزارش تخصیص ارز به گفتگو">{sendingReport ? <Loader2 size={14} className="animate-spin"/> : <MessageSquare size={14}/>} ارسال به گفتگو</button>
                         <button onClick={handleExport} className="bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 flex items-center gap-1 text-xs"><FileSpreadsheet size={14}/> اکسل</button>
                         <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 flex items-center gap-1 text-xs">{isGeneratingPdf ? <Loader2 size={14} className="animate-spin"/> : <FileDown size={14}/>} PDF</button>
                         <button onClick={handleShareWhatsApp} disabled={sendingReport} className="bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 flex items-center gap-1 text-xs">{sendingReport ? <Loader2 size={14} className="animate-spin"/> : <Share2 size={14}/>} واتساپ</button>

@@ -3,12 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, SecurityLog, PersonnelDelay, SecurityIncident, SecurityStatus, UserRole, DailySecurityMeta, SystemSettings } from '../types';
 import { getSecurityLogs, saveSecurityLog, updateSecurityLog, deleteSecurityLog, getPersonnelDelays, savePersonnelDelay, updatePersonnelDelay, deletePersonnelDelay, getSecurityIncidents, saveSecurityIncident, updateSecurityIncident, deleteSecurityIncident, getSettings, saveSettings } from '../services/storageService';
 import { generateUUID, getCurrentShamsiDate, jalaliToGregorian, formatDate, getShamsiDateFromIso } from '../constants';
-import { Shield, Plus, CheckCircle, XCircle, Clock, Truck, AlertTriangle, UserCheck, Calendar, Printer, Archive, FileSymlink, Edit, Trash2, Eye, FileText, CheckSquare, User as UserIcon, ListChecks, Activity, FileDown, Loader2, Pencil, ChevronDown, ChevronUp, FolderOpen, Folder, Save, X, Camera, Settings } from 'lucide-react';
+import { Shield, Plus, CheckCircle, XCircle, Clock, Truck, AlertTriangle, UserCheck, Calendar, Printer, Archive, FileSymlink, Edit, Trash2, Eye, FileText, CheckSquare, User as UserIcon, ListChecks, Activity, FileDown, Loader2, Pencil, ChevronDown, ChevronUp, FolderOpen, Folder, Save, X, Camera, Settings, MessageSquare } from 'lucide-react';
 import { PrintSecurityDailyLog, PrintPersonnelDelay, PrintIncidentReport } from './security/SecurityPrints';
 import { IranianPlateInput, IranianPlateDisplay } from './IranianPlate';
 import { getRolePermissions } from '../services/authService';
 import { generatePdf } from '../utils/pdfGenerator';
 import { isInFinancialYear } from '../utils/dateUtils';
+import { shareElementToChat } from '../services/chatShareService';
 
 interface Props {
     currentUser: User;
@@ -898,6 +899,29 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
             onError: () => { alert("خطا در ایجاد PDF"); setIsGeneratingPdf(false); }
         });
     };
+
+    const handleSendToChat = async () => {
+        setIsGeneratingPdf(true);
+        const elementId = 'printable-area-view';
+        const titleDesc = printTarget?.type === 'daily_log' ? 'گزارش روزانه انتظامات' :
+            (printTarget?.type === 'daily_delay' ? 'گزارش تاخیر پرسنل' :
+            (printTarget?.type === 'incident' ? 'گزارش حوادث و وقایع' : 'گزارش کارتابل انتظامات'));
+        try {
+            await shareElementToChat(
+                elementId,
+                `Security_Report_${new Date().toISOString().slice(0, 10)}.jpg`,
+                {
+                    defaultMessage: `${titleDesc} - تاریخ: ${getCurrentShamsiDate()}`,
+                    title: 'ارسال گزارش انتظامات به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش انتظامات جهت ارسال به گفتگو');
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
     
     // --- SPECIAL HANDLERS FOR DAILY SUBMIT (Guard/Supervisor) ---
     const handleSupervisorDailySubmit = async () => {
@@ -975,6 +999,9 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                     <div className="w-full max-w-7xl flex items-center justify-between bg-gray-900/90 text-white p-3 rounded-2xl shadow-xl mb-2 no-print shrink-0 border border-white/10">
                         <span className="font-black text-sm md:text-base px-2">پیش‌نمایش گزارش انتظامات</span>
                         <div className="flex gap-2">
+                            <button onClick={handleSendToChat} disabled={isGeneratingPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow transition-all active:scale-95 cursor-pointer" title="ارسال مستقیم گزارش انتظامات به گفتگو">
+                                {isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>} ارسال به گفتگو
+                            </button>
                             <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow transition-all active:scale-95"><Printer size={16}/> چاپ</button>
                             <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow transition-all active:scale-95">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
                             <button onClick={() => setShowPrintModal(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95">بستن</button>
@@ -1000,6 +1027,9 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                     <div className="w-full max-w-7xl flex items-center justify-between bg-gray-900/90 text-white p-3 rounded-2xl shadow-xl mb-2 no-print shrink-0 border border-white/10">
                         <div className="font-black text-sm md:text-base px-2">{viewCartableItem.type === 'daily_approval' || viewCartableItem.type === 'daily_archive' ? `گزارش روزانه - ${formatDate(viewCartableItem.date)}` : 'بررسی'}</div>
                         <div className="flex gap-2 items-center">
+                             <button onClick={handleSendToChat} disabled={isGeneratingPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer" title="ارسال مستقیم گزارش به گفتگو">
+                                 {isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>} ارسال به گفتگو
+                             </button>
                              <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition-all active:scale-95"><Printer size={16}/> چاپ</button>
                              <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition-all active:scale-95">{isGeneratingPdf ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} دانلود PDF</button>
                              {/* Only show Approve/Reject if it's an actionable item */}

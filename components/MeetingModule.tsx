@@ -10,6 +10,7 @@ import { apiCall } from '../services/apiService';
 import { getUsers } from '../services/authService';
 import { downloadAndOpenFile } from '../services/fileService';
 import { FileViewerModal } from './FileViewerModal';
+import { openSendToChat } from '../services/chatShareService';
 
 interface Props {
     currentUser: User;
@@ -849,6 +850,21 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                                         >
                                                             <Download size={13} />
                                                         </button>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openSendToChat({
+                                                                    fileUrl: att.url,
+                                                                    fileName: att.fileName,
+                                                                    title: `ارسال تصویر پیوست جلسه به گفتگو`,
+                                                                    defaultMessage: `📎 تصویر پیوست صورتجلسه شماره ${meeting.meetingNumber}: ${att.fileName}`
+                                                                });
+                                                            }}
+                                                            className="p-1 hover:bg-emerald-200/60 dark:hover:bg-emerald-700/60 rounded text-emerald-800 dark:text-emerald-200 transition-colors cursor-pointer"
+                                                            title="ارسال تصویر به گفتگو"
+                                                        >
+                                                            <MessageSquare size={13} />
+                                                        </button>
                                                     </div>
                                                 ))}
                                                 {meeting.pdfAttachments?.map((att, idx) => (
@@ -868,12 +884,34 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                                                         >
                                                             <Download size={13} />
                                                         </button>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openSendToChat({
+                                                                    fileUrl: att.url,
+                                                                    fileName: att.fileName,
+                                                                    title: `ارسال سند PDF جلسه به گفتگو`,
+                                                                    defaultMessage: `📄 فایل PDF پیوست صورتجلسه شماره ${meeting.meetingNumber}: ${att.fileName}`
+                                                                });
+                                                            }}
+                                                            className="p-1 hover:bg-emerald-200/60 dark:hover:bg-emerald-700/60 rounded text-emerald-800 dark:text-emerald-200 transition-colors cursor-pointer"
+                                                            title="ارسال فایل به گفتگو"
+                                                        >
+                                                            <MessageSquare size={13} />
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
-                                        <button onClick={() => setShowPrintModal(meeting)} className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 rounded-xl transition-colors" title="دریافت PDF">
+                                        <button onClick={() => setShowPrintModal(meeting)} className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 rounded-xl transition-colors" title="دریافت PDF و چاپ">
                                             <Printer size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowPrintModal(meeting)} 
+                                            className="p-2 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl transition-colors cursor-pointer" 
+                                            title="ارسال صورتجلسه به گفتگو"
+                                        >
+                                            <MessageSquare size={18} />
                                         </button>
                                         {canCreate && meeting.status === MeetingStatus.DRAFT && (
                                             <button onClick={() => handleEditMeeting(meeting)} className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600 rounded-xl transition-colors" title="ویرایش">
@@ -1393,6 +1431,9 @@ const MeetingModule: React.FC<Props> = ({ currentUser, initialYear }) => {
                             <div className="flex items-center gap-2">
                                 <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-xl transition-colors text-blue-600 font-bold flex items-center gap-1.5 text-xs">
                                     <Printer size={16} className="sm:w-[18px] sm:h-[18px]" /> <span className="hidden sm:inline">چاپ</span>
+                                </button>
+                                <button onClick={() => { setShowPrintModal(viewMeeting); setViewMeeting(null); }} className="p-1.5 sm:p-2 hover:bg-emerald-50 rounded-xl transition-colors text-emerald-600 font-bold flex items-center gap-1.5 text-xs cursor-pointer" title="ارسال صورتجلسه به گفتگوی سازمانی">
+                                    <MessageSquare size={16} className="sm:w-[18px] sm:h-[18px]" /> <span className="hidden sm:inline">ارسال به گفتگو</span>
                                 </button>
                                 <button onClick={() => setViewMeeting(null)} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-xl transition-colors text-gray-600">
                                     <X size={18} className="sm:w-5 sm:h-5" />

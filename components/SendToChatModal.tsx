@@ -31,10 +31,10 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   onClose,
   attachment,
   defaultMessage = '',
-  title = 'ارسال از طریق گفتگو',
+  title = 'ارسال به گفتگوی سازمانی',
   onGoToChat
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
+  const [activeTab, setActiveTab] = useState<'all' | 'users' | 'groups'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [customMessage, setCustomMessage] = useState(defaultMessage);
   
@@ -42,7 +42,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
-  const [successId, setSuccessId] = useState<string | null>(null);
+  const [sentTargetIds, setSentTargetIds] = useState<Set<string>>(new Set());
   
   const currentUser = getCurrentUser();
 
@@ -56,7 +56,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
           getUsers(),
           getGroups()
         ]);
-        // Filter out admin/current user if needed, but let's keep all except the current user themselves
+        // Filter out current user from recipients
         setUsers(usersData.filter(u => u.username !== currentUser?.username));
         setGroups(groupsData);
       } catch (err) {
@@ -68,7 +68,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
     
     loadData();
     setCustomMessage(defaultMessage);
-    setSuccessId(null);
+    setSentTargetIds(new Set());
     setSendingId(null);
   }, [isOpen, defaultMessage]);
 
@@ -81,7 +81,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
     setSendingId(targetId);
     
     try {
-      const messageText = customMessage.trim() || (attachment ? `فایل ضمیمه: ${attachment.fileName}` : 'گزارش ارسال شده');
+      const messageText = customMessage.trim() || (attachment ? `فایل ارسالی: ${attachment.fileName}` : 'گزارش ارسال شده');
       
       const newMsg: ChatMessage = {
         id: generateUUID(),
@@ -111,10 +111,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
         console.warn('Failed to update local chat cache:', e);
       }
       
-      setSuccessId(targetId);
-      setTimeout(() => {
-        setSuccessId(null);
-      }, 2000);
+      setSentTargetIds(prev => new Set(prev).add(targetId));
     } catch (err) {
       console.error('Failed to send message:', err);
       alert('خطا در ارسال پیام به گفتگو');
@@ -131,6 +128,12 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   const filteredGroups = groups.filter(g => 
     g.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const quickNotes = [
+    'جهت استحضار و بررسی',
+    'جهت اقدام مقتضی و پیگیری',
+    'سند پیوست جهت تایید و امضاء'
+  ];
 
   return createPortal(
     <div 
@@ -174,18 +177,31 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               placeholder="یادداشتی همراه با این سند بنویسید..."
-              className="w-full text-xs p-2 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 h-16 resize-none"
+              className="w-full text-xs p-2.5 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 h-16 resize-none"
             />
+            {/* Quick note suggestion chips */}
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {quickNotes.map((note, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCustomMessage(note)}
+                  className="text-[10px] bg-white dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 text-slate-600 dark:text-slate-300 hover:text-blue-600 border border-slate-200 dark:border-zinc-700 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  {note}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Search & Tabs */}
-        <div className="p-4 border-b border-gray-100 dark:border-zinc-800 space-y-3">
+        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-zinc-800 space-y-2.5">
           <div className="relative">
             <Search className="absolute right-3 top-2.5 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="جستجو در گفتگوها..."
+              placeholder="جستجو در نام مخاطب، آیدی یا گروه..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pr-9 pl-3 py-2 text-xs border border-gray-200 dark:border-zinc-800 rounded-xl bg-gray-50 dark:bg-zinc-950 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -194,153 +210,195 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
 
           <div className="flex gap-1 bg-gray-100 dark:bg-zinc-950 p-1 rounded-xl">
             <button
-              onClick={() => { setActiveTab('users'); setSearchQuery(''); }}
+              onClick={() => setActiveTab('all')}
               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'users' 
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 shadow-sm' 
+                activeTab === 'all' 
+                  ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm' 
                   : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
               }`}
             >
-              <UserIcon size={14} />
-              <span>افراد (گفتگوی شخصی)</span>
+              <span>همه</span>
+              <span className="text-[10px] bg-slate-200/70 dark:bg-zinc-700 px-1.5 py-0.2 rounded-full">
+                {filteredUsers.length + filteredGroups.length}
+              </span>
             </button>
             <button
-              onClick={() => { setActiveTab('groups'); setSearchQuery(''); }}
+              onClick={() => setActiveTab('users')}
               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'groups' 
-                  ? 'bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 shadow-sm' 
+                activeTab === 'users' 
+                  ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm' 
                   : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
               }`}
             >
-              <Users size={14} />
-              <span>گروه‌ها و کانال‌ها</span>
+              <UserIcon size={13} />
+              <span>افراد</span>
+              <span className="text-[10px] bg-slate-200/70 dark:bg-zinc-700 px-1.5 py-0.2 rounded-full">
+                {filteredUsers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('groups')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === 'groups' 
+                  ? 'bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+              }`}
+            >
+              <Users size={13} />
+              <span>گروه‌ها</span>
+              <span className="text-[10px] bg-slate-200/70 dark:bg-zinc-700 px-1.5 py-0.2 rounded-full">
+                {filteredGroups.length}
+              </span>
             </button>
           </div>
         </div>
 
         {/* List of Targets */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
               <Loader2 className="animate-spin text-blue-600" size={24} />
-              <span className="text-xs">در حال بارگذاری لیست...</span>
+              <span className="text-xs">در حال بارگذاری مخاطبین و گروه‌ها...</span>
             </div>
-          ) : activeTab === 'users' ? (
-            filteredUsers.length === 0 ? (
-              <div className="text-center text-xs text-gray-400 py-10">کاربری یافت نشد.</div>
-            ) : (
-              filteredUsers.map((user) => {
-                const isSending = sendingId === user.id;
-                const isSuccess = successId === user.id;
-                return (
-                  <div key={user.id} className="flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-gray-300">
-                        {user.avatar ? (
-                          <img src={user.avatar} className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          <UserIcon size={18} />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-gray-800 dark:text-gray-200">{user.fullName}</div>
-                        <div className="text-[10px] text-gray-400">@{user.username}</div>
-                      </div>
-                    </div>
-                    
-                    {isSuccess ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
-                          <CheckCircle size={13} />
-                          <span>ارسال شد</span>
-                        </span>
-                        {onGoToChat && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onGoToChat({ type: 'private', id: user.username });
-                            }}
-                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>مشاهده</span>
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        disabled={isSending}
-                        onClick={() => handleSend({ id: user.id, username: user.username, isGroup: false })}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow disabled:opacity-50"
-                      >
-                        {isSending ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <Send size={12} className="rotate-180" />
-                        )}
-                        <span>ارسال</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )
           ) : (
-            filteredGroups.length === 0 ? (
-              <div className="text-center text-xs text-gray-400 py-10">گروهی یافت نشد.</div>
-            ) : (
-              filteredGroups.map((group) => {
-                const isSending = sendingId === group.id;
-                const isSuccess = successId === group.id;
-                return (
-                  <div key={group.id} className="flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                        <Users size={18} />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-gray-800 dark:text-gray-200">{group.name}</div>
-                        <div className="text-[10px] text-gray-400">{group.members?.length || 0} عضو</div>
-                      </div>
+            <>
+              {/* Groups section when 'all' or 'groups' */}
+              {(activeTab === 'all' || activeTab === 'groups') && filteredGroups.length > 0 && (
+                <div className="space-y-1">
+                  {activeTab === 'all' && (
+                    <div className="px-3 py-1 text-[11px] font-black text-slate-400 flex items-center gap-1">
+                      <Users size={12} />
+                      <span>گروه‌ها و کانال‌ها</span>
                     </div>
-                    
-                    {isSuccess ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
-                          <CheckCircle size={13} />
-                          <span>ارسال شد</span>
-                        </span>
-                        {onGoToChat && (
+                  )}
+                  {filteredGroups.map((group) => {
+                    const isSending = sendingId === group.id;
+                    const isSent = sentTargetIds.has(group.id);
+                    return (
+                      <div key={group.id} className="flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-zinc-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <Users size={18} />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-gray-800 dark:text-gray-200">{group.name}</div>
+                            <div className="text-[10px] text-gray-400">{group.members?.length || 0} عضو</div>
+                          </div>
+                        </div>
+                        
+                        {isSent ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                              <CheckCircle size={13} />
+                              <span>ارسال شد</span>
+                            </span>
+                            {onGoToChat && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onClose();
+                                  onGoToChat({ type: 'group', id: group.id });
+                                }}
+                                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>مشاهده</span>
+                              </button>
+                            )}
+                          </div>
+                        ) : (
                           <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onGoToChat({ type: 'group', id: group.id });
-                            }}
-                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                            disabled={isSending}
+                            onClick={() => handleSend({ id: group.id, isGroup: true })}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow active:scale-95 disabled:opacity-50 cursor-pointer"
                           >
-                            <span>مشاهده</span>
+                            {isSending ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Send size={12} className="rotate-180" />
+                            )}
+                            <span>ارسال</span>
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <button
-                        disabled={isSending}
-                        onClick={() => handleSend({ id: group.id, isGroup: true })}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow disabled:opacity-50"
-                      >
-                        {isSending ? (
-                          <Loader2 size={13} className="animate-spin" />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Users section when 'all' or 'users' */}
+              {(activeTab === 'all' || activeTab === 'users') && filteredUsers.length > 0 && (
+                <div className="space-y-1">
+                  {activeTab === 'all' && (
+                    <div className="px-3 py-1 text-[11px] font-black text-slate-400 flex items-center gap-1 mt-2">
+                      <UserIcon size={12} />
+                      <span>همکاران و کاربران</span>
+                    </div>
+                  )}
+                  {filteredUsers.map((user) => {
+                    const isSending = sendingId === user.id;
+                    const isSent = sentTargetIds.has(user.id);
+                    return (
+                      <div key={user.id} className="flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-zinc-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-500 dark:text-gray-300">
+                            {user.avatar ? (
+                              <img src={user.avatar} className="w-full h-full object-cover rounded-full" />
+                            ) : (
+                              <UserIcon size={18} />
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-gray-800 dark:text-gray-200">{user.fullName}</div>
+                            <div className="text-[10px] text-gray-400">@{user.username}</div>
+                          </div>
+                        </div>
+                        
+                        {isSent ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                              <CheckCircle size={13} />
+                              <span>ارسال شد</span>
+                            </span>
+                            {onGoToChat && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onClose();
+                                  onGoToChat({ type: 'private', id: user.username });
+                                }}
+                                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>مشاهده</span>
+                              </button>
+                            )}
+                          </div>
                         ) : (
-                          <Send size={12} className="rotate-180" />
+                          <button
+                            disabled={isSending}
+                            onClick={() => handleSend({ id: user.id, username: user.username, isGroup: false })}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow active:scale-95 disabled:opacity-50 cursor-pointer"
+                          >
+                            {isSending ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Send size={12} className="rotate-180" />
+                            )}
+                            <span>ارسال</span>
+                          </button>
                         )}
-                        <span>ارسال</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {filteredUsers.length === 0 && filteredGroups.length === 0 && (
+                <div className="text-center text-xs text-gray-400 py-12">
+                  هیچ مخاطب یا گروهی مطابق با جستجو پیدا نشد.
+                </div>
+              )}
+            </>
           )}
         </div>
 

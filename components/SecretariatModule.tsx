@@ -168,6 +168,7 @@ import {
 
 import { getUsers } from "../services/authService";
 import { generateUUID, getCurrentShamsiDate } from "../constants";
+import { shareElementToChat, openSendToChat } from "../services/chatShareService";
 
 const toPersianDigits = (str: string | number | undefined | null): string => {
   if (str === undefined || str === null) return "";
@@ -224,6 +225,35 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
   const [isPrintMode, setIsPrintMode] = useState<SecretariatLetter | null>(
     null,
   );
+  const [isSharingLetter, setIsSharingLetter] = useState(false);
+
+  const handleShareSecretariatLetterToChat = async (targetLetter?: SecretariatLetter | null) => {
+    const letterToShare = targetLetter || isPrintMode || selectedLetterForView;
+    if (!letterToShare) return;
+    setIsSharingLetter(true);
+    try {
+      let el = document.getElementById("print-content-section");
+      if (!el) {
+        setIsPrintMode(letterToShare);
+        await new Promise((r) => setTimeout(r, 450));
+        el = document.getElementById("print-content-section");
+      }
+      if (!el) throw new Error("المان بخش چاپ نامه یافت نشد");
+      await shareElementToChat(
+        el,
+        `Letter_${letterToShare.letterNumber || letterToShare.id}.jpg`,
+        {
+          defaultMessage: `📄 نامه اداری شماره ${letterToShare.letterNumber || '-'}: ${letterToShare.subject || ''}`,
+          title: "ارسال نامه اداری به گفتگو"
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert("خطا در آماده‌سازی نامه اداری جهت ارسال به گفتگو");
+    } finally {
+      setIsSharingLetter(false);
+    }
+  };
 
   // --- New Letter Form State ---
   const initialFormState = {
@@ -2109,6 +2139,22 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                                 <span>دانلود خروجی PDF</span>
                                 <FileText size={12} className="text-rose-500" />
                               </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openSendToChat({
+                                    fileUrl: `/api/secretariat/letters/${editingLetterId}/pdf`,
+                                    fileName: `Letter_${editingLetterId}.pdf`,
+                                    title: "ارسال فایل PDF نامه به گفتگو",
+                                    defaultMessage: `📄 فایل PDF نامه اداری: ${newLetterForm.subject || 'نامه رسمی'}`
+                                  });
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full text-right px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between text-emerald-600 font-bold cursor-pointer"
+                              >
+                                <span>ارسال فایل PDF به گفتگو</span>
+                                <MessageSquare size={12} className="text-emerald-500" />
+                              </button>
                               <a
                                 href={`/api/secretariat/letters/${editingLetterId}/word`}
                                 className="w-full text-right px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-between text-indigo-600 font-bold"
@@ -3292,6 +3338,15 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                   >
                     <Printer size={16} /> چاپ و خروجی PDF
                   </button>
+                  <button
+                    onClick={() => handleShareSecretariatLetterToChat(selectedLetterForView)}
+                    disabled={isSharingLetter}
+                    className="p-1.5 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold cursor-pointer"
+                    title="ارسال مستقیم نامه اداری به گفتگو"
+                  >
+                    {isSharingLetter ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+                    ارسال به گفتگو
+                  </button>
 
                   <button
                     onClick={() => setSelectedLetterForView(null)}
@@ -3386,20 +3441,34 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                       </span>
                       <div className="flex flex-col gap-1.5">
                         {selectedLetterForView.attachments.map((file, i) => (
-                          <a
-                            key={i}
-                            href={file.url}
-                            target="_blank"
-                            rel="referrer"
-                            className="flex items-center justify-between bg-white border rounded-lg px-3 py-1.5 text-[11px] text-purple-700 hover:text-purple-900 hover:bg-slate-50 transition-all font-bold"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <FileText size={14} /> {file.fileName}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              دانلود و مشاهده
-                            </span>
-                          </a>
+                          <div key={i} className="flex items-center gap-1.5">
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="referrer"
+                              className="flex-1 flex items-center justify-between bg-white border rounded-lg px-3 py-1.5 text-[11px] text-purple-700 hover:text-purple-900 hover:bg-slate-50 transition-all font-bold"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <FileText size={14} /> {file.fileName}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                دانلود و مشاهده
+                              </span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => openSendToChat({
+                                fileUrl: file.url,
+                                fileName: file.fileName,
+                                title: `ارسال پیوست ${file.fileName} به گفتگو`,
+                                defaultMessage: `📎 فایل پیوست نامه شماره ${selectedLetterForView.letterNumber || '-'}: ${file.fileName}`
+                              })}
+                              className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                              title="ارسال مستقیم پیوست به گفتگو"
+                            >
+                              <MessageSquare size={14} />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -3412,6 +3481,21 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                     </span>
 
                     <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => openSendToChat({
+                          fileUrl: `/api/secretariat/letters/${selectedLetterForView.id}/pdf`,
+                          fileName: `Letter_${selectedLetterForView.letterNumber || selectedLetterForView.id}.pdf`,
+                          title: "ارسال فایل PDF رسمی نامه به گفتگو",
+                          defaultMessage: `📄 فایل PDF رسمی نامه اداری شماره ${selectedLetterForView.letterNumber || '-'}: ${selectedLetterForView.subject || ''}`
+                        })}
+                        className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 rounded-xl py-2 text-[11px] font-bold transition-all cursor-pointer"
+                        title="ارسال مستقیم فایل PDF این نامه به گفتگوی سازمانی"
+                      >
+                        <MessageSquare size={13} />
+                        ارسال فایل PDF رسمی به گفتگو
+                      </button>
+
                       <div className="grid grid-cols-2 gap-2">
                         <a
                           href={`/api/secretariat/letters/${selectedLetterForView.id}/pdf`}
@@ -3761,9 +3845,23 @@ const SecretariatModule: React.FC<SecretariatModuleProps> = ({
                         if (s) s.remove();
                       }, 500);
                     }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-colors flex items-center gap-1.5 animate-pulse"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-colors flex items-center gap-1.5"
                   >
                     <Printer size={16} /> چاپ و ذخیره به عنوان PDF
+                  </button>
+
+                  <button
+                    onClick={() => handleShareSecretariatLetterToChat(isPrintMode)}
+                    disabled={isSharingLetter}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="ارسال مستقیم تصویر و برگه نامه به گفتگوی سازمانی"
+                  >
+                    {isSharingLetter ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <MessageSquare size={16} />
+                    )}
+                    ارسال به گفتگو
                   </button>
 
                   <button

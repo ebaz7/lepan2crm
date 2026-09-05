@@ -3,7 +3,8 @@ import {
   FileText, PlusCircle, List, Trash2, Calendar, FileUp, Sparkles, Loader2, 
   Printer, ArrowRight, CheckCircle2, User, Landmark, HelpCircle, Download,
   Coins, Hash, Check, AlertCircle, FileSpreadsheet, WifiOff, Globe, Copy, Zap,
-  Search, TrendingUp, Archive, CheckCircle, ShieldAlert, FileClock, RefreshCw, QrCode
+  Search, TrendingUp, Archive, CheckCircle, ShieldAlert, FileClock, RefreshCw, QrCode,
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Tesseract from 'tesseract.js';
@@ -17,6 +18,7 @@ import {
 import { apiCall } from '../services/apiService';
 import { PersianHandwritingPad } from './PersianHandwritingPad';
 import { PenTool } from 'lucide-react';
+import { shareElementToChat, openSendToChat } from '../services/chatShareService';
 
 // Lazy loader for pdfjs-dist to ensure zero startup impact and 100% compatibility with older iOS WebKit
 let cachedPdfLib: any = null;
@@ -380,6 +382,29 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
 
   // Detail & Print states
   const [selectedReceipt, setSelectedReceipt] = useState<ChequeReceipt | null>(null);
+  const [isSharingReceipt, setIsSharingReceipt] = useState(false);
+
+  const handleShareReceiptToChat = async () => {
+    if (!selectedReceipt) return;
+    setIsSharingReceipt(true);
+    try {
+      const el = document.getElementById('cheque-receipt-printable-card');
+      if (!el) throw new Error('المان رسید پیدا نشد');
+      await shareElementToChat(
+        el,
+        `ChequeReceipt_${selectedReceipt.serialNumber || selectedReceipt.id}.jpg`,
+        {
+          defaultMessage: `🧾 رسید رسمی تحویل چک صیادی شماره ${selectedReceipt.serialNumber || '-'}\nمشتری/تحویل‌دهنده: ${selectedReceipt.customerName || '---'}\nتعداد چک: ${selectedReceipt.cheques?.length || 0} فقره\nجمع کل مبالغ: ${selectedReceipt.totalAmount ? Number(selectedReceipt.totalAmount).toLocaleString('fa-IR') : '۰'} ریال`,
+          title: 'ارسال رسید چک به گفتگو'
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert('خطا در آماده‌سازی رسید چک جهت ارسال به گفتگو');
+    } finally {
+      setIsSharingReceipt(false);
+    }
+  };
 
   // Treasury Search and Filters State
   const [treasurySearch, setTreasurySearch] = useState('');
@@ -1705,15 +1730,41 @@ export const ChequeReceiptModule: React.FC<ChequeReceiptModuleProps> = ({ curren
 
                     <button 
                       onClick={() => window.print()}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md hover:bg-gray-900 transition-all"
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md hover:bg-gray-900 transition-all cursor-pointer"
                     >
                       <Printer size={16} /> چاپ رسید چاپی
                     </button>
+
+                    <button 
+                      onClick={handleShareReceiptToChat}
+                      disabled={isSharingReceipt}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer"
+                      title="ارسال مستقیم تصویر برگه رسید چک به گفتگوی سازمانی"
+                    >
+                      {isSharingReceipt ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+                      ارسال به گفتگو
+                    </button>
+
+                    {selectedReceipt.attachedFile?.url && (
+                      <button 
+                        onClick={() => openSendToChat({
+                          fileUrl: selectedReceipt.attachedFile!.url,
+                          fileName: selectedReceipt.attachedFile!.name || 'Cheque_Attachment.jpg',
+                          title: 'ارسال تصویر/فایل چک به گفتگو',
+                          defaultMessage: `📎 فایل ضمیمه چک رسید شماره ${selectedReceipt.serialNumber || '-'}`
+                        })}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
+                        title="ارسال فایل پیوست این چک به گفتگوی سازمانی"
+                      >
+                        <MessageSquare size={14} />
+                        ارسال تصویر چک به گفتگو
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Printable receipt card */}
-                <div className="bg-white text-gray-900 p-8 rounded-2xl border-2 border-gray-300 shadow-sm max-w-4xl mx-auto printable-area relative overflow-hidden">
+                <div id="cheque-receipt-printable-card" className="bg-white text-gray-900 p-8 rounded-2xl border-2 border-gray-300 shadow-sm max-w-4xl mx-auto printable-area relative overflow-hidden">
                   
                   {/* Digital stamps overlay for print */}
                   <div className="absolute top-24 left-6 flex flex-col gap-3 opacity-80 rotate-6 hidden-screen pointer-events-none">

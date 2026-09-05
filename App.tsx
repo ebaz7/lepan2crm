@@ -30,6 +30,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeSelectorModal, AppThemeMode } from './components/ThemeSelectorModal';
 import { AiExecutiveCopilot } from './components/AiExecutiveCopilot';
 import { AiDocumentScannerModal } from './components/AiDocumentScannerModal';
+import { SendToChatModal } from './components/SendToChatModal';
 import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncements, getGroups, getTaskGroups, getTasks } from './services/storageService'; 
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
 import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup, GroupTask } from './types';
@@ -53,6 +54,12 @@ function App() {
   const [tabHistory, setTabHistory] = useState<string[]>(['dashboard']);
   const [directChatTarget, setDirectChatTarget] = useState<{ type: 'private' | 'group' | 'public' | 'task_group' | 'system', id: string, taskId?: string } | null>(null);
   const [showAiScannerModal, setShowAiScannerModal] = useState(false);
+  const [globalSendToChat, setGlobalSendToChat] = useState<{
+    isOpen: boolean;
+    attachment?: { fileName: string; url: string };
+    defaultMessage?: string;
+    title?: string;
+  }>({ isOpen: false });
 
   const activeTabRef = useRef(activeTab);
   const tabHistoryRef = useRef(tabHistory);
@@ -66,9 +73,23 @@ function App() {
     const unregisterBack = () => { customBackRef.current = null; };
     window.addEventListener('REGISTER_BACK_ACTION', registerBack);
     window.addEventListener('UNREGISTER_BACK_ACTION', unregisterBack);
+
+    const handleOpenSendToChat = (e: any) => {
+      if (e?.detail) {
+        setGlobalSendToChat({
+          isOpen: true,
+          attachment: e.detail.attachment,
+          defaultMessage: e.detail.defaultMessage || '',
+          title: e.detail.title || 'ارسال به گفتگوی سازمانی'
+        });
+      }
+    };
+    window.addEventListener('app_open_send_to_chat', handleOpenSendToChat);
+
     return () => {
         window.removeEventListener('REGISTER_BACK_ACTION', registerBack);
         window.removeEventListener('UNREGISTER_BACK_ACTION', unregisterBack);
+        window.removeEventListener('app_open_send_to_chat', handleOpenSendToChat);
     }
   }, []);
 
@@ -1540,6 +1561,18 @@ function App() {
                     <AiDocumentScannerModal
                         isOpen={showAiScannerModal}
                         onClose={() => setShowAiScannerModal(false)}
+                    />
+                    <SendToChatModal
+                        isOpen={globalSendToChat.isOpen}
+                        onClose={() => setGlobalSendToChat(prev => ({ ...prev, isOpen: false }))}
+                        attachment={globalSendToChat.attachment}
+                        defaultMessage={globalSendToChat.defaultMessage}
+                        title={globalSendToChat.title}
+                        onGoToChat={(target) => {
+                            setGlobalSendToChat(prev => ({ ...prev, isOpen: false }));
+                            setDirectChatTarget(target);
+                            setActiveTab('chat');
+                        }}
                     />
                 </>
             )}

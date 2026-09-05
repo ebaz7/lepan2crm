@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WarehouseItem, WarehouseTransaction } from '../../types';
 import { formatDate, formatCurrency, formatNumberString, parsePersianDate, jalaliToGregorian } from '../../constants';
-import { Filter, Printer, FileDown, Search, ArrowDownCircle, ArrowUpCircle, X, Loader2 } from 'lucide-react';
+import { Filter, Printer, FileDown, Search, ArrowDownCircle, ArrowUpCircle, X, Loader2, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator'; 
+import { shareElementToChat } from '../../services/chatShareService'; 
 
 interface Props {
     items: WarehouseItem[];
@@ -242,6 +243,25 @@ const WarehouseKardexReport: React.FC<Props> = ({ items, transactions, allTransa
         });
     };
 
+    const handleSendToChat = async () => {
+        setIsGenerating(true);
+        try {
+            await shareElementToChat(
+                elementId,
+                `Kardex_${activeItemName}_${new Date().toISOString().slice(0,10)}.jpg`,
+                {
+                    defaultMessage: `کاردکس تعدادی کالا: ${activeItemName || 'کالا'} - شرکت: ${selectedCompany || 'همه شرکت‌ها'}`,
+                    title: 'ارسال کاردکس کالا به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی کاردکس جهت ارسال به گفتگو');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     const content = (
         <div id={elementId} className="printable-content glass-panel p-8 shadow-lg text-black" 
             style={{
@@ -371,6 +391,9 @@ const WarehouseKardexReport: React.FC<Props> = ({ items, transactions, allTransa
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button onClick={handleSendToChat} disabled={isGenerating} className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 text-sm h-[38px] cursor-pointer" title="ارسال مستقیم کاردکس به گفتگوی سازمانی">
+                        {isGenerating ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>} ارسال به گفتگو
+                    </button>
                     <button onClick={handleDownloadPDF} disabled={isGenerating} className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700 text-sm h-[38px]">
                         {isGenerating ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>} PDF
                     </button>

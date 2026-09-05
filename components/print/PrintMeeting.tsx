@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { generatePdf } from '../../utils/pdfGenerator';
 import { MeetingMinutes } from '../../types';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface PrintMeetingProps {
   meeting: MeetingMinutes;
@@ -198,6 +199,25 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
       });
   };
 
+  const handleSendToChat = async () => {
+      setProcessing(true);
+      try {
+          await shareElementToChat(
+              'meeting-print-area',
+              `Meeting_${meeting.meetingNumber}.jpg`,
+              {
+                  defaultMessage: `صورتجلسه شماره ${meeting.meetingNumber} مورخ ${meeting.date}`,
+                  title: 'ارسال صورتجلسه به گفتگو'
+              }
+          );
+      } catch (e) {
+          console.error(e);
+          alert('خطا در آماده‌سازی صورتجلسه جهت ارسال به گفتگو');
+      } finally {
+          setProcessing(false);
+      }
+  };
+
   const content = (
     <div id="meeting-print-area" className="w-[210mm] min-h-[297mm] bg-white p-8 font-sans text-black shadow-2xl printable-content text-right dir-rtl" style={{ boxSizing: 'border-box', margin: '0 auto', backgroundColor: '#ffffff' }}>
       <div className="border-4 border-gray-900 p-6 relative rounded-xl h-full flex flex-col justify-between">
@@ -322,6 +342,16 @@ const PrintMeeting: React.FC<PrintMeetingProps> = ({ meeting, onClose }) => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
             <span>دانلود PDF</span>

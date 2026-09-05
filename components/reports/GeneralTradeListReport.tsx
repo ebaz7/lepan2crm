@@ -22,6 +22,7 @@ import {
 import { generatePdf } from '../../utils/pdfGenerator';
 import { sendNotification } from '../../services/notificationService';
 import { apiCall } from '../../services/apiService';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface Props {
     records: TradeRecord[];
@@ -335,6 +336,25 @@ export const GeneralTradeListReport: React.FC<Props> = ({
         });
     };
 
+    const handleSendReportToChat = async () => {
+        setIsPrinting(true);
+        try {
+            await shareElementToChat(
+                'general-trade-list-printable',
+                `گزارش_جامع_پرونده_های_بازرگانی_${new Date().toLocaleDateString('fa-IR').replace(/\//g, '-')}.jpg`,
+                {
+                    defaultMessage: `گزارش جامع پرونده‌های بازرگانی مورخ ${new Date().toLocaleDateString('fa-IR')} (${metrics.totalCount} پرونده)`,
+                    title: 'ارسال گزارش جامع بازرگانی به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش بازرگانی جهت ارسال به گفتگو');
+        } finally {
+            setIsPrinting(false);
+        }
+    };
+
     const handlePrintReport = () => {
         setIsPrinting(true);
         setTimeout(() => {
@@ -445,8 +465,17 @@ export const GeneralTradeListReport: React.FC<Props> = ({
                         {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>
 
-                    {/* Print and PDF Buttons */}
+                    {/* Print, PDF and Chat Buttons */}
                     <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={handleSendReportToChat}
+                            disabled={isPrinting}
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                            title="ارسال این گزارش به گفتگوی سازمانی"
+                        >
+                            <Send size={14} />
+                            <span className="hidden sm:inline">ارسال به گفتگو</span>
+                        </button>
                         <button
                             onClick={handlePrintReport}
                             className="flex items-center gap-1 px-3 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all shadow-2xs"

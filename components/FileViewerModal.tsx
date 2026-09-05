@@ -15,10 +15,12 @@ import {
   Music, 
   ExternalLink,
   RefreshCw,
-  Eye
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { resolveImageUrl } from '../services/apiService';
 import { downloadAndOpenFile } from '../services/fileService';
+import { openSendToChat } from '../services/chatShareService';
 
 export interface FileViewerProps {
   isOpen: boolean;
@@ -226,6 +228,26 @@ export const FileViewerModal: React.FC<FileViewerProps> = ({
               <span className="hidden md:inline">چاپ</span>
             </button>
           )}
+
+          {/* Send to Chat Button */}
+          <button
+            type="button"
+            onClick={() => {
+              openSendToChat({
+                attachment: {
+                  fileName: fileName || 'فایل ارسالی',
+                  url: resolvedUrl
+                },
+                defaultMessage: `فایل ارسالی: ${fileName || 'پیوست'}`,
+                title: 'ارسال فایل به گفتگو'
+              });
+            }}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white px-3 py-1.5 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer"
+            title="ارسال این فایل به گفتگو"
+          >
+            <MessageSquare size={15} />
+            <span className="hidden sm:inline">ارسال به گفتگو</span>
+          </button>
 
           {/* Direct Download Button */}
           <button

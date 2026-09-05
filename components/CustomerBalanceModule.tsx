@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, Download, Search, FileSpreadsheet, UserCheck, Trash2, Wallet, Plus, Loader2, Landmark, TrendingDown, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
+import { Upload, Download, Search, FileSpreadsheet, UserCheck, Trash2, Wallet, Plus, Loader2, Landmark, TrendingDown, TrendingUp, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
 import { downloadAndOpenFile } from '../services/fileService';
 import { apiCall } from '../services/apiService';
+import { openSendToChat } from '../services/chatShareService';
 
 interface CustomerBalance {
   id: string;
@@ -499,23 +500,59 @@ export const CustomerBalanceModule: React.FC<{ currentUser?: any }> = ({ current
             صرفاً دریافت خروجی PDF تفکیک‌شده و مرتب شده بر اساس بیشترین به کمترین طلب یا بدهی
           </p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={() => downloadPDFReport('debtors')}
             disabled={pdfLoadingDebtors}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-zinc-900 dark:bg-emerald-600 hover:bg-zinc-800 dark:hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-zinc-900 dark:bg-emerald-600 hover:bg-zinc-800 dark:hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm cursor-pointer"
           >
             {pdfLoadingDebtors ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             گزارش بدهکاران (PDF)
+          </button>
+
+          <button
+            onClick={() => {
+              const url = `/api/customer-balances/reports/debtors/pdf?hideZero=${hideZeroBalances}&excludeCodes=${excludedCodes.join(',')}`;
+              const fileName = `Debtors_Balances_${lastUploadTime || 'latest'}.pdf`;
+              openSendToChat({
+                fileUrl: url,
+                fileName: fileName,
+                title: 'ارسال گزارش PDF بدهکاران به گفتگو',
+                defaultMessage: `📊 گزارش مالی مانده حساب بدهکاران (PDF)\nجمع کل بدهکاران: ${totalDebtors.toLocaleString('fa-IR')} ریال`
+              });
+            }}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3.5 rounded-xl transition-all shadow-sm cursor-pointer"
+            title="ارسال مستقیم فایل PDF بدهکاران به گفتگوی سازمانی"
+          >
+            <MessageSquare className="w-4 h-4" />
+            ارسال به گفتگو (بدهکاران)
           </button>
           
           <button
             onClick={() => downloadPDFReport('creditors')}
             disabled={pdfLoadingCreditors}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-zinc-900 dark:bg-emerald-600 hover:bg-zinc-800 dark:hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-zinc-900 dark:bg-emerald-600 hover:bg-zinc-800 dark:hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-sm cursor-pointer"
           >
             {pdfLoadingCreditors ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             گزارش بستانکاران (PDF)
+          </button>
+
+          <button
+            onClick={() => {
+              const url = `/api/customer-balances/reports/creditors/pdf?hideZero=${hideZeroBalances}&excludeCodes=${excludedCodes.join(',')}`;
+              const fileName = `Creditors_Balances_${lastUploadTime || 'latest'}.pdf`;
+              openSendToChat({
+                fileUrl: url,
+                fileName: fileName,
+                title: 'ارسال گزارش PDF بستانکاران به گفتگو',
+                defaultMessage: `📊 گزارش مالی مانده حساب بستانکاران (PDF)\nجمع کل بستانکاران: ${totalCreditors.toLocaleString('fa-IR')} ریال`
+              });
+            }}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3.5 rounded-xl transition-all shadow-sm cursor-pointer"
+            title="ارسال مستقیم فایل PDF بستانکاران به گفتگوی سازمانی"
+          >
+            <MessageSquare className="w-4 h-4" />
+            ارسال به گفتگو (بستانکاران)
           </button>
         </div>
       </div>
@@ -1040,6 +1077,18 @@ export const CustomerBalanceModule: React.FC<{ currentUser?: any }> = ({ current
                           title="دانلود فایل"
                         >
                           <Download className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => openSendToChat({
+                            fileUrl: `/api/customer-balances/statement-download/${st.id}`,
+                            fileName: st.fileName,
+                            title: 'ارسال صورتحساب مشتری به گفتگو',
+                            defaultMessage: `📄 صورتحساب مشتری با کد حساب ${stmtModalCode} (${st.fileName})`
+                          })}
+                          className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all font-bold cursor-pointer"
+                          title="ارسال مستقیم صورتحساب به گفتگو"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
                         </button>
                         {currentUser?.rolePermissions?.canImportCustomerBalances !== false && (
                           <button

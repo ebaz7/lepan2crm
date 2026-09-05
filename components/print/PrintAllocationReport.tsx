@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Printer, Loader2, FileDown, ZoomIn, ZoomOut, RotateCcw, MessageSquare } from 'lucide-react';
 import { formatCurrency } from '../../constants';
 import { generatePdf } from '../../utils/pdfGenerator';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface PrintAllocationReportProps {
   records: any[];
@@ -178,6 +179,25 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
     });
   };
 
+  const handleSendToChat = async () => {
+    setProcessing(true);
+    try {
+      await shareElementToChat(
+        'allocation-report-content',
+        `Currency_Allocation_Report_${new Date().toISOString().slice(0, 10)}.jpg`,
+        {
+          defaultMessage: `گزارش صف و تخصیص ارز مورخ ${new Date().toLocaleDateString('fa-IR')} (مجموع تخصیص: ${formatUSD(totalAllocated)})`,
+          title: 'ارسال گزارش تخصیص ارز به گفتگو'
+        }
+      );
+    } catch (e) {
+      console.error(e);
+      alert('خطا در آماده‌سازی گزارش جهت ارسال به گفتگو');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const formatUSD = (val: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   };
@@ -324,6 +344,16 @@ const PrintAllocationReport: React.FC<PrintAllocationReportProps> = ({ records, 
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 md:gap-2">
+          <button 
+            onClick={handleSendToChat} 
+            disabled={processing} 
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+            title="ارسال مستقیم به گفتگو"
+          >
+            {processing ? <Loader2 size={16} className="animate-spin"/> : <MessageSquare size={16}/>}
+            <span>ارسال به گفتگو</span>
+          </button>
+
           <button onClick={handleDownloadPDF} disabled={processing} className="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs flex items-center gap-1.5 font-bold shadow-md transition-all disabled:opacity-50">
             {processing ? <Loader2 size={16} className="animate-spin"/> : <FileDown size={16}/>}
             <span>دانلود PDF</span>

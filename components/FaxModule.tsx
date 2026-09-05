@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { User, SystemSettings } from '../types';
-import { Printer, Send, FileText, Loader2, Phone, User as UserIcon, Paperclip, CheckCircle } from 'lucide-react';
+import { Printer, Send, FileText, Loader2, Phone, User as UserIcon, Paperclip, CheckCircle, MessageSquare } from 'lucide-react';
 import { apiCall } from '../services/apiService';
 import { formatDate } from '../constants';
 import { generatePdf } from '../utils/pdfGenerator'; 
+import { shareElementToChat } from '../services/chatShareService';
 import html2canvas from 'html2canvas';
 
 interface Props {
@@ -18,11 +19,37 @@ const FaxModule: React.FC<Props> = ({ currentUser, settings }) => {
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
+    const [isSharing, setIsSharing] = useState(false);
     const [success, setSuccess] = useState(false);
 
     // Simulate the company letterhead
     const companyName = settings?.defaultCompany || 'نام شرکت شما';
     const logo = settings?.pwaIcon;
+
+    const handleShareToChat = async () => {
+        if (!recipientName || !body) {
+            alert('لطفاً حداقل نام گیرنده و متن نامه را وارد کنید.');
+            return;
+        }
+        setIsSharing(true);
+        try {
+            const el = document.getElementById('fax-template');
+            if (!el) throw new Error('قالب نامه یافت نشد');
+            await shareElementToChat(
+                el,
+                `Fax_Letter_${Date.now()}.jpg`,
+                {
+                    defaultMessage: `📠 نامه فکس اداری\nگیرنده: ${recipientName} (${faxNumber || 'بدون شماره'})\nموضوع: ${subject || 'مکاتبه اداری'}\nفرستنده: ${currentUser.fullName}`,
+                    title: 'ارسال نامه فکس به گفتگو'
+                }
+            );
+        } catch (e: any) {
+            console.error(e);
+            alert('خطا در آماده‌سازی نامه جهت ارسال به گفتگو: ' + (e.message || ''));
+        } finally {
+            setIsSharing(false);
+        }
+    };
 
     const handleSend = async () => {
         if (!recipientName || !faxNumber || !body) {
@@ -136,8 +163,17 @@ const FaxModule: React.FC<Props> = ({ currentUser, settings }) => {
                     </div>
                 </div>
 
-                <div className="mt-6 flex justify-end">
-                    <button onClick={handleSend} disabled={sending} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 disabled:opacity-70">
+                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                    <button 
+                        onClick={handleShareToChat} 
+                        disabled={isSharing || sending} 
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 dark:shadow-emerald-950 transition-all flex items-center gap-2 cursor-pointer"
+                        title="ارسال مستقیم تصویر رسمی این نامه به گفتگوی سازمانی"
+                    >
+                        {isSharing ? <Loader2 size={20} className="animate-spin"/> : <MessageSquare size={20}/>}
+                        ارسال نامه به گفتگو
+                    </button>
+                    <button onClick={handleSend} disabled={sending || isSharing} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 disabled:opacity-70 cursor-pointer">
                         {sending ? <Loader2 size={20} className="animate-spin"/> : <Send size={20}/>}
                         {sending ? 'در حال پردازش...' : 'تولید و ارسال به تلگرام'}
                     </button>

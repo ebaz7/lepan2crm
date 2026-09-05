@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { WarehouseTransaction, WarehouseTransactionItem } from '../../types';
-import { formatDate, parsePersianDate } from '../../constants';
+import { formatDate, parsePersianDate, getCurrentShamsiDate } from '../../constants';
 import * as XLSX from 'xlsx';
-import { Download, FileText, Printer, Search } from 'lucide-react';
+import { Download, FileText, Printer, Search, MessageSquare, Loader2 } from 'lucide-react';
+import { shareElementToChat } from '../../services/chatShareService';
 
 interface WarehouseDispatchReportProps {
     transactions: WarehouseTransaction[];
@@ -12,6 +13,7 @@ interface WarehouseDispatchReportProps {
 const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ transactions, companies }) => {
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
     const [selectedCompany, setSelectedCompany] = useState<string>('');
+    const [isSharing, setIsSharing] = useState(false);
     const elementRef = useRef<HTMLDivElement>(null);
 
     const filteredData = useMemo(() => {
@@ -123,6 +125,28 @@ const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ trans
         XLSX.writeFile(wb, `Dispatch_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
+    const handleSendToChat = async () => {
+        if (filteredData.flatList.length === 0) return alert('داده‌ای برای ارسال وجود ندارد.');
+        const shamsi = getCurrentShamsiDate();
+        const dateStr = `${shamsi.year}/${String(shamsi.month).padStart(2, '0')}/${String(shamsi.day).padStart(2, '0')}`;
+        setIsSharing(true);
+        try {
+            await shareElementToChat(
+                'warehouse-dispatch-report-content',
+                `Warehouse_Dispatch_${selectedCompany || 'All'}_${dateStr.replace(/\//g, '-')}.jpg`,
+                {
+                    defaultMessage: `📋 گزارش خروج کالا و بیجک‌های انبار (${selectedCompany || 'همه شرکت‌ها'})\n• تعداد اقلام: ${filteredData.flatList.length.toLocaleString('fa-IR')}\n• تاریخ گزارش: ${dateStr}`,
+                    title: 'ارسال گزارش خروج کالا به گفتگو'
+                }
+            );
+        } catch (e) {
+            console.error(e);
+            alert('خطا در آماده‌سازی گزارش خروج کالا جهت ارسال به گفتگو');
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full gap-4">
             {/* Filters */}
@@ -158,6 +182,15 @@ const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ trans
                 </div>
                 <div className="flex gap-2 min-w-[200px] mt-2 md:mt-0">
                     <button 
+                        onClick={handleSendToChat}
+                        disabled={isSharing}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-bold hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-50"
+                        title="ارسال مستقیم گزارش خروج کالا به گفتگو"
+                    >
+                        {isSharing ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+                        ارسال به گفتگو
+                    </button>
+                    <button 
                         onClick={handleExportExcel}
                         className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-bold hover:bg-green-700 transition-colors"
                     >
@@ -175,7 +208,7 @@ const WarehouseDispatchReport: React.FC<WarehouseDispatchReportProps> = ({ trans
             </div>
 
             {/* Print Area / Table */}
-            <div className="glass-panel p-4 rounded-xl shadow-sm border border-gray-200 dark:border-white/10 flex-1 overflow-auto bg-white dark:bg-gray-900" ref={elementRef}>
+            <div id="warehouse-dispatch-report-content" className="glass-panel p-4 rounded-xl shadow-sm border border-gray-200 dark:border-white/10 flex-1 overflow-auto bg-white dark:bg-gray-900" ref={elementRef}>
                 <div className="hidden print:block text-center mb-6 border-b pb-4">
                     <h2 className="text-xl font-bold mb-2">گزارش خروج کالا (بیجک‌ها)</h2>
                     <div className="flex justify-between text-xs mt-4 px-8">
