@@ -372,17 +372,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           transition={{ duration: 0.5, ease: 'easeOut' }}
           className="relative w-full flex flex-col items-center text-center"
         >
-          {/* Subtle glowing halo backlight for text */}
-          <div 
-            className={`absolute inset-0 -inset-y-6 rounded-full blur-2xl transition-opacity duration-700 pointer-events-none ${
-              isLampOn ? 'bg-amber-500/15 opacity-100' : 'opacity-0'
-            }`} 
-          />
-
-          <div className={`relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-500 shadow-inner backdrop-blur-md mb-3 ${
+          <div className={`relative inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold transition-all duration-500 mb-3 ${
             isLampOn
-              ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
-              : 'bg-slate-900/60 border border-slate-800/60 text-slate-400'
+              ? 'bg-amber-500/15 text-amber-300'
+              : 'bg-slate-900/40 text-slate-500'
           }`}>
             <Building2 size={14} className={isLampOn ? 'text-amber-400 animate-pulse' : 'text-slate-500'} />
             <span>سامانه یکپارچه مالی و بازرگانی</span>
@@ -638,7 +631,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         {/* Mobile-only Brand Text displayed cleanly below card on mobile screens */}
         <div className="lg:hidden mt-6 text-center space-y-2 max-w-sm px-2 select-none">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 backdrop-blur-md">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300">
             <Building2 size={12} className="text-amber-400" />
             <span>سامانه یکپارچه مالی و بازرگانی</span>
           </div>

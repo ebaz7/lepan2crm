@@ -2425,19 +2425,20 @@ body * {
    ⚡ ULTRA-PERFORMANCE / LOW-SPEC MODE FOR WEAK HARDWARE
    Completely removes GPU shaders, backdrop-filters, animations & heavy shadows
    ========================================================================== */
-html.low-spec-mode *,
+html.low-spec-mode * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
 html.low-spec-mode .glass-panel,
 html.low-spec-mode .glass-header,
 html.low-spec-mode header,
 html.low-spec-mode aside,
-html.low-spec-mode main,
 html.low-spec-mode .apple-glass,
 html.low-spec-mode .fixed.bottom-4.bg-white\/75 {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-  text-shadow: none !important;
-  filter: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
 html.low-spec-mode .bg-blobs,
