@@ -131,6 +131,23 @@
           favicon.setAttribute('href', settings.pwaIcon);
         }
       } catch (e) {}
+
+      // Auto-detect & apply Ultra-Performance Mode for weak hardware
+      try {
+        var savedLowSpec = localStorage.getItem('app_low_spec_mode');
+        var isLowSpec = savedLowSpec === 'true';
+        if (savedLowSpec === null) {
+          var cores = navigator.hardwareConcurrency || 4;
+          var mem = navigator.deviceMemory || 4;
+          if (cores <= 4 || mem <= 4) {
+            isLowSpec = true;
+            localStorage.setItem('app_low_spec_mode', 'true');
+          }
+        }
+        if (isLowSpec) {
+          document.documentElement.classList.add('low-spec-mode');
+        }
+      } catch (e) {}
     </script>
 
     <!-- Dynamic Page Size Style Placeholder -->

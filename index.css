@@ -162,21 +162,15 @@ html:not(.theme-light-aurora):not(.has-custom-bg):not(.has-preset-bg-cosmic-dark
 }
 
 .bg-blobs::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.02;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  display: none !important;
 }
 
 .blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
+  filter: blur(40px);
   opacity: 0;
   display: none;
-  will-change: transform;
   transform: translate3d(0, 0, 0);
   animation: blob-float 28s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -514,13 +508,11 @@ html.has-preset-bg-aurora-light:not(.dark) .bg-white\/95,
 html.has-preset-bg-cosmic-dark:not(.dark) .bg-white\/95,
 html.has-preset-bg-cyan-cosmic:not(.dark) .bg-white\/95,
 .theme-light-aurora .bg-white\/95 {
-  background-color: rgba(255, 255, 255, 0.16) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
 }
 
-/* Translucent background containers when any background is active in Dark Mode */
+/* Crisp high-performance background containers when any background is active in Dark Mode */
 html.has-custom-bg.dark .bg-white,
 html.has-preset-bg-cosmic-dark.dark .bg-white,
 html.has-preset-bg-cyan-cosmic.dark .bg-white,
@@ -549,10 +541,8 @@ html.has-custom-bg.dark .bg-gray-950,
 html.has-preset-bg-cosmic-dark.dark .bg-gray-950,
 html.has-preset-bg-cyan-cosmic.dark .bg-gray-950,
 html.has-preset-bg-aurora-light.dark .bg-gray-950 {
-  background-color: rgba(15, 23, 42, 0.16) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(15, 23, 42, 0.94) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Dark Mode with Background high contrast text rules */
@@ -771,13 +761,11 @@ body {
 .theme-light-aurora .bg-white\/40, 
 .theme-light-aurora .bg-white\/60 {
   background-color: var(--glass-bg) !important;
-  backdrop-filter: blur(16px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(200%) !important;
   border: 1px solid var(--glass-border) !important;
 }
 
 .bg-white:not(body):not(.notification-dropdown-container) {
-  box-shadow: var(--glass-shadow) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
 
 .dark .text-gray-800, .dark .text-gray-900, .dark .text-gray-700,
@@ -904,19 +892,15 @@ input:focus, select:focus, textarea:focus {
   filter: brightness(1.05) !important;
 }
 
-/* Translucent Dark Mode Backgrounds */
+/* Crisp Dark Mode Backgrounds without laggy blurs */
 .dark .bg-zinc-900, .dark .bg-gray-900, .dark .bg-zinc-950, .dark .bg-black {
-  background-color: rgba(12, 12, 15, 0.6) !important;
-  backdrop-filter: blur(24px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+  background-color: #0f172a !important;
 }
 .dark .bg-zinc-800, .dark .bg-gray-800 {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  background-color: #1e293b !important;
 }
 .dark .bg-zinc-100, .dark .bg-gray-100 {
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
 }
 
 /* Table Upgrades for Premium Apple Feel */
@@ -963,13 +947,8 @@ td {
 /* Optimize blur for mobile performance */
 @media (max-width: 768px) {
   .glass-panel, .glass-header, .backdrop-blur-2xl, .backdrop-blur-3xl {
-    backdrop-filter: blur(12px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
-  }
-  
-  .bg-white, .bg-gray-50, .bg-white\/80, .bg-white\/50, .bg-white\/40, .bg-white\/60 {
-    backdrop-filter: blur(12px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+    backdrop-filter: blur(8px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
   }
 }
 
@@ -1016,24 +995,24 @@ td {
 @layer utilities {
   .glass-panel {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(190%);
-    -webkit-backdrop-filter: blur(24px) saturate(190%);
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
-    border-radius: 1.75rem; /* softer corners like M3 and Gemini dialogs */
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 1.25rem;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   }
   .glass-panel:hover {
     background: var(--glass-bg-hover);
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12);
-    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
   }
   .glass-header {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(190%);
-    -webkit-backdrop-filter: blur(24px) saturate(190%);
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
     border-bottom: 1px solid var(--glass-border);
-    box-shadow: 0 4px 30px rgba(0,0,0,0.03);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
   }
   
   /* Gemini specific styling elements */
@@ -2441,3 +2420,85 @@ body * {
   z-index: 99999 !important;
   position: absolute !important;
 }
+
+/* ==========================================================================
+   ⚡ ULTRA-PERFORMANCE / LOW-SPEC MODE FOR WEAK HARDWARE
+   Completely removes GPU shaders, backdrop-filters, animations & heavy shadows
+   ========================================================================== */
+html.low-spec-mode *,
+html.low-spec-mode .glass-panel,
+html.low-spec-mode .glass-header,
+html.low-spec-mode header,
+html.low-spec-mode aside,
+html.low-spec-mode main,
+html.low-spec-mode .apple-glass,
+html.low-spec-mode .fixed.bottom-4.bg-white\/75 {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+html.low-spec-mode .bg-blobs,
+html.low-spec-mode .blob,
+html.low-spec-mode .bg-blobs::after {
+  display: none !important;
+  animation: none !important;
+}
+
+html.low-spec-mode .glass-panel {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+
+html.low-spec-mode.dark .glass-panel {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+
+html.low-spec-mode aside {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.low-spec-mode.dark aside {
+  background: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.low-spec-mode header {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.low-spec-mode.dark header {
+  background: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.low-spec-mode main {
+  background: #f8fafc !important;
+}
+
+html.low-spec-mode.dark main {
+  background: #0b0f19 !important;
+}
+
+/* Eliminate transition lag on weak CPUs */
+html.low-spec-mode * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  will-change: auto !important;
+}
+
+/* Fast scrolling optimizations */
+html.low-spec-mode table,
+html.low-spec-mode tbody,
+html.low-spec-mode tr {
+  contain: none !important;
+  content-visibility: visible !important;
+}
+

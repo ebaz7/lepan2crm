@@ -9,10 +9,11 @@ import {
     Send, User as UserIcon, MessageSquare, Users, Plus, ListTodo, Paperclip, 
     CheckSquare, Square, X, Trash2, Reply, Edit2, ArrowRight, Mic, 
     Play, Pause, Loader2, Search, MoreVertical, File, Image as ImageIcon,
-    Check, CheckCheck, DownloadCloud, StopCircle, Share2, Copy, Forward, Eye, CornerUpLeft, Bell,
+    Check, CheckCheck, DownloadCloud, Download, StopCircle, Share2, Copy, Forward, Eye, CornerUpLeft, Bell,
     Shield, UserMinus, UserPlus, BellOff, Camera, Clock, MessageCircle, RefreshCw, Smile,
     FileText, Package, CreditCard, BellRing, Volume2
 } from 'lucide-react';
+import { FileViewerModal } from './FileViewerModal';
 import { StickerPicker } from './chat/StickerPicker';
 import { StickerItem } from './chat/stickerData';
 import { Capacitor } from '@capacitor/core';
@@ -325,6 +326,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [forwardNoQuote, setForwardNoQuote] = useState(false);
     const [showImageViewer, setShowImageViewer] = useState<string | null>(null);
+    const [previewAttachment, setPreviewAttachment] = useState<{ isOpen: boolean; url: string; fileName: string } | null>(null);
     const [contextMenuMsg, setContextMenuMsg] = useState<{msg: ChatMessage, x: number, y: number} | null>(null);
 
     // --- Input & Recording ---
@@ -395,9 +397,38 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
         }
     };
 
+    const handleDownloadAttachment = async (msgId: string, url: string, fileName: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (isDownloading[msgId]) return;
+
+        setIsDownloading(prev => ({ ...prev, [msgId]: true }));
+        setFileProgress(prev => ({ ...prev, [msgId]: 0 }));
+
+        const safeFileName = fileName || 'file';
+        const uniqueLocalName = `${msgId}_${safeFileName}`;
+        await downloadAndOpenFile(url, uniqueLocalName, (p) => {
+            setFileProgress(prev => ({ ...prev, [msgId]: p }));
+        });
+
+        setTimeout(() => {
+            setIsDownloading(prev => { const n = { ...prev }; delete n[msgId]; return n; });
+            setFileProgress(prev => { const n = { ...prev }; delete n[msgId]; return n; });
+            if (Capacitor.isNativePlatform()) {
+                setDownloadedFiles(prev => {
+                    const updated = { ...prev, [msgId]: true };
+                    try {
+                        localStorage.setItem('chat_downloaded_files', JSON.stringify(updated));
+                    } catch (e) {}
+                    return updated;
+                });
+            }
+        }, 500);
+    };
+
     // --- Refs ---
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const pdfInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
     const inputAreaRef = useRef<HTMLTextAreaElement>(null);
     const taskTitleInputRef = useRef<HTMLInputElement>(null);
@@ -2246,60 +2277,125 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                             ) : msg.attachment ? (
                                                 <div className="mb-1">
                                                     {msg.attachment.fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                        <img 
-                                                            src={resolveImageUrl(msg.attachment.url)} 
-                                                            className="rounded-lg max-h-60 object-cover cursor-pointer hover:opacity-90"
-                                                            onClick={(e) => { e.stopPropagation(); setShowImageViewer(resolveImageUrl(msg.attachment!.url)); }}
-                                                        />
-                                                    ) : (
-                                                        <button 
-                                                            className="flex items-center gap-2 bg-black/5 p-2 rounded hover:bg-black/10 transition-colors w-full text-right" 
-                                                            onClick={async (e) => { 
-                                                                e.stopPropagation(); 
-                                                                if (isDownloading[msg.id]) return;
-                                                                
-                                                                setIsDownloading(prev => ({ ...prev, [msg.id]: true }));
-                                                                setFileProgress(prev => ({ ...prev, [msg.id]: 0 }));
-                                                                
-                                                                const fileName = msg.attachment!.fileName || 'file';
-                                                                const uniqueLocalName = `${msg.id}_${fileName}`;
-                                                                await downloadAndOpenFile(msg.attachment!.url, uniqueLocalName, (p) => {
-                                                                    setFileProgress(prev => ({ ...prev, [msg.id]: p }));
-                                                                });
-
-                                                                setTimeout(() => {
-                                                                    setIsDownloading(prev => { const n = {...prev}; delete n[msg.id]; return n; });
-                                                                    setFileProgress(prev => { const n = {...prev}; delete n[msg.id]; return n; });
-                                                                    if(Capacitor.isNativePlatform()) {
-                                                                        setDownloadedFiles(prev => {
-                                                                            const updated = { ...prev, [msg.id]: true };
-                                                                            try {
-                                                                                localStorage.setItem('chat_downloaded_files', JSON.stringify(updated));
-                                                                            } catch (e) {}
-                                                                            return updated;
-                                                                        });
-                                                                    }
-                                                                }, 500);
-                                                            }}
-                                                        >
-                                                            <div className={`p-2 rounded text-white relative ${downloadedFiles[msg.id] ? 'bg-green-600' : 'bg-blue-500'}`}>
-                                                                {isDownloading[msg.id] ? <Loader2 size={16} className="animate-spin"/> : downloadedFiles[msg.id] ? <Check size={16}/> : <File size={16}/>}
-                                                                {isDownloading[msg.id] && (
-                                                                    <div className="absolute inset-0 flex items-center justify-center bg-blue-600 rounded text-[8px] font-bold">
-                                                                        {fileProgress[msg.id]}%
+                                                        <div className="relative group/img overflow-hidden rounded-xl inline-block max-w-full">
+                                                            <img 
+                                                                src={resolveImageUrl(msg.attachment.url)} 
+                                                                alt={msg.attachment.fileName}
+                                                                className="rounded-xl max-h-60 object-cover cursor-pointer hover:opacity-95 transition-opacity shadow-xs"
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    setPreviewAttachment({ isOpen: true, url: msg.attachment.url, fileName: msg.attachment.fileName }); 
+                                                                }}
+                                                            />
+                                                            <button 
+                                                                onClick={(e) => handleDownloadAttachment(msg.id, msg.attachment.url, msg.attachment.fileName, e)}
+                                                                className="absolute bottom-2 left-2 p-1.5 bg-black/65 hover:bg-black/85 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                                                                title="دانلود تصویر"
+                                                            >
+                                                                <Download size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (msg.attachment.fileName.match(/\.pdf$/i) || msg.attachment.url.match(/\.pdf$/i)) ? (
+                                                        <div className={`border rounded-2xl p-2.5 flex items-center justify-between gap-2.5 transition-all shadow-xs min-w-[220px] sm:min-w-[270px] max-w-full ${
+                                                            isMe 
+                                                                ? 'bg-white/85 dark:bg-zinc-800/85 border-rose-200/90 dark:border-rose-900/50 hover:border-rose-400' 
+                                                                : 'bg-white/95 dark:bg-zinc-900/95 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-400 dark:hover:border-rose-700'
+                                                        }`}>
+                                                            <div 
+                                                                onClick={() => setPreviewAttachment({ isOpen: true, url: msg.attachment.url, fileName: msg.attachment.fileName })}
+                                                                className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1 group/pdf"
+                                                                title="مشاهده مستقیم سند PDF بدون نیاز به دانلود"
+                                                            >
+                                                                <div className="w-10 h-10 bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-900/50 rounded-xl flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 group-hover/pdf:scale-105 transition-transform shadow-xs">
+                                                                    <FileText size={20} />
+                                                                </div>
+                                                                <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
+                                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate w-full group-hover/pdf:text-rose-600 dark:group-hover/pdf:text-rose-400 transition-colors" dir="ltr" title={msg.attachment.fileName}>
+                                                                        {msg.attachment.fileName}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/30">
+                                                                        <Eye size={11} />
+                                                                        <span>مشاهده سند PDF</span>
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="overflow-hidden flex-1">
-                                                                <div className="font-bold text-xs truncate">{msg.attachment.fileName}</div>
-                                                                <div className={`text-[10px] font-bold ${downloadedFiles[msg.id] ? 'text-green-600' : 'text-blue-600'}`}>
-                                                                    {isDownloading[msg.id] ? 'در حال دریافت...' : downloadedFiles[msg.id] ? 'Downloaded/باز کردن' : 'کلیک برای دریافت'}
                                                                 </div>
                                                             </div>
-                                                        </button>
+
+                                                            <div className="shrink-0 flex items-center gap-1 border-r border-zinc-200/80 dark:border-zinc-700/80 pr-1.5 mr-0.5">
+                                                                <button 
+                                                                    onClick={(e) => handleDownloadAttachment(msg.id, msg.attachment.url, msg.attachment.fileName, e)}
+                                                                    disabled={isDownloading[msg.id]}
+                                                                    className={`p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
+                                                                        downloadedFiles[msg.id] 
+                                                                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100' 
+                                                                            : 'bg-rose-50/80 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 hover:scale-105'
+                                                                    }`}
+                                                                    title={downloadedFiles[msg.id] ? 'دانلود شده (دانلود مجدد)' : 'دانلود مستقیم PDF'}
+                                                                >
+                                                                    {isDownloading[msg.id] ? (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Loader2 size={16} className="animate-spin text-rose-600"/>
+                                                                            <span className="text-[9px] font-black text-rose-600">{fileProgress[msg.id]}%</span>
+                                                                        </div>
+                                                                    ) : downloadedFiles[msg.id] ? (
+                                                                        <Check size={16} className="text-emerald-600" />
+                                                                    ) : (
+                                                                        <Download size={16} />
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className={`border rounded-2xl p-2.5 flex items-center justify-between gap-2.5 transition-all shadow-xs min-w-[210px] sm:min-w-[260px] max-w-full ${
+                                                            isMe 
+                                                                ? 'bg-white/85 dark:bg-zinc-800/85 border-blue-200 dark:border-blue-900/40 hover:border-blue-400' 
+                                                                : 'bg-white/95 dark:bg-zinc-900/95 border-zinc-200/80 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-700'
+                                                        }`}>
+                                                            <div 
+                                                                onClick={() => setPreviewAttachment({ isOpen: true, url: msg.attachment.url, fileName: msg.attachment.fileName })}
+                                                                className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1 group/file"
+                                                                title="مشاهده و بررسی فایل"
+                                                            >
+                                                                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/70 dark:border-blue-900/50 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover/file:scale-105 transition-transform shadow-xs">
+                                                                    <File size={20} />
+                                                                </div>
+                                                                <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
+                                                                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate w-full group-hover/file:text-blue-600 dark:group-hover/file:text-blue-400 transition-colors" dir="ltr" title={msg.attachment.fileName}>
+                                                                        {msg.attachment.fileName}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
+                                                                        <Eye size={11} />
+                                                                        <span>پیش‌نمایش / دریافت</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="shrink-0 flex items-center gap-1 border-r border-zinc-200/80 dark:border-zinc-700/80 pr-1.5 mr-0.5">
+                                                                <button 
+                                                                    onClick={(e) => handleDownloadAttachment(msg.id, msg.attachment.url, msg.attachment.fileName, e)}
+                                                                    disabled={isDownloading[msg.id]}
+                                                                    className={`p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
+                                                                        downloadedFiles[msg.id] 
+                                                                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100' 
+                                                                            : 'bg-blue-50/80 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:scale-105'
+                                                                    }`}
+                                                                    title={downloadedFiles[msg.id] ? 'دانلود شده (دانلود مجدد)' : 'دانلود مستقیم فایل'}
+                                                                >
+                                                                    {isDownloading[msg.id] ? (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Loader2 size={16} className="animate-spin text-blue-600"/>
+                                                                            <span className="text-[9px] font-black text-blue-600">{fileProgress[msg.id]}%</span>
+                                                                        </div>
+                                                                    ) : downloadedFiles[msg.id] ? (
+                                                                        <Check size={16} className="text-emerald-600" />
+                                                                    ) : (
+                                                                        <Download size={16} />
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
-                                            ) : msg.audioUrl ? (
+                                             ) : msg.audioUrl ? (
                                                 <div className="flex items-center gap-2 min-w-[200px] py-1">
                                                     <AudioPlayer url={msg.audioUrl} isMe={isMe} duration={msg.audioDuration} />
                                                 </div>
@@ -2435,6 +2531,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
 
                                     <input type="file" ref={galleryInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload}/>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload}/>
+                                    <input type="file" ref={pdfInputRef} className="hidden" accept=".pdf,application/pdf" onChange={handleFileUpload}/>
 
                                     {/* Unified Compact Messenger Input Capsule */}
                                     <div className={`flex-1 rounded-2xl flex items-center px-2 py-1 min-h-[38px] sm:min-h-[42px] relative transition-all duration-200 border gap-1 ${
@@ -2458,6 +2555,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                                                 <button onClick={() => { galleryInputRef.current?.click(); document.getElementById('chat-file-menu')?.classList.add('hidden'); }} className="flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 p-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
                                                     <ImageIcon size={16} className="text-blue-500"/> 
                                                     <span>گالری (عکس / فیلم)</span>
+                                                </button>
+                                                <button onClick={() => { pdfInputRef.current?.click(); document.getElementById('chat-file-menu')?.classList.add('hidden'); }} className="flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
+                                                    <FileText size={16} className="text-rose-500"/> 
+                                                    <span>سند PDF (پیش‌نمایش آنلاین)</span>
                                                 </button>
                                                 <button onClick={() => { fileInputRef.current?.click(); document.getElementById('chat-file-menu')?.classList.add('hidden'); }} className="flex items-center gap-2 hover:bg-amber-50 dark:hover:bg-amber-950/40 p-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-200 transition-colors">
                                                     <File size={16} className="text-amber-500"/> 
@@ -2654,6 +2755,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ currentUser, preloadedMessages, onR
                         <button onClick={(e) => { e.stopPropagation(); setShowImageViewer(null); }} className="p-2 bg-white/20 rounded-full hover:bg-white/40 text-white"><X/></button>
                     </div>
                 </div>
+            )}
+
+            {/* PDF & File Viewer Modal */}
+            {previewAttachment?.isOpen && (
+                <FileViewerModal
+                    isOpen={previewAttachment.isOpen}
+                    onClose={() => setPreviewAttachment(null)}
+                    fileUrl={previewAttachment.url}
+                    fileName={previewAttachment.fileName}
+                />
             )}
 
             {/* 3. Forward Modal */}

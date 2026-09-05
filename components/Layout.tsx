@@ -6,7 +6,7 @@ import {
   Upload, Camera, Download, Share, ChevronRight, Home, Send, BrainCircuit, Mic, StopCircle, Loader2, 
   Truck, ClipboardList, Package, Printer, CheckSquare, ShieldCheck, Shield, Phone, RefreshCw, 
   Smartphone, MonitorDown, BellRing, Smartphone as MobileIcon, Trash2, Menu, Edit3, Sun, Moon, 
-  ShoppingCart, Wallet, Sparkles, Pin, PinOff,
+  ShoppingCart, Wallet, Sparkles, Pin, PinOff, Zap,
   BadgePlus, Receipt, ArrowLeftRight, ScrollText, ClipboardCheck, Warehouse, BarChart3, 
   CalendarDays, FolderArchive, Banknote, MessagesSquare, Globe, Boxes, Handshake, Headset, UserCog
 } from 'lucide-react';
@@ -183,30 +183,81 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   // Profile/Password Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
   
-  // Dynamic Modal Detection to Hide Bottom Nav
+  // Dynamic Modal Detection to Hide Bottom Nav (Throttled & Non-blocking)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasBackAction, setHasBackAction] = useState(false);
 
+  // Ultra-Fast / Low-Spec Mode State (حالت سیستم‌های ضعیف / حذف کامل لگ)
+  const [lowSpecMode, setLowSpecMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('app_low_spec_mode');
+    if (saved !== null) return saved === 'true';
+    if (typeof navigator !== 'undefined') {
+      const cores = navigator.hardwareConcurrency || 4;
+      const mem = (navigator as any).deviceMemory || 4;
+      return cores <= 4 || mem <= 4;
+    }
+    return false;
+  });
+
+  const toggleLowSpecMode = () => {
+    setLowSpecMode(prev => {
+      const next = !prev;
+      localStorage.setItem('app_low_spec_mode', String(next));
+      if (next) {
+        document.documentElement.classList.add('low-spec-mode');
+      } else {
+        document.documentElement.classList.remove('low-spec-mode');
+      }
+      window.dispatchEvent(new CustomEvent('APP_LOW_SPEC_MODE_CHANGED', { detail: next }));
+      return next;
+    });
+  };
+
   useEffect(() => {
+    if (lowSpecMode) {
+      document.documentElement.classList.add('low-spec-mode');
+    } else {
+      document.documentElement.classList.remove('low-spec-mode');
+    }
+    const handleLowSpecChange = (e: any) => {
+      const val = e.detail !== undefined ? e.detail : localStorage.getItem('app_low_spec_mode') === 'true';
+      setLowSpecMode(val);
+      if (val) {
+        document.documentElement.classList.add('low-spec-mode');
+      } else {
+        document.documentElement.classList.remove('low-spec-mode');
+      }
+    };
+    window.addEventListener('APP_LOW_SPEC_MODE_CHANGED', handleLowSpecChange);
+    return () => window.removeEventListener('APP_LOW_SPEC_MODE_CHANGED', handleLowSpecChange);
+  }, [lowSpecMode]);
+
+  useEffect(() => {
+    let timeoutId: any = null;
     const checkModal = () => {
-      // Check for any active modal/dialog backdrops
-      const modals = document.querySelectorAll('.fixed.inset-0:not(.pointer-events-none), [role="dialog"], .modal-active, .absolute.inset-0.bg-black\\/50');
+      // Check for any active modal/dialog backdrops without layout thrashing
+      const modals = document.querySelectorAll('.fixed.inset-0:not(.pointer-events-none), [role="dialog"], .modal-active');
       let visible = false;
-      modals.forEach(el => {
-        const style = window.getComputedStyle(el);
-        if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-          // Ignore background blobs or bottom navbar
-          if (!el.classList.contains('bottom-nav-bar') && !el.classList.contains('bg-blobs')) {
+      for (let i = 0; i < modals.length; i++) {
+        const el = modals[i] as HTMLElement;
+        if (!el.classList.contains('bottom-nav-bar') && !el.classList.contains('bg-blobs')) {
+          if (!el.classList.contains('hidden') && el.style.display !== 'none' && (el.offsetWidth > 0 || el.offsetHeight > 0)) {
             visible = true;
+            break;
           }
         }
-      });
+      }
       setIsModalOpen(visible);
     };
     
     checkModal();
-    const observer = new MutationObserver(checkModal);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    const debouncedCheck = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkModal, 250);
+    };
+
+    const observer = new MutationObserver(debouncedCheck);
+    observer.observe(document.body, { childList: true, subtree: false });
     
     const handleRegister = () => setHasBackAction(true);
     const handleUnregister = () => setHasBackAction(false);
@@ -214,6 +265,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
     window.addEventListener('UNREGISTER_BACK_ACTION', handleUnregister);
     
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       observer.disconnect();
       window.removeEventListener('REGISTER_BACK_ACTION', handleRegister);
       window.removeEventListener('UNREGISTER_BACK_ACTION', handleUnregister);
@@ -638,7 +690,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
   return (
     <div className={`flex h-[100dvh] w-full text-[var(--text-primary)] font-sans relative overflow-hidden ${isPlainLight ? 'bg-gray-100 dark:bg-gray-900' : 'bg-transparent'}`}>
       {/* Background Blobs & Custom Background Image */}
-      {(!isPlainLight || showCustomBg || bgMode === 'preset') && (
+      {(!isPlainLight || showCustomBg || bgMode === 'preset') && !lowSpecMode && (
         <div 
           className={`bg-blobs ${bgMode === 'preset' ? `bg-preset-${bgPreset}` : ''}`}
           style={showCustomBg && resolvedBgImage ? {
@@ -656,7 +708,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
             position: 'fixed'
           } : undefined}
         >
-          {bgMode === 'preset' && (
+          {bgMode === 'preset' && !lowSpecMode && (
             <>
               <div className="blob blob-1"></div>
               <div className="blob blob-2"></div>
@@ -932,6 +984,19 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
               </nav>
               
               <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
+                  {/* Ultra-Performance Low-Spec Mode Toggle */}
+                  <button 
+                    onClick={toggleLowSpecMode} 
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors font-bold text-xs ${lowSpecMode ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400'} ${!isSidebarOpen ? 'justify-center' : ''}`} 
+                    title={lowSpecMode ? 'حالت بهینه‌سازی سیستم ضعیف فعال است (حداکثر سرعت)' : 'فعال‌سازی حالت سیستم‌های ضعیف (حذف کامل لگ)'}
+                  >
+                      <Zap size={18} className={lowSpecMode ? 'text-amber-500 fill-amber-500' : 'text-zinc-400'} />
+                      {isSidebarOpen && (
+                          <span className="whitespace-nowrap animate-fade-in">
+                              {lowSpecMode ? 'حالت ضد لگ (فعال)' : 'بهینه‌سازی سیستم ضعیف'}
+                          </span>
+                      )}
+                  </button>
                   {onToggleDarkMode && (
                     <button onClick={onToggleDarkMode} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title={isDarkMode ? 'حالت روشن' : 'حالت دارک'}>
                         {isDarkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-indigo-500" />}
@@ -1054,6 +1119,17 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                               <Sparkles size={14} className="text-purple-500 animate-pulse" /> تغییر پوسته UI
                           </button>
                       </div>
+                      <button 
+                        onClick={toggleLowSpecMode} 
+                        className={`flex items-center justify-center gap-2 p-2.5 border rounded-xl text-xs font-bold transition-colors ${
+                          lowSpecMode 
+                            ? 'bg-amber-500/10 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300' 
+                            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50'
+                        }`}
+                      >
+                          <Zap size={14} className={lowSpecMode ? "text-amber-500 fill-amber-500" : "text-zinc-500"} />
+                          <span>{lowSpecMode ? 'حالت سیستم ضعیف (فعال - بدون لگ)' : 'حالت سیستم‌های ضعیف (حذف کامل لگ)'}</span>
+                      </button>
                       {onToggleDarkMode && (
                           <button onClick={onToggleDarkMode} className="flex items-center justify-center gap-2 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50">
                               {isDarkMode ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-indigo-500" />}
@@ -1129,7 +1205,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
         )}
       </AnimatePresence>
 
-      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 w-full m-0 md:my-4 md:ml-4 md:mr-2 bg-white/45 dark:bg-zinc-950/30 backdrop-blur-xl rounded-none md:rounded-[24px] border-0 md:border border-white/45 dark:border-zinc-900/35 shadow-none md:shadow-[0_16px_40px_rgba(0,0,0,0.02)] dark:md:shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
+      <main className="flex flex-1 flex-col overflow-hidden relative min-w-0 min-h-0 w-full m-0 md:my-4 md:ml-4 md:mr-2 bg-white/95 dark:bg-slate-900/95 rounded-none md:rounded-[24px] border-0 md:border border-slate-200/70 dark:border-slate-800/70 shadow-sm">
           {/* Mobile Header - Sleek flat design matching shadcn/ui (Hidden in chat to avoid duplicate headers) */}
           <header className={`px-3 py-2.5 md:hidden no-print items-center justify-between shrink-0 relative z-[60] safe-pt sticky top-0 bg-white/60 dark:bg-zinc-950/40 border-b border-zinc-200/30 dark:border-zinc-800/30 backdrop-blur-xl ${activeTab === 'chat' ? 'hidden' : 'flex'}`}>
               <div className="flex items-center gap-3">

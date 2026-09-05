@@ -93,6 +93,10 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
     return currentTheme === 'light-aurora';
   });
 
+  const [lowSpecMode, setLowSpecMode] = useState<boolean>(() => {
+    return localStorage.getItem('app_low_spec_mode') === 'true';
+  });
+
   useEffect(() => {
     if (isOpen) {
       const saved = localStorage.getItem('app_enable_bg_image');
@@ -103,10 +107,23 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
       } else {
         setBgEnabled(currentTheme === 'light-aurora');
       }
+      setLowSpecMode(localStorage.getItem('app_low_spec_mode') === 'true');
     }
   }, [isOpen, currentTheme]);
 
   if (!isOpen) return null;
+
+  const handleToggleLowSpec = () => {
+    const newValue = !lowSpecMode;
+    setLowSpecMode(newValue);
+    localStorage.setItem('app_low_spec_mode', String(newValue));
+    if (newValue) {
+      document.documentElement.classList.add('low-spec-mode');
+    } else {
+      document.documentElement.classList.remove('low-spec-mode');
+    }
+    window.dispatchEvent(new CustomEvent('APP_LOW_SPEC_MODE_CHANGED', { detail: newValue }));
+  };
 
   const handleToggleBg = () => {
     const newValue = !bgEnabled;
@@ -152,6 +169,43 @@ export const ThemeSelectorModal: React.FC<ThemeSelectorModalProps> = ({
 
         {/* Options & Settings */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Low-Spec / Ultra-Performance Mode Toggle */}
+          <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 shadow-sm ${
+            lowSpecMode 
+              ? 'bg-amber-500/10 border-amber-500/30 dark:bg-amber-950/20 dark:border-amber-700/40' 
+              : 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl shrink-0 ${
+                lowSpecMode 
+                  ? 'bg-amber-500 text-white shadow-sm' 
+                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+              }`}>
+                <Zap size={20} className={lowSpecMode ? 'fill-white' : ''} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-slate-900 dark:text-white block">حالت سیستم‌های ضعیف (حذف کامل لگ)</span>
+                  {lowSpecMode && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                      فعال (حداکثر سرعت)
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5 leading-relaxed">
+                  حذف کامل افکت‌های بلور شیشه‌ای سنگین، انیمیشن‌ها و سایه‌های گرافیکی جهت عملکرد فوق‌العاده روان روی کامپیوترها و لپ‌تاپ‌های ضعیف
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleLowSpec}
+              className={`w-12 h-7 rounded-full transition-colors relative p-1 shrink-0 ${lowSpecMode ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+              title="فعال‌سازی یا غیرفعال‌سازی حالت سیستم ضعیف"
+            >
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${lowSpecMode ? 'translate-x-0' : '-translate-x-5'}`} />
+            </button>
+          </div>
           {/* Dark Mode Toggle */}
           {onToggleDarkMode && (
             <div className="p-4 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-3 shadow-sm">
