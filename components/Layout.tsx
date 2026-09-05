@@ -983,42 +983,92 @@ const Layout: React.FC<LayoutProps> = ({ children, onBack, activeTab, setActiveT
                   )}
               </nav>
               
-              <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
-                  {/* Ultra-Performance Low-Spec Mode Toggle */}
-                  <button 
-                    onClick={toggleLowSpecMode} 
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors font-bold text-xs ${lowSpecMode ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400'} ${!isSidebarOpen ? 'justify-center' : ''}`} 
-                    title={lowSpecMode ? 'حالت بهینه‌سازی سیستم ضعیف فعال است (حداکثر سرعت)' : 'فعال‌سازی حالت سیستم‌های ضعیف (حذف کامل لگ)'}
-                  >
-                      <Zap size={18} className={lowSpecMode ? 'text-amber-500 fill-amber-500' : 'text-zinc-400'} />
-                      {isSidebarOpen && (
-                          <span className="whitespace-nowrap animate-fade-in">
-                              {lowSpecMode ? 'حالت ضد لگ (فعال)' : 'بهینه‌سازی سیستم ضعیف'}
-                          </span>
-                      )}
-                  </button>
-                  {onToggleDarkMode && (
-                    <button onClick={onToggleDarkMode} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title={isDarkMode ? 'حالت روشن' : 'حالت دارک'}>
-                        {isDarkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-indigo-500" />}
-                        {isSidebarOpen && (
-                            <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300 animate-fade-in">
-                                {isDarkMode ? 'حالت روشن' : 'دارک مود (شب)'}
-                            </span>
-                        )}
-                    </button>
+              <div className="p-2.5 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/40 dark:bg-zinc-900/40">
+                  {isSidebarOpen ? (
+                      <div className="flex items-center justify-between gap-1 p-1 bg-zinc-200/50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/60 dark:border-zinc-700/40">
+                          {/* Low Spec Anti-Lag Toggle */}
+                          <button 
+                            onClick={toggleLowSpecMode} 
+                            className={`flex-1 flex items-center justify-center p-2 rounded-lg transition-all relative group ${
+                              lowSpecMode 
+                                ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30' 
+                                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700/60'
+                            }`}
+                            title={lowSpecMode ? 'حالت ضد لگ: فعال (حداکثر سرعت)' : 'حالت بهینه‌سازی سیستم ضعیف (ضد لگ)'}
+                          >
+                              <Zap size={16} className={lowSpecMode ? 'fill-current animate-pulse' : ''} />
+                          </button>
+
+                          {/* Dark Mode Toggle */}
+                          {onToggleDarkMode && (
+                            <button 
+                              onClick={onToggleDarkMode} 
+                              className="flex-1 flex items-center justify-center p-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700/60 rounded-lg transition-all"
+                              title={isDarkMode ? 'حالت روشن (Light Mode)' : 'حالت تاریک (Dark Mode)'}
+                            >
+                                {isDarkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-500 dark:text-indigo-400" />}
+                            </button>
+                          )}
+
+                          {/* Theme Selector */}
+                          <button 
+                            onClick={toggleTheme} 
+                            className="flex-1 flex items-center justify-center p-2 text-zinc-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white dark:hover:bg-zinc-700/60 rounded-lg transition-all"
+                            title={`تغییر پوسته (پوسته فعلی: ${
+                              theme === 'light-aurora' ? 'شیشه‌ای' :
+                              theme === 'theme-bento' ? 'بنتو گرید' :
+                              theme === 'theme-claymorphism' ? 'سفالی ۳D' :
+                              theme === 'theme-skeuomorphism' ? 'واقع‌گرایانه' :
+                              theme === 'theme-minimalism' ? 'مینیمال' :
+                              theme === 'theme-maximalism' ? 'ماکسیمال' : 'پیش‌فرض'
+                            })`}
+                          >
+                              <Sparkles size={16} className="text-purple-500" />
+                          </button>
+
+                          {/* Logout Button */}
+                          <button 
+                            onClick={handleLogout} 
+                            className="flex-1 flex items-center justify-center p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all"
+                            title="خروج از سیستم"
+                          >
+                              <LogOut size={16} />
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="flex flex-col gap-1 items-center">
+                          <button 
+                            onClick={toggleLowSpecMode} 
+                            className={`p-2 rounded-lg transition-colors ${lowSpecMode ? 'bg-amber-500/15 text-amber-500' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                            title={lowSpecMode ? 'حالت ضد لگ (فعال)' : 'ضد لگ'}
+                          >
+                              <Zap size={16} className={lowSpecMode ? 'fill-current' : ''} />
+                          </button>
+                          {onToggleDarkMode && (
+                            <button 
+                              onClick={onToggleDarkMode} 
+                              className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                              title={isDarkMode ? 'حالت روشن' : 'دارک مود'}
+                            >
+                                {isDarkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-500" />}
+                            </button>
+                          )}
+                          <button 
+                            onClick={toggleTheme} 
+                            className="p-2 text-zinc-400 hover:text-purple-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                            title="تغییر پوسته"
+                          >
+                              <Sparkles size={16} className="text-purple-500" />
+                          </button>
+                          <button 
+                            onClick={handleLogout} 
+                            className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-colors"
+                            title="خروج"
+                          >
+                              <LogOut size={16} />
+                          </button>
+                      </div>
                   )}
-                  <button onClick={toggleTheme} className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title="تغییر پوسته">
-                      <Sparkles size={18} className="text-purple-500 animate-pulse" />
-                      {isSidebarOpen && (
-                          <span className="whitespace-nowrap text-zinc-600 dark:text-zinc-300 animate-fade-in">
-                              {theme === 'light-aurora' ? 'پوسته شیشه‌ای' : theme === 'theme-bento' ? 'پوسته بنتو گرید' : theme === 'theme-claymorphism' ? 'پوسته سفالی ۳D' : theme === 'theme-skeuomorphism' ? 'پوسته واقع‌گرایانه' : theme === 'theme-minimalism' ? 'پوسته مینیمال' : theme === 'theme-maximalism' ? 'پوسته ماکسیمال' : 'تغییر پوسته'}
-                          </span>
-                      )}
-                  </button>
-                  <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors font-bold text-xs ${!isSidebarOpen ? 'justify-center' : ''}`} title="خروج از سیستم">
-                      <LogOut size={18} />
-                      {isSidebarOpen && <span className="whitespace-nowrap animate-fade-in">خروج از سیستم</span>}
-                  </button>
               </div>
           </aside>
       </div>
