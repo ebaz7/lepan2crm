@@ -15,6 +15,7 @@ import {
 import { generateUUID } from '../constants';
 import { getUsers, getCurrentUser } from '../services/authService';
 import { getGroups, sendMessage } from '../services/storageService';
+import { getLocalData, LS_KEYS } from '../services/apiService';
 import { ChatGroup, ChatMessage, User } from '../types';
 
 interface SendToChatModalProps {
@@ -45,13 +46,28 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   const [currentAttachment, setCurrentAttachment] = useState<{ fileName: string; url: string } | undefined>(propAttachment);
   const [isGenerating, setIsGenerating] = useState(isGeneratingAttachment);
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const currentUser = getCurrentUser();
+
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const cached = getLocalData<User[]>(LS_KEYS.USERS, []);
+      const curr = getCurrentUser();
+      return Array.isArray(cached) ? cached.filter(u => u.username !== curr?.username) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [groups, setGroups] = useState<ChatGroup[]>(() => {
+    try {
+      const cached = getLocalData<ChatGroup[]>(LS_KEYS.GROUPS, []);
+      return Array.isArray(cached) ? cached : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sentTargetIds, setSentTargetIds] = useState<Set<string>>(new Set());
-  
-  const currentUser = getCurrentUser();
 
   // Synchronize attachment props & promises
   useEffect(() => {
@@ -94,15 +110,21 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
     if (!isOpen) return;
     
     const loadData = async () => {
-      setLoading(true);
+      // Only show full loading spinner if we have zero cached contacts and groups
+      if (users.length === 0 && groups.length === 0) {
+        setLoading(true);
+      }
       try {
-        const [usersData, groupsData] = await Promise.all([
+        const [usersRes, groupsRes] = await Promise.allSettled([
           getUsers(),
           getGroups()
         ]);
-        // Filter out current user from recipients
-        setUsers(usersData.filter(u => u.username !== currentUser?.username));
-        setGroups(groupsData);
+        if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+          setUsers(usersRes.value.filter(u => u.username !== currentUser?.username));
+        }
+        if (groupsRes.status === 'fulfilled' && Array.isArray(groupsRes.value)) {
+          setGroups(groupsRes.value);
+        }
       } catch (err) {
         console.error('Error loading contacts and groups:', err);
       } finally {

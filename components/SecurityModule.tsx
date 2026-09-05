@@ -807,7 +807,9 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
         setShowModal(true);
     };
 
-    const handleApprove = async (item: any) => {
+    const handleApprove = (item: any) => {
+        setViewCartableItem(null);
+
         if (item.type === 'incident') {
             let nextStatus = SecurityStatus.PENDING_FACTORY;
             let updates: any = {};
@@ -823,39 +825,43 @@ const SecurityModule: React.FC<Props> = ({ currentUser, financialYear }) => {
                 updates.approverCeo = currentUser.fullName;
             }
 
-            await updateSecurityIncident({ ...item, status: nextStatus, ...updates });
+            const updatedIncident = { ...item, status: nextStatus, ...updates };
+            setIncidents(prev => prev.map(i => i.id === item.id ? updatedIncident : i));
+            updateSecurityIncident(updatedIncident).then(() => loadData()).catch(() => {});
         } else if (item.type === 'delay') {
-            // Individual delay approval (if needed)
-            await updatePersonnelDelay({ ...item, status: SecurityStatus.PENDING_FACTORY, approverSupervisor: currentUser.fullName });
+            const updatedDelay = { ...item, status: SecurityStatus.PENDING_FACTORY, approverSupervisor: currentUser.fullName };
+            setDelays(prev => prev.map(d => d.id === item.id ? updatedDelay : d));
+            updatePersonnelDelay(updatedDelay).then(() => loadData()).catch(() => {});
         } else if (item.type === 'daily_approval') {
-            // Batch Approve Logs or Delays for a Date
             const targetDate = item.date;
             if (item.category === 'log') {
+                let nextStatus = SecurityStatus.PENDING_CEO;
+                let field = 'approverFactory';
+                if (item.status === SecurityStatus.PENDING_CEO) { nextStatus = SecurityStatus.ARCHIVED; field = 'approverCeo'; }
+                
+                setLogs(prev => prev.map(l => (l.date === targetDate && l.status === item.status) ? { ...l, status: nextStatus, [field]: currentUser.fullName } : l));
+                
                 const logsToApprove = logs.filter(l => l.date === targetDate && l.status === item.status);
-                let nextStatus = SecurityStatus.PENDING_CEO;
-                let field = 'approverFactory';
-                if (item.status === SecurityStatus.PENDING_CEO) { nextStatus = SecurityStatus.ARCHIVED; field = 'approverCeo'; }
-                
-                await Promise.all(logsToApprove.map(l => updateSecurityLog({ ...l, status: nextStatus, [field]: currentUser.fullName })));
-                
-                // Update Meta Checkboxes
-                if (settings) {
-                    const meta = settings.dailySecurityMeta?.[targetDate] || {};
-                    if (item.status === SecurityStatus.PENDING_FACTORY) meta.isFactoryDailyApproved = true;
-                    if (item.status === SecurityStatus.PENDING_CEO) meta.isCeoDailyApproved = true;
-                    await saveSettings({ ...settings, dailySecurityMeta: { ...settings.dailySecurityMeta, [targetDate]: meta } });
-                }
+                Promise.all(logsToApprove.map(l => updateSecurityLog({ ...l, status: nextStatus, [field]: currentUser.fullName }))).then(() => {
+                    if (settings) {
+                        const meta = settings.dailySecurityMeta?.[targetDate] || {};
+                        if (item.status === SecurityStatus.PENDING_FACTORY) meta.isFactoryDailyApproved = true;
+                        if (item.status === SecurityStatus.PENDING_CEO) meta.isCeoDailyApproved = true;
+                        saveSettings({ ...settings, dailySecurityMeta: { ...settings.dailySecurityMeta, [targetDate]: meta } }).catch(() => {});
+                    }
+                    loadData();
+                }).catch(() => {});
             } else if (item.category === 'delay') {
-                const delaysToApprove = delays.filter(d => d.date === targetDate && d.status === item.status);
                 let nextStatus = SecurityStatus.PENDING_CEO;
                 let field = 'approverFactory';
                 if (item.status === SecurityStatus.PENDING_CEO) { nextStatus = SecurityStatus.ARCHIVED; field = 'approverCeo'; }
                 
-                await Promise.all(delaysToApprove.map(d => updatePersonnelDelay({ ...d, status: nextStatus, [field]: currentUser.fullName })));
+                setDelays(prev => prev.map(d => (d.date === targetDate && d.status === item.status) ? { ...d, status: nextStatus, [field]: currentUser.fullName } : d));
+                
+                const delaysToApprove = delays.filter(d => d.date === targetDate && d.status === item.status);
+                Promise.all(delaysToApprove.map(d => updatePersonnelDelay({ ...d, status: nextStatus, [field]: currentUser.fullName }))).then(() => loadData()).catch(() => {});
             }
         }
-        loadData();
-        setViewCartableItem(null);
     };
 
     const handleReject = async (item: any) => {

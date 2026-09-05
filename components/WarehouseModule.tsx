@@ -12,7 +12,7 @@ import { StockTransferModal } from './StockTransferModal';
 import { SingleItemAdjustmentModal } from './SingleItemAdjustmentModal';
 import { apiCall } from '../services/apiService';
 import { getUsers, getRolePermissions } from '../services/authService';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
 import useIsMobile from '../hooks/useIsMobile';
 import * as XLSX from 'xlsx';
 import { saveBlobAndOpenFile } from '../services/fileService';
@@ -726,11 +726,11 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
             if (type === 'EDITED') setEditedBijakForAutoSend(tx);
             if (type === 'DELETED') setDeletedTxForAutoSend(tx);
 
-            // Wait for DOM to render the hidden printer
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Wait for DOM to render the hidden printer (brief non-blocking yield)
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             try {
-                const users = await getUsers();
+                const users = await getUsers().catch(() => []);
                 const companyConfig = settings?.companyNotifications?.[tx.company];
                 
                 if (type === 'CREATED') {
@@ -738,9 +738,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     if (element) {
                         const ceos = users.filter((u: any) => u.role === UserRole.CEO && (u.phoneNumber || u.telegramId));
                         if (ceos.length > 0) {
-                            const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                            const base64 = canvas.toDataURL('image/png').split(',')[1];
-                            const mediaData = { data: base64, mimeType: 'image/png', filename: `Bijak_Pending_${tx.number}.png` };
+                            const dataUrl = await toJpeg(element, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                            const base64 = dataUrl.split(',')[1];
+                            const mediaData = { data: base64, mimeType: 'image/jpeg', filename: `Bijak_Pending_${tx.number}.jpg` };
                             
                             let caption = `🔔 *درخواست بیجک جدید (در انتظار تایید)*\n`;
                             caption += `شماره: ${tx.number}\n`;
@@ -750,9 +750,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                             caption += `لطفا جهت تایید بررسی نمایید.`;
 
                             for (const ceo of ceos) {
-                                if (ceo.phoneNumber) await apiCall('/send-whatsapp', 'POST', { number: ceo.phoneNumber, message: caption, mediaData });
+                                if (ceo.phoneNumber) await apiCall('/send-whatsapp', 'POST', { number: ceo.phoneNumber, message: caption, mediaData }).catch(() => {});
                                 const chatId = (ceo as any).telegramId || (ceo as any).telegramChatId;
-                                if (chatId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId, caption, mediaData });
+                                if (chatId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId, caption, mediaData }).catch(() => {});
                             }
                         }
                     }
@@ -772,30 +772,30 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                     caption += `👤 تایید توسط: ${tx.approvedBy}\n`;
 
                     if (managerElement) {
-                        const canvas = await html2canvas(managerElement, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                        const base64 = canvas.toDataURL('image/png').split(',')[1];
-                        const mediaData = { data: base64, mimeType: 'image/png', filename: `Bijak_${tx.number}.png` };
+                        const dataUrl = await toJpeg(managerElement, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                        const base64 = dataUrl.split(',')[1];
+                        const mediaData = { data: base64, mimeType: 'image/jpeg', filename: `Bijak_${tx.number}.jpg` };
                         if (managerNumber) {
-                           await apiCall('/send-whatsapp', 'POST', { number: managerNumber, message: caption, mediaData });
+                           await apiCall('/send-whatsapp', 'POST', { number: managerNumber, message: caption, mediaData }).catch(() => {});
                         }
                         
                         const managers = users.filter((u: any) => (u.role === UserRole.CEO || u.role === UserRole.SALES_MANAGER || u.role === UserRole.ADMIN) && (u.telegramId || u.baleId));
                         for (const m of managers) {
                             const tgId = (m as any).telegramId || (m as any).telegramChatId;
                             const blId = (m as any).baleId || (m as any).baleChatId;
-                            if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption, mediaData });
-                            if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption, mediaData });
+                            if (tgId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: tgId, caption, mediaData }).catch(() => {});
+                            if (blId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: blId, caption, mediaData }).catch(() => {});
                         }
                     }
 
                     if (warehouseElement) {
-                        const canvas = await html2canvas(warehouseElement, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                        const base64 = canvas.toDataURL('image/png').split(',')[1];
-                        const mediaData = { data: base64, filename: `Bijak_${tx.number}.png` };
+                        const dataUrl = await toJpeg(warehouseElement, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                        const base64 = dataUrl.split(',')[1];
+                        const mediaData = { data: base64, mimeType: 'image/jpeg', filename: `Bijak_${tx.number}.jpg` };
                         
-                        if (groupNumber) await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: caption, mediaData: { ...mediaData, mimeType: 'image/png' } });
-                        if (companyConfig?.telegramChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption, mediaData });
-                        if (companyConfig?.baleChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: companyConfig.baleChannelId, caption, mediaData });
+                        if (groupNumber) await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: caption, mediaData }).catch(() => {});
+                        if (companyConfig?.telegramChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption, mediaData }).catch(() => {});
+                        if (companyConfig?.baleChannelId) await apiCall('/send-bot-message', 'POST', { platform: 'bale', chatId: companyConfig.baleChannelId, caption, mediaData }).catch(() => {});
                     }
                 }
             } catch (e) {
@@ -1014,17 +1014,17 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
 
                 try {
                     if (managerNumber && managerElement) {
-                        const canvas = await html2canvas(managerElement, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                        const base64 = canvas.toDataURL('image/png').split(',')[1];
-                        await apiCall('/send-whatsapp', 'POST', { number: managerNumber, message: warningCaption, mediaData: { data: base64, mimeType: 'image/png', filename: `Bijak_DELETED_${txToDelete.number}.png` } });
+                        const dataUrl = await toJpeg(managerElement, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                        const base64 = dataUrl.split(',')[1];
+                        await apiCall('/send-whatsapp', 'POST', { number: managerNumber, message: warningCaption, mediaData: { data: base64, mimeType: 'image/jpeg', filename: `Bijak_DELETED_${txToDelete.number}.jpg` } });
                     }
                     if (warehouseElement) {
-                        const canvas = await html2canvas(warehouseElement, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                        const base64 = canvas.toDataURL('image/png').split(',')[1];
-                        const mediaData = { data: base64, filename: `Bijak_DELETED_${txToDelete.number}.png` };
+                        const dataUrl = await toJpeg(warehouseElement, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                        const base64 = dataUrl.split(',')[1];
+                        const mediaData = { data: base64, filename: `Bijak_DELETED_${txToDelete.number}.jpg` };
                         
                         if (groupNumber) {
-                            await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: warningCaption, mediaData: { ...mediaData, mimeType: 'image/png' } });
+                            await apiCall('/send-whatsapp', 'POST', { number: groupNumber, message: warningCaption, mediaData: { ...mediaData, mimeType: 'image/jpeg' } });
                         }
                         if (companyConfig?.telegramChannelId) {
                             await apiCall('/send-bot-message', 'POST', { platform: 'telegram', chatId: companyConfig.telegramChannelId, caption: warningCaption, mediaData });
@@ -1065,9 +1065,9 @@ const WarehouseModule: React.FC<Props> = ({ currentUser, settings, initialTab = 
                          const users = await getUsers();
                          const ceos = users.filter((u: any) => u.role === UserRole.CEO && (u.phoneNumber || u.telegramId || u.baleId || u.telegramChatId || u.baleChatId));
                          if (ceos.length > 0) {
-                             const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', windowWidth: 1200, useCORS: true });
-                             const base64 = canvas.toDataURL('image/png').split(',')[1];
-                            const mediaData = { data: base64, mimeType: 'image/png', filename: `Bijak_Edit_${updatedTx.number}.png` };
+                             const dataUrl = await toJpeg(element, { quality: 0.85, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                             const base64 = dataUrl.split(',')[1];
+                             const mediaData = { data: base64, mimeType: 'image/jpeg', filename: `Bijak_Edit_${updatedTx.number}.jpg` };
                             
                             for (const ceo of ceos) {
                                 let caption = `📝 *اصلاحیه بیجک (جهت تایید مجدد)*\n`;

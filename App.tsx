@@ -35,6 +35,7 @@ import { getOrders, getSettings, getMessages, saveSettings, getSystemAnnouncemen
 import { getCurrentUser, getUsers, getRolePermissions, logout as authLogout } from './services/authService';
 import { PaymentOrder, User, OrderStatus, UserRole, AppNotification, SystemSettings, PaymentMethod, ChatMessage, SystemAnnouncement, ChatGroup, TaskGroup, GroupTask } from './types';
 import { Loader2, Bell, X, MessageSquare, AlertTriangle, FileWarning, CreditCard, BellRing } from 'lucide-react';
+import { toJpeg } from 'html-to-image';
 import { generateUUID, parsePersianDate, formatCurrency } from './constants';
 import { apiCall, getLocalData, LS_KEYS, getServerHost } from './services/apiService'; 
 import { Capacitor } from '@capacitor/core';
@@ -298,6 +299,7 @@ function App() {
   const processingJobRef = useRef(false);
 
   const isSyncingRef = useRef(false);
+  const syncPendingRef = useRef(false);
   const isFirstLoad = useRef(true);
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const IDLE_LIMIT = 60 * 60 * 1000; 
@@ -453,49 +455,84 @@ function App() {
   useEffect(() => { if (backgroundJobs.length > 0 && !processingJobRef.current) { processNextJob(); } }, [backgroundJobs]);
 
   const processNextJob = async () => {
+      if (backgroundJobs.length === 0) return;
       processingJobRef.current = true;
-      const job = backgroundJobs[0];
-      const { order, type } = job;
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const element = document.getElementById(`bg-print-voucher-${order.id}`);
-      if (element) {
-          try {
-              // @ts-ignore
-              const canvas = await window.html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-              const base64 = canvas.toDataURL('image/png').split(',')[1];
-              const usersList = await getUsers();
-              let targetUser: User | undefined;
-              let caption = '';
-              const mode = settings?.botPaymentNotificationMode || 'step_by_step';
-              
-              if (type === 'create') {
-                  targetUser = usersList.find(u => u.role === UserRole.FINANCIAL && u.phoneNumber);
-                  caption = `📢 *درخواست پرداخت جدید*\nشماره: ${order.trackingNumber}\nمبلغ: ${formatCurrency(order.totalAmount)}\nدرخواست کننده: ${order.requester}\n\nلطفا بررسی نمایید.`;
-              } else if (type === 'approve') {
-                  const isFinal = order.status === OrderStatus.APPROVED_CEO || order.status === OrderStatus.PAID;
-                  
-                  if (mode === 'after_submit') {
-                      processingJobRef.current = false;
-                      setBackgroundJobs(prev => prev.slice(1));
-                      return;
-                  }
-                  if (mode === 'after_final' && !isFinal) {
-                      processingJobRef.current = false;
-                      setBackgroundJobs(prev => prev.slice(1));
-                      return;
+      try {
+          const job = backgroundJobs[0];
+          const { order, type } = job;
+          const mode = settings?.botPaymentNotificationMode || 'step_by_step';
+          const isFinal = order.status === OrderStatus.APPROVED_CEO || order.status === OrderStatus.PAID;
+          
+          if (type === 'approve') {
+              if (mode === 'after_submit' || (mode === 'after_final' && !isFinal)) {
+                  setBackgroundJobs(prev => prev.slice(1));
+                  return;
+              }
+          }
+
+          // Small yield to let DOM mount without blocking UI
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const element = document.getElementById(`bg-print-voucher-${order.id}`);
+          if (element) {
+              try {
+                  let base64 = '';
+                  try {
+                      const dataUrl = await toJpeg(element, { quality: 0.9, pixelRatio: 1.5, backgroundColor: '#ffffff' });
+                      base64 = dataUrl.split(',')[1] || '';
+                  } catch (renderErr) {
+                      // Fallback to html2canvas if available
+                      // @ts-ignore
+                      if (window.html2canvas) {
+                          // @ts-ignore
+                          const canvas = await window.html2canvas(element, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
+                          base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                      }
                   }
 
-                  if (order.status === OrderStatus.APPROVED_FINANCE) { targetUser = usersList.find(u => u.role === UserRole.MANAGER && u.phoneNumber); caption = `✅ *تایید مالی انجام شد*\nشماره: ${order.trackingNumber}\nمنتظر تایید مدیریت.`; }
-                  else if (order.status === OrderStatus.APPROVED_MANAGER) { targetUser = usersList.find(u => u.role === UserRole.CEO && u.phoneNumber); caption = `✅ *تایید مدیریت انجام شد*\nشماره: ${order.trackingNumber}\nمنتظر تایید نهایی مدیرعامل.`; }
-                  else if (order.status === OrderStatus.APPROVED_CEO) { targetUser = usersList.find(u => u.role === UserRole.FINANCIAL && u.phoneNumber); caption = `💰 *دستور پرداخت تایید نهایی شد*\nشماره: ${order.trackingNumber}\nلطفا پرداخت نمایید.`; }
+                  let usersList = getLocalData<User[]>(LS_KEYS.USERS, []);
+                  if (!usersList || usersList.length === 0) {
+                      try {
+                          usersList = await getUsers();
+                      } catch {
+                          usersList = [];
+                      }
+                  }
+
+                  let targetUser: User | undefined;
+                  let caption = '';
+                  
+                  if (type === 'create') {
+                      targetUser = usersList.find(u => u.role === UserRole.FINANCIAL && u.phoneNumber);
+                      caption = `📢 *درخواست پرداخت جدید*\nشماره: ${order.trackingNumber}\nمبلغ: ${formatCurrency(order.totalAmount)}\nدرخواست کننده: ${order.requester}\n\nلطفا بررسی نمایید.`;
+                  } else if (type === 'approve') {
+                      if (order.status === OrderStatus.APPROVED_FINANCE) { 
+                          targetUser = usersList.find(u => u.role === UserRole.MANAGER && u.phoneNumber); 
+                          caption = `✅ *تایید مالی انجام شد*\nشماره: ${order.trackingNumber}\nمنتظر تایید مدیریت.`; 
+                      } else if (order.status === OrderStatus.APPROVED_MANAGER) { 
+                          targetUser = usersList.find(u => u.role === UserRole.CEO && u.phoneNumber); 
+                          caption = `✅ *تایید مدیریت انجام شد*\nشماره: ${order.trackingNumber}\nمنتظر تایید نهایی مدیرعامل.`; 
+                      } else if (order.status === OrderStatus.APPROVED_CEO) { 
+                          targetUser = usersList.find(u => u.role === UserRole.FINANCIAL && u.phoneNumber); 
+                          caption = `💰 *دستور پرداخت تایید نهایی شد*\nشماره: ${order.trackingNumber}\nلطفا پرداخت نمایید.`; 
+                      }
+                  }
+                  if (targetUser && targetUser.phoneNumber && base64) {
+                      await apiCall('/send-whatsapp', 'POST', { 
+                          number: targetUser.phoneNumber, 
+                          message: caption, 
+                          mediaData: { data: base64, mimeType: 'image/jpeg', filename: `Order_${order.trackingNumber}.jpg` } 
+                      });
+                  }
+              } catch (e) { 
+                  console.error("Background Job Execution Error", e); 
               }
-              if (targetUser && targetUser.phoneNumber) {
-                  await apiCall('/send-whatsapp', 'POST', { number: targetUser.phoneNumber, message: caption, mediaData: { data: base64, mimeType: 'image/png', filename: `Order_${order.trackingNumber}.png` } });
-              }
-          } catch (e) { console.error("Background Job Failed", e); }
+          }
+      } catch (globalErr) {
+          console.error("Background Job Queue Error", globalErr);
+      } finally {
+          setBackgroundJobs(prev => prev.slice(1));
+          processingJobRef.current = false;
       }
-      setBackgroundJobs(prev => prev.slice(1));
-      processingJobRef.current = false;
   };
 
   useEffect(() => {
@@ -790,7 +827,11 @@ function App() {
   };
 
   const loadData = async (silent = false) => {
-    if (!currentUser || isSyncingRef.current) return;
+    if (!currentUser) return;
+    if (isSyncingRef.current) {
+        syncPendingRef.current = true;
+        return;
+    }
     isSyncingRef.current = true;
 
     // Deduplicate background push shown alerts dynamically
@@ -1055,6 +1096,12 @@ function App() {
         if (!silent) setLoading(false); 
         isSyncingRef.current = false;
         isFirstLoad.current = false;
+        if (syncPendingRef.current) {
+            syncPendingRef.current = false;
+            setTimeout(() => {
+                loadData(true);
+            }, 100);
+        }
     }
   };
 

@@ -141,19 +141,16 @@ class ExitPermitQueueService {
         return this.queue.filter(t => t.status === 'QUEUED' || t.status === 'PROCESSING').length;
     }
 
+    private runningTasks: Set<string> = new Set();
+
     private async processQueue() {
-        if (this.isProcessing) return;
-        this.isProcessing = true;
+        const queuedTasks = this.queue.filter(t => t.status === 'QUEUED' && !this.runningTasks.has(t.id));
+        if (queuedTasks.length === 0) return;
 
-        try {
-            while (this.queue.length > 0) {
-                const task = this.queue[0];
-                if (!task || task.status === 'COMPLETED') {
-                    this.queue.shift();
-                    this.saveQueue();
-                    continue;
-                }
-
+        // Process all queued tasks concurrently in background without blocking UI
+        await Promise.allSettled(
+            queuedTasks.map(async (task) => {
+                this.runningTasks.add(task.id);
                 task.status = 'PROCESSING';
                 this.saveQueue();
 
@@ -189,27 +186,22 @@ class ExitPermitQueueService {
                     task.retryCount = (task.retryCount || 0) + 1;
                     if (task.retryCount > 3) {
                         task.status = 'FAILED';
-                        this.queue.shift(); // Remove failed task to not block queue
+                        this.queue = this.queue.filter(t => t.id !== task.id);
                     } else {
                         task.status = 'QUEUED';
-                        // Wait a short backoff before retrying
-                        await new Promise(r => setTimeout(r, 2000));
                     }
+                } finally {
+                    this.runningTasks.delete(task.id);
                 }
 
                 if (success) {
                     task.status = 'COMPLETED';
-                    this.queue.shift(); // Dequeue next
+                    this.queue = this.queue.filter(t => t.id !== task.id);
                 }
 
                 this.saveQueue();
-
-                // Small pause between items for smooth non-blocking execution ("با حوصله دونه به دونه")
-                await new Promise(r => setTimeout(r, 350));
-            }
-        } finally {
-            this.isProcessing = false;
-        }
+            })
+        );
     }
 }
 
