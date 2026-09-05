@@ -1,4 +1,5 @@
 
+import { toJpeg } from 'html-to-image';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { Capacitor } from '@capacitor/core';
@@ -185,21 +186,31 @@ export const generatePdf = async ({
         container.appendChild(clone);
         document.body.appendChild(container);
 
-        // 2. Generate Canvas
+        // 2. Generate Image Data
         // Wait a tick for DOM to settle
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 80));
 
-        const canvas = await html2canvas(clone, {
-            scale: 2, // High resolution
-            useCORS: true, // Allow cross-origin images (if backend serves them correctly)
-            logging: false,
-            backgroundColor: '#ffffff',
-            windowWidth: width,
-            width: width
-        });
+        let imgData = '';
+        try {
+            imgData = await toJpeg(clone, {
+                quality: 0.98,
+                pixelRatio: 2.5,
+                backgroundColor: '#ffffff'
+            });
+        } catch (imgErr) {
+            console.warn('html-to-image failed, falling back to html2canvas', imgErr);
+            const canvas = await html2canvas(clone, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: width,
+                width: width
+            });
+            imgData = canvas.toDataURL('image/jpeg', 0.95);
+        }
 
         // 3. Generate PDF
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF({
             orientation: orientation,
             unit: 'mm',

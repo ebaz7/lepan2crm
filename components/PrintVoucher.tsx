@@ -256,23 +256,21 @@ const PrintVoucher: React.FC<PrintVoucherProps> = ({ order, onClose, settings, o
   };
 
   const handleSendToChat = async () => {
-      setProcessing(true);
       try {
           const el = document.getElementById(printAreaId);
           if (!el) throw new Error('سند یافت نشد');
           await shareElementToChat(
               el,
-              `Voucher_${order.trackingNumber || 'order'}.jpg`,
+              `Voucher_${order.trackingNumber || 'order'}.pdf`,
               {
                   defaultMessage: `سند پرداخت شماره ${order.trackingNumber || ''} - در وجه ${order.payee} (${formatCurrency(order.totalAmount)})`,
-                  title: 'ارسال سند پرداخت به گفتگو'
+                  title: 'ارسال سند پرداخت به گفتگو',
+                  asPdf: true
               }
           );
       } catch (e) {
           console.error(e);
           alert('خطا در آماده‌سازی سند جهت ارسال به گفتگو');
-      } finally {
-          setProcessing(false);
       }
   };
 

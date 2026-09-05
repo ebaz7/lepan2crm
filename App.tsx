@@ -57,6 +57,8 @@ function App() {
   const [globalSendToChat, setGlobalSendToChat] = useState<{
     isOpen: boolean;
     attachment?: { fileName: string; url: string };
+    attachmentPromise?: Promise<{ fileName: string; url: string } | null>;
+    isGeneratingAttachment?: boolean;
     defaultMessage?: string;
     title?: string;
   }>({ isOpen: false });
@@ -79,17 +81,32 @@ function App() {
         setGlobalSendToChat({
           isOpen: true,
           attachment: e.detail.attachment,
+          attachmentPromise: e.detail.attachmentPromise,
+          isGeneratingAttachment: Boolean(e.detail.isGeneratingAttachment && !e.detail.attachment),
           defaultMessage: e.detail.defaultMessage || '',
           title: e.detail.title || 'ارسال به گفتگوی سازمانی'
         });
       }
     };
+
+    const handleAttachmentReady = (e: any) => {
+      if (e?.detail?.attachment) {
+        setGlobalSendToChat(prev => ({
+          ...prev,
+          attachment: e.detail.attachment,
+          isGeneratingAttachment: false
+        }));
+      }
+    };
+
     window.addEventListener('app_open_send_to_chat', handleOpenSendToChat);
+    window.addEventListener('app_send_to_chat_attachment_ready', handleAttachmentReady);
 
     return () => {
         window.removeEventListener('REGISTER_BACK_ACTION', registerBack);
         window.removeEventListener('UNREGISTER_BACK_ACTION', unregisterBack);
         window.removeEventListener('app_open_send_to_chat', handleOpenSendToChat);
+        window.removeEventListener('app_send_to_chat_attachment_ready', handleAttachmentReady);
     }
   }, []);
 
@@ -1566,6 +1583,8 @@ function App() {
                         isOpen={globalSendToChat.isOpen}
                         onClose={() => setGlobalSendToChat(prev => ({ ...prev, isOpen: false }))}
                         attachment={globalSendToChat.attachment}
+                        attachmentPromise={globalSendToChat.attachmentPromise}
+                        isGeneratingAttachment={globalSendToChat.isGeneratingAttachment}
                         defaultMessage={globalSendToChat.defaultMessage}
                         title={globalSendToChat.title}
                         onGoToChat={(target) => {

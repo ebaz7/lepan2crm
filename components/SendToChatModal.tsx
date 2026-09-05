@@ -21,6 +21,8 @@ interface SendToChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   attachment?: { fileName: string; url: string };
+  attachmentPromise?: Promise<{ fileName: string; url: string } | null>;
+  isGeneratingAttachment?: boolean;
   defaultMessage?: string;
   title?: string;
   onGoToChat?: (target: { type: 'private' | 'group' | 'task_group' | 'system', id: string }) => void;
@@ -29,7 +31,9 @@ interface SendToChatModalProps {
 export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   isOpen,
   onClose,
-  attachment,
+  attachment: propAttachment,
+  attachmentPromise,
+  isGeneratingAttachment = false,
   defaultMessage = '',
   title = 'ارسال به گفتگوی سازمانی',
   onGoToChat
@@ -38,6 +42,9 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [customMessage, setCustomMessage] = useState(defaultMessage);
   
+  const [currentAttachment, setCurrentAttachment] = useState<{ fileName: string; url: string } | undefined>(propAttachment);
+  const [isGenerating, setIsGenerating] = useState(isGeneratingAttachment);
+
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +52,43 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
   const [sentTargetIds, setSentTargetIds] = useState<Set<string>>(new Set());
   
   const currentUser = getCurrentUser();
+
+  // Synchronize attachment props & promises
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setCurrentAttachment(propAttachment);
+    setIsGenerating(isGeneratingAttachment && !propAttachment);
+
+    if (attachmentPromise && !propAttachment) {
+      attachmentPromise.then((att) => {
+        if (att) {
+          setCurrentAttachment(att);
+        }
+        setIsGenerating(false);
+      }).catch(() => {
+        setIsGenerating(false);
+      });
+    }
+
+    const handleReady = (e: any) => {
+      if (e?.detail?.attachment) {
+        setCurrentAttachment(e.detail.attachment);
+        setIsGenerating(false);
+      }
+    };
+    const handleFailed = () => {
+      setIsGenerating(false);
+    };
+
+    window.addEventListener('app_send_to_chat_attachment_ready', handleReady);
+    window.addEventListener('app_send_to_chat_attachment_failed', handleFailed);
+
+    return () => {
+      window.removeEventListener('app_send_to_chat_attachment_ready', handleReady);
+      window.removeEventListener('app_send_to_chat_attachment_failed', handleFailed);
+    };
+  }, [isOpen, propAttachment, attachmentPromise, isGeneratingAttachment]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -81,7 +125,21 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
     setSendingId(targetId);
     
     try {
-      const messageText = customMessage.trim() || (attachment ? `فایل ارسالی: ${attachment.fileName}` : 'گزارش ارسال شده');
+      // If attachment is still generating in background, wait for it
+      let finalAttachment = currentAttachment;
+      if (!finalAttachment && attachmentPromise) {
+        try {
+          const res = await attachmentPromise;
+          if (res) {
+            finalAttachment = res;
+            setCurrentAttachment(res);
+          }
+        } catch (attErr) {
+          console.warn('Background attachment wait failed, sending text only:', attErr);
+        }
+      }
+
+      const messageText = customMessage.trim() || (finalAttachment ? `فایل ارسالی: ${finalAttachment.fileName}` : 'سند ارسالی');
       
       const newMsg: ChatMessage = {
         id: generateUUID(),
@@ -92,7 +150,7 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
         timestamp: Date.now(),
         recipient: target.isGroup ? undefined : target.username,
         groupId: target.isGroup ? targetId : undefined,
-        attachment: attachment ? { fileName: attachment.fileName, url: attachment.url } : undefined,
+        attachment: finalAttachment ? { fileName: finalAttachment.fileName, url: finalAttachment.url } : undefined,
         readBy: [currentUser.username],
         isPending: false
       };
@@ -164,12 +222,23 @@ export const SendToChatModal: React.FC<SendToChatModalProps> = ({
 
         {/* Content Details */}
         <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 border-b border-gray-100 dark:border-zinc-800 space-y-3">
-          {attachment && (
-            <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300 bg-blue-100/50 dark:bg-blue-900/30 p-2.5 rounded-xl border border-blue-200/50">
+          {currentAttachment ? (
+            <div className="flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300 bg-blue-100/60 dark:bg-blue-900/40 p-2.5 rounded-xl border border-blue-200/60 transition-all">
               <Paperclip size={14} className="shrink-0 text-blue-600" />
-              <span className="font-semibold text-right truncate flex-1">{attachment.fileName}</span>
+              <span className="font-semibold text-right truncate flex-1">{currentAttachment.fileName}</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold shrink-0">
+                سند آماده
+              </span>
             </div>
-          )}
+          ) : isGenerating ? (
+            <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/30 p-2.5 rounded-xl border border-amber-200/60 transition-all">
+              <Loader2 size={14} className="animate-spin shrink-0 text-amber-600" />
+              <span className="text-right truncate flex-1 font-medium">در حال تولید و دریافت خروجی سند در پس‌زمینه...</span>
+              <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 px-2 py-0.5 rounded-md font-bold shrink-0">
+                پس‌زمینه
+              </span>
+            </div>
+          ) : null}
           
           <div>
             <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 block mb-1">توضیح یا یادداشت پیام (اختیاری):</label>
