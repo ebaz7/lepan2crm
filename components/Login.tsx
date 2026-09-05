@@ -243,7 +243,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       className={`min-h-screen w-full flex items-center justify-center p-4 md:p-8 relative font-sans overflow-hidden select-none transition-colors duration-700 ${
         isLampOn 
           ? 'bg-[#090d16] text-slate-100' 
-          : 'bg-[#03060a] text-slate-400'
+          : 'bg-black text-slate-400'
       }`} 
       dir="rtl"
     >
@@ -251,12 +251,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* --- REAL HIGH-QUALITY BACKGROUND IMAGE FROM THE PHOTO --- */}
       <motion.div 
         animate={{
-          filter: isLampOn 
-            ? 'brightness(1) contrast(1)' 
-            : 'brightness(0.18) contrast(1.05) saturate(0.4)'
+          opacity: isLampOn ? 1 : 0
         }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="absolute inset-0 z-0 select-none pointer-events-none transition-all duration-700"
+        className="absolute inset-0 z-0 select-none pointer-events-none"
         style={{
           backgroundImage: "url('/login-bg.jpg')",
           backgroundPosition: 'center center',
